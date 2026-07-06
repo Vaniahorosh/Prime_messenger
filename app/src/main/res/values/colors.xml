@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Базовые цвета -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Цвета Prime -->
+    <color name="prime_background_blue">#154B87</color> <!-- Синий фон -->
+    <color name="prime_button_teal">#3EB489</color> <!-- Бирюзовая кнопка -->
+    <color name="prime_text_teal">#2BA67A</color> <!-- Текст над кнопкой (чуть темнее для читаемости) -->
+</resources>
