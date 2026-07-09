@@ -6,6 +6,8 @@ import android.os.Bundle
 import android.view.View
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.transition.TransitionManager
 import com.messenger.prime.databinding.ActivityLoginBinding
 import com.r0adkll.slidr.Slidr
@@ -19,15 +21,22 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        // Делаем статус-бар синим, а иконки светлыми (false)
+
+        // Магия для клавиатуры (WindowInsets)
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->
+            val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
+            view.setPadding(0, 0, 0, imeInsets.bottom)
+            windowInsets
+        }
+
         setDynamicStatusBar(R.color.prime_background_blue, false)
 
         // Настраиваем интерактивный свайп как в Telegram
         val slidrConfig = SlidrConfig.Builder()
             .position(SlidrPosition.LEFT) // Оставляем направление слева направо
-            // УДАЛЯЕМ ИЛИ КОММЕНТИРУЕМ .edge(true) и .edgeSize(...)
             .build()
 
         Slidr.attach(this, slidrConfig) // Прикрепляем магию к нашему экрану

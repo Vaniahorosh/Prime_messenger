@@ -67,7 +67,7 @@
         android:textColor="@color/white"
         android:textSize="22sp"
         android:textStyle="bold"
-        app:cornerRadius="30dp"
+        app:cornerRadius="15dp"
         app:layout_constraintBottom_toTopOf="@+id/tvLicense"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />

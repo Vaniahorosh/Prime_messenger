@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="10dp">
+
+    <!-- Аватарка контакта (Квадратная с закруглением 15%) -->
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/ivUserAvatar"
+        android:layout_width="54dp"
+        android:layout_height="54dp"
+        android:background="#E0E0E0"
+        android:scaleType="centerCrop"
+        android:src="@drawable/ic_person"
+        app:shapeAppearanceOverlay="@style/Rounded15PercentImageView"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Точка статуса (Онлайн / Заблокирован) -->
+    <!-- Слегка сдвинули ее вниз и вправо, чтобы она красиво легла на менее закругленный угол -->
+    <View
+        android:id="@+id/viewOnlineStatus"
+        android:layout_width="14dp"
+        android:layout_height="14dp"
+        android:background="@android:color/transparent"
+        app:layout_constraintBottom_toBottomOf="@+id/ivUserAvatar"
+        app:layout_constraintEnd_toEndOf="@+id/ivUserAvatar"
+        android:layout_marginEnd="-2dp"
+        android:layout_marginBottom="-2dp" />
+
+    <!-- Имя контакта -->
+    <TextView
+        android:id="@+id/tvContactName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="#111111"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toStartOf="@+id/tvMessageTime"
+        app:layout_constraintStart_toEndOf="@+id/ivUserAvatar"
+        app:layout_constraintTop_toTopOf="@+id/ivUserAvatar"
+        tools:text="Имя контакта" />
+
+    <!-- Время сообщения -->
+    <TextView
+        android:id="@+id/tvMessageTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#8E8E93"
+        android:textSize="12sp"
+        app:layout_constraintBottom_toBottomOf="@+id/tvContactName"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/tvContactName"
+        tools:text="14:23" />
+
+    <!-- Текст последнего сообщения -->
+    <TextView
+        android:id="@+id/tvLastMessage"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="#8E8E93"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toStartOf="@+id/layoutStatusContainer"
+        app:layout_constraintStart_toStartOf="@+id/tvContactName"
+        app:layout_constraintTop_toBottomOf="@+id/tvContactName"
+        tools:text="Последнее написанное сообщение..." />
+
+    <!-- Контейнер для статусов справа внизу -->
+    <LinearLayout
+        android:id="@+id/layoutStatusContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical|end"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="@+id/ivUserAvatar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvMessageTime">
+
+        <!-- Иконка без звука -->
+        <ImageView
+            android:id="@+id/ivMuteStatus"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginEnd="6dp"
+            android:src="@drawable/ic_notifications_off"
+            android:visibility="gone"
+            app:tint="#8E8E93" />
+
+        <!-- Иконка статуса сообщения (Галочки / Ошибка) -->
+        <ImageView
+            android:id="@+id/ivMessageStatus"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginEnd="6dp"
+            android:visibility="gone"
+            tools:src="@drawable/ic_done_all" />
+
+        <!-- Счетчик новых сообщений -->
+        <TextView
+            android:id="@+id/tvUnreadCounter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent"
+            android:gravity="center"
+            android:minWidth="20dp"
+            android:minHeight="20dp"
+            android:paddingHorizontal="6dp"
+            android:textColor="@color/white"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:text="12" />
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

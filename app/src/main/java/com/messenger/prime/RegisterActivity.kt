@@ -2,40 +2,66 @@ package com.messenger.prime
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.messenger.prime.databinding.ActivityRegisterBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrPosition
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 class RegisterActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityRegisterBinding
     private var userLogin: String = ""
 
+    // Переменная для хранения ссылки на выбранное фото
+    private var avatarUri: Uri? = null
+
+    // Инструмент для открытия галереи и получения результата
+    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            // Магия: Сохраняем права на чтение этой картинки НАВСЕГДА
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+            avatarUri = uri
+            binding.ivSelectedAvatar.setImageURI(uri)
+            binding.tvAvatarHint.visibility = View.GONE
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityRegisterBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        // Делаем статус-бар синим, а иконки светлыми (false)
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->
+            val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
+            view.setPadding(0, 0, 0, imeInsets.bottom)
+            windowInsets
+        }
+
         setDynamicStatusBar(R.color.prime_background_blue, false)
 
-        // Подключаем магию свайпа как в Telegram для экрана регистрации
         val slidrConfig = SlidrConfig.Builder()
-            .position(SlidrPosition.LEFT) // Оставляем направление слева направо
-            // УДАЛЯЕМ ИЛИ КОММЕНТИРУЕМ .edge(true) и .edgeSize(...)
+            .position(SlidrPosition.LEFT)
             .build()
         Slidr.attach(this, slidrConfig)
 
-        // Получаем логин с предыдущего экрана
         userLogin = intent.getStringExtra("EXTRA_LOGIN") ?: ""
-
         binding.tvWelcome.text = "Будем знакомы, $userLogin!"
 
-        // Обработка системного жеста "Назад"
+        // Открываем галерею по клику на CardView
+        binding.cvAvatar.setOnClickListener {
+            pickImageLauncher.launch(arrayOf("image/*"))
+        }
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 finish()
@@ -43,7 +69,6 @@ class RegisterActivity : AppCompatActivity() {
             }
         })
 
-        // Обработка кнопки "Назад" (стрелочки)
         binding.btnBack.setOnClickListener {
             onBackPressedDispatcher.onBackPressed()
         }
@@ -59,7 +84,6 @@ class RegisterActivity : AppCompatActivity() {
                 binding.inputLayoutName.error = null
             }
 
-            // Проверка на длину пароля (от 8 символов)
             if (password.length < 8) {
                 binding.inputLayoutPassword.error = "Пароль должен быть не менее 8 символов"
                 return@setOnClickListener
@@ -67,13 +91,16 @@ class RegisterActivity : AppCompatActivity() {
                 binding.inputLayoutPassword.error = null
             }
 
-            // Сохраняем пользователя в локальную "базу данных"
             val sharedPreferences = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
             val editor = sharedPreferences.edit()
             editor.putString(userLogin, password)
             editor.putString("${userLogin}_name", name)
 
-            // ДОБАВЛЯЕМ ЭТИ ДВЕ СТРОЧКИ:
+            // Если аватарка выбрана, сохраняем путь к ней
+            if (avatarUri != null) {
+                editor.putString("${userLogin}_avatar", avatarUri.toString())
+            }
+
             editor.putBoolean("is_logged_in", true)
             editor.putString("current_user", userLogin)
 
@@ -81,12 +108,8 @@ class RegisterActivity : AppCompatActivity() {
 
             Toast.makeText(this, "Аккаунт создан!", Toast.LENGTH_SHORT).show()
 
-            // Переход в список чатов
             startActivity(Intent(this@RegisterActivity, ChatListActivity::class.java))
-
-            // ДОБАВЛЯЕМ ЭТУ СТРОЧКУ ДЛЯ АНИМАЦИИ:
             overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-
             finishAffinity()
         }
     }
