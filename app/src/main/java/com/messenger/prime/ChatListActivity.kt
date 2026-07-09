@@ -48,10 +48,27 @@ class ChatListActivity : AppCompatActivity() {
         binding = ActivityChatListBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setDynamicStatusBar(R.color.white, true)
+        // 1. Делаем статус-бар прозрачным и растягиваем экран под него
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
 
+        // Делаем иконки статус-бара темными (чтобы часы и батарею было видно на светлом фоне)
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
+
+        // 2. Обрабатываем отступы
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->
+            val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
+
+            // Берем наш glassToolbar и увеличиваем его верхний паддинг на высоту статус-бара
+            binding.glassToolbar.setPadding(
+                binding.glassToolbar.paddingLeft,
+                systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt(), // Высота статус-бара + 8dp
+                binding.glassToolbar.paddingRight,
+                binding.glassToolbar.paddingBottom
+            )
+
+            // Чтобы клавиатура не перекрывала нижнюю часть экрана
             view.setPadding(0, 0, 0, imeInsets.bottom)
             windowInsets
         }
