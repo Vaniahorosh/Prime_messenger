@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:fillViewport="true"
     android:fitsSystemWindows="true"
-    android:background="@color/prime_text_teal">
+    android:background="@color/prime_background_blue">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -30,7 +30,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="40dp"
             android:text="Приветствуем!"
-            android:textColor="@color/white"
+            android:textColor="@color/prime_text_teal"
             android:textSize="28sp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
@@ -45,7 +45,7 @@
             android:layout_marginTop="8dp"
             android:gravity="center"
             android:text="Давайте выполним вход, но если вы тут впервые, то введите желаемый логин."
-            android:textColor="#B3FFFFFF"
+            android:textColor="#B3F2F2F2"
             android:textSize="14sp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"

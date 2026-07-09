@@ -55,7 +55,7 @@
                 android:layout_gravity="center"
                 android:text="Выбрать\nаватарку"
                 android:textAlignment="center"
-                android:textColor="#FF7043"
+                android:textColor="@color/prime_text_teal"
                 android:textStyle="bold" />
 
             <ImageView
