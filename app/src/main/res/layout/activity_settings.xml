@@ -34,6 +34,9 @@
                 app:layout_collapseMode="parallax"
                 app:layout_collapseParallaxMultiplier="0.7" />
 
+            <!-- Анкер только для измерения "развёрнутой" позиции текста.
+                 Сам текст больше не рисуется тут — его рисует летающий
+                 tvUserNameFloating/tvStatusFloating поверх всего экрана. -->
             <LinearLayout
                 android:id="@+id/expandedTitleLayout"
                 android:layout_width="match_parent"
@@ -42,6 +45,7 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 android:paddingBottom="24dp"
+                android:visibility="invisible"
                 app:layout_collapseMode="parallax"
                 app:layout_collapseParallaxMultiplier="0.3">
 
@@ -52,28 +56,22 @@
                     android:textColor="@color/white"
                     android:textSize="28sp"
                     android:textStyle="bold"
-                    android:shadowColor="#80000000"
-                    android:shadowDx="0"
-                    android:shadowDy="2"
-                    android:shadowRadius="4"
                     tools:text="Имя пользователя" />
 
                 <TextView
+                    android:id="@+id/tvStatusExpanded"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="в сети"
                     android:textColor="#E6FFFFFF"
-                    android:textSize="14sp"
-                    android:shadowColor="#80000000"
-                    android:shadowDx="0"
-                    android:shadowDy="1"
-                    android:shadowRadius="3" />
+                    android:textSize="14sp" />
             </LinearLayout>
 
+            <!-- Высота тулбара увеличена под компактный круглый аватар -->
             <androidx.appcompat.widget.Toolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
-                android:layout_height="?attr/actionBarSize"
+                android:layout_height="50dp"
                 app:layout_collapseMode="pin"
                 app:contentInsetStart="0dp"
                 app:contentInsetStartWithNavigation="0dp">
@@ -82,25 +80,49 @@
                     android:id="@+id/collapsedTitleLayout"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:layout_marginStart="16dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginStart="8dp"
                     android:alpha="0">
 
-                    <TextView
-                        android:id="@+id/tvUserNameCollapsed"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textColor="@color/white"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        tools:text="Имя пользователя" />
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/ivProfilePhotoCollapsed"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:scaleType="centerCrop"
+                        android:background="#E0E0E0"
+                        android:src="@drawable/ic_person"
+                        app:shapeAppearanceOverlay="@style/Rounded15PercentImageView"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
 
-                    <TextView
+                    <!-- Анкер только для измерения "свёрнутой" позиции текста -->
+                    <LinearLayout
+                        android:id="@+id/collapsedTextAnchor"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="в сети"
-                        android:textColor="#B3FFFFFF"
-                        android:textSize="12sp" />
+                        android:orientation="vertical"
+                        android:visibility="invisible">
+
+                        <TextView
+                            android:id="@+id/tvUserNameCollapsed"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/prime_text_teal"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            tools:text="Имя пользователя" />
+
+                        <TextView
+                            android:id="@+id/tvStatusCollapsed"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="в прайме"
+                            android:textColor="@color/prime_button_teal"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
                 </LinearLayout>
 
             </androidx.appcompat.widget.Toolbar>
@@ -108,7 +130,8 @@
         </com.google.android.material.appbar.CollapsingToolbarLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <androidx.core.widget.NestedScrollView
+    <com.messenger.prime.OverscrollNestedScrollView
+        android:id="@+id/nestedScrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
@@ -132,43 +155,40 @@
                     android:id="@+id/btnChangePhoto"
                     style="@style/Widget.MaterialComponents.Button"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="67dp"
                     android:layout_marginEnd="4dp"
                     android:layout_weight="1"
                     android:backgroundTint="@color/prime_background_blue"
-                    android:text="Фото"
-                    android:textSize="12sp"
                     app:cornerRadius="12dp"
                     app:icon="@drawable/ic_add"
-                    app:iconGravity="textTop" />
+                    app:iconGravity="textTop"
+                    app:iconTint="@color/white" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnExtraSettings"
                     style="@style/Widget.MaterialComponents.Button"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="67dp"
                     android:layout_marginHorizontal="4dp"
                     android:layout_weight="1"
                     android:backgroundTint="@color/prime_background_blue"
-                    android:text="Настройки"
-                    android:textSize="10sp"
                     app:cornerRadius="12dp"
                     app:icon="@drawable/ic_settings"
-                    app:iconGravity="textTop" />
+                    app:iconGravity="textTop"
+                    app:iconTint="@color/white" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnLogout"
                     style="@style/Widget.MaterialComponents.Button"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="67dp"
                     android:layout_marginStart="4dp"
                     android:layout_weight="1"
                     android:backgroundTint="#D32F2F"
-                    android:text="Выход"
-                    android:textSize="12sp"
                     app:cornerRadius="12dp"
                     app:icon="@drawable/ic_exit_to_app"
-                    app:iconGravity="textTop" />
+                    app:iconGravity="textTop"
+                    app:iconTint="@color/white" />
             </LinearLayout>
 
             <LinearLayout
@@ -312,6 +332,40 @@
                 app:layout_constraintVertical_bias="1.0" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
-    </androidx.core.widget.NestedScrollView>
+    </com.messenger.prime.OverscrollNestedScrollView>
+
+    <!-- "Летающие" копии имени/статуса. Позиция и textSize анимируются
+         в коде между координатами expandedTitleLayout и collapsedTextAnchor,
+         создавая эффект плавного перелёта текста к аватарке. -->
+    <TextView
+        android:id="@+id/tvUserNameFloating"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/white"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:singleLine="true"
+        android:clickable="false"
+        android:focusable="false"
+        android:shadowColor="#80000000"
+        android:shadowDx="0"
+        android:shadowDy="2"
+        android:shadowRadius="4"
+        tools:text="Имя пользователя" />
+
+    <TextView
+        android:id="@+id/tvStatusFloating"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="в сети"
+        android:textColor="#E6FFFFFF"
+        android:textSize="14sp"
+        android:singleLine="true"
+        android:clickable="false"
+        android:focusable="false"
+        android:shadowColor="#80000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="3" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -26,4 +26,9 @@
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">15%</item>
     </style>
+
+    <style name="Theme.Prime.PhotoViewer" parent="Theme.Prime.Swipe">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
+    </style>
 </resources>
