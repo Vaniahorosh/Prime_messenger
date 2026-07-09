@@ -40,7 +40,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="bottom"
                 android:orientation="vertical"
-                android:paddingHorizontal="24dp"
+                android:paddingHorizontal="16dp"
                 android:paddingBottom="24dp"
                 app:layout_collapseMode="parallax"
                 app:layout_collapseParallaxMultiplier="0.3">
@@ -83,6 +83,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
+                    android:layout_marginStart="16dp"
                     android:alpha="0">
 
                     <TextView
@@ -137,7 +138,7 @@
                     android:backgroundTint="@color/prime_background_blue"
                     android:text="Фото"
                     android:textSize="12sp"
-                    app:cornerRadius="8dp"
+                    app:cornerRadius="12dp"
                     app:icon="@drawable/ic_add"
                     app:iconGravity="textTop" />
 
@@ -151,7 +152,7 @@
                     android:backgroundTint="@color/prime_background_blue"
                     android:text="Настройки"
                     android:textSize="10sp"
-                    app:cornerRadius="8dp"
+                    app:cornerRadius="12dp"
                     app:icon="@drawable/ic_settings"
                     app:iconGravity="textTop" />
 
@@ -165,7 +166,7 @@
                     android:backgroundTint="#D32F2F"
                     android:text="Выход"
                     android:textSize="12sp"
-                    app:cornerRadius="8dp"
+                    app:cornerRadius="12dp"
                     app:icon="@drawable/ic_exit_to_app"
                     app:iconGravity="textTop" />
             </LinearLayout>
@@ -174,7 +175,7 @@
                 android:id="@+id/layoutAccountData"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="24dp"
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 app:layout_constraintTop_toBottomOf="@+id/layoutButtons">
@@ -182,7 +183,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="4dp"
+                    android:layout_marginBottom="8dp"
                     android:text="Логин"
                     android:textColor="#154B86"
                     android:textStyle="bold" />
@@ -192,9 +193,13 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     app:boxBackgroundColor="@color/prime_background_blue"
+                    app:boxCornerRadiusTopStart="12dp"
+                    app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp"
+                    app:boxCornerRadiusBottomEnd="12dp"
                     app:endIconDrawable="@drawable/ic_edit"
                     app:endIconMode="custom"
-                    app:endIconTint="@color/prime_background_blue">
+                    app:endIconTint="@color/white">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etSettingsLogin"
@@ -209,8 +214,8 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:layout_marginBottom="4dp"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="8dp"
                     android:text="Пароль"
                     android:textColor="#154B86"
                     android:textStyle="bold" />
@@ -220,9 +225,13 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     app:boxBackgroundColor="@color/prime_background_blue"
+                    app:boxCornerRadiusTopStart="12dp"
+                    app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp"
+                    app:boxCornerRadiusBottomEnd="12dp"
                     app:endIconDrawable="@drawable/ic_edit"
                     app:endIconMode="custom"
-                    app:endIconTint="@color/prime_background_blue">
+                    app:endIconTint="@color/white">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etSettingsPassword"
@@ -239,7 +248,7 @@
                 android:id="@+id/tvSettingsTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="32dp"
                 android:text="— Настройки —"
                 android:textColor="#154B86"
                 android:textStyle="bold"
@@ -251,7 +260,7 @@
                 android:id="@+id/layoutSwitches"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="16dp"
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 app:layout_constraintTop_toBottomOf="@+id/tvSettingsTitle">
@@ -260,33 +269,31 @@
                     android:id="@+id/switchAnimations"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    android:background="@drawable/search_bg"
-                    android:backgroundTint="@color/prime_background_blue"
-                    android:padding="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:paddingVertical="8dp"
                     android:text="Анимации в приложении"
-                    android:textColor="@color/white" />
+                    android:textColor="#333333"
+                    app:useMaterialThemeColors="true" />
 
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchBlocked"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    android:background="@drawable/search_bg"
-                    android:backgroundTint="@color/prime_background_blue"
-                    android:padding="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:paddingVertical="8dp"
                     android:text="Показывать заблокированных людей в чате"
-                    android:textColor="@color/white" />
+                    android:textColor="#333333"
+                    app:useMaterialThemeColors="true" />
 
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchSearch"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/search_bg"
-                    android:backgroundTint="@color/prime_background_blue"
-                    android:padding="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:paddingVertical="8dp"
                     android:text="Убрать строку поиска, и поставить имя пользователя на показ"
-                    android:textColor="@color/white" />
+                    android:textColor="#333333"
+                    app:useMaterialThemeColors="true" />
             </LinearLayout>
 
             <TextView
@@ -294,7 +301,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="32dp"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="24dp"
                 android:text="Prime v1.0.0"
                 android:textColor="#999999"
                 android:textSize="12sp"
