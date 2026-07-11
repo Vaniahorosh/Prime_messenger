@@ -3,6 +3,7 @@ package com.messenger.prime
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.view.animation.AnimationUtils
 import androidx.appcompat.app.AppCompatActivity
 import com.messenger.prime.databinding.ActivityHiBinding // Замени com.example.prime на свой package
@@ -10,6 +11,17 @@ import com.messenger.prime.databinding.ActivityHiBinding // Замени com.exa
 class HiActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHiBinding
+
+    // Все элементы экрана, которые должны красиво погаснуть перед переходом
+    private val allViews: List<View> by lazy {
+        listOf(
+            binding.btnExit,
+            binding.ivLogo,
+            binding.tvSlogan,
+            binding.btnPrime,
+            binding.tvLicense
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,15 +52,59 @@ class HiActivity : AppCompatActivity() {
 
         // Обработка нажатия на кнопку "Прайме!"
         binding.btnPrime.setOnClickListener {
-            val intent = Intent(this, LoginActivity::class.java)
-            startActivity(intent)
-            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+            // Блокируем повторные нажатия, пока идёт анимация исчезновения
+            binding.btnPrime.isEnabled = false
+            binding.btnExit.isEnabled = false
+
+            fadeOutAndNavigateToLogin()
         }
 
         // Обработка кнопки "Выход" в левом верхнем углу
         binding.btnExit.setOnClickListener {
             // Полностью закрываем приложение
             finishAffinity()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        // При возврате на этот экран (например, по кнопке "Назад" с LoginActivity)
+        // Activity не пересоздаётся заново — восстанавливаем видимость и кликабельность
+        // элементов, которые могли остаться погашенными после fadeOutAndNavigateToLogin().
+        if (::binding.isInitialized) {
+            allViews.forEach { view ->
+                view.animate().cancel()
+                view.alpha = 1f
+            }
+            binding.btnPrime.isEnabled = true
+            binding.btnExit.isEnabled = true
+        }
+    }
+
+    /**
+     * Плавно гасит все элементы экрана (fade-out), и только после этого
+     * запускает переход на LoginActivity.
+     */
+    private fun fadeOutAndNavigateToLogin() {
+        val fadeOutDuration = 300L
+        var finishedCount = 0
+        val totalCount = allViews.size
+
+        allViews.forEach { view ->
+            view.animate()
+                .alpha(0f)
+                .setDuration(fadeOutDuration)
+                .withEndAction {
+                    finishedCount++
+                    // Как только погас последний элемент — переходим на экран логина
+                    if (finishedCount == totalCount) {
+                        val intent = Intent(this, LoginActivity::class.java)
+                        startActivity(intent)
+                        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                    }
+                }
+                .start()
         }
     }
 }

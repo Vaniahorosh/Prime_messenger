@@ -4,52 +4,63 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:fitsSystemWindows="true"
-    android:background="@color/prime_background_blue">
+    android:background="@color/white">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
+        <View
+            android:id="@+id/topHeader"
+            android:layout_width="match_parent"
+            android:layout_height="88dp"
+            android:background="@color/prime_background_blue"
+            app:layout_constraintTop_toTopOf="parent" />
+
         <ImageView
             android:id="@+id/btnBack"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:layout_marginStart="16dp"
+            android:layout_marginStart="8dp"
             android:layout_marginTop="32dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="12dp"
             android:src="@drawable/ic_arrow_back"
+            app:layout_constraintBottom_toBottomOf="@+id/topHeader"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:tint="@color/white" />
 
+        <!-- Заголовок: по центру видимой части тулбара, под статус-баром -->
         <TextView
             android:id="@+id/tvTitle"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="40dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
             android:text="Приветствуем!"
-            android:textColor="@color/prime_text_teal"
-            android:textSize="28sp"
+            android:textColor="@color/white"
+            android:textSize="22sp"
             android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="@+id/btnBack"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/btnBack" />
+            app:layout_constraintStart_toEndOf="@+id/btnBack"
+            app:layout_constraintTop_toTopOf="@+id/btnBack" />
 
+        <!-- Подзаголовок: теперь на белом фоне, по центру, ниже хедера -->
         <TextView
             android:id="@+id/tvSubtitle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="32dp"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
+            android:layout_marginTop="28dp"
             android:text="Давайте выполним вход, но если вы тут впервые, то введите желаемый логин."
-            android:textColor="#B3F2F2F2"
-            android:textSize="14sp"
+            android:textAlignment="center"
+            android:textColor="#666666"
+            android:textSize="13sp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tvTitle" />
+            app:layout_constraintTop_toBottomOf="@+id/topHeader" />
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/inputLayoutLogin"
@@ -57,13 +68,20 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="32dp"
-            android:layout_marginTop="40dp"
+            android:layout_marginTop="24dp"
             android:hint="Логин"
+            app:boxBackgroundColor="#F2F5F8"
+            app:boxStrokeWidth="0dp"
+            app:boxStrokeWidthFocused="1dp"
+            app:boxStrokeColor="#CCCCCC"
+            app:boxCornerRadiusTopStart="12dp"
+            app:boxCornerRadiusTopEnd="12dp"
+            app:boxCornerRadiusBottomStart="12dp"
+            app:boxCornerRadiusBottomEnd="12dp"
             app:counterEnabled="true"
             app:counterMaxLength="15"
-            app:counterTextColor="@color/white"
-            app:hintTextColor="@color/white"
-            app:boxStrokeColor="@color/white"
+            app:counterTextColor="@android:color/darker_gray"
+            app:hintTextColor="@color/prime_background_blue"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/tvSubtitle">
@@ -74,7 +92,7 @@
                 android:layout_height="wrap_content"
                 android:maxLength="15"
                 android:inputType="textNoSuggestions"
-                android:textColor="@color/white" />
+                android:textColor="#333333" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -86,10 +104,17 @@
             android:layout_marginTop="16dp"
             android:hint="Пароль"
             android:visibility="gone"
+            app:boxBackgroundColor="#F2F5F8"
+            app:boxStrokeWidth="0dp"
+            app:boxStrokeWidthFocused="1dp"
+            app:boxStrokeColor="#CCCCCC"
+            app:boxCornerRadiusTopStart="12dp"
+            app:boxCornerRadiusTopEnd="12dp"
+            app:boxCornerRadiusBottomStart="12dp"
+            app:boxCornerRadiusBottomEnd="12dp"
             app:endIconMode="password_toggle"
-            app:endIconTint="@color/white"
-            app:hintTextColor="@color/white"
-            app:boxStrokeColor="@color/white"
+            app:endIconTint="@android:color/darker_gray"
+            app:hintTextColor="@color/prime_background_blue"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/inputLayoutLogin">
@@ -99,7 +124,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textPassword"
-                android:textColor="@color/white" />
+                android:textColor="#333333" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <TextView
@@ -121,8 +146,8 @@
             android:layout_marginEnd="32dp"
             android:layout_marginBottom="32dp"
             android:layout_marginTop="32dp"
-            app:backgroundTint="@color/white"
-            app:tint="@color/black"
+            app:backgroundTint="#000000"
+            app:tint="@color/white"
             android:src="@drawable/ic_arrow_forward"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
