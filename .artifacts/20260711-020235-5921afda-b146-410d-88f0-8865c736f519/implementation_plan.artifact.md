@@ -1,41 +1,30 @@
-# Animated Labels and Shimmering Gradient in Settings
+# Redesign Account Edit Dialog Buttons
 
-The user wants two enhancements in `SettingsActivity`:
-1. **Animated Button Labels**: White text labels for "Photo", "Settings", and "Logout" that appear from under the buttons when expanding and fade/move up when collapsing.
-2. **Shimmering Gradient**: A white gradient at the bottom of the profile photo that shimmers/glows and potentially adapts to the environment.
+The user wants to update the button layout in `dialog_edit_account.xml`:
+1. Change the "Назад" (Back) button from text to an arrow icon.
+2. Expand the "Сохранить" (Save) button in length (width) to take up more space.
 
 ## Proposed Changes
 
-### [Component: UI - Settings]
+### [Component: UI - Settings Dialog]
 
-#### [activity_settings.xml](file:///C:/Users/going/StudioProjects/Prime_messenger/app/src/main/res/layout/activity_settings.xml)
+#### [dialog_edit_account.xml](file:///C:/Users/going/StudioProjects/Prime_messenger/app/src/main/res/layout/dialog_edit_account.xml)
 
-- **Shimmering Gradient**:
-    - Add a `View` (`photoShimmer`) inside the `CollapsingToolbarLayout`, positioned at the bottom of `ivProfilePhoto`.
-    - Set its background to a new drawable `bg_photo_shimmer.xml`.
-- **Button Labels**:
-    - Remove text and top-gravity icons from `btnChangePhoto`, `btnExtraSettings`, and `btnLogout`.
-    - Change button icons to be centered.
-    - Wrap each button and its label in a `ConstraintLayout` to allow overlapping/translation.
-    - Add `tvLabelPhoto`, `tvLabelSettings`, `tvLabelLogout` with white text color.
-    - Set their initial state (below buttons).
-
-#### [NEW] [bg_photo_shimmer.xml](file:///C:/Users/going/StudioProjects/Prime_messenger/app/src/main/res/drawable/bg_photo_shimmer.xml)
-
-- A linear gradient from transparent to semi-transparent white.
-
-#### [SettingsActivity.kt](file:///C:/Users/going/StudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/SettingsActivity.kt)
-
-- **Label Animations**:
-    - Update `updateButtonsAppearance(percentage: Float)` to animate `alpha` and `translationY` of the new labels.
-    - Labels will move "up" and disappear behind buttons as the app bar collapses.
-- **Shimmer Animation**:
-    - In `onCreate`, start a repeating `ValueAnimator` to change the `alpha` or `translationX` of the `photoShimmer` view to create a shimmering effect.
-- **Adaptive Color**: (Optional/Simplified) Adjust shimmer intensity or tint based on the color morphing logic.
+- Update `btnBack`:
+    - Set `android:text=""`.
+    - Add `app:icon="@drawable/ic_arrow_back"`.
+    - Adjust its width to be fixed (e.g., `56dp`) or wrap content to look like a square-ish icon button.
+    - Keep `app:cornerRadius="15dp"`.
+- Update `btnSave`:
+    - Set `android:layout_width="0dp"`.
+    - Set `android:layout_weight` or use ConstraintLayout constraints to make it fill the remaining space.
+    - Adjust margins for proper spacing between the icon button and the save button.
 
 ## Verification Plan
 
 ### Manual Verification
 - Deploy the app and navigate to Settings.
-- **Labels**: Scroll the list up and down. Verify white labels slide down from under buttons when expanding and slide up/fade when collapsing.
-- **Shimmer**: Verify the bottom of the profile photo has a gentle, animated white glow/shimmer.
+- Open the edit dialog.
+- Verify the "Back" button now shows an arrow icon.
+- Verify the "Save" button is wider and fills the available space next to the arrow.
+- Confirm both buttons maintain their functionality and rounded corners.

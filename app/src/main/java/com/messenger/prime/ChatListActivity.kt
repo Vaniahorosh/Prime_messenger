@@ -133,8 +133,8 @@ class ChatListActivity : AppCompatActivity() {
                             }
                         } else {
                             // Меняем текст только если еще не перешли порог
-                            if (!isThresholdCrossed && binding.tvPullIndicator.text != "↓ ПОТЯНИТЕ ВНИЗ ↓") {
-                                binding.tvPullIndicator.text = "↓ ПОТЯНИТЕ ВНИЗ ↓"
+                            if (!isThresholdCrossed && binding.tvPullIndicator.text != "Потяните вниз для открытие профиля") {
+                                binding.tvPullIndicator.text = "Потяните вниз для открытие профиля"
                             }
                         }
                     }

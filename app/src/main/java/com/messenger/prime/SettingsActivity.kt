@@ -168,10 +168,15 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         binding.btnExtraSettings.setOnClickListener {
-            // Скроллим так, чтобы заголовок "- Настройки -" встал под тулбаром
+            // Чтобы точно скроллилось, берем позицию относительно родителя внутри ScrollView
+            val rect = android.graphics.Rect()
+            binding.tvSettingsTitle.getDrawingRect(rect)
+            binding.nestedScrollView.offsetDescendantRectToMyCoords(binding.tvSettingsTitle, rect)
+            
             val toolbarHeight = binding.toolbar.height
-            val targetY = binding.tvSettingsTitle.top - toolbarHeight - 16 // небольшой запас
-            binding.nestedScrollView.smoothScrollTo(0, targetY)
+            val scrollTarget = rect.top - toolbarHeight - (16 * resources.displayMetrics.density).toInt()
+            
+            binding.nestedScrollView.smoothScrollTo(0, scrollTarget)
         }
 
         // ==========================================
@@ -297,6 +302,50 @@ class SettingsActivity : AppCompatActivity() {
         dialogBinding.dialogRoot.setOnClickListener {
             hideAccountEditDialog(dialogBinding)
         }
+        
+        // Свайп вправо для закрытия карточки
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        dialogBinding.cardContainer.setOnTouchListener(object : View.OnTouchListener {
+            private var startX = 0f
+            private var isDragging = false
+
+            override fun onTouch(v: View, event: MotionEvent): Boolean {
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        startX = event.rawX
+                        isDragging = false
+                        // Возвращаем false, чтобы дети (кнопки/поля) могли получить клик
+                        return false 
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val deltaX = event.rawX - startX
+                        if (deltaX > 30f && !isDragging) {
+                            isDragging = true
+                        }
+                        if (isDragging) {
+                            v.translationX = deltaX.coerceAtLeast(0f)
+                            dialogBinding.dialogRoot.alpha = 1f - (deltaX / screenWidth).coerceIn(0f, 0.5f)
+                            return true
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        if (isDragging) {
+                            val deltaX = event.rawX - startX
+                            if (deltaX > screenWidth / 4) {
+                                hideAccountEditDialog(dialogBinding)
+                            } else {
+                                v.animate().translationX(0f).setDuration(200).start()
+                                dialogBinding.dialogRoot.animate().alpha(1f).setDuration(200).start()
+                            }
+                            isDragging = false
+                            return true
+                        }
+                    }
+                }
+                return false
+            }
+        })
+
         dialogBinding.cardContainer.setOnClickListener { /* предотвращаем проброс клика на фон */ }
     }
 
@@ -384,7 +433,7 @@ class SettingsActivity : AppCompatActivity() {
      * Всё это скрыто от пользователя (root invisible), занимает доли кадра.
      */
     private fun setupFloatingTitleMeasurement() {
-        binding.root.visibility = View.INVISIBLE
+        binding.root.alpha = 0f
 
         binding.appBarLayout.post {
             binding.appBarLayout.setExpanded(true, false)
@@ -407,7 +456,7 @@ class SettingsActivity : AppCompatActivity() {
 
                             titlePositionsReady = true
                             updateFloatingTitlePosition(1f) // мы сейчас в свёрнутом состоянии
-                            binding.root.visibility = View.VISIBLE
+                            binding.root.alpha = 1f
                             return true
                         }
                     })
