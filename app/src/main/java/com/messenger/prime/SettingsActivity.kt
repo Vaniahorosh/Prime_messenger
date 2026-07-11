@@ -12,6 +12,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewTreeObserver
 import android.view.animation.DecelerateInterpolator
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -28,6 +29,20 @@ class SettingsActivity : AppCompatActivity() {
     private var isAppBarFullyExpanded = false
     private var isButtonsCompact = false
     private val argbEvaluator = ArgbEvaluator()
+
+    private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let {
+            contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            currentAvatarUri = it.toString()
+            binding.ivProfilePhoto.setImageURI(it)
+            
+            val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+            sharedPrefs.edit().putString("${currentUser}_avatar", currentAvatarUri).apply()
+            
+            android.widget.Toast.makeText(this, "Фото обновлено", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Цвета для морфинга кнопок между "развёрнутым" и "свёрнутым" видом
     private val colorBlue by lazy { ContextCompat.getColor(this, R.color.prime_background_blue) }
@@ -110,13 +125,9 @@ class SettingsActivity : AppCompatActivity() {
 
         // ==========================================
         // 5. PULL ВНИЗ → FULLSCREEN ФОТО В ИСХОДНОМ КАЧЕСТВЕ
-        //    Работает двумя способами: тянуть за контент под фото
-        //    ИЛИ тянуть прямо по самому фото.
+        //    Работает только при свайпе самой фотографии.
         // ==========================================
-        binding.nestedScrollView.isPullEnabled = { isAppBarFullyExpanded }
-        binding.nestedScrollView.onPullProgress = { dragPx -> handlePullProgress(dragPx) }
-        binding.nestedScrollView.onPullReleased = { reached -> handlePullReleased(reached) }
-        binding.nestedScrollView.onPullThresholdReached = { handlePullThresholdReached() }
+        binding.nestedScrollView.isPullEnabled = { false }
 
         setupPhotoDragToOpen()
 
@@ -140,21 +151,63 @@ class SettingsActivity : AppCompatActivity() {
         if (savedAvatarUri != null) {
             val uri = Uri.parse(savedAvatarUri)
             binding.ivProfilePhoto.setImageURI(uri)
-            binding.ivProfilePhotoCollapsed.setImageURI(uri)
         } else {
             binding.ivProfilePhoto.setImageResource(R.drawable.ic_person)
-            binding.ivProfilePhotoCollapsed.setImageResource(R.drawable.ic_person)
         }
 
         // ==========================================
         // 7. КНОПКА ВЫХОДА
         // ==========================================
         binding.btnLogout.setOnClickListener {
-            sharedPrefs.edit().putBoolean("is_logged_in", false).apply()
-            val intent = Intent(this, LoginActivity::class.java)
-            startActivity(intent)
-            finishAffinity()
+            showLogoutDialog()
         }
+
+        // ==========================================
+        // 8. НАСТРОЙКИ (КНОПКИ И ТУМБЛЕРЫ)
+        // ==========================================
+        binding.btnChangePhoto.setOnClickListener {
+            pickImage.launch("image/*")
+        }
+
+        binding.btnExtraSettings.setOnClickListener {
+            binding.nestedScrollView.smoothScrollTo(0, binding.tvSettingsTitle.top)
+        }
+
+        binding.tvUserNameFloating.setOnClickListener {
+            binding.appBarLayout.setExpanded(true, true)
+        }
+
+        // Состояние тумблеров
+        binding.switchAnimations.isChecked = sharedPrefs.getBoolean("settings_animations", true)
+        binding.switchBlocked.isChecked = sharedPrefs.getBoolean("settings_show_blocked", false)
+        binding.switchSearch.isChecked = sharedPrefs.getBoolean("settings_hide_search", false)
+
+        binding.switchAnimations.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("settings_animations", isChecked).apply()
+        }
+        binding.switchBlocked.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("settings_show_blocked", isChecked).apply()
+        }
+        binding.switchSearch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("settings_hide_search", isChecked).apply()
+        }
+    }
+
+    private fun showLogoutDialog() {
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
+            .setTitle("Выход")
+            .setMessage("Сделать выход из аккаунта?")
+            .setPositiveButton("Да") { _, _ ->
+                getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("is_logged_in", false)
+                    .apply()
+                val intent = Intent(this, LoginActivity::class.java)
+                startActivity(intent)
+                finishAffinity()
+            }
+            .setNegativeButton("Нет", null)
+            .show()
     }
 
     // ==========================================
@@ -260,7 +313,7 @@ class SettingsActivity : AppCompatActivity() {
      * "поедут" вслед за собственной анимацией.
      */
     private fun setupPhotoDragToOpen() {
-        binding.ivProfilePhoto.setOnTouchListener { _, event ->
+        binding.ivProfilePhoto.setOnTouchListener { v, event ->
             if (!isAppBarFullyExpanded) return@setOnTouchListener false
 
             when (event.actionMasked) {
@@ -271,7 +324,7 @@ class SettingsActivity : AppCompatActivity() {
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val delta = (event.rawY - photoDragStartRawY) * 0.5f
-                    if (delta > 0) {
+                    if (delta > 10f) {
                         isDraggingPhoto = true
                         handlePullProgress(delta)
                         true
@@ -287,12 +340,20 @@ class SettingsActivity : AppCompatActivity() {
                         if (reached) handlePullThresholdReached()
                         isDraggingPhoto = false
                         true
+                    } else if (event.actionMasked == MotionEvent.ACTION_UP) {
+                        // Если сдвига почти не было — это клик
+                        v.performClick()
+                        true
                     } else {
                         false
                     }
                 }
                 else -> false
             }
+        }
+
+        binding.ivProfilePhoto.setOnClickListener {
+            handlePullThresholdReached()
         }
     }
 
@@ -324,11 +385,17 @@ class SettingsActivity : AppCompatActivity() {
 
         if (shouldBeCompact && !isButtonsCompact) {
             isButtonsCompact = true
+            binding.btnChangePhoto.text = ""
+            binding.btnExtraSettings.text = ""
+            binding.btnLogout.text = ""
             binding.btnChangePhoto.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_START
             binding.btnExtraSettings.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_START
             binding.btnLogout.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_START
         } else if (shouldBeExpanded && isButtonsCompact) {
             isButtonsCompact = false
+            binding.btnChangePhoto.text = "Фото"
+            binding.btnExtraSettings.text = "Настройки"
+            binding.btnLogout.text = "Выход"
             binding.btnChangePhoto.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_TOP
             binding.btnExtraSettings.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_TOP
             binding.btnLogout.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_TOP

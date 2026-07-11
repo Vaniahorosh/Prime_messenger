@@ -78,8 +78,6 @@
             app:boxCornerRadiusTopEnd="12dp"
             app:boxCornerRadiusBottomStart="12dp"
             app:boxCornerRadiusBottomEnd="12dp"
-            app:counterEnabled="true"
-            app:counterMaxLength="15"
             app:counterTextColor="@android:color/darker_gray"
             app:hintTextColor="@color/prime_background_blue"
             app:layout_constraintEnd_toEndOf="parent"

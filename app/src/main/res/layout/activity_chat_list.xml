@@ -40,13 +40,12 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/glassToolbar"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="64dp"
         android:background="#F2154B87"
         android:elevation="48dp"
         android:clipChildren="false"
         android:clipToPadding="false"
-        android:paddingHorizontal="10dp"
-        android:paddingVertical="8dp"
+        android:paddingHorizontal="12dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -59,7 +58,6 @@
             android:background="#E0E0E0"
             android:src="@drawable/ic_person"
             app:shapeAppearanceOverlay="@style/Rounded15PercentImageView"
-            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 

@@ -43,6 +43,20 @@ class HiActivity : AppCompatActivity() {
         // Делаем статус-бар синим, а иконки светлыми (false)
         setDynamicStatusBar(R.color.prime_background_blue, false)
 
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
+            val systemBarsInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            
+            val headerParams = binding.topHeader.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            headerParams.height = systemBarsInsets.top + (64 * resources.displayMetrics.density).toInt()
+            binding.topHeader.layoutParams = headerParams
+
+            val backParams = binding.btnExit.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            backParams.topMargin = systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt()
+            binding.btnExit.layoutParams = backParams
+
+            windowInsets
+        }
+
         // Добавим Material фишку: плавное появление элементов при открытии экрана
         val fadeIn = AnimationUtils.loadAnimation(this, android.R.anim.fade_in)
         fadeIn.duration = 1000 // 1 секунда

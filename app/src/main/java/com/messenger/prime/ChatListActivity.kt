@@ -1,7 +1,6 @@
 package com.messenger.prime
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Rect
 import android.net.ConnectivityManager
 import android.net.Network
@@ -152,7 +151,7 @@ class ChatListActivity : AppCompatActivity() {
                     // Открытие настроек, если порог пройден
                     if (dy > PULL_THRESHOLD) {
                         binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                        startActivity(Intent(this, SettingsActivity::class.java))
+                        startActivity(android.content.Intent(this, SettingsActivity::class.java))
                         overridePendingTransition(R.anim.slide_in_top, R.anim.stay)
                     }
                 }
@@ -177,16 +176,19 @@ class ChatListActivity : AppCompatActivity() {
             val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
 
-            binding.glassToolbar.setPadding(
-                binding.glassToolbar.paddingLeft,
-                systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt(),
-                binding.glassToolbar.paddingRight,
-                binding.glassToolbar.paddingBottom
-            )
+            // Устанавливаем высоту тулбара = статус-бар + 64dp
+            val toolbarParams = binding.glassToolbar.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            toolbarParams.height = systemBarsInsets.top + (64 * resources.displayMetrics.density).toInt()
+            binding.glassToolbar.layoutParams = toolbarParams
+
+            // Центрируем элементы в нижней 64dp части тулбара
+            val avatarParams = binding.ivToolbarAvatar.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            avatarParams.topMargin = systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt()
+            binding.ivToolbarAvatar.layoutParams = avatarParams
 
             // Задаем базовый отступ тексту индикатора, чтобы он всегда был под тулбаром
             val layoutParams = binding.tvPullIndicator.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            layoutParams.topMargin = systemBarsInsets.top + (60 * resources.displayMetrics.density).toInt()
+            layoutParams.topMargin = systemBarsInsets.top + (64 * resources.displayMetrics.density).toInt()
             binding.tvPullIndicator.layoutParams = layoutParams
 
             view.setPadding(0, 0, 0, imeInsets.bottom)
@@ -207,7 +209,7 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         binding.ivToolbarAvatar.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+            startActivity(android.content.Intent(this, SettingsActivity::class.java))
         }
 
         // ==========================================

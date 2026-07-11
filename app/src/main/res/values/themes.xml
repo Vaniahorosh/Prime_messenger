@@ -31,4 +31,29 @@
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:navigationBarColor">@android:color/black</item>
     </style>
+
+    <!-- Стиль для диалогов в стиле Prime -->
+    <style name="Theme.Prime.AlertDialog" parent="Theme.MaterialComponents.Light.Dialog.Alert">
+        <item name="colorPrimary">@color/prime_background_blue</item>
+        <item name="colorAccent">@color/prime_background_blue</item>
+        <item name="android:windowBackground">@color/white</item>
+        <item name="android:textColorPrimary">#333333</item>
+        <item name="shapeAppearanceMediumComponent">@style/RoundedDialogShape</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Prime.Button.Dialog</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Prime.Button.Dialog.Negative</item>
+    </style>
+
+    <style name="RoundedDialogShape">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">20dp</item>
+    </style>
+
+    <style name="Widget.Prime.Button.Dialog" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/prime_background_blue</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Widget.Prime.Button.Dialog.Negative" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">#D32F2F</item>
+    </style>
 </resources>
