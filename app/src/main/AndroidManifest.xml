@@ -35,8 +35,10 @@
 
         <activity
             android:name=".ChatListActivity"
-            android:windowSoftInputMode="adjustResize" /> <activity
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name=".SettingsActivity"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Prime.Swipe"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

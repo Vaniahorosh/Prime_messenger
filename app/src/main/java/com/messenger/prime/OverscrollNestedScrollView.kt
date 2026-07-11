@@ -38,15 +38,28 @@ class OverscrollNestedScrollView @JvmOverloads constructor(
     /** Внешний колбэк: разрешена ли сейчас логика overscroll (шапка полностью раскрыта). */
     var isPullEnabled: () -> Boolean = { false }
 
-    private val pullThresholdPx = resources.displayMetrics.density * 110f
+    private val pullThresholdPx = resources.displayMetrics.density * 80f
     private val dampingFactor = 0.5f
 
-    private var startY = 0f
+    private var startRawY = 0f
     private var dragging = false
     private var currentDrag = 0f
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
-        if (dragging) return true
+        if (!isPullEnabled()) return super.onInterceptTouchEvent(ev)
+
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                startRawY = ev.rawY
+                dragging = false
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val delta = ev.rawY - startRawY
+                if (scrollY == 0 && delta > 10f) {
+                    return true // Перехватываем только если тянем вниз в самом верху
+                }
+            }
+        }
         return super.onInterceptTouchEvent(ev)
     }
 
@@ -62,14 +75,14 @@ class OverscrollNestedScrollView @JvmOverloads constructor(
 
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                startY = ev.y
+                startRawY = ev.rawY
                 dragging = false
                 currentDrag = 0f
                 super.onTouchEvent(ev)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                val delta = ev.y - startY
+                val delta = ev.rawY - startRawY
                 val atTop = scrollY == 0
 
                 if (atTop && delta > 0) {
@@ -78,7 +91,6 @@ class OverscrollNestedScrollView @JvmOverloads constructor(
                     onPullProgress?.invoke(currentDrag)
                     return true
                 } else if (dragging) {
-                    // потянул назад / ушли из зоны overscroll — сбрасываем
                     dragging = false
                     currentDrag = 0f
                     onPullReleased?.invoke(false)
@@ -90,10 +102,10 @@ class OverscrollNestedScrollView @JvmOverloads constructor(
                     dragging = false
                     val dragSnapshot = currentDrag
                     currentDrag = 0f
-                    startY = 0f
+                    startRawY = 0f
                     onPullReleased?.invoke(reached)
                     if (reached) onPullThresholdReached?.invoke()
-                    return dragSnapshot > 0
+                    return true
                 }
             }
         }

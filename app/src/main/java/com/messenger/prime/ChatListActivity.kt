@@ -35,7 +35,7 @@ class ChatListActivity : AppCompatActivity() {
     private var startY = 0f
     private var isPulling = false
     private var isThresholdCrossed = false
-    private val PULL_THRESHOLD = 450f // Тяжелый, уверенный порог для профиля
+    private val PULL_THRESHOLD = 250f // Более отзывчивый порог
 
     // Слушатель изменения состояния сети
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
@@ -119,12 +119,21 @@ class ChatListActivity : AppCompatActivity() {
                         if (dy > PULL_THRESHOLD) {
                             if (!isThresholdCrossed) {
                                 isThresholdCrossed = true
-                                binding.tvPullIndicator.text = "ОТПУСТИТЕ ДЛЯ ПРОФИЛЯ"
-                                binding.root.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                // СРАЗУ открываем профиль
+                                binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                val intent = android.content.Intent(this, SettingsActivity::class.java)
+                                intent.flags = android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                                startActivity(intent)
+                                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+
+                                // Сбрасываем визуальное состояние, но НЕ isThresholdCrossed
+                                isPulling = false
+                                binding.recyclerViewChats.animate().translationY(0f).setDuration(300).start()
+                                binding.tvPullIndicator.animate().alpha(0f).translationY(0f).setDuration(200).start()
                             }
                         } else {
-                            if (isThresholdCrossed || binding.tvPullIndicator.text != "↓ ПОТЯНИТЕ ВНИЗ ↓") {
-                                isThresholdCrossed = false
+                            // Меняем текст только если еще не перешли порог
+                            if (!isThresholdCrossed && binding.tvPullIndicator.text != "↓ ПОТЯНИТЕ ВНИЗ ↓") {
                                 binding.tvPullIndicator.text = "↓ ПОТЯНИТЕ ВНИЗ ↓"
                             }
                         }
@@ -152,7 +161,7 @@ class ChatListActivity : AppCompatActivity() {
                     if (dy > PULL_THRESHOLD) {
                         binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                         startActivity(android.content.Intent(this, SettingsActivity::class.java))
-                        overridePendingTransition(R.anim.slide_in_top, R.anim.stay)
+                        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                     }
                 }
             }
@@ -185,6 +194,11 @@ class ChatListActivity : AppCompatActivity() {
             val avatarParams = binding.ivToolbarAvatar.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
             avatarParams.topMargin = systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt()
             binding.ivToolbarAvatar.layoutParams = avatarParams
+
+            // Убираем белый отступ: список должен начинаться сразу под тулбаром
+            val toolbarHeight = toolbarParams.height
+            val topPadding = toolbarHeight - (10 * resources.displayMetrics.density).toInt()
+            binding.recyclerViewChats.setPadding(0, topPadding, 0, binding.recyclerViewChats.paddingBottom)
 
             // Задаем базовый отступ тексту индикатора, чтобы он всегда был под тулбаром
             val layoutParams = binding.tvPullIndicator.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams

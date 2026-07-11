@@ -29,6 +29,7 @@ class SettingsActivity : AppCompatActivity() {
     private var isAppBarFullyExpanded = false
     private var isButtonsCompact = false
     private val argbEvaluator = ArgbEvaluator()
+    private var activeDialogBinding: com.messenger.prime.databinding.DialogEditAccountBinding? = null
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
@@ -57,7 +58,7 @@ class SettingsActivity : AppCompatActivity() {
     private var titlePositionsReady = false
 
     // ===== Pull-жест до fullscreen-фото =====
-    private val pullThresholdPx by lazy { resources.displayMetrics.density * 110f }
+    private val pullThresholdPx by lazy { resources.displayMetrics.density * 80f }
     private var photoDragStartRawY = 0f
     private var isDraggingPhoto = false
 
@@ -76,6 +77,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.toolbar.setNavigationIcon(R.drawable.ic_arrow_back)
         binding.toolbar.setNavigationOnClickListener {
             finish()
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
         // ==========================================
@@ -100,13 +102,6 @@ class SettingsActivity : AppCompatActivity() {
             // Перелёт имени/статуса между позицией у фото и позицией в тулбаре
             updateFloatingTitlePosition(percentage)
 
-            // Перекрашиваем статус-бар, когда шапка полностью свернулась
-            if (kotlin.math.abs(verticalOffset) >= totalScrollRange - 10) {
-                window.statusBarColor = ContextCompat.getColor(this, R.color.prime_background_blue)
-            } else {
-                window.statusBarColor = Color.TRANSPARENT
-            }
-
             // "Морфинг" кнопок Фото/Настройки/Выход между большим и компактным видом
             updateButtonsAppearance(percentage)
 
@@ -125,9 +120,12 @@ class SettingsActivity : AppCompatActivity() {
 
         // ==========================================
         // 5. PULL ВНИЗ → FULLSCREEN ФОТО В ИСХОДНОМ КАЧЕСТВЕ
-        //    Работает только при свайпе самой фотографии.
+        //    Работает как по самому фото, так и по списку настроек.
         // ==========================================
-        binding.nestedScrollView.isPullEnabled = { false }
+        binding.nestedScrollView.isPullEnabled = { isAppBarFullyExpanded }
+        binding.nestedScrollView.onPullProgress = { handlePullProgress(it) }
+        binding.nestedScrollView.onPullReleased = { handlePullReleased(it) }
+        binding.nestedScrollView.onPullThresholdReached = { handlePullThresholdReached() }
 
         setupPhotoDragToOpen()
 
@@ -170,8 +168,26 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         binding.btnExtraSettings.setOnClickListener {
-            binding.nestedScrollView.smoothScrollTo(0, binding.tvSettingsTitle.top)
+            // Скроллим так, чтобы заголовок "- Настройки -" встал под тулбаром
+            val toolbarHeight = binding.toolbar.height
+            val targetY = binding.tvSettingsTitle.top - toolbarHeight - 16 // небольшой запас
+            binding.nestedScrollView.smoothScrollTo(0, targetY)
         }
+
+        // ==========================================
+        // 9. РЕДАКТИРОВАНИЕ ДАННЫХ (ДИАЛОГ)
+        // ==========================================
+        val openDialogListener = View.OnClickListener {
+            showAccountEditDialog()
+        }
+        
+        // Делаем поля кликабельными
+        binding.etSettingsLogin.setOnClickListener(openDialogListener)
+        binding.etSettingsPassword.setOnClickListener(openDialogListener)
+        
+        // Также делаем контейнеры (TextInputLayout) кликабельными для удобства
+        (binding.etSettingsLogin.parent.parent as View).setOnClickListener(openDialogListener)
+        (binding.etSettingsPassword.parent.parent as View).setOnClickListener(openDialogListener)
 
         binding.tvUserNameFloating.setOnClickListener {
             binding.appBarLayout.setExpanded(true, true)
@@ -191,6 +207,150 @@ class SettingsActivity : AppCompatActivity() {
         binding.switchSearch.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("settings_hide_search", isChecked).apply()
         }
+
+        startShimmerAnimation()
+    }
+
+    private fun startShimmerAnimation() {
+        val animator = android.animation.ValueAnimator.ofFloat(0.4f, 0.8f)
+        animator.duration = 2000
+        animator.repeatMode = android.animation.ValueAnimator.REVERSE
+        animator.repeatCount = android.animation.ValueAnimator.INFINITE
+        animator.addUpdateListener { anim ->
+            binding.photoShimmer.alpha = anim.animatedValue as Float
+        }
+        animator.start()
+    }
+
+    private fun showAccountEditDialog() {
+        val dialogBinding = com.messenger.prime.databinding.DialogEditAccountBinding.inflate(layoutInflater)
+        activeDialogBinding = dialogBinding
+        binding.dialogContainer.removeAllViews()
+        binding.dialogContainer.addView(dialogBinding.root)
+        binding.dialogContainer.visibility = View.VISIBLE
+
+        // Начальное состояние для анимации
+        dialogBinding.cardContainer.scaleX = 0.8f
+        dialogBinding.cardContainer.scaleY = 0.8f
+        dialogBinding.cardContainer.alpha = 0f
+        dialogBinding.dialogRoot.alpha = 0f
+
+        // Анимация появления
+        dialogBinding.dialogRoot.animate().alpha(1f).setDuration(300).start()
+        dialogBinding.cardContainer.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .alpha(1f)
+            .setDuration(400)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+
+        // Загрузка текущих данных
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val currentPass = sharedPrefs.getString(currentUser, "") ?: ""
+
+        dialogBinding.etNewLogin.setText(currentUser)
+        dialogBinding.etNewPassword.setText(currentPass)
+
+        // Кнопка назад
+        dialogBinding.btnBack.setOnClickListener {
+            hideAccountEditDialog(dialogBinding)
+        }
+
+        // Кнопка сохранить
+        dialogBinding.btnSave.setOnClickListener {
+            val newLogin = dialogBinding.etNewLogin.text.toString().trim()
+            val newPass = dialogBinding.etNewPassword.text.toString()
+
+            // Сохраняем новые данные и УДАЛЯЕМ старые (если логин изменился)
+            sharedPrefs.edit().apply {
+                if (newLogin != currentUser) {
+                    val name = sharedPrefs.getString("${currentUser}_name", "Пользователь")
+                    val avatar = sharedPrefs.getString("${currentUser}_avatar", null)
+                    
+                    // Записываем новые данные
+                    putString("current_user", newLogin)
+                    putString(newLogin, newPass)
+                    putString("${newLogin}_name", name)
+                    if (avatar != null) putString("${newLogin}_avatar", avatar)
+
+                    // Удаляем старый профиль из базы
+                    remove(currentUser)
+                    remove("${currentUser}_name")
+                    remove("${currentUser}_avatar")
+                } else {
+                    putString(currentUser, newPass)
+                }
+                apply()
+            }
+
+            // Обновляем UI в активити
+            binding.etSettingsLogin.setText(newLogin)
+            binding.etSettingsPassword.setText(newPass)
+            
+            android.widget.Toast.makeText(this, "Данные обновлены", android.widget.Toast.LENGTH_SHORT).show()
+            hideAccountEditDialog(dialogBinding)
+        }
+        
+        // Закрытие при клике на фон
+        dialogBinding.dialogRoot.setOnClickListener {
+            hideAccountEditDialog(dialogBinding)
+        }
+        dialogBinding.cardContainer.setOnClickListener { /* предотвращаем проброс клика на фон */ }
+    }
+
+    private fun hideAccountEditDialog(dialogBinding: com.messenger.prime.databinding.DialogEditAccountBinding) {
+        dialogBinding.dialogRoot.animate().alpha(0f).setDuration(300).start()
+        
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        dialogBinding.cardContainer.animate()
+            .translationX(screenWidth)
+            .alpha(0f)
+            .setDuration(350)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                binding.dialogContainer.visibility = View.GONE
+                binding.dialogContainer.removeAllViews()
+                activeDialogBinding = null
+            }
+            .start()
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (event.action == MotionEvent.ACTION_DOWN) {
+            activeDialogBinding?.let { dialogBinding ->
+                val x = event.rawX.toInt()
+                val y = event.rawY.toInt()
+
+                // Список вьюх, клик по которым НЕ должен скрывать клавиатуру
+                val protectedViews = listOf(
+                    dialogBinding.btnBack,
+                    dialogBinding.etNewLogin,
+                    dialogBinding.etNewPassword,
+                    dialogBinding.btnSave
+                )
+
+                var hitProtected = false
+                val rect = android.graphics.Rect()
+                for (view in protectedViews) {
+                    view.getGlobalVisibleRect(rect)
+                    if (rect.contains(x, y)) {
+                        hitProtected = true
+                        break
+                    }
+                }
+
+                if (!hitProtected) {
+                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    currentFocus?.let { focusedView ->
+                        imm.hideSoftInputFromWindow(focusedView.windowToken, 0)
+                        focusedView.clearFocus()
+                    }
+                }
+            }
+        }
+        return super.dispatchTouchEvent(event)
     }
 
     private fun showLogoutDialog() {
@@ -284,10 +444,11 @@ class SettingsActivity : AppCompatActivity() {
     // ==========================================
 
     private fun handlePullProgress(dragPx: Float) {
-        val translation = dragPx.coerceAtMost(140f)
-        binding.ivProfilePhoto.translationY = translation * 0.5f
-        binding.ivProfilePhoto.scaleX = 1f + (translation / 1400f)
-        binding.ivProfilePhoto.scaleY = 1f + (translation / 1400f)
+        val maxTranslation = 250f
+        val translation = dragPx.coerceAtMost(maxTranslation)
+        binding.ivProfilePhoto.translationY = translation * 0.4f
+        binding.ivProfilePhoto.scaleX = 1f + (translation / 1000f)
+        binding.ivProfilePhoto.scaleY = 1f + (translation / 1000f)
     }
 
     private fun handlePullReleased(reachedThreshold: Boolean) {
@@ -385,20 +546,27 @@ class SettingsActivity : AppCompatActivity() {
 
         if (shouldBeCompact && !isButtonsCompact) {
             isButtonsCompact = true
-            binding.btnChangePhoto.text = ""
-            binding.btnExtraSettings.text = ""
-            binding.btnLogout.text = ""
             binding.btnChangePhoto.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_START
             binding.btnExtraSettings.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_START
             binding.btnLogout.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_START
         } else if (shouldBeExpanded && isButtonsCompact) {
             isButtonsCompact = false
-            binding.btnChangePhoto.text = "Фото"
-            binding.btnExtraSettings.text = "Настройки"
-            binding.btnLogout.text = "Выход"
-            binding.btnChangePhoto.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_TOP
-            binding.btnExtraSettings.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_TOP
-            binding.btnLogout.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_TOP
+            binding.btnChangePhoto.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_START
+            binding.btnExtraSettings.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_START
+            binding.btnLogout.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_START
         }
+
+        // Анимация подписей: при percentage -> 1 (сворачивание) они уходят вверх и гаснут
+        val labelAlpha = (1f - percentage * 2.5f).coerceIn(0f, 1f)
+        val labelTranslationY = -percentage * 50f // уходят вверх на 50px
+
+        binding.tvLabelPhoto.alpha = labelAlpha
+        binding.tvLabelPhoto.translationY = labelTranslationY
+        
+        binding.tvLabelSettings.alpha = labelAlpha
+        binding.tvLabelSettings.translationY = labelTranslationY
+        
+        binding.tvLabelLogout.alpha = labelAlpha
+        binding.tvLabelLogout.translationY = labelTranslationY
     }
 }

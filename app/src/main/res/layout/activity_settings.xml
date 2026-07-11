@@ -21,6 +21,7 @@
             android:layout_height="match_parent"
             android:fitsSystemWindows="true"
             app:contentScrim="@color/prime_background_blue"
+            app:statusBarScrim="@color/prime_background_blue"
             app:layout_scrollFlags="scroll|exitUntilCollapsed">
 
             <ImageView
@@ -36,9 +37,16 @@
                 app:layout_collapseMode="parallax"
                 app:layout_collapseParallaxMultiplier="0.7" />
 
-            <!-- Анкер только для измерения "развёрнутой" позиции текста.
-                 Сам текст больше не рисуется тут — его рисует летающий
-                 tvUserNameFloating/tvStatusFloating поверх всего экрана. -->
+            <View
+                android:id="@+id/photoShimmer"
+                android:layout_width="match_parent"
+                android:layout_height="120dp"
+                android:layout_gravity="bottom"
+                android:background="@drawable/bg_photo_shimmer"
+                app:layout_collapseMode="parallax"
+                app:layout_collapseParallaxMultiplier="0.8" />
+
+            <!-- Анкер только для измерения "развёрнутой" позиции текста. -->
             <LinearLayout
                 android:id="@+id/expandedTitleLayout"
                 android:layout_width="match_parent"
@@ -136,61 +144,122 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
+                android:clipChildren="false"
                 android:orientation="horizontal"
                 android:paddingHorizontal="16dp"
                 android:weightSum="3"
                 app:layout_constraintTop_toTopOf="parent">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnChangePhoto"
-                    style="@style/Widget.MaterialComponents.Button"
+                <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="0dp"
-                    android:layout_height="64dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:backgroundTint="@color/prime_background_blue"
-                    android:text="Фото"
-                    android:textSize="11sp"
-                    app:cornerRadius="16dp"
-                    app:icon="@drawable/ic_add"
-                    app:iconGravity="textTop"
-                    app:iconPadding="4dp"
-                    app:iconSize="24dp"
-                    app:iconTint="@color/white" />
+                    android:clipChildren="false">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnExtraSettings"
-                    style="@style/Widget.MaterialComponents.Button"
-                    android:layout_width="0dp"
-                    android:layout_height="64dp"
-                    android:layout_marginHorizontal="3dp"
-                    android:layout_weight="1"
-                    android:backgroundTint="@color/prime_background_blue"
-                    android:text="Настройки"
-                    android:textSize="10sp"
-                    app:cornerRadius="16dp"
-                    app:icon="@drawable/ic_settings"
-                    app:iconGravity="textTop"
-                    app:iconPadding="4dp"
-                    app:iconSize="24dp"
-                    app:iconTint="@color/white" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnChangePhoto"
+                        style="@style/Widget.MaterialComponents.Button"
+                        android:layout_width="0dp"
+                        android:layout_height="64dp"
+                        android:layout_marginEnd="6dp"
+                        android:backgroundTint="@color/prime_background_blue"
+                        app:cornerRadius="16dp"
+                        app:icon="@drawable/ic_add"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconSize="24dp"
+                        app:iconTint="@color/white"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnLogout"
-                    style="@style/Widget.MaterialComponents.Button"
+                    <TextView
+                        android:id="@+id/tvLabelPhoto"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Фото"
+                        android:textColor="@color/prime_background_blue"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        app:layout_constraintEnd_toEndOf="@+id/btnChangePhoto"
+                        app:layout_constraintStart_toStartOf="@+id/btnChangePhoto"
+                        app:layout_constraintTop_toBottomOf="@+id/btnChangePhoto" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="0dp"
-                    android:layout_height="64dp"
-                    android:layout_marginStart="6dp"
+                    android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:backgroundTint="#D32F2F"
-                    android:text="Выход"
-                    android:textSize="11sp"
-                    app:cornerRadius="16dp"
-                    app:icon="@drawable/ic_exit_to_app"
-                    app:iconGravity="textTop"
-                    app:iconPadding="4dp"
-                    app:iconSize="24dp"
-                    app:iconTint="@color/white" />
+                    android:clipChildren="false">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnExtraSettings"
+                        style="@style/Widget.MaterialComponents.Button"
+                        android:layout_width="0dp"
+                        android:layout_height="64dp"
+                        android:layout_marginHorizontal="3dp"
+                        android:backgroundTint="@color/prime_background_blue"
+                        app:cornerRadius="16dp"
+                        app:icon="@drawable/ic_settings"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconSize="24dp"
+                        app:iconTint="@color/white"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/tvLabelSettings"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Настройки"
+                        android:textColor="@color/prime_background_blue"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        app:layout_constraintEnd_toEndOf="@+id/btnExtraSettings"
+                        app:layout_constraintStart_toStartOf="@+id/btnExtraSettings"
+                        app:layout_constraintTop_toBottomOf="@+id/btnExtraSettings" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:clipChildren="false">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnLogout"
+                        style="@style/Widget.MaterialComponents.Button"
+                        android:layout_width="0dp"
+                        android:layout_height="64dp"
+                        android:layout_marginStart="6dp"
+                        android:backgroundTint="#D32F2F"
+                        app:cornerRadius="16dp"
+                        app:icon="@drawable/ic_exit_to_app"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconSize="24dp"
+                        app:iconTint="@color/white"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/tvLabelLogout"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Выход"
+                        android:textColor="#D12F2F"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        app:layout_constraintEnd_toEndOf="@+id/btnLogout"
+                        app:layout_constraintStart_toStartOf="@+id/btnLogout"
+                        app:layout_constraintTop_toBottomOf="@+id/btnLogout" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
             </LinearLayout>
 
             <LinearLayout
@@ -227,7 +296,7 @@
                         android:id="@+id/etSettingsLogin"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:enabled="false"
+                        android:focusable="false"
                         android:inputType="textPassword"
                         android:textColor="@color/white"
                         tools:text="MyLogin123" />
@@ -259,7 +328,7 @@
                         android:id="@+id/etSettingsPassword"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:enabled="false"
+                        android:focusable="false"
                         android:inputType="textPassword"
                         android:textColor="@color/white"
                         tools:text="MySuperPassword" />
@@ -345,9 +414,7 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
     </com.messenger.prime.OverscrollNestedScrollView>
 
-    <!-- "Летающие" копии имени/статуса. Позиция и textSize анимируются
-         в коде между координатами expandedTitleLayout и collapsedTextAnchor,
-         создавая эффект плавного перелёта текста к аватарке. -->
+    <!-- "Летающие" копии имени/статуса. -->
     <TextView
         android:id="@+id/tvUserNameFloating"
         android:layout_width="wrap_content"
@@ -378,5 +445,13 @@
         android:shadowDx="0"
         android:shadowDy="1"
         android:shadowRadius="3" />
+
+    <!-- Контейнер для кастомных диалогов (скрыт по умолчанию) -->
+    <FrameLayout
+        android:id="@+id/dialogContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:elevation="100dp" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

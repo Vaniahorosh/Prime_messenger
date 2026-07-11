@@ -49,7 +49,7 @@ class PhotoViewerActivity : AppCompatActivity() {
             binding.ivFullPhoto.setImageResource(R.drawable.ic_person)
         }
 
-        binding.btnBack.setOnClickListener { finishWithFade() }
+        binding.btnBack.setOnClickListener { finishWithSlide() }
 
         // Свайп для закрытия — как и на остальных активити приложения
         val slidrConfig = SlidrConfig.Builder()
@@ -59,11 +59,11 @@ class PhotoViewerActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        finishWithFade()
+        finishWithSlide()
     }
 
-    private fun finishWithFade() {
+    private fun finishWithSlide() {
         finish()
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
     }
 }
