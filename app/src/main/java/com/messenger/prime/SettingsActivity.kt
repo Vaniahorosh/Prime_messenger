@@ -30,18 +30,25 @@ class SettingsActivity : AppCompatActivity() {
     private var isButtonsCompact = false
     private val argbEvaluator = ArgbEvaluator()
     private var activeDialogBinding: com.messenger.prime.databinding.DialogEditAccountBinding? = null
+    private var activePhotoDialogBinding: com.messenger.prime.databinding.DialogPhotoActionsBinding? = null
+    
+    private var isFullScreenMode = false
+    private var currentAppBarOffset = 0
+    private var swipeDetector: android.view.GestureDetector? = null
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
             contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             currentAvatarUri = it.toString()
-            binding.ivProfilePhoto.setImageURI(it)
             
             val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
             val currentUser = sharedPrefs.getString("current_user", "") ?: ""
             sharedPrefs.edit().putString("${currentUser}_avatar", currentAvatarUri).apply()
             
-            android.widget.Toast.makeText(this, "Фото обновлено", android.widget.Toast.LENGTH_SHORT).show()
+            // Сразу применяем изменения
+            applyAvatarState(currentAvatarUri)
+            
+            PrimeNotification.show(this, "Фото обновлено")
         }
     }
 
@@ -57,10 +64,6 @@ class SettingsActivity : AppCompatActivity() {
     private var collapsedStatusPos = PointF(0f, 0f)
     private var titlePositionsReady = false
 
-    // ===== Pull-жест до fullscreen-фото =====
-    private val pullThresholdPx by lazy { resources.displayMetrics.density * 80f }
-    private var photoDragStartRawY = 0f
-    private var isDraggingPhoto = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,16 +83,13 @@ class SettingsActivity : AppCompatActivity() {
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
 
-        // ==========================================
-        // 2. СТАРТУЕМ В СВЁРНУТОМ СОСТОЯНИИ + ИЗМЕРЯЕМ
-        //    крайние позиции текста для "перелёта"
-        // ==========================================
-        setupFloatingTitleMeasurement()
+        // setupFloatingTitleMeasurement() - перенесено в блок загрузки данных
 
         // ==========================================
         // 3. АНИМАЦИЯ ЦВЕТА СТАТУС-БАРА / КНОПОК / ПОЗИЦИИ ТЕКСТА
         // ==========================================
         binding.appBarLayout.addOnOffsetChangedListener { appBarLayout, verticalOffset ->
+            currentAppBarOffset = verticalOffset
             val totalScrollRange = appBarLayout.totalScrollRange
             if (totalScrollRange == 0) return@addOnOffsetChangedListener
 
@@ -119,14 +119,8 @@ class SettingsActivity : AppCompatActivity() {
         Slidr.attach(this, slidrConfig)
 
         // ==========================================
-        // 5. PULL ВНИЗ → FULLSCREEN ФОТО В ИСХОДНОМ КАЧЕСТВЕ
-        //    Работает как по самому фото, так и по списку настроек.
+        // 5. ЛОГИКА ФОТО (УДАЛЕНО СТАРОЕ)
         // ==========================================
-        binding.nestedScrollView.isPullEnabled = { isAppBarFullyExpanded }
-        binding.nestedScrollView.onPullProgress = { handlePullProgress(it) }
-        binding.nestedScrollView.onPullReleased = { handlePullReleased(it) }
-        binding.nestedScrollView.onPullThresholdReached = { handlePullThresholdReached() }
-
         setupPhotoDragToOpen()
 
         // ==========================================
@@ -140,17 +134,14 @@ class SettingsActivity : AppCompatActivity() {
         val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
         currentAvatarUri = savedAvatarUri
 
-        binding.tvUserNameExpanded.text = savedName
-        binding.tvUserNameCollapsed.text = savedName
         binding.tvUserNameFloating.text = savedName
         binding.etSettingsLogin.setText(currentUser)
         binding.etSettingsPassword.setText(savedPassword)
 
-        if (savedAvatarUri != null) {
-            val uri = Uri.parse(savedAvatarUri)
-            binding.ivProfilePhoto.setImageURI(uri)
-        } else {
-            binding.ivProfilePhoto.setImageResource(R.drawable.ic_person)
+        applyAvatarState(savedAvatarUri)
+
+        binding.btnCloseFullPhoto.setOnClickListener {
+            closeFullScreenMode()
         }
 
         // ==========================================
@@ -227,6 +218,184 @@ class SettingsActivity : AppCompatActivity() {
         animator.start()
     }
 
+    private fun applyAvatarState(avatarUri: String?) {
+        if (avatarUri != null) {
+            val uri = Uri.parse(avatarUri)
+            binding.ivProfilePhoto.setImageURI(uri)
+            binding.ivProfilePhoto.visibility = View.VISIBLE
+            binding.photoShimmer.visibility = View.VISIBLE
+            
+            // Возвращаем стандартную высоту и скролл
+            val appBarParams = binding.appBarLayout.layoutParams
+            appBarParams.height = (350 * resources.displayMetrics.density).toInt()
+            binding.appBarLayout.layoutParams = appBarParams
+            binding.appBarLayout.setBackgroundColor(Color.TRANSPARENT)
+            
+            val params = binding.collapsingToolbar.layoutParams as com.google.android.material.appbar.AppBarLayout.LayoutParams
+            params.scrollFlags = com.google.android.material.appbar.AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL or com.google.android.material.appbar.AppBarLayout.LayoutParams.SCROLL_FLAG_EXIT_UNTIL_COLLAPSED
+            binding.collapsingToolbar.layoutParams = params
+            
+            setupFloatingTitleMeasurement()
+        } else {
+            binding.ivProfilePhoto.visibility = View.GONE
+            binding.photoShimmer.visibility = View.GONE
+
+            // Если аватарки нет — делаем шапку компактной и синей
+            val params = binding.collapsingToolbar.layoutParams as com.google.android.material.appbar.AppBarLayout.LayoutParams
+            params.scrollFlags = 0 
+            binding.collapsingToolbar.layoutParams = params
+            
+            val appBarParams = binding.appBarLayout.layoutParams
+            appBarParams.height = (160 * resources.displayMetrics.density).toInt()
+            binding.appBarLayout.layoutParams = appBarParams
+            binding.appBarLayout.setBackgroundColor(colorBlue)
+
+            // Позиционируем текст статично (в левый верхний угол по макету)
+            binding.tvUserNameFloating.post {
+                val density = resources.displayMetrics.density
+                binding.tvUserNameFloating.x = 80 * density // Смещаем вправо от стрелки назад
+                binding.tvUserNameFloating.y = 52 * density // В красную область по макету
+                binding.tvUserNameFloating.textSize = 28f
+                
+                binding.tvStatusFloating.x = 80 * density
+                binding.tvStatusFloating.y = 90 * density
+                binding.tvStatusFloating.textSize = 14f
+                
+                titlePositionsReady = true
+                binding.root.alpha = 1f
+            }
+            
+            // Сбрасываем прозрачность кнопок (всегда видны)
+            binding.tvLabelPhoto.alpha = 1f
+            binding.tvLabelSettings.alpha = 1f
+            binding.tvLabelLogout.alpha = 1f
+            binding.tvLabelPhoto.translationY = 0f
+            binding.tvLabelSettings.translationY = 0f
+            binding.tvLabelLogout.translationY = 0f
+        }
+    }
+
+    private fun showPhotoActionDialog() {
+        val dialogBinding = com.messenger.prime.databinding.DialogPhotoActionsBinding.inflate(layoutInflater)
+        activePhotoDialogBinding = dialogBinding
+        binding.dialogContainer.removeAllViews()
+        binding.dialogContainer.addView(dialogBinding.root)
+        binding.dialogContainer.visibility = View.VISIBLE
+
+        dialogBinding.cardContainer.scaleX = 0.8f
+        dialogBinding.cardContainer.scaleY = 0.8f
+        dialogBinding.cardContainer.alpha = 0f
+        dialogBinding.dialogRoot.alpha = 0f
+
+        dialogBinding.dialogRoot.animate().alpha(1f).setDuration(300).start()
+        dialogBinding.cardContainer.animate()
+            .scaleX(1f).scaleY(1f).alpha(1f)
+            .setDuration(400)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+
+        dialogBinding.btnOpenPhoto.setOnClickListener {
+            hidePhotoActionDialog(dialogBinding)
+            if (currentAvatarUri != null) {
+                PhotoViewerActivity.start(this, currentAvatarUri)
+            }
+        }
+
+        dialogBinding.btnChangePhoto.setOnClickListener {
+            hidePhotoActionDialog(dialogBinding)
+            pickImage.launch("image/*")
+        }
+
+        dialogBinding.btnDeletePhoto.setOnClickListener {
+            hidePhotoActionDialog(dialogBinding)
+            val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+            sharedPrefs.edit().remove("${currentUser}_avatar").apply()
+            currentAvatarUri = null
+            applyAvatarState(null)
+            PrimeNotification.show(this, "Фото удалено")
+        }
+
+        dialogBinding.btnClose.setOnClickListener {
+            hidePhotoActionDialog(dialogBinding)
+        }
+
+        dialogBinding.dialogRoot.setOnClickListener { hidePhotoActionDialog(dialogBinding) }
+        
+        // Свайп для закрытия
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        
+        // Переинициализируем детектор для фото (классическая механика)
+        swipeDetector = android.view.GestureDetector(this, object : android.view.GestureDetector.SimpleOnGestureListener() {
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+                if (e1 == null) return false
+                val deltaY = e2.y - e1.y
+                if (!isFullScreenMode) {
+                    if (deltaY > 100 && velocityY > 800 && currentAppBarOffset == 0) {
+                        openFullScreenMode()
+                        return true
+                    }
+                } else {
+                    if (kotlin.math.abs(deltaY) > 100 && kotlin.math.abs(velocityY) > 800) {
+                        closeFullScreenMode()
+                        return true
+                    }
+                }
+                return false
+            }
+
+            override fun onSingleTapUp(e: MotionEvent): Boolean {
+                if (!isFullScreenMode) showPhotoActionDialog()
+                return true
+            }
+        })
+
+        dialogBinding.cardContainer.setOnTouchListener(object : View.OnTouchListener {
+            private var startX = 0f
+            private var isDragging = false
+            override fun onTouch(v: View, event: MotionEvent): Boolean {
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> { startX = event.rawX; isDragging = false; return false }
+                    MotionEvent.ACTION_MOVE -> {
+                        val deltaX = event.rawX - startX
+                        if (deltaX > 30f && !isDragging) isDragging = true
+                        if (isDragging) {
+                            v.translationX = deltaX.coerceAtLeast(0f)
+                            dialogBinding.dialogRoot.alpha = 1f - (deltaX / screenWidth).coerceIn(0f, 0.5f)
+                            return true
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        if (isDragging) {
+                            if (event.rawX - startX > screenWidth / 4) hidePhotoActionDialog(dialogBinding)
+                            else {
+                                v.animate().translationX(0f).setDuration(200).start()
+                                dialogBinding.dialogRoot.animate().alpha(1f).setDuration(200).start()
+                            }
+                            return true
+                        }
+                    }
+                }
+                return false
+            }
+        })
+    }
+
+    private fun hidePhotoActionDialog(dialogBinding: com.messenger.prime.databinding.DialogPhotoActionsBinding) {
+        dialogBinding.dialogRoot.animate().alpha(0f).setDuration(300).start()
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        dialogBinding.cardContainer.animate()
+            .translationX(screenWidth).alpha(0f)
+            .setDuration(350)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                binding.dialogContainer.visibility = View.GONE
+                binding.dialogContainer.removeAllViews()
+                activePhotoDialogBinding = null
+            }
+            .start()
+    }
+
     private fun showAccountEditDialog() {
         val dialogBinding = com.messenger.prime.databinding.DialogEditAccountBinding.inflate(layoutInflater)
         activeDialogBinding = dialogBinding
@@ -294,7 +463,7 @@ class SettingsActivity : AppCompatActivity() {
             binding.etSettingsLogin.setText(newLogin)
             binding.etSettingsPassword.setText(newPass)
             
-            android.widget.Toast.makeText(this, "Данные обновлены", android.widget.Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(this, "Данные обновлены")
             hideAccountEditDialog(dialogBinding)
         }
         
@@ -396,6 +565,9 @@ class SettingsActivity : AppCompatActivity() {
                         imm.hideSoftInputFromWindow(focusedView.windowToken, 0)
                         focusedView.clearFocus()
                     }
+                    
+                    // Если открыт фото-диалог (где нет полей), просто закрываем его
+                    activePhotoDialogBinding?.let { hidePhotoActionDialog(it) }
                 }
             }
         }
@@ -488,82 +660,128 @@ class SettingsActivity : AppCompatActivity() {
         binding.tvStatusFloating.textSize = lerp(14f, 12f, percentage)
     }
 
-    // ==========================================
-    // PULL-ЖЕСТ (общая логика для NestedScrollView и для фото)
-    // ==========================================
 
-    private fun handlePullProgress(dragPx: Float) {
-        val maxTranslation = 250f
-        val translation = dragPx.coerceAtMost(maxTranslation)
-        binding.ivProfilePhoto.translationY = translation * 0.4f
-        binding.ivProfilePhoto.scaleX = 1f + (translation / 1000f)
-        binding.ivProfilePhoto.scaleY = 1f + (translation / 1000f)
-    }
+    private fun openFullScreenMode() {
+        if (currentAvatarUri == null || isFullScreenMode) return
+        isFullScreenMode = true
 
-    private fun handlePullReleased(reachedThreshold: Boolean) {
-        binding.ivProfilePhoto.animate()
-            .translationY(0f)
-            .scaleX(1f)
-            .scaleY(1f)
-            .setDuration(200)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
-    }
+        binding.ivProfilePhoto.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
 
-    private fun handlePullThresholdReached() {
-        PhotoViewerActivity.start(this, currentAvatarUri)
-    }
+        val params = binding.collapsingToolbar.layoutParams as com.google.android.material.appbar.AppBarLayout.LayoutParams
+        val startHeight = binding.collapsingToolbar.height
+        val targetHeight = resources.displayMetrics.heightPixels
 
-    /**
-     * Позволяет тянуть вниз прямо по самой фотографии (не только по
-     * контенту под ней), чтобы открыть fullscreen с оригинальным качеством.
-     * Работает, только когда шапка уже полностью развёрнута.
-     * Используем rawY, а не y, потому что сама вью в процессе жеста
-     * получает translationY — если считать по локальному y, координаты
-     * "поедут" вслед за собственной анимацией.
-     */
-    private fun setupPhotoDragToOpen() {
-        binding.ivProfilePhoto.setOnTouchListener { v, event ->
-            if (!isAppBarFullyExpanded) return@setOnTouchListener false
-
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    photoDragStartRawY = event.rawY
-                    isDraggingPhoto = false
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val delta = (event.rawY - photoDragStartRawY) * 0.5f
-                    if (delta > 10f) {
-                        isDraggingPhoto = true
-                        handlePullProgress(delta)
-                        true
-                    } else {
-                        false
-                    }
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (isDraggingPhoto) {
-                        val delta = (event.rawY - photoDragStartRawY) * 0.5f
-                        val reached = delta >= pullThresholdPx
-                        handlePullReleased(reached)
-                        if (reached) handlePullThresholdReached()
-                        isDraggingPhoto = false
-                        true
-                    } else if (event.actionMasked == MotionEvent.ACTION_UP) {
-                        // Если сдвига почти не было — это клик
-                        v.performClick()
-                        true
-                    } else {
-                        false
-                    }
-                }
-                else -> false
+        val animator = android.animation.ValueAnimator.ofInt(startHeight, targetHeight).apply {
+            duration = 320
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { animation ->
+                params.height = animation.animatedValue as Int
+                binding.collapsingToolbar.layoutParams = params
+                binding.appBarLayout.requestLayout()
             }
         }
 
-        binding.ivProfilePhoto.setOnClickListener {
-            handlePullThresholdReached()
+        animator.addListener(object : android.animation.AnimatorListenerAdapter() {
+            override fun onAnimationStart(animation: android.animation.Animator) {
+                params.scrollFlags = 0
+                binding.appBarLayout.setExpanded(true, true)
+                binding.ivProfilePhoto.scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                
+                binding.root.setBackgroundColor(Color.BLACK)
+                binding.viewDimmer.visibility = View.VISIBLE
+                binding.viewDimmer.alpha = 1f
+                binding.btnCloseFullPhoto.visibility = View.VISIBLE
+                binding.toolbar.visibility = View.GONE
+                binding.nestedScrollView.visibility = View.GONE
+                binding.tvUserNameFloating.visibility = View.GONE
+                binding.tvStatusFloating.visibility = View.GONE
+            }
+        })
+        animator.start()
+    }
+
+    private fun closeFullScreenMode() {
+        if (!isFullScreenMode) return
+        isFullScreenMode = false
+
+        binding.btnCloseFullPhoto.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+
+        val params = binding.collapsingToolbar.layoutParams as com.google.android.material.appbar.AppBarLayout.LayoutParams
+        val startHeight = binding.collapsingToolbar.height
+        val defaultHeight = (350 * resources.displayMetrics.density).toInt()
+
+        val animator = android.animation.ValueAnimator.ofInt(startHeight, defaultHeight).apply {
+            duration = 300
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { animation ->
+                params.height = animation.animatedValue as Int
+                binding.collapsingToolbar.layoutParams = params
+                binding.appBarLayout.requestLayout()
+            }
+        }
+
+        animator.addListener(object : android.animation.AnimatorListenerAdapter() {
+            override fun onAnimationStart(animation: android.animation.Animator) {
+                binding.ivProfilePhoto.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                binding.btnCloseFullPhoto.visibility = View.GONE
+                binding.root.setBackgroundColor(Color.parseColor("#F7F8FA"))
+                binding.viewDimmer.animate().alpha(0f).setDuration(200).withEndAction {
+                    binding.viewDimmer.visibility = View.GONE
+                }.start()
+            }
+            override fun onAnimationEnd(animation: android.animation.Animator) {
+                params.scrollFlags = com.google.android.material.appbar.AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL or
+                        com.google.android.material.appbar.AppBarLayout.LayoutParams.SCROLL_FLAG_EXIT_UNTIL_COLLAPSED
+                binding.collapsingToolbar.layoutParams = params
+
+                binding.toolbar.visibility = View.VISIBLE
+                binding.nestedScrollView.visibility = View.VISIBLE
+                binding.tvUserNameFloating.visibility = View.VISIBLE
+                binding.tvStatusFloating.visibility = View.VISIBLE
+            }
+        })
+        animator.start()
+    }
+
+    /**
+     * Позволяет тянуть вниз прямо по самой фотографии...
+     */
+    private fun setupPhotoDragToOpen() {
+        // Инициализируем детектор жестов
+        val gestureDetector = android.view.GestureDetector(this, object : android.view.GestureDetector.SimpleOnGestureListener() {
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+                if (e1 == null) return false
+                val deltaY = e2.y - e1.y
+                if (!isFullScreenMode && deltaY > 100 && velocityY > 800 && currentAppBarOffset == 0) {
+                    openFullScreenMode()
+                    return true
+                } else if (isFullScreenMode && kotlin.math.abs(deltaY) > 100 && kotlin.math.abs(velocityY) > 800) {
+                    closeFullScreenMode()
+                    return true
+                }
+                return false
+            }
+
+            override fun onSingleTapUp(e: MotionEvent): Boolean {
+                showPhotoActionDialog()
+                return true
+            }
+        })
+
+        binding.ivProfilePhoto.setOnTouchListener { v, event ->
+            if (isFullScreenMode) return@setOnTouchListener true
+            
+            val handled = gestureDetector.onTouchEvent(event)
+            
+            if (currentAppBarOffset == 0) {
+                if (event.action == MotionEvent.ACTION_DOWN) {
+                    v.parent.requestDisallowInterceptTouchEvent(true)
+                }
+            } else {
+                v.parent.requestDisallowInterceptTouchEvent(false)
+            }
+            
+            handled || currentAppBarOffset == 0
         }
     }
 

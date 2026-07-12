@@ -100,6 +100,8 @@ class RegisterActivity : AppCompatActivity() {
 
             if (name.isEmpty()) {
                 binding.inputLayoutName.error = "Как вас зовут?"
+                binding.inputLayoutName.shake()
+                binding.btnForward.shake()
                 return@setOnClickListener
             } else {
                 binding.inputLayoutName.error = null
@@ -107,6 +109,8 @@ class RegisterActivity : AppCompatActivity() {
 
             if (password.length < 8) {
                 binding.inputLayoutPassword.error = "Пароль должен быть не менее 8 символов"
+                binding.inputLayoutPassword.shake()
+                binding.btnForward.shake()
                 return@setOnClickListener
             } else {
                 binding.inputLayoutPassword.error = null

@@ -285,6 +285,20 @@ class ChatListActivity : AppCompatActivity() {
         connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Синхронизируем аватарку при возвращении на экран
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
+
+        if (savedAvatarUri != null) {
+            binding.ivToolbarAvatar.setImageURI(Uri.parse(savedAvatarUri))
+        } else {
+            binding.ivToolbarAvatar.setImageResource(R.drawable.ic_person)
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         connectivityManager.unregisterNetworkCallback(networkCallback)

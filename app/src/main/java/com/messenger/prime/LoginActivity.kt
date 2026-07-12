@@ -103,6 +103,8 @@ class LoginActivity : AppCompatActivity() {
 
             if (login.isEmpty()) {
                 binding.inputLayoutLogin.error = "Введите логин"
+                binding.inputLayoutLogin.shake()
+                binding.btnForward.shake()
                 return@setOnClickListener
             }
             binding.inputLayoutLogin.error = null
@@ -140,6 +142,8 @@ class LoginActivity : AppCompatActivity() {
                 } else {
                     // Ошибка пароля
                     binding.tvError.visibility = View.VISIBLE
+                    binding.inputLayoutPassword.shake()
+                    binding.btnForward.shake()
                 }
             }
         }

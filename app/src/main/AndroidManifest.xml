@@ -42,10 +42,6 @@
             android:theme="@style/Theme.Prime.Swipe"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
-        <activity
-            android:name=".PhotoViewerActivity"
-            android:theme="@style/Theme.Prime.Swipe"
-            android:exported="false" />
 
     </application>
 

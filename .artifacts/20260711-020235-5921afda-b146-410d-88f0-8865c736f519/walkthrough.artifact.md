@@ -1,19 +1,31 @@
-# Walkthrough - Dialog Button Refinement
+# Walkthrough - Classic Photo Mechanics & Error Feedback
 
-I have updated the button layout in the account edit dialog to improve its aesthetics and usability.
+I have integrated advanced photo interaction mechanics in Settings and added refined input error feedback in Login/Registration.
 
 ## Changes
 
-### 1. Refined Button Layout (`dialog_edit_account.xml`)
-Redesigned the action row at the bottom of the dialog.
+### 1. In-Place Fullscreen Expansion (`SettingsActivity`)
+Replaced the activity transition with a smooth internal animation logic from your previous project.
+- **ValueAnimator Expansion**: The profile photo now expands to fill the entire screen using a custom animator that modifies the header height dynamically.
+- **Gesture Control**: Implemented a `GestureDetector` to handle:
+    - **Fling Down**: Expands the photo to fullscreen.
+    - **Fling Up** (in fullscreen): Closes the photo.
+    - **Single Tap**: Opens the custom "glass-style" action menu (Open, Change, Delete).
+- **Visual Effects**: Added a black background dimmer and a dedicated "Close" button for the fullscreen mode.
 
-- **Icon-Only Back Button**: Replaced the "Назад" (Back) text with a clean `ic_arrow_back` icon. The button is now a consistent square shape (`56dp x 56dp`) with an outlined style.
-- **Expanded Save Button**: The "Сохранить" (Save) button now takes up the remaining horizontal space in the row, making it the primary focal point of the action area.
-- **Improved Spacing**: Adjusted margins and alignment to ensure the row looks balanced and modern.
+### 2. Profile Photo Sync & Layout
+- **Dynamic Header**: When no avatar is set, the header automatically shrinks and name/status text moves to the top-left corner as requested.
+- **Instant Sync**: Changes made to the avatar in Settings are immediately reflected in `ChatListActivity` when returning.
+
+### 3. Input Error Feedback
+Standardized how errors are presented in `LoginActivity` and `RegisterActivity`.
+- **Shake Animation**: Created a `View.shake()` extension that provides a horizontal shaking effect.
+- **Haptic Feedback**: Integrated physical vibration feedback for each input error.
 
 ## Verification Results
 
 ### Manual Testing
-- **UI Check**: Verified in the emulator/device that the dialog row now contains a square arrow button followed by a wide "Save" button.
-- **Functionality**: Confirmed both buttons still perform their respective actions (back closes the dialog, save updates credentials and closes).
-- **Responsiveness**: Ensured the layout adapts correctly to different screen widths using weights.
+- **Photo Gestures**: Verified that flinging down/up works reliably and animations are smooth.
+- **Dialog Flow**: Confirmed that the "Open", "Change", and "Delete" actions work correctly and update the storage.
+- **Sync Check**: Verified that deleting a photo in Settings updates the toolbar icon in the Chat List immediately.
+- **Error Check**: Confirmed that empty fields or wrong passwords trigger the shake and vibration effects.
