@@ -7,293 +7,401 @@
     android:background="#F7F8FA"
     tools:context=".SettingsActivity">
 
-    <com.google.android.material.appbar.AppBarLayout
-        android:id="@+id/appBarLayout"
-        android:layout_width="match_parent"
-        android:layout_height="350dp"
-        android:fitsSystemWindows="true"
-        android:background="@android:color/transparent"
-        app:elevation="0dp">
-
-        <com.google.android.material.appbar.CollapsingToolbarLayout
-            android:id="@+id/collapsingToolbar"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:fitsSystemWindows="true"
-            app:contentScrim="@color/prime_background_blue"
-            app:statusBarScrim="@color/prime_background_blue"
-            app:layout_scrollFlags="scroll|exitUntilCollapsed">
-
-            <!-- Затемнитель для полноэкранного режима -->
-            <View
-                android:id="@+id/viewDimmer"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@android:color/black"
-                android:alpha="0"
-                android:visibility="gone"
-                app:layout_collapseMode="parallax" />
-
-            <ImageView
-                android:id="@+id/ivProfilePhoto"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:fitsSystemWindows="true"
-                android:scaleType="centerCrop"
-                android:background="#8E8E93"
-                android:src="@drawable/ic_person"
-                android:clickable="true"
-                android:focusable="true"
-                app:layout_collapseMode="parallax"
-                app:layout_collapseParallaxMultiplier="0.7" />
-
-            <View
-                android:id="@+id/photoShimmer"
-                android:layout_width="match_parent"
-                android:layout_height="120dp"
-                android:layout_gravity="bottom"
-                android:background="@drawable/bg_photo_shimmer"
-                app:layout_collapseMode="parallax"
-                app:layout_collapseParallaxMultiplier="0.8" />
-
-            <!-- Кнопка закрытия полноэкранного фото -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnCloseFullPhoto"
-                style="@style/Widget.MaterialComponents.Button.Icon"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_margin="16dp"
-                android:visibility="gone"
-                android:padding="0dp"
-                android:insetLeft="0dp"
-                android:insetTop="0dp"
-                android:insetRight="0dp"
-                android:insetBottom="0dp"
-                app:icon="@drawable/ic_arrow_back"
-                app:iconGravity="textStart"
-                app:iconPadding="0dp"
-                app:iconSize="24dp"
-                app:iconTint="@color/white"
-                app:backgroundTint="#80000000"
-                app:cornerRadius="20dp"
-                app:layout_collapseMode="pin" />
-
-            <!-- Анкер только для измерения "развёрнутой" позиции текста. -->
-            <LinearLayout
-                android:id="@+id/expandedTitleLayout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="bottom"
-                android:orientation="vertical"
-                android:paddingHorizontal="24dp"
-                android:paddingBottom="24dp"
-                android:visibility="invisible"
-                app:layout_collapseMode="parallax"
-                app:layout_collapseParallaxMultiplier="0.3">
-
-                <TextView
-                    android:id="@+id/tvUserNameExpanded"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/white"
-                    android:textSize="28sp"
-                    android:textStyle="bold"
-                    tools:text="Имя пользователя" />
-
-                <TextView
-                    android:id="@+id/tvStatusExpanded"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="в сети"
-                    android:textColor="#E6FFFFFF"
-                    android:textSize="14sp" />
-            </LinearLayout>
-
-            <!-- Высота тулбара увеличена под компактный круглый аватар -->
-            <androidx.appcompat.widget.Toolbar
-                android:id="@+id/toolbar"
-                android:layout_width="match_parent"
-                android:layout_height="64dp"
-                app:layout_collapseMode="pin"
-                app:contentInsetStart="0dp"
-                app:contentInsetStartWithNavigation="0dp">
-
-                <LinearLayout
-                    android:id="@+id/collapsedTitleLayout"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginStart="0dp"
-                    android:alpha="0">
-
-                    <!-- Анкер только для измерения "свёрнутой" позиции текста -->
-                    <LinearLayout
-                        android:id="@+id/collapsedTextAnchor"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:visibility="invisible">
-
-                        <TextView
-                            android:id="@+id/tvUserNameCollapsed"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textColor="@color/prime_text_teal"
-                            android:textSize="16sp"
-                            android:textStyle="bold"
-                            tools:text="Имя пользователя" />
-
-                        <TextView
-                            android:id="@+id/tvStatusCollapsed"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="в прайме"
-                            android:textColor="@color/prime_button_teal"
-                            android:textSize="12sp" />
-                    </LinearLayout>
-
-                </LinearLayout>
-
-            </androidx.appcompat.widget.Toolbar>
-
-        </com.google.android.material.appbar.CollapsingToolbarLayout>
-    </com.google.android.material.appbar.AppBarLayout>
-
-    <com.messenger.prime.OverscrollNestedScrollView
+    <androidx.core.widget.NestedScrollView
         android:id="@+id/nestedScrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+        android:fillViewport="true">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-            <LinearLayout
-                android:id="@+id/layoutButtons"
+            <!-- Синий блок шапки -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/headerStaticBlock"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:clipChildren="false"
-                android:orientation="horizontal"
-                android:paddingHorizontal="16dp"
-                android:weightSum="3"
+                android:background="@color/prime_background_blue"
+                android:paddingBottom="24dp"
+                android:paddingTop="32dp"
                 app:layout_constraintTop_toTopOf="parent">
 
+                <!-- 1. ВАРИАНТ: С ФОТОГРАФИЕЙ (двухколоночный) -->
                 <androidx.constraintlayout.widget.ConstraintLayout
-                    android:layout_width="0dp"
+                    android:id="@+id/layoutWithPhoto"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:clipChildren="false">
+                    android:visibility="visible"
+                    app:layout_constraintTop_toTopOf="parent">
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnChangePhoto"
-                        style="@style/Widget.MaterialComponents.Button"
-                        android:layout_width="0dp"
-                        android:layout_height="64dp"
-                        android:layout_marginEnd="6dp"
-                        android:backgroundTint="@color/prime_background_blue"
-                        app:cornerRadius="16dp"
-                        app:icon="@drawable/ic_add"
-                        app:iconGravity="textStart"
-                        app:iconPadding="0dp"
-                        app:iconSize="24dp"
-                        app:iconTint="@color/white"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
-
-                    <TextView
-                        android:id="@+id/tvLabelPhoto"
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:id="@+id/layoutLeftColumn"
+                        android:layout_width="110dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Фото"
-                        android:textColor="@color/prime_background_blue"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        app:layout_constraintEnd_toEndOf="@+id/btnChangePhoto"
-                        app:layout_constraintStart_toStartOf="@+id/btnChangePhoto"
-                        app:layout_constraintTop_toBottomOf="@+id/btnChangePhoto" />
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent">
+
+                        <!-- Назад -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnBackWP"
+                            style="@style/Widget.MaterialComponents.Button.Icon"
+                            android:layout_width="64dp"
+                            android:layout_height="64dp"
+                            android:layout_marginBottom="2dp"
+                            android:backgroundTint="@color/white"
+                            android:padding="0dp"
+                            android:insetLeft="0dp"
+                            android:insetTop="0dp"
+                            android:insetRight="0dp"
+                            android:insetBottom="0dp"
+                            app:cornerRadius="16dp"
+                            app:icon="@drawable/ic_arrow_back"
+                            app:iconGravity="textStart"
+                            app:iconPadding="0dp"
+                            app:iconSize="28dp"
+                            app:iconTint="@color/prime_background_blue"
+                            app:elevation="2dp" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:text="Назад"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <!-- Фото -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnChangePhoto"
+                            style="@style/Widget.MaterialComponents.Button.Icon"
+                            android:layout_width="64dp"
+                            android:layout_height="64dp"
+                            android:layout_marginBottom="2dp"
+                            android:backgroundTint="@color/white"
+                            android:padding="0dp"
+                            android:insetLeft="0dp"
+                            android:insetTop="0dp"
+                            android:insetRight="0dp"
+                            android:insetBottom="0dp"
+                            app:cornerRadius="16dp"
+                            app:icon="@drawable/ic_add"
+                            app:iconGravity="textStart"
+                            app:iconPadding="0dp"
+                            app:iconSize="28dp"
+                            app:iconTint="@color/prime_background_blue"
+                            app:elevation="2dp" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:text="Фото"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <!-- Выход -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnLogout"
+                            style="@style/Widget.MaterialComponents.Button.Icon"
+                            android:layout_width="64dp"
+                            android:layout_height="64dp"
+                            android:layout_marginBottom="2dp"
+                            android:backgroundTint="@color/white"
+                            android:padding="0dp"
+                            android:insetLeft="0dp"
+                            android:insetTop="0dp"
+                            android:insetRight="0dp"
+                            android:insetBottom="0dp"
+                            app:cornerRadius="16dp"
+                            app:icon="@drawable/ic_exit_to_app"
+                            app:iconGravity="textStart"
+                            app:iconPadding="0dp"
+                            app:iconSize="28dp"
+                            app:iconTint="#D32F2F"
+                            app:elevation="2dp" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:text="Выход"
+                            android:textColor="#FFCDD2"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <!-- Настройки -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnExtraSettings"
+                            style="@style/Widget.MaterialComponents.Button.Icon"
+                            android:layout_width="64dp"
+                            android:layout_height="64dp"
+                            android:layout_marginBottom="2dp"
+                            android:backgroundTint="@color/white"
+                            android:padding="0dp"
+                            android:insetLeft="0dp"
+                            android:insetTop="0dp"
+                            android:insetRight="0dp"
+                            android:insetBottom="0dp"
+                            app:cornerRadius="16dp"
+                            app:icon="@drawable/ic_settings"
+                            app:iconGravity="textStart"
+                            app:iconPadding="0dp"
+                            app:iconSize="28dp"
+                            app:iconTint="@color/prime_background_blue"
+                            app:elevation="2dp" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Настройки"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/photoCard"
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:layout_marginEnd="16dp"
+                        app:cardBackgroundColor="#8E8E93"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="8dp"
+                        app:layout_constraintBottom_toBottomOf="@+id/layoutLeftColumn"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toEndOf="@+id/layoutLeftColumn"
+                        app:layout_constraintTop_toTopOf="@+id/layoutLeftColumn">
+
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+                            <ImageView
+                                android:id="@+id/ivProfilePhoto"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:scaleType="centerCrop"
+                                android:src="@drawable/ic_person"
+                                android:clickable="true"
+                                android:focusable="true" />
+                            <View
+                                android:id="@+id/photoShimmer"
+                                android:layout_width="match_parent"
+                                android:layout_height="80dp"
+                                android:layout_gravity="bottom"
+                                android:background="@drawable/bg_photo_shimmer" />
+                            <LinearLayout
+                                android:id="@+id/floatingTitleContainer"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="bottom|start"
+                                android:orientation="vertical"
+                                android:paddingHorizontal="12dp"
+                                android:paddingVertical="8dp"
+                                android:background="#99154B86">
+                                <TextView
+                                    android:id="@+id/tvUserNameFloating"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="@color/white"
+                                    android:textSize="22sp"
+                                    android:textStyle="bold"
+                                    android:singleLine="true"
+                                    tools:text="дед" />
+                                <TextView
+                                    android:id="@+id/tvStatusFloating"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="в сети"
+                                    android:textColor="#E6FFFFFF"
+                                    android:textSize="12sp"
+                                    android:singleLine="true" />
+                            </LinearLayout>
+                        </FrameLayout>
+                    </androidx.cardview.widget.CardView>
                 </androidx.constraintlayout.widget.ConstraintLayout>
 
-                <androidx.constraintlayout.widget.ConstraintLayout
-                    android:layout_width="0dp"
+                <!-- 2. ВАРИАНТ: БЕЗ ФОТОГРАФИИ (горизонтальный) -->
+                <LinearLayout
+                    android:id="@+id/layoutNoPhoto"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:clipChildren="false">
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnExtraSettings"
-                        style="@style/Widget.MaterialComponents.Button"
-                        android:layout_width="0dp"
-                        android:layout_height="64dp"
-                        android:layout_marginHorizontal="3dp"
-                        android:backgroundTint="@color/prime_background_blue"
-                        app:cornerRadius="16dp"
-                        app:icon="@drawable/ic_settings"
-                        app:iconGravity="textStart"
-                        app:iconPadding="0dp"
-                        app:iconSize="24dp"
-                        app:iconTint="@color/white"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
+                    android:layout_marginTop="16dp"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="16dp"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toTopOf="parent">
 
                     <TextView
-                        android:id="@+id/tvLabelSettings"
+                        android:id="@+id/tvUserNameStatic"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Настройки"
-                        android:textColor="@color/prime_background_blue"
-                        android:textSize="10sp"
+                        android:textColor="@color/white"
+                        android:textSize="26sp"
                         android:textStyle="bold"
-                        app:layout_constraintEnd_toEndOf="@+id/btnExtraSettings"
-                        app:layout_constraintStart_toStartOf="@+id/btnExtraSettings"
-                        app:layout_constraintTop_toBottomOf="@+id/btnExtraSettings" />
-                </androidx.constraintlayout.widget.ConstraintLayout>
-
-                <androidx.constraintlayout.widget.ConstraintLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:clipChildren="false">
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnLogout"
-                        style="@style/Widget.MaterialComponents.Button"
-                        android:layout_width="0dp"
-                        android:layout_height="64dp"
-                        android:layout_marginStart="6dp"
-                        android:backgroundTint="#D32F2F"
-                        app:cornerRadius="16dp"
-                        app:icon="@drawable/ic_exit_to_app"
-                        app:iconGravity="textStart"
-                        app:iconPadding="0dp"
-                        app:iconSize="24dp"
-                        app:iconTint="@color/white"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
+                        tools:text="дед" />
 
                     <TextView
-                        android:id="@+id/tvLabelLogout"
+                        android:id="@+id/tvStatusStatic"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Выход"
-                        android:textColor="#D12F2F"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        app:layout_constraintEnd_toEndOf="@+id/btnLogout"
-                        app:layout_constraintStart_toStartOf="@+id/btnLogout"
-                        app:layout_constraintTop_toBottomOf="@+id/btnLogout" />
-                </androidx.constraintlayout.widget.ConstraintLayout>
-            </LinearLayout>
+                        android:layout_marginBottom="32dp"
+                        android:text="в сети"
+                        android:textColor="#E6FFFFFF"
+                        android:textSize="14sp" />
 
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:baselineAligned="false">
+
+                        <!-- Назад -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:orientation="vertical">
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnBackNP"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="64dp"
+                                android:layout_height="64dp"
+                                android:backgroundTint="@color/white"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_arrow_back"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="28dp"
+                                app:iconTint="@color/prime_background_blue"
+                                app:elevation="2dp" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Назад"
+                                android:textColor="@color/white"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- Фото -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:orientation="vertical">
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnChangePhotoNP"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="64dp"
+                                android:layout_height="64dp"
+                                android:backgroundTint="@color/white"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_add"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="28dp"
+                                app:iconTint="@color/prime_background_blue"
+                                app:elevation="2dp" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Фото"
+                                android:textColor="@color/white"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- Выход -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:orientation="vertical">
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnLogoutNP"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="64dp"
+                                android:layout_height="64dp"
+                                android:backgroundTint="@color/white"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_exit_to_app"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="28dp"
+                                app:iconTint="#D32F2F"
+                                app:elevation="2dp" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Выход"
+                                android:textColor="#FFCDD2"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- Настройки -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:orientation="vertical">
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnExtraSettingsNP"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="64dp"
+                                android:layout_height="64dp"
+                                android:backgroundTint="@color/white"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_settings"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="28dp"
+                                app:iconTint="@color/prime_background_blue"
+                                app:elevation="2dp" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Настройки"
+                                android:textColor="@color/white"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <!-- Поля ввода данных -->
             <LinearLayout
                 android:id="@+id/layoutAccountData"
                 android:layout_width="match_parent"
@@ -301,7 +409,7 @@
                 android:layout_marginTop="24dp"
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
-                app:layout_constraintTop_toBottomOf="@+id/layoutButtons">
+                app:layout_constraintTop_toBottomOf="@+id/headerStaticBlock">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -323,7 +431,6 @@
                     app:endIconDrawable="@drawable/ic_edit"
                     app:endIconMode="custom"
                     app:endIconTint="@color/white">
-
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etSettingsLogin"
                         android:layout_width="match_parent"
@@ -355,7 +462,6 @@
                     app:endIconDrawable="@drawable/ic_edit"
                     app:endIconMode="custom"
                     app:endIconTint="@color/white">
-
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etSettingsPassword"
                         android:layout_width="match_parent"
@@ -387,7 +493,6 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp"
                 app:layout_constraintTop_toBottomOf="@+id/tvSettingsTitle">
-
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchAnimations"
                     android:layout_width="match_parent"
@@ -400,7 +505,6 @@
                     app:thumbTint="@color/white"
                     app:trackTint="@color/prime_background_blue"
                     app:useMaterialThemeColors="true" />
-
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchBlocked"
                     android:layout_width="match_parent"
@@ -413,7 +517,6 @@
                     app:thumbTint="@color/white"
                     app:trackTint="@color/prime_background_blue"
                     app:useMaterialThemeColors="true" />
-
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchSearch"
                     android:layout_width="match_parent"
@@ -440,50 +543,56 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/layoutSwitches"
-                app:layout_constraintVertical_bias="1.0" />
-
+                app:layout_constraintTop_toBottomOf="@+id/layoutSwitches" />
         </androidx.constraintlayout.widget.ConstraintLayout>
-    </com.messenger.prime.OverscrollNestedScrollView>
+    </androidx.core.widget.NestedScrollView>
 
-    <!-- "Летающие" копии имени/статуса. -->
-    <TextView
-        android:id="@+id/tvUserNameFloating"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="@color/white"
-        android:textSize="28sp"
-        android:textStyle="bold"
-        android:singleLine="true"
+    <!-- Затемнитель для полноэкранного режима -->
+    <View
+        android:id="@+id/viewDimmer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black"
+        android:alpha="0"
+        android:visibility="gone"
+        android:elevation="100dp" />
+
+    <ImageView
+        android:id="@+id/ivFullscreenPhoto"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitCenter"
+        android:visibility="gone"
+        android:elevation="110dp"
         android:clickable="true"
-        android:focusable="true"
-        android:shadowColor="#80000000"
-        android:shadowDx="0"
-        android:shadowDy="2"
-        android:shadowRadius="4"
-        tools:text="Имя пользователя" />
+        android:focusable="true" />
 
-    <TextView
-        android:id="@+id/tvStatusFloating"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="в сети"
-        android:textColor="#E6FFFFFF"
-        android:textSize="14sp"
-        android:singleLine="true"
-        android:clickable="false"
-        android:focusable="false"
-        android:shadowColor="#80000000"
-        android:shadowDx="0"
-        android:shadowDy="1"
-        android:shadowRadius="3" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCloseFullPhoto"
+        style="@style/Widget.MaterialComponents.Button.Icon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_margin="16dp"
+        android:visibility="gone"
+        android:padding="0dp"
+        android:insetLeft="0dp"
+        android:insetTop="0dp"
+        android:insetRight="0dp"
+        android:insetBottom="0dp"
+        app:icon="@drawable/ic_arrow_back"
+        app:iconGravity="textStart"
+        app:iconPadding="0dp"
+        app:iconSize="24dp"
+        app:iconTint="@color/white"
+        app:backgroundTint="#80000000"
+        app:cornerRadius="20dp"
+        app:elevation="120dp" />
 
-    <!-- Контейнер для кастомных диалогов (скрыт по умолчанию) -->
     <FrameLayout
         android:id="@+id/dialogContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone"
-        android:elevation="100dp" />
+        android:elevation="200dp" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
