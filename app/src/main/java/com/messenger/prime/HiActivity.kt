@@ -1,23 +1,45 @@
 package com.messenger.prime
 
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.Gravity
 import android.view.View
 import android.view.animation.AnimationUtils
+import android.widget.FrameLayout
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import com.messenger.prime.databinding.ActivityHiBinding // Замени com.example.prime на свой package
+import androidx.core.content.ContextCompat
+import com.messenger.prime.databinding.ActivityHiBinding
 
 class HiActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHiBinding
+    private val handler = Handler(Looper.getMainLooper())
+    private var currentDataIndex = -1
+
+    private data class DynamicContent(val slogan: String, val button: String)
+
+    private val contents = listOf(
+        DynamicContent("Всегда будь в", "Прайме!"),
+        DynamicContent("Всегда сообщение", "Быстрее!"),
+        DynamicContent("Всегда будь на", "Связи!"),
+        DynamicContent("Всегда будь в", "Приватности!"),
+        DynamicContent("Всегда мы", "Кастомнее!")
+    )
 
     // Все элементы экрана, которые должны красиво погаснуть перед переходом
     private val allViews: List<View> by lazy {
         listOf(
             binding.btnExit,
             binding.ivLogo,
-            binding.tvSlogan,
+            binding.textSwitcherSlogan,
             binding.btnPrime,
             binding.tvLicense
         )
@@ -31,17 +53,17 @@ class HiActivity : AppCompatActivity() {
         val isLoggedIn = sharedPreferences.getBoolean("is_logged_in", false)
 
         if (isLoggedIn) {
-            // Если уже вошли, молча перекидываем в список чатов и закрываем этот экран
             startActivity(Intent(this, ChatListActivity::class.java))
             finish()
-            return // Останавливаем выполнение остального кода в HiActivity
+            return
         }
 
-        // 2. ЕСЛИ НЕ АВТОРИЗОВАНЫ - ГРУЗИМ ОБЫЧНЫЙ ЭКРАН ПРИВЕТСТВИЯ
         binding = ActivityHiBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        // Делаем статус-бар синим, а иконки светлыми (false)
         setDynamicStatusBar(R.color.prime_background_blue, false)
+
+        setupTextSwitcher()
+        startDynamicSequence()
 
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val systemBarsInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
@@ -57,27 +79,70 @@ class HiActivity : AppCompatActivity() {
             windowInsets
         }
 
-        // Добавим Material фишку: плавное появление элементов при открытии экрана
         val fadeIn = AnimationUtils.loadAnimation(this, android.R.anim.fade_in)
-        fadeIn.duration = 1000 // 1 секунда
+        fadeIn.duration = 1000
         binding.ivLogo.startAnimation(fadeIn)
-        binding.tvSlogan.startAnimation(fadeIn)
+        binding.textSwitcherSlogan.startAnimation(fadeIn)
         binding.btnPrime.startAnimation(fadeIn)
 
-        // Обработка нажатия на кнопку "Прайме!"
         binding.btnPrime.setOnClickListener {
-            // Блокируем повторные нажатия, пока идёт анимация исчезновения
             binding.btnPrime.isEnabled = false
             binding.btnExit.isEnabled = false
-
+            handler.removeCallbacksAndMessages(null) // Останавливаем таймер
             fadeOutAndNavigateToLogin()
         }
 
-        // Обработка кнопки "Выход" в левом верхнем углу
         binding.btnExit.setOnClickListener {
-            // Полностью закрываем приложение
             finishAffinity()
         }
+    }
+
+    private fun setupTextSwitcher() {
+        binding.textSwitcherSlogan.setFactory {
+            TextView(this).apply {
+                gravity = Gravity.CENTER
+                textSize = 20f
+                setTextColor(ContextCompat.getColor(this@HiActivity, R.color.prime_button_teal))
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+        }
+
+        binding.textSwitcherSlogan.inAnimation = AnimationUtils.loadAnimation(this, R.anim.slide_up_in)
+        binding.textSwitcherSlogan.outAnimation = AnimationUtils.loadAnimation(this, R.anim.slide_up_out)
+    }
+
+    private fun startDynamicSequence() {
+        val runnable = object : Runnable {
+            override fun run() {
+                var nextIndex: Int
+                do {
+                    nextIndex = (contents.indices).random()
+                } while (nextIndex == currentDataIndex)
+
+                currentDataIndex = nextIndex
+                val content = contents[currentDataIndex]
+
+                // Смена текста слогана с анимацией вылета
+                binding.textSwitcherSlogan.setText(content.slogan)
+
+                // Смена текста кнопки с плавным затуханием
+                binding.btnPrime.animate()
+                    .alpha(0f)
+                    .setDuration(400)
+                    .withEndAction {
+                        binding.btnPrime.text = content.button
+                        binding.btnPrime.animate().alpha(1f).setDuration(400).start()
+                    }
+                    .start()
+
+                handler.postDelayed(this, 3000)
+            }
+        }
+        handler.post(runnable)
     }
 
     override fun onResume() {

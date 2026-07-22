@@ -15,9 +15,7 @@
         app:cardCornerRadius="24dp"
         app:cardElevation="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:strokeColor="#33FFFFFF"
-        app:strokeWidth="1dp">
+        app:layout_constraintTop_toTopOf="parent">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
@@ -43,6 +41,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:hint="Новый логин"
+                app:boxStrokeWidth="0dp"
                 app:boxStrokeColor="@color/white"
                 app:hintTextColor="@color/white"
                 app:layout_constraintTop_toBottomOf="@+id/tvTitle">
@@ -52,7 +51,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textColor="@color/white"
-                    android:inputType="text" />
+                    android:maxLength="15"
+                    android:inputType="textNoSuggestions" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -62,6 +62,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:hint="Новый пароль"
+                app:boxStrokeWidth="0dp"
                 app:boxStrokeColor="@color/white"
                 app:hintTextColor="@color/white"
                 app:passwordToggleEnabled="true"
@@ -73,8 +74,20 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textColor="@color/white"
+                    android:maxLength="32"
                     android:inputType="textPassword" />
             </com.google.android.material.textfield.TextInputLayout>
+
+            <TextView
+                android:id="@+id/tvPasswordHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Минимум 8 символов"
+                android:textColor="@color/glass_white_30"
+                android:textSize="12sp"
+                app:layout_constraintStart_toStartOf="@+id/inputLayoutPassword"
+                app:layout_constraintTop_toBottomOf="@+id/inputLayoutPassword" />
 
             <LinearLayout
                 android:id="@+id/layoutButtonsActions"
@@ -100,8 +113,7 @@
                     app:iconGravity="textStart"
                     app:iconPadding="0dp"
                     app:iconSize="24dp"
-                    app:iconTint="@color/white"
-                    app:strokeColor="@color/white" />
+                    app:iconTint="@color/white" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnSave"

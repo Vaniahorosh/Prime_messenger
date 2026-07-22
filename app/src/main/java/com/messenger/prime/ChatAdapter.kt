@@ -9,108 +9,108 @@ import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.messenger.prime.databinding.ItemChatBinding
+import com.messenger.prime.databinding.ItemChatFooterBinding
 
-class ChatAdapter(private var chatList: List<ChatModel>) : RecyclerView.Adapter<ChatAdapter.ChatViewHolder>() {
+class ChatAdapter(private var chatList: List<ChatModel>, private val onStartChatClick: () -> Unit) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+    companion object {
+        private const val TYPE_CHAT = 0
+        private const val TYPE_FOOTER = 1
+    }
 
     class ChatViewHolder(val binding: ItemChatBinding) : RecyclerView.ViewHolder(binding.root)
+    class FooterViewHolder(val binding: ItemChatFooterBinding) : RecyclerView.ViewHolder(binding.root)
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChatViewHolder {
-        val binding = ItemChatBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return ChatViewHolder(binding)
+    override fun getItemViewType(position: Int): Int {
+        return if (position == chatList.size) TYPE_FOOTER else TYPE_CHAT
     }
 
-    override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
-        val chat = chatList[position]
-        val context = holder.itemView.context
-        val binding = holder.binding
-
-        // 1. Установка базовых текстов
-        binding.tvContactName.text = chat.name
-        binding.tvLastMessage.text = chat.lastMessage
-        binding.tvMessageTime.text = chat.time
-
-        // 2. Установка аватарки
-        if (chat.avatarUri != null) {
-            binding.ivUserAvatar.setImageURI(Uri.parse(chat.avatarUri))
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        return if (viewType == TYPE_FOOTER) {
+            val binding = ItemChatFooterBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+            FooterViewHolder(binding)
         } else {
-            binding.ivUserAvatar.setImageResource(R.drawable.ic_person)
+            val binding = ItemChatBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+            ChatViewHolder(binding)
         }
+    }
 
-        // 3. Обработка статуса онлайна (Кружочки на аватарке по схеме)
-        val onlineBadge = GradientDrawable().apply { shape = GradientDrawable.OVAL }
-        when (chat.onlineStatus) {
-            OnlineStatus.ONLINE -> {
-                binding.viewOnlineStatus.visibility = View.VISIBLE
-                onlineBadge.setColor(Color.parseColor("#4CAF50")) // Зеленый
-                binding.viewOnlineStatus.background = onlineBadge
-                // Если заблокирован, можно подставить кастомный drawable с вопросительным знаком, пока сделаем просто цвет
-            }
-            OnlineStatus.BLOCKED -> {
-                binding.viewOnlineStatus.visibility = View.VISIBLE
-                onlineBadge.setColor(Color.parseColor("#F44336")) // Красный
-                binding.viewOnlineStatus.background = onlineBadge
-            }
-            OnlineStatus.OFFLINE -> {
-                binding.viewOnlineStatus.visibility = View.GONE
-            }
-        }
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        if (holder is FooterViewHolder) {
+            holder.binding.btnStartChatFooter.setOnClickListener { onStartChatClick() }
+        } else if (holder is ChatViewHolder) {
+            val chat = chatList[position]
+            val context = holder.itemView.context
+            val binding = holder.binding
 
-        // 4. Обработка иконок статуса сообщения (Галочки)
-        when (chat.messageStatus) {
-            MessageStatus.SENT -> {
-                binding.ivMessageStatus.visibility = View.VISIBLE
-                binding.ivMessageStatus.setImageResource(R.drawable.ic_done) // Одна галочка
-                binding.ivMessageStatus.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.ic_done))
-            }
-            MessageStatus.READ -> {
-                binding.ivMessageStatus.visibility = View.VISIBLE
-                binding.ivMessageStatus.setImageResource(R.drawable.ic_done_all) // Две галочки
-            }
-            MessageStatus.ERROR -> {
-                binding.ivMessageStatus.visibility = View.VISIBLE
-                binding.ivMessageStatus.setImageResource(R.drawable.ic_error) // Восклицательный знак
-            }
-            MessageStatus.NONE -> {
-                binding.ivMessageStatus.visibility = View.GONE
-            }
-        }
+            binding.tvContactName.text = chat.name
+            binding.tvLastMessage.text = chat.lastMessage
+            binding.tvMessageTime.text = chat.time
 
-        // 5. Обработка статуса "Без звука"
-        binding.ivMuteStatus.visibility = if (chat.isMuted) View.VISIBLE else View.GONE
-
-        // 6. Обработка счетчика сообщений (Цвет зависит от Mute по твоей схеме)
-        if (chat.unreadCount > 0) {
-            binding.tvUnreadCounter.visibility = View.VISIBLE
-            binding.tvUnreadCounter.text = chat.unreadCount.toString()
-
-            val counterBg = GradientDrawable().apply { cornerRadius = 100f }
-            if (chat.isMuted) {
-                counterBg.setColor(Color.parseColor("#8E8E93")) // Серый счетчик, если без звука
+            if (chat.avatarUri != null) {
+                binding.ivUserAvatar.setImageURI(Uri.parse(chat.avatarUri))
             } else {
-                counterBg.setColor(Color.parseColor("#2196F3")) // Синий счетчик по умолчанию
+                binding.ivUserAvatar.setImageResource(R.drawable.ic_person)
             }
-            binding.tvUnreadCounter.background = counterBg
-        } else {
-            binding.tvUnreadCounter.visibility = View.GONE
-        }
 
-        // 7. Клик по элементу (Переход в ChatActivity пока закомментирован)
-        holder.itemView.setOnClickListener {
-            /*
-            val intent = Intent(context, ChatActivity::class.java)
-            intent.putExtra("CHAT_ID", chat.id)
-            context.startActivity(intent)
-            */
+            val onlineBadge = GradientDrawable().apply { shape = GradientDrawable.OVAL }
+            when (chat.onlineStatus) {
+                OnlineStatus.ONLINE -> {
+                    binding.viewOnlineStatus.visibility = View.VISIBLE
+                    onlineBadge.setColor(Color.parseColor("#4CAF50"))
+                    binding.viewOnlineStatus.background = onlineBadge
+                }
+                OnlineStatus.BLOCKED -> {
+                    binding.viewOnlineStatus.visibility = View.VISIBLE
+                    onlineBadge.setColor(Color.parseColor("#F44336"))
+                    binding.viewOnlineStatus.background = onlineBadge
+                }
+                OnlineStatus.OFFLINE -> {
+                    binding.viewOnlineStatus.visibility = View.GONE
+                }
+            }
+
+            when (chat.messageStatus) {
+                MessageStatus.SENT -> {
+                    binding.ivMessageStatus.visibility = View.VISIBLE
+                    binding.ivMessageStatus.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.ic_done))
+                }
+                MessageStatus.READ -> {
+                    binding.ivMessageStatus.visibility = View.VISIBLE
+                    binding.ivMessageStatus.setImageResource(R.drawable.ic_done_all)
+                }
+                MessageStatus.ERROR -> {
+                    binding.ivMessageStatus.visibility = View.VISIBLE
+                    binding.ivMessageStatus.setImageResource(R.drawable.ic_error)
+                }
+                MessageStatus.NONE -> {
+                    binding.ivMessageStatus.visibility = View.GONE
+                }
+            }
+
+            binding.ivMuteStatus.visibility = if (chat.isMuted) View.VISIBLE else View.GONE
+
+            if (chat.unreadCount > 0) {
+                binding.tvUnreadCounter.visibility = View.VISIBLE
+                binding.tvUnreadCounter.text = chat.unreadCount.toString()
+
+                val counterBg = GradientDrawable().apply { cornerRadius = 100f }
+                if (chat.isMuted) {
+                    counterBg.setColor(Color.parseColor("#8E8E93"))
+                } else {
+                    counterBg.setColor(Color.parseColor("#2196F3"))
+                }
+                binding.tvUnreadCounter.background = counterBg
+            } else {
+                binding.tvUnreadCounter.visibility = View.GONE
+            }
         }
     }
 
+    override fun getItemCount(): Int = chatList.size + 1
 
-    override fun getItemCount(): Int = chatList.size
-    // ... тут твой код onBindViewHolder и getItemCount ...
-
-    // ДОБАВЬ ВОТ ЭТО:
     fun updateList(newList: List<ChatModel>) {
         chatList = newList
         notifyDataSetChanged()
     }
-} // Это самая последняя скобка всего файла ChatAdapter.kt
+}

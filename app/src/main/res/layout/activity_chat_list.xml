@@ -4,31 +4,17 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
+    android:background="#F7F8FA"
     android:clipChildren="false"
     tools:context=".ChatListActivity">
-
-    <TextView
-        android:id="@+id/tvPullIndicator"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="90dp"
-        android:alpha="0"
-        android:text="↓ ПОТЯНИТЕ ВНИЗ ↓"
-        android:textColor="#999999"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.05"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewChats"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:clipToPadding="false"
-        android:paddingBottom="100dp"
+        android:paddingTop="32dp"
+        android:paddingBottom="120dp"
         android:overScrollMode="never"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -37,26 +23,34 @@
         tools:listitem="@layout/item_chat" />
 
     <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/glassToolbar"
-        android:layout_width="0dp"
-        android:layout_height="64dp"
-        android:background="#F2154B87"
-        android:elevation="48dp"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:paddingHorizontal="12dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        android:id="@+id/islandHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <View
+            android:id="@+id/islandBlurBackground"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:background="@drawable/bg_island_brand"
+            android:alpha="1"
+            android:outlineProvider="background"
+            android:clipToOutline="true"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/ivToolbarAvatar"
             android:layout_width="48dp"
             android:layout_height="48dp"
+            android:layout_margin="8dp"
             android:scaleType="centerCrop"
-            android:background="#E0E0E0"
+            android:background="@color/glass_white_10"
             android:src="@drawable/ic_person"
             app:shapeAppearanceOverlay="@style/Rounded15PercentImageView"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -66,11 +60,12 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
+            android:layout_marginEnd="8dp"
             android:hint="ПОИСК"
-            app:boxCornerRadiusTopStart="12dp"
-            app:boxCornerRadiusTopEnd="12dp"
-            app:boxCornerRadiusBottomStart="12dp"
-            app:boxCornerRadiusBottomEnd="12dp"
+            app:boxBackgroundColor="@android:color/transparent"
+            app:boxStrokeWidth="0dp"
+            app:boxStrokeWidthFocused="0dp"
+            app:hintTextColor="@color/glass_white_30"
             app:layout_constraintBottom_toBottomOf="@+id/ivToolbarAvatar"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toEndOf="@+id/ivToolbarAvatar"
@@ -83,37 +78,33 @@
                 android:inputType="textNoSuggestions"
                 android:maxLength="20"
                 android:maxLines="1"
-                android:paddingVertical="10dp" />
+                android:textColor="@color/white"
+                android:paddingVertical="10dp"
+                android:background="@android:color/transparent" />
         </com.google.android.material.textfield.TextInputLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <View
-        android:id="@+id/bottomFog"
-        android:layout_width="0dp"
-        android:layout_height="120dp"
-        android:background="@drawable/bg_bottom_fog"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnStartChat"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginBottom="16dp"
-        android:backgroundTint="#CC154B87"
-        app:strokeColor="#4DFFFFFF"
-        app:strokeWidth="1dp"
-        android:text="Начать общение"
-        app:elevation="0dp"
-        android:textColor="@color/white"
-        android:textSize="16sp"
+    <!-- Индикатор должен быть в самом низу XML и иметь высокую элевацию, чтобы быть поверх всего -->
+    <TextView
+        android:id="@+id/tvPullIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="↓ ПОТЯНИТЕ ВНИЗ ↓"
+        android:textColor="@color/prime_background_blue"
+        android:alpha="0"
+        android:textSize="13sp"
         android:textStyle="bold"
-        app:cornerRadius="12dp"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:letterSpacing="0.05"
+        android:background="@drawable/bg_glass_card"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="10dp"
+        android:translationY="-100dp"
+        android:scaleX="0.5"
+        android:scaleY="0.5"
+        android:elevation="100dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

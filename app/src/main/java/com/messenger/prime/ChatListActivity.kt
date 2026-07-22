@@ -108,34 +108,51 @@ class ChatListActivity : AppCompatActivity() {
                         isPulling = true
                     }
 
-                    if (isPulling && dy > 0) {
-                        // Эффект пружины для списка
-                        binding.recyclerViewChats.translationY = dy * 0.35f
+                    if (isPulling) {
+                        if (dy > 0) {
+                            // Эффект пружины для списка
+                            binding.recyclerViewChats.translationY = dy * 0.35f
 
-                        // Плавное проявление текста и легкий эффект параллакса (движение вниз)
-                        binding.tvPullIndicator.alpha = ((dy - 30f) / 150f).coerceIn(0f, 1f)
-                        binding.tvPullIndicator.translationY = dy * 0.15f
+                            // Прогресс оттягивания (0.0 до 1.0)
+                            val progress = (dy / PULL_THRESHOLD).coerceIn(0f, 1.2f)
 
-                        if (dy > PULL_THRESHOLD) {
-                            if (!isThresholdCrossed) {
-                                isThresholdCrossed = true
-                                // СРАЗУ открываем профиль
-                                binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                val intent = android.content.Intent(this, SettingsActivity::class.java)
-                                intent.flags = android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                                startActivity(intent)
-                                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                            // Анимация пузырька
+                            binding.tvPullIndicator.alpha = (progress * 2).coerceIn(0f, 1f)
+                            binding.tvPullIndicator.scaleX = 0.5f + (progress * 0.6f).coerceIn(0f, 0.7f)
+                            binding.tvPullIndicator.scaleY = 0.5f + (progress * 0.6f).coerceIn(0f, 0.7f)
+                            
+                            // Вылет из верхней точки (район камеры)
+                            val startOffset = -100f * resources.displayMetrics.density
+                            val endOffset = 40f * resources.displayMetrics.density
+                            binding.tvPullIndicator.translationY = startOffset + (progress * (endOffset - startOffset))
 
-                                // Сбрасываем визуальное состояние, но НЕ isThresholdCrossed
-                                isPulling = false
-                                binding.recyclerViewChats.animate().translationY(0f).setDuration(300).start()
-                                binding.tvPullIndicator.animate().alpha(0f).translationY(0f).setDuration(200).start()
+                            if (dy > PULL_THRESHOLD) {
+                                if (!isThresholdCrossed) {
+                                    isThresholdCrossed = true
+                                    binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                    binding.tvPullIndicator.text = "ОТПУСТИТЕ ДЛЯ ПРОФИЛЯ"
+                                    
+                                    // Легкая пульсация при достижении порога
+                                    binding.tvPullIndicator.animate()
+                                        .scaleX(1.3f).scaleY(1.3f)
+                                        .setDuration(100)
+                                        .withEndAction {
+                                            binding.tvPullIndicator.animate().scaleX(1.1f).scaleY(1.1f).setDuration(100).start()
+                                        }.start()
+                                }
+                            } else {
+                                if (isThresholdCrossed) {
+                                    isThresholdCrossed = false
+                                    binding.tvPullIndicator.text = "ПОТЯНИТЕ ДЛЯ ПРОФИЛЯ"
+                                } else {
+                                    if (binding.tvPullIndicator.text != "ПОТЯНИТЕ ДЛЯ ПРОФИЛЯ") {
+                                        binding.tvPullIndicator.text = "ПОТЯНИТЕ ДЛЯ ПРОФИЛЯ"
+                                    }
+                                }
                             }
                         } else {
-                            // Меняем текст только если еще не перешли порог
-                            if (!isThresholdCrossed && binding.tvPullIndicator.text != "Потяните вниз для открытие профиля") {
-                                binding.tvPullIndicator.text = "Потяните вниз для открытие профиля"
-                            }
+                            // Если dy <= 0, значит пользователь свайпнул обратно вверх - отменяем действие
+                            cancelPullToProfile()
                         }
                     }
                 }
@@ -143,30 +160,55 @@ class ChatListActivity : AppCompatActivity() {
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (isPulling) {
                     val dy = event.y - startY
-                    isPulling = false
-
-                    // Плавный отскок списка и исчезновение текста
-                    binding.recyclerViewChats.animate()
-                        .translationY(0f)
-                        .setDuration(300)
-                        .start()
-
-                    binding.tvPullIndicator.animate()
-                        .alpha(0f)
-                        .translationY(0f)
-                        .setDuration(200)
-                        .start()
-
+                    
                     // Открытие настроек, если порог пройден
                     if (dy > PULL_THRESHOLD) {
+                        isPulling = false
                         binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                         startActivity(android.content.Intent(this, SettingsActivity::class.java))
                         overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                        
+                        // Сбрасываем визуально без анимации (так как мы уже уходим на другой экран)
+                        resetPullUiInstant()
+                    } else {
+                        cancelPullToProfile()
                     }
                 }
             }
         }
         return super.dispatchTouchEvent(event)
+    }
+
+    private fun cancelPullToProfile() {
+        isPulling = false
+        isThresholdCrossed = false
+
+        // Плавный отскок списка
+        binding.recyclerViewChats.animate()
+            .translationY(0f)
+            .setDuration(400)
+            .setInterpolator(android.view.animation.OvershootInterpolator())
+            .start()
+
+        // Текст эффектно улетает наверх
+        binding.tvPullIndicator.animate()
+            .alpha(0f)
+            .translationY(-150f * resources.displayMetrics.density) // Улетает выше для акцента
+            .scaleX(0.4f)
+            .scaleY(0.4f)
+            .setDuration(400)
+            .setInterpolator(android.view.animation.AnticipateInterpolator())
+            .start()
+    }
+
+    private fun resetPullUiInstant() {
+        isPulling = false
+        isThresholdCrossed = false
+        binding.recyclerViewChats.translationY = 0f
+        binding.tvPullIndicator.alpha = 0f
+        binding.tvPullIndicator.translationY = -150f * resources.displayMetrics.density
+        binding.tvPullIndicator.scaleX = 0.5f
+        binding.tvPullIndicator.scaleY = 0.5f
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -179,33 +221,35 @@ class ChatListActivity : AppCompatActivity() {
         // ==========================================
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
-        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
+        // Устанавливаем темные иконки статус-бара (для светлого фона)
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->
             val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
 
-            // Устанавливаем высоту тулбара = статус-бар + 64dp
-            val toolbarParams = binding.glassToolbar.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            toolbarParams.height = systemBarsInsets.top + (64 * resources.displayMetrics.density).toInt()
-            binding.glassToolbar.layoutParams = toolbarParams
+            // Островок теперь внизу, учитываем отступ навигационной панели и клавиатуры
+            val islandParams = binding.islandHeader.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            val bottomMargin = if (imeInsets.bottom > 0) {
+                imeInsets.bottom + (16 * resources.displayMetrics.density).toInt()
+            } else {
+                systemBarsInsets.bottom + (16 * resources.displayMetrics.density).toInt()
+            }
+            islandParams.bottomMargin = bottomMargin
+            binding.islandHeader.layoutParams = islandParams
 
-            // Центрируем элементы в нижней 64dp части тулбара
-            val avatarParams = binding.ivToolbarAvatar.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            avatarParams.topMargin = systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt()
-            binding.ivToolbarAvatar.layoutParams = avatarParams
-
-            // Убираем белый отступ: список должен начинаться сразу под тулбаром
-            val toolbarHeight = toolbarParams.height
-            val topPadding = toolbarHeight - (10 * resources.displayMetrics.density).toInt()
-            binding.recyclerViewChats.setPadding(0, topPadding, 0, binding.recyclerViewChats.paddingBottom)
+            // Верхний отступ для списка (статус-бар)
+            val topPadding = systemBarsInsets.top + (16 * resources.displayMetrics.density).toInt()
+            // Нижний отступ для списка (островок + навигационная панель)
+            val bottomPadding = systemBarsInsets.bottom + (100 * resources.displayMetrics.density).toInt()
+            binding.recyclerViewChats.setPadding(0, topPadding, 0, bottomPadding)
 
             // Задаем базовый отступ тексту индикатора, чтобы он всегда был под тулбаром
             val layoutParams = binding.tvPullIndicator.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            layoutParams.topMargin = systemBarsInsets.top + (64 * resources.displayMetrics.density).toInt()
+            layoutParams.topMargin = (20 * resources.displayMetrics.density).toInt() // Небольшой отступ от самого верха
             binding.tvPullIndicator.layoutParams = layoutParams
 
-            view.setPadding(0, 0, 0, imeInsets.bottom)
+            // view.setPadding(0, 0, 0, imeInsets.bottom) // Это больше не нужно, так как островок сам подпрыгивает
             windowInsets
         }
 
@@ -224,6 +268,7 @@ class ChatListActivity : AppCompatActivity() {
 
         binding.ivToolbarAvatar.setOnClickListener {
             startActivity(android.content.Intent(this, SettingsActivity::class.java))
+            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         }
 
         // ==========================================
@@ -247,12 +292,20 @@ class ChatListActivity : AppCompatActivity() {
             ChatModel("15", "Вика", "Билеты на поезд до Анапы уже у тебя?", "04 Мая", null, OnlineStatus.OFFLINE, MessageStatus.NONE, 1, false)
         )
 
-        adapter = ChatAdapter(allChats)
+        adapter = ChatAdapter(allChats) {
+            // Клик по кнопке "Начать общение" в футере
+            PrimeNotification.show(this, "Поиск контактов...")
+        }
         binding.recyclerViewChats.layoutManager = LinearLayoutManager(this)
         binding.recyclerViewChats.adapter = adapter
 
         // ==========================================
-        // 4. ПОИСК ЧАТОВ
+        // 4. ГЛАССМОРФИЗМ (BLUR)
+        // ==========================================
+        binding.islandBlurBackground.applyGlassBlur(25f)
+
+        // ==========================================
+        // 5. ПОИСК ЧАТОВ
         // ==========================================
         binding.etSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}

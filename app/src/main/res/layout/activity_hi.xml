@@ -36,22 +36,19 @@
         android:layout_height="150dp"
         android:layout_marginTop="64dp"
         android:src="@drawable/prime_logo"
-        app:layout_constraintBottom_toTopOf="@+id/tvSlogan"
+        app:layout_constraintBottom_toTopOf="@+id/textSwitcherSlogan"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/btnExit"
         app:layout_constraintVertical_bias="0.4" />
 
-    <!-- Текст "Всегда будь в" -->
-    <com.google.android.material.textview.MaterialTextView
-        android:id="@+id/tvSlogan"
-        android:layout_width="wrap_content"
+    <!-- Динамический текст слогана -->
+    <TextSwitcher
+        android:id="@+id/textSwitcherSlogan"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        android:text="Всегда будь в"
-        android:textColor="@color/prime_button_teal"
-        android:textSize="20sp"
-        android:textStyle="bold"
+        android:layout_marginHorizontal="24dp"
         app:layout_constraintBottom_toTopOf="@+id/btnPrime"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />

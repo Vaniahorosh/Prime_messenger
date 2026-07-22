@@ -8,9 +8,7 @@
     android:layout_marginBottom="80dp"
     app:cardBackgroundColor="#D9154B87"
     app:cardCornerRadius="15dp"
-    app:cardElevation="8dp"
-    app:strokeColor="#33FFFFFF"
-    app:strokeWidth="1dp">
+    app:cardElevation="8dp">
 
     <TextView
         android:id="@+id/tvNotificationText"

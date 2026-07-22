@@ -1,20 +1,16 @@
 package com.messenger.prime
 
-import android.animation.ArgbEvaluator
 import android.content.Context
 import android.content.Intent
-import android.content.res.ColorStateList
 import android.graphics.Color
-import android.graphics.PointF
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
 import android.view.MotionEvent
-import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.messenger.prime.databinding.ActivitySettingsBinding
 import com.r0adkll.slidr.Slidr
@@ -28,18 +24,31 @@ class SettingsActivity : AppCompatActivity() {
     private var currentAvatarUri: String? = null
     private var activeDialogBinding: com.messenger.prime.databinding.DialogEditAccountBinding? = null
     private var activePhotoDialogBinding: com.messenger.prime.databinding.DialogPhotoActionsBinding? = null
-    
-    private var isFullScreenMode = false
-    private var fsStartX = 0f
-    private var fsStartY = 0f
-    private var isFsDismissing = false
 
-    // Переменные для зума и перетаскивания полноэкранного фото
-    private var photoScale = 1f
-    private var photoTranslateX = 0f
-    private var photoTranslateY = 0f
-    private lateinit var scaleDetector: ScaleGestureDetector
-    private lateinit var photoGestureDetector: android.view.GestureDetector
+    // Launcher для открытия PhotoViewActivity и получения результата (если фото изменили или удалили)
+    private val photoViewLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val data = result.data
+            if (data?.getBooleanExtra("DELETED", false) == true) {
+                // Фото удалено
+                currentAvatarUri = null
+                val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+                sharedPrefs.edit().remove("${currentUser}_avatar").apply()
+                applyAvatarState(null)
+            } else {
+                val newUri = data?.getStringExtra("NEW_URI")
+                if (newUri != null) {
+                    // Фото обновлено
+                    currentAvatarUri = newUri
+                    val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                    val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+                    sharedPrefs.edit().putString("${currentUser}_avatar", newUri).apply()
+                    applyAvatarState(newUri)
+                }
+            }
+        }
+    }
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
@@ -76,6 +85,11 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.tvUserNameFloating.text = savedName
         binding.tvUserNameStatic.text = savedName
+        
+        // Активируем "выделение" для работы бегущей строки (marquee)
+        binding.tvUserNameFloating.isSelected = true
+        binding.tvUserNameStatic.isSelected = true
+
         binding.etSettingsLogin.setText(currentUser)
         binding.etSettingsPassword.setText(savedPassword)
 
@@ -88,7 +102,6 @@ class SettingsActivity : AppCompatActivity() {
         }
         binding.btnBackWP.setOnClickListener(backAction)
         binding.btnBackNP.setOnClickListener(backAction)
-        binding.btnCloseFullPhoto.setOnClickListener { closeFullScreenMode() }
 
         val logoutAction = View.OnClickListener { showLogoutDialog() }
         binding.btnLogout.setOnClickListener(logoutAction)
@@ -125,117 +138,19 @@ class SettingsActivity : AppCompatActivity() {
             sharedPrefs.edit().putBoolean("settings_hide_search", isChecked).apply()
         }
 
-        initPhotoGestures()
         binding.ivProfilePhoto.setOnClickListener { showPhotoActionDialog() }
-        
-        binding.ivFullscreenPhoto.setOnTouchListener { _, event ->
-            if (!isFullScreenMode) return@setOnTouchListener false
-            scaleDetector.onTouchEvent(event)
-            photoGestureDetector.onTouchEvent(event)
-            if (scaleDetector.isInProgress) return@setOnTouchListener true
-
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    fsStartX = event.rawX
-                    fsStartY = event.rawY
-                    isFsDismissing = false
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (photoScale == 1f) {
-                        val dx = event.rawX - fsStartX
-                        val dy = event.rawY - fsStartY
-                        if (!isFsDismissing && (kotlin.math.abs(dx) > 20 || kotlin.math.abs(dy) > 20)) isFsDismissing = true
-                        if (isFsDismissing) {
-                            photoTranslateX = dx
-                            photoTranslateY = dy
-                            updateFullscreenPhotoTransform()
-                            val distance = kotlin.math.sqrt(dx*dx + dy*dy)
-                            val alpha = (1f - (distance / 600f)).coerceIn(0.2f, 1f)
-                            binding.viewDimmer.alpha = alpha
-                        }
-                    }
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (isFsDismissing) {
-                        val distance = kotlin.math.sqrt(photoTranslateX * photoTranslateX + photoTranslateY * photoTranslateY)
-                        if (distance > 150f) closeFullScreenMode()
-                        else {
-                            resetFullscreenPhotoTransform()
-                            binding.viewDimmer.animate().alpha(1f).setDuration(300).start()
-                        }
-                        isFsDismissing = false
-                    }
-                }
-            }
-            true
-        }
     }
 
     private fun applyAvatarState(avatarUri: String?) {
         if (avatarUri != null) {
             val uri = Uri.parse(avatarUri)
             binding.ivProfilePhoto.setImageURI(uri)
-            binding.ivFullscreenPhoto.setImageURI(uri)
             binding.layoutWithPhoto.visibility = View.VISIBLE
             binding.layoutNoPhoto.visibility = View.GONE
         } else {
             binding.layoutWithPhoto.visibility = View.GONE
             binding.layoutNoPhoto.visibility = View.VISIBLE
         }
-    }
-
-    private fun initPhotoGestures() {
-        scaleDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-            override fun onScale(detector: ScaleGestureDetector): Boolean {
-                photoScale *= detector.scaleFactor
-                photoScale = photoScale.coerceIn(1f, 5f)
-                updateFullscreenPhotoTransform()
-                return true
-            }
-        })
-
-        photoGestureDetector = android.view.GestureDetector(this, object : android.view.GestureDetector.SimpleOnGestureListener() {
-            override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
-                if (photoScale > 1f) {
-                    photoTranslateX -= distanceX
-                    photoTranslateY -= distanceY
-                    updateFullscreenPhotoTransform()
-                    return true
-                }
-                return false
-            }
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                if (photoScale > 1f) {
-                    photoScale = 1f
-                    photoTranslateX = 0f
-                    photoTranslateY = 0f
-                } else {
-                    photoScale = 2.5f
-                    photoTranslateX = 0f
-                    photoTranslateY = 0f
-                }
-                updateFullscreenPhotoTransform()
-                return true
-            }
-        })
-    }
-
-    private fun updateFullscreenPhotoTransform() {
-        binding.ivFullscreenPhoto.scaleX = photoScale
-        binding.ivFullscreenPhoto.scaleY = photoScale
-        binding.ivFullscreenPhoto.translationX = photoTranslateX
-        binding.ivFullscreenPhoto.translationY = photoTranslateY
-    }
-
-    private fun resetFullscreenPhotoTransform() {
-        photoScale = 1f
-        photoTranslateX = 0f
-        photoTranslateY = 0f
-        binding.ivFullscreenPhoto.animate()
-            .scaleX(1f).scaleY(1f)
-            .translationX(0f).translationY(0f)
-            .setDuration(300)
-            .start()
     }
 
     private fun showPhotoActionDialog() {
@@ -259,7 +174,18 @@ class SettingsActivity : AppCompatActivity() {
 
         dialogBinding.btnOpenPhoto.setOnClickListener {
             hidePhotoActionDialog(dialogBinding)
-            if (currentAvatarUri != null) openFullScreenMode()
+            if (currentAvatarUri != null) {
+                val intent = Intent(this, PhotoViewActivity::class.java)
+                intent.putExtra("EXTRA_URI", currentAvatarUri)
+                
+                // Передаем координаты для анимации
+                val rect = Rect()
+                binding.ivProfilePhoto.getGlobalVisibleRect(rect)
+                intent.putExtra("EXTRA_RECT", rect)
+                
+                photoViewLauncher.launch(intent)
+                overridePendingTransition(0, 0)
+            }
         }
 
         dialogBinding.btnChangePhoto.setOnClickListener {
@@ -359,6 +285,39 @@ class SettingsActivity : AppCompatActivity() {
         dialogBinding.btnSave.setOnClickListener {
             val newLogin = dialogBinding.etNewLogin.text.toString().trim()
             val newPass = dialogBinding.etNewPassword.text.toString()
+
+            var hasError = false
+            if (newLogin.isEmpty()) {
+                dialogBinding.inputLayoutLogin.error = "Логин не может быть пустым"
+                dialogBinding.inputLayoutLogin.shake()
+                hasError = true
+            } else {
+                dialogBinding.inputLayoutLogin.error = null
+            }
+
+            if (newPass.length < 8) {
+                dialogBinding.inputLayoutPassword.error = "Минимум 8 символов"
+                dialogBinding.inputLayoutPassword.shake()
+                hasError = true
+            } else {
+                dialogBinding.inputLayoutPassword.error = null
+            }
+
+            if (hasError) return@setOnClickListener
+
+            // Проверка на отсутствие изменений
+            if (newLogin == currentUser && newPass == currentPass) {
+                PrimeNotification.show(this@SettingsActivity, "Изменений не обнаружено")
+                return@setOnClickListener
+            }
+
+            // Проверка: занят ли новый логин другим пользователем
+            if (newLogin != currentUser && sharedPrefs.contains(newLogin)) {
+                dialogBinding.inputLayoutLogin.error = "Этот логин уже занят"
+                dialogBinding.inputLayoutLogin.shake()
+                return@setOnClickListener
+            }
+
             sharedPrefs.edit().apply {
                 if (newLogin != currentUser) {
                     val name = sharedPrefs.getString("${currentUser}_name", "Пользователь")
@@ -475,32 +434,5 @@ class SettingsActivity : AppCompatActivity() {
                 finishAffinity()
             }
             .setNegativeButton("Нет", null).show()
-    }
-
-    private fun openFullScreenMode() {
-        if (currentAvatarUri == null || isFullScreenMode) return
-        isFullScreenMode = true
-        
-        photoScale = 1f
-        photoTranslateX = 0f
-        photoTranslateY = 0f
-        updateFullscreenPhotoTransform()
-
-        binding.ivFullscreenPhoto.visibility = View.VISIBLE
-        binding.btnCloseFullPhoto.visibility = View.VISIBLE
-        binding.viewDimmer.visibility = View.VISIBLE
-        binding.viewDimmer.alpha = 1f
-        binding.root.setBackgroundColor(Color.BLACK)
-    }
-
-    private fun closeFullScreenMode() {
-        if (!isFullScreenMode) return
-        isFullScreenMode = false
-
-        binding.ivFullscreenPhoto.visibility = View.GONE
-        binding.btnCloseFullPhoto.visibility = View.GONE
-        binding.viewDimmer.visibility = View.GONE
-        binding.root.setBackgroundColor(Color.parseColor("#F7F8FA"))
-        resetFullscreenPhotoTransform()
     }
 }

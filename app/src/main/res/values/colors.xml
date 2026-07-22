@@ -8,4 +8,17 @@
     <color name="prime_background_blue">#154B87</color> <!-- Синий фон -->
     <color name="prime_button_teal">#3EB489</color> <!-- Бирюзовая кнопка -->
     <color name="prime_text_teal">#2BA67A</color> <!-- Текст над кнопкой (чуть темнее для читаемости) -->
+
+    <!-- Glassmorphism Colors -->
+    <color name="glass_white_10">#1AFFFFFF</color>
+    <color name="glass_white_20">#33FFFFFF</color>
+    <color name="glass_white_30">#4DFFFFFF</color>
+    <color name="glass_stroke">#80FFFFFF</color>
+    <color name="glass_stroke_thin">#33FFFFFF</color>
+    <color name="glass_bg_dark">#1A000000</color>
+
+    <!-- Gradients for background -->
+    <color name="grad_start">#154B87</color>
+    <color name="grad_center">#1A5EA8</color>
+    <color name="grad_end">#0D2F54</color>
 </resources>

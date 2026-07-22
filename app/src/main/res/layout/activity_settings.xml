@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F7F8FA"
+    android:background="@drawable/bg_main_gradient"
     tools:context=".SettingsActivity">
 
     <androidx.core.widget.NestedScrollView
@@ -15,16 +15,18 @@
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:paddingBottom="40dp">
 
-            <!-- Синий блок шапки -->
+            <!-- Шапка с эффектом стекла -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/headerStaticBlock"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/prime_background_blue"
+                android:background="@color/glass_white_20"
                 android:paddingBottom="24dp"
                 android:paddingTop="32dp"
+                android:elevation="4dp"
                 app:layout_constraintTop_toTopOf="parent">
 
                 <!-- 1. ВАРИАНТ: С ФОТОГРАФИЕЙ (двухколоночный) -->
@@ -48,10 +50,10 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnBackWP"
                             style="@style/Widget.MaterialComponents.Button.Icon"
-                            android:layout_width="64dp"
-                            android:layout_height="64dp"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
                             android:layout_marginBottom="2dp"
-                            android:backgroundTint="@color/white"
+                            android:backgroundTint="@color/glass_white_20"
                             android:padding="0dp"
                             android:insetLeft="0dp"
                             android:insetTop="0dp"
@@ -61,15 +63,15 @@
                             app:icon="@drawable/ic_arrow_back"
                             app:iconGravity="textStart"
                             app:iconPadding="0dp"
-                            app:iconSize="28dp"
-                            app:iconTint="@color/prime_background_blue"
-                            app:elevation="2dp" />
+                            app:iconSize="24dp"
+                            app:iconTint="@color/white" />
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="8dp"
                             android:text="Назад"
                             android:textColor="@color/white"
+                            android:alpha="0.8"
                             android:textSize="10sp"
                             android:textStyle="bold" />
 
@@ -77,10 +79,10 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnChangePhoto"
                             style="@style/Widget.MaterialComponents.Button.Icon"
-                            android:layout_width="64dp"
-                            android:layout_height="64dp"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
                             android:layout_marginBottom="2dp"
-                            android:backgroundTint="@color/white"
+                            android:backgroundTint="@color/glass_white_20"
                             android:padding="0dp"
                             android:insetLeft="0dp"
                             android:insetTop="0dp"
@@ -90,15 +92,15 @@
                             app:icon="@drawable/ic_add"
                             app:iconGravity="textStart"
                             app:iconPadding="0dp"
-                            app:iconSize="28dp"
-                            app:iconTint="@color/prime_background_blue"
-                            app:elevation="2dp" />
+                            app:iconSize="24dp"
+                            app:iconTint="@color/white" />
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="8dp"
                             android:text="Фото"
                             android:textColor="@color/white"
+                            android:alpha="0.8"
                             android:textSize="10sp"
                             android:textStyle="bold" />
 
@@ -106,10 +108,10 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnLogout"
                             style="@style/Widget.MaterialComponents.Button.Icon"
-                            android:layout_width="64dp"
-                            android:layout_height="64dp"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
                             android:layout_marginBottom="2dp"
-                            android:backgroundTint="@color/white"
+                            android:backgroundTint="@color/glass_white_20"
                             android:padding="0dp"
                             android:insetLeft="0dp"
                             android:insetTop="0dp"
@@ -119,9 +121,8 @@
                             app:icon="@drawable/ic_exit_to_app"
                             app:iconGravity="textStart"
                             app:iconPadding="0dp"
-                            app:iconSize="28dp"
-                            app:iconTint="#D32F2F"
-                            app:elevation="2dp" />
+                            app:iconSize="24dp"
+                            app:iconTint="#FF8A80" />
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
@@ -135,10 +136,10 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnExtraSettings"
                             style="@style/Widget.MaterialComponents.Button.Icon"
-                            android:layout_width="64dp"
-                            android:layout_height="64dp"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
                             android:layout_marginBottom="2dp"
-                            android:backgroundTint="@color/white"
+                            android:backgroundTint="@color/glass_white_20"
                             android:padding="0dp"
                             android:insetLeft="0dp"
                             android:insetTop="0dp"
@@ -148,14 +149,14 @@
                             app:icon="@drawable/ic_settings"
                             app:iconGravity="textStart"
                             app:iconPadding="0dp"
-                            app:iconSize="28dp"
-                            app:iconTint="@color/prime_background_blue"
-                            app:elevation="2dp" />
+                            app:iconSize="24dp"
+                            app:iconTint="@color/white" />
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Настройки"
                             android:textColor="@color/white"
+                            android:alpha="0.8"
                             android:textSize="10sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -165,7 +166,7 @@
                         android:layout_width="0dp"
                         android:layout_height="0dp"
                         android:layout_marginEnd="16dp"
-                        app:cardBackgroundColor="#8E8E93"
+                        app:cardBackgroundColor="@color/glass_white_10"
                         app:cardCornerRadius="24dp"
                         app:cardElevation="8dp"
                         app:layout_constraintBottom_toBottomOf="@+id/layoutLeftColumn"
@@ -190,32 +191,40 @@
                                 android:layout_height="80dp"
                                 android:layout_gravity="bottom"
                                 android:background="@drawable/bg_photo_shimmer" />
+
                             <LinearLayout
                                 android:id="@+id/floatingTitleContainer"
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_gravity="bottom|start"
+                                android:background="@color/glass_bg_dark"
                                 android:orientation="vertical"
                                 android:paddingHorizontal="12dp"
-                                android:paddingVertical="8dp"
-                                android:background="#99154B86">
+                                android:paddingVertical="8dp">
+
                                 <TextView
                                     android:id="@+id/tvUserNameFloating"
-                                    android:layout_width="wrap_content"
+                                    android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
+                                    android:ellipsize="marquee"
+                                    android:focusable="true"
+                                    android:focusableInTouchMode="true"
+                                    android:marqueeRepeatLimit="marquee_forever"
+                                    android:scrollHorizontally="true"
+                                    android:singleLine="true"
                                     android:textColor="@color/white"
                                     android:textSize="22sp"
                                     android:textStyle="bold"
-                                    android:singleLine="true"
                                     tools:text="дед" />
+
                                 <TextView
                                     android:id="@+id/tvStatusFloating"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
+                                    android:singleLine="true"
                                     android:text="в сети"
                                     android:textColor="#E6FFFFFF"
-                                    android:textSize="12sp"
-                                    android:singleLine="true" />
+                                    android:textSize="12sp" />
                             </LinearLayout>
                         </FrameLayout>
                     </androidx.cardview.widget.CardView>
@@ -235,11 +244,18 @@
 
                     <TextView
                         android:id="@+id/tvUserNameStatic"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textColor="@color/white"
                         android:textSize="26sp"
                         android:textStyle="bold"
+                        android:gravity="center"
+                        android:singleLine="true"
+                        android:ellipsize="marquee"
+                        android:marqueeRepeatLimit="marquee_forever"
+                        android:scrollHorizontally="true"
+                        android:focusable="true"
+                        android:focusableInTouchMode="true"
                         tools:text="дед" />
 
                     <TextView
@@ -268,9 +284,9 @@
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnBackNP"
                                 style="@style/Widget.MaterialComponents.Button.Icon"
-                                android:layout_width="64dp"
-                                android:layout_height="64dp"
-                                android:backgroundTint="@color/white"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
                                 android:padding="0dp"
                                 android:insetLeft="0dp"
                                 android:insetTop="0dp"
@@ -280,9 +296,8 @@
                                 app:icon="@drawable/ic_arrow_back"
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
-                                app:iconSize="28dp"
-                                app:iconTint="@color/prime_background_blue"
-                                app:elevation="2dp" />
+                                app:iconSize="24dp"
+                                app:iconTint="@color/white" />
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -303,9 +318,9 @@
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnChangePhotoNP"
                                 style="@style/Widget.MaterialComponents.Button.Icon"
-                                android:layout_width="64dp"
-                                android:layout_height="64dp"
-                                android:backgroundTint="@color/white"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
                                 android:padding="0dp"
                                 android:insetLeft="0dp"
                                 android:insetTop="0dp"
@@ -315,9 +330,8 @@
                                 app:icon="@drawable/ic_add"
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
-                                app:iconSize="28dp"
-                                app:iconTint="@color/prime_background_blue"
-                                app:elevation="2dp" />
+                                app:iconSize="24dp"
+                                app:iconTint="@color/white" />
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -338,9 +352,9 @@
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnLogoutNP"
                                 style="@style/Widget.MaterialComponents.Button.Icon"
-                                android:layout_width="64dp"
-                                android:layout_height="64dp"
-                                android:backgroundTint="@color/white"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
                                 android:padding="0dp"
                                 android:insetLeft="0dp"
                                 android:insetTop="0dp"
@@ -350,9 +364,8 @@
                                 app:icon="@drawable/ic_exit_to_app"
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
-                                app:iconSize="28dp"
-                                app:iconTint="#D32F2F"
-                                app:elevation="2dp" />
+                                app:iconSize="24dp"
+                                app:iconTint="#FF8A80" />
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -373,9 +386,9 @@
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnExtraSettingsNP"
                                 style="@style/Widget.MaterialComponents.Button.Icon"
-                                android:layout_width="64dp"
-                                android:layout_height="64dp"
-                                android:backgroundTint="@color/white"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
                                 android:padding="0dp"
                                 android:insetLeft="0dp"
                                 android:insetTop="0dp"
@@ -385,9 +398,8 @@
                                 app:icon="@drawable/ic_settings"
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
-                                app:iconSize="28dp"
-                                app:iconTint="@color/prime_background_blue"
-                                app:elevation="2dp" />
+                                app:iconSize="24dp"
+                                app:iconTint="@color/white" />
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -401,14 +413,16 @@
                 </LinearLayout>
             </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <!-- Поля ввода данных -->
+            <!-- Поля ввода данных в стеклянной карточке -->
             <LinearLayout
                 android:id="@+id/layoutAccountData"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
+                android:layout_marginHorizontal="24dp"
                 android:orientation="vertical"
-                android:paddingHorizontal="16dp"
+                android:padding="20dp"
+                android:background="@drawable/bg_glass_card"
                 app:layout_constraintTop_toBottomOf="@+id/headerStaticBlock">
 
                 <TextView
@@ -416,14 +430,18 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="8dp"
                     android:text="Логин"
-                    android:textColor="#154B86"
+                    android:textColor="@color/white"
+                    android:alpha="0.8"
                     android:textStyle="bold" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:boxBackgroundColor="@color/prime_background_blue"
+                    app:boxBackgroundColor="@color/glass_white_10"
+                    app:boxStrokeWidth="0dp"
+                    app:boxStrokeWidthFocused="1dp"
+                    app:boxStrokeColor="@color/white"
                     app:boxCornerRadiusTopStart="12dp"
                     app:boxCornerRadiusTopEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp"
@@ -447,14 +465,18 @@
                     android:layout_marginTop="16dp"
                     android:layout_marginBottom="8dp"
                     android:text="Пароль"
-                    android:textColor="#154B86"
+                    android:textColor="@color/white"
+                    android:alpha="0.8"
                     android:textStyle="bold" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:boxBackgroundColor="@color/prime_background_blue"
+                    app:boxBackgroundColor="@color/glass_white_10"
+                    app:boxStrokeWidth="0dp"
+                    app:boxStrokeWidthFocused="1dp"
+                    app:boxStrokeColor="@color/white"
                     app:boxCornerRadiusTopStart="12dp"
                     app:boxCornerRadiusTopEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp"
@@ -479,7 +501,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="32dp"
                 android:text="— Настройки —"
-                android:textColor="#154B86"
+                android:textColor="@color/white"
+                android:alpha="0.6"
                 android:textStyle="bold"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -490,44 +513,43 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
+                android:layout_marginHorizontal="24dp"
                 android:orientation="vertical"
-                android:paddingHorizontal="16dp"
+                android:padding="12dp"
+                android:background="@drawable/bg_glass_card"
                 app:layout_constraintTop_toBottomOf="@+id/tvSettingsTitle">
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchAnimations"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
                     android:paddingVertical="12dp"
                     android:text="Анимации в приложении"
-                    android:textColor="#333333"
+                    android:textColor="@color/white"
                     android:textSize="15sp"
                     app:thumbTint="@color/white"
-                    app:trackTint="@color/prime_background_blue"
+                    app:trackTint="@color/glass_white_30"
                     app:useMaterialThemeColors="true" />
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchBlocked"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
                     android:paddingVertical="12dp"
                     android:text="Показывать заблокированных"
-                    android:textColor="#333333"
+                    android:textColor="@color/white"
                     android:textSize="15sp"
                     app:thumbTint="@color/white"
-                    app:trackTint="@color/prime_background_blue"
+                    app:trackTint="@color/glass_white_30"
                     app:useMaterialThemeColors="true" />
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchSearch"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
                     android:paddingVertical="12dp"
                     android:text="Убрать строку поиска"
-                    android:textColor="#333333"
+                    android:textColor="@color/white"
                     android:textSize="15sp"
                     app:thumbTint="@color/white"
-                    app:trackTint="@color/prime_background_blue"
+                    app:trackTint="@color/glass_white_30"
                     app:useMaterialThemeColors="true" />
             </LinearLayout>
 
@@ -536,9 +558,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="32dp"
-                android:layout_marginBottom="24dp"
                 android:text="Prime v1.0.0"
-                android:textColor="#999999"
+                android:textColor="@color/white"
+                android:alpha="0.4"
                 android:textSize="12sp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
@@ -546,47 +568,6 @@
                 app:layout_constraintTop_toBottomOf="@+id/layoutSwitches" />
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
-
-    <!-- Затемнитель для полноэкранного режима -->
-    <View
-        android:id="@+id/viewDimmer"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@android:color/black"
-        android:alpha="0"
-        android:visibility="gone"
-        android:elevation="100dp" />
-
-    <ImageView
-        android:id="@+id/ivFullscreenPhoto"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="fitCenter"
-        android:visibility="gone"
-        android:elevation="110dp"
-        android:clickable="true"
-        android:focusable="true" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnCloseFullPhoto"
-        style="@style/Widget.MaterialComponents.Button.Icon"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_margin="16dp"
-        android:visibility="gone"
-        android:padding="0dp"
-        android:insetLeft="0dp"
-        android:insetTop="0dp"
-        android:insetRight="0dp"
-        android:insetBottom="0dp"
-        app:icon="@drawable/ic_arrow_back"
-        app:iconGravity="textStart"
-        app:iconPadding="0dp"
-        app:iconSize="24dp"
-        app:iconTint="@color/white"
-        app:backgroundTint="#80000000"
-        app:cornerRadius="20dp"
-        app:elevation="120dp" />
 
     <FrameLayout
         android:id="@+id/dialogContainer"
