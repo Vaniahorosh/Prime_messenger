@@ -1,5 +1,8 @@
 package com.messenger.prime
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.*
@@ -10,6 +13,7 @@ import android.provider.MediaStore
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.*
+import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
@@ -48,6 +52,8 @@ class PhotoEditorActivity : AppCompatActivity() {
     private var brushSize = 20f
     private var brushHardness = 1.0f
     private var currentBrushColor = Color.RED
+    private var currentToolIndex = -1
+    private var isOriginalLayoutDismissed = false
 
     // Матрицы для трансформации фото
     private val mainMatrix = Matrix()
@@ -62,6 +68,9 @@ class PhotoEditorActivity : AppCompatActivity() {
         private const val DRAG = 1
         private const val ZOOM = 2
         private const val PIPETTE = 3
+        
+        private const val MIN_ZOOM = 0.5f
+        private const val MAX_ZOOM = 5.0f
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,21 +90,13 @@ class PhotoEditorActivity : AppCompatActivity() {
         }
 
         setupTitleSwitcher()
-        setupAspectWheel()
+        setupAspectSelector()
 
         val uriString = intent.getStringExtra("EXTRA_IMAGE_URI")
         if (uriString != null) {
             val uri = Uri.parse(uriString)
             try {
-                originalBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    val source = ImageDecoder.createSource(contentResolver, uri)
-                    ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
-                        decoder.isMutableRequired = true
-                    }
-                } else {
-                    @Suppress("DEPRECATION")
-                    MediaStore.Images.Media.getBitmap(this.contentResolver, uri)
-                }
+                originalBitmap = loadOptimizedBitmap(uri)
                 binding.ivEditorPreview.setImageBitmap(originalBitmap)
                 binding.ivEditorPreview.post { centerImage() }
             } catch (e: Exception) {
@@ -130,81 +131,81 @@ class PhotoEditorActivity : AppCompatActivity() {
         binding.tsEditorTitle.setText("Редактор")
     }
 
-    private fun setupAspectWheel() {
-        val ratios = listOf("1:1", "4:3", "16:9", "Full")
-        val adapter = AspectAdapter(ratios)
-        binding.rvAspectRatios.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        binding.rvAspectRatios.adapter = adapter
+    private fun setupAspectSelector() {
+        val container = binding.aspectSelectorContainer
+        val drop = binding.aspectSelectionDrop
+        val labels = listOf(binding.tvRatio11, binding.tvRatio169, binding.tvRatio43, binding.tvRatioFull)
+
+        container.post {
+            val cellWidth = container.width / 4f
+            val dropParams = drop.layoutParams
+            dropParams.width = (cellWidth - 8).toInt() // Небольшой отступ
+            drop.layoutParams = dropParams
+            
+            // Изначально на 1:1 (индекс 0)
+            selectRatio(0, false)
+        }
+
+        container.setOnTouchListener { v, event ->
+            val x = event.x
+            val cellWidth = container.width / 4f
+            
+            when (event.action) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                    val halfDrop = drop.width / 2f
+                    val targetX = (x - halfDrop).coerceIn(4f, container.width.toFloat() - drop.width - 4f)
+                    drop.translationX = targetX
+                    
+                    val index = (x / cellWidth).toInt().coerceIn(0, 3)
+                    highlightLabel(index)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.performClick()
+                    val index = (x / cellWidth).toInt().coerceIn(0, 3)
+                    selectRatio(index, true)
+                }
+            }
+            true
+        }
+
+        labels.forEachIndexed { index, textView ->
+            textView.setOnClickListener {
+                selectRatio(index, true)
+            }
+        }
+    }
+
+    private fun selectRatio(index: Int, animate: Boolean) {
+        val container = binding.aspectSelectorContainer
+        val drop = binding.aspectSelectionDrop
+        val cellWidth = container.width / 4f
+        val targetX = index * cellWidth + (cellWidth - drop.width) / 2f
         
-        val snapHelper = LinearSnapHelper()
-        snapHelper.attachToRecyclerView(binding.rvAspectRatios)
+        if (animate) {
+            drop.animate()
+                .translationX(targetX)
+                .setDuration(200)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .start()
+        } else {
+            drop.translationX = targetX
+        }
+        
+        highlightLabel(index)
+        val ratios = listOf("1:1", "16:9", "4:3", "Full")
+        applyAspectRatio(ratios[index])
+        binding.root.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+    }
 
-        binding.rvAspectRatios.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            var lastCenterPos = -1
-            
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                val center = recyclerView.width / 2f
-                val d0 = 0f
-                val d1 = 0.6f * center
-                val s0 = 1.2f
-                val s1 = 0.8f
-                
-                for (i in 0 until recyclerView.childCount) {
-                    val child = recyclerView.getChildAt(i)
-                    val childCenter = (child.left + child.right) / 2f
-                    val d = Math.abs(center - childCenter)
-                    val scale = s0 + (s1 - s0) * (d - d0) / (d1 - d0)
-                    val finalScale = Math.max(s1, Math.min(s0, scale))
-                    child.scaleX = finalScale
-                    child.scaleY = finalScale
-                    child.alpha = 0.3f + (1f - 0.3f) * (finalScale - s1) / (s0 - s1)
-                }
-
-                // Реактивное переключение пропорций (усиленная стабильность)
-                val centerView = snapHelper.findSnapView(recyclerView.layoutManager)
-                if (centerView != null) {
-                    val pos = recyclerView.getChildAdapterPosition(centerView)
-                    if (pos != RecyclerView.NO_POSITION) {
-                        val actualPos = pos % ratios.size
-                        if (actualPos != lastCenterPos) {
-                            lastCenterPos = actualPos
-                            applyAspectRatio(ratios[actualPos])
-                            binding.root.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                        }
-                    }
-                }
-            }
-
-            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-                super.onScrollStateChanged(recyclerView, newState)
-                // Дополнительная фиксация при остановке
-                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                    val centerView = snapHelper.findSnapView(recyclerView.layoutManager)
-                    if (centerView != null) {
-                        val pos = recyclerView.getChildAdapterPosition(centerView)
-                        if (pos != RecyclerView.NO_POSITION) {
-                            val actualPos = pos % ratios.size
-                            if (actualPos != lastCenterPos) {
-                                lastCenterPos = actualPos
-                                applyAspectRatio(ratios[actualPos])
-                            }
-                        }
-                    }
-                }
-            }
-        })
-
-        binding.rvAspectRatios.post {
-            val itemWidth = (120 * resources.displayMetrics.density).toInt()
-            val padding = binding.rvAspectRatios.width / 2 - itemWidth / 2
-            binding.rvAspectRatios.setPadding(padding, 0, padding, 0)
-            
-            // Идеальное центрирование начальной позиции
-            val mid = (Int.MAX_VALUE / 2)
-            val offset = mid % ratios.size
-            val startPos = mid - offset
-            (binding.rvAspectRatios.layoutManager as LinearLayoutManager)
-                .scrollToPositionWithOffset(startPos, padding)
+    private fun highlightLabel(index: Int) {
+        val labels = listOf(binding.tvRatio11, binding.tvRatio169, binding.tvRatio43, binding.tvRatioFull)
+        labels.forEachIndexed { i, textView ->
+            textView.alpha = if (i == index) 1.0f else 0.5f
+            textView.animate()
+                .scaleX(if (i == index) 1.1f else 1.0f)
+                .scaleY(if (i == index) 1.1f else 1.0f)
+                .setDuration(150)
+                .start()
         }
     }
 
@@ -236,7 +237,13 @@ class PhotoEditorActivity : AppCompatActivity() {
         binding.btnReset.setOnClickListener { resetAll() }
         binding.btnUndoTop.setOnClickListener { binding.drawingView.undo() }
         
-        binding.btnSetOriginal.setOnClickListener { setOriginalAndFinish() }
+        binding.btnSetOriginal.setOnClickListener { 
+            hideOriginalLayoutWithTimer { setOriginalAndFinish() }
+        }
+        binding.btnCloseOriginal.setOnClickListener {
+            isOriginalLayoutDismissed = true
+            hideOriginalLayoutWithTimer { }
+        }
 
         // Инструменты по группам
         binding.toolLight.setOnClickListener { toggleToolGroup(binding.layoutGroupLight, "Освещение") }
@@ -267,11 +274,35 @@ class PhotoEditorActivity : AppCompatActivity() {
         binding.sliderBrushSize.addOnChangeListener { _, value, _ -> 
             brushSize = value
             binding.drawingView.setBrushSize(brushSize)
+            updateBrushPreview(brushSize)
         }
+
+        binding.sliderBrushSize.addOnSliderTouchListener(object : com.google.android.material.slider.Slider.OnSliderTouchListener {
+            override fun onStartTrackingTouch(slider: com.google.android.material.slider.Slider) {
+                binding.brushPreview.visibility = View.VISIBLE
+                updateBrushPreview(brushSize)
+            }
+
+            override fun onStopTrackingTouch(slider: com.google.android.material.slider.Slider) {
+                binding.brushPreview.visibility = View.GONE
+            }
+        })
         binding.sliderBrushHardness.addOnChangeListener { _, value, _ -> 
             brushHardness = value
             binding.drawingView.setHardness(brushHardness)
+            updateBrushPreview(brushSize)
         }
+
+        binding.sliderBrushHardness.addOnSliderTouchListener(object : com.google.android.material.slider.Slider.OnSliderTouchListener {
+            override fun onStartTrackingTouch(slider: com.google.android.material.slider.Slider) {
+                binding.brushPreview.visibility = View.VISIBLE
+                updateBrushPreview(brushSize)
+            }
+
+            override fun onStopTrackingTouch(slider: com.google.android.material.slider.Slider) {
+                binding.brushPreview.visibility = View.GONE
+            }
+        })
         binding.tvColorPickerLink.setOnClickListener { showColorPicker() }
         binding.toggleBrushMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
@@ -284,7 +315,34 @@ class PhotoEditorActivity : AppCompatActivity() {
             updateTopActionVisibility()
         }
 
+        binding.drawingView.setOnDrawingStateListener { isDrawing ->
+            if (isDrawing) {
+                binding.groupSlidersContainer.animate().alpha(0f).setDuration(200).start()
+            } else {
+                binding.groupSlidersContainer.animate().alpha(1f).setDuration(200).start()
+            }
+        }
+
+        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                if (binding.groupSlidersContainer.visibility == View.VISIBLE) {
+                    // Имитируем нажатие на текущую активную кнопку инструмента для закрытия
+                    val activeId = when {
+                        binding.layoutGroupLight.visibility == View.VISIBLE -> R.id.toolLight
+                        binding.layoutGroupGeometry.visibility == View.VISIBLE -> R.id.toolGeometry
+                        binding.layoutGroupBrush.visibility == View.VISIBLE -> R.id.toolBrushGroup
+                        else -> -1
+                    }
+                    if (activeId != -1) {
+                        findViewById<View>(activeId).performClick()
+                    }
+                }
+                return true
+            }
+        })
+
         binding.ivEditorPreview.setOnTouchListener { v: View, event: MotionEvent ->
+            gestureDetector.onTouchEvent(event)
             if (mode == PIPETTE) {
                 if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_MOVE) {
                     sampleColor(event.x, event.y)
@@ -324,22 +382,103 @@ class PhotoEditorActivity : AppCompatActivity() {
 
     private fun toggleToolGroup(group: View, title: String) {
         val isCurrentlyVisible = group.visibility == View.VISIBLE
-        binding.layoutGroupLight.visibility = View.GONE
-        binding.layoutGroupGeometry.visibility = View.GONE
-        binding.layoutGroupBrush.visibility = View.GONE
-        
-        if (!isCurrentlyVisible) {
-            binding.groupSlidersContainer.visibility = View.VISIBLE
-            group.visibility = View.VISIBLE
-            binding.tsEditorTitle.setText(title)
-            binding.btnSetOriginal.visibility = View.GONE
-            binding.drawingView.visibility = if (group == binding.layoutGroupBrush) View.VISIBLE else View.GONE
-        } else {
-            binding.groupSlidersContainer.visibility = View.GONE
-            binding.tsEditorTitle.setText("Редактор")
-            binding.btnSetOriginal.visibility = View.VISIBLE
-            binding.drawingView.visibility = View.GONE
+        val newIndex = when (group.id) {
+            R.id.layoutGroupLight -> 0
+            R.id.layoutGroupGeometry -> 1
+            R.id.layoutGroupBrush -> 2
+            else -> -1
         }
+
+        if (isCurrentlyVisible) {
+            animateHideToolGroup {
+                group.visibility = View.GONE
+                binding.groupSlidersContainer.visibility = View.GONE
+                binding.tsEditorTitle.setText("Редактор")
+                showOriginalLayout()
+                binding.drawingView.visibility = View.GONE
+                currentToolIndex = -1
+            }
+        } else {
+            val activeGroup = when {
+                binding.layoutGroupLight.visibility == View.VISIBLE -> binding.layoutGroupLight
+                binding.layoutGroupGeometry.visibility == View.VISIBLE -> binding.layoutGroupGeometry
+                binding.layoutGroupBrush.visibility == View.VISIBLE -> binding.layoutGroupBrush
+                else -> null
+            }
+
+            if (activeGroup != null) {
+                val isForward = newIndex > currentToolIndex
+                animateHorizontalTransition(activeGroup, group, isForward)
+                binding.tsEditorTitle.setText(title)
+                binding.drawingView.visibility = if (group == binding.layoutGroupBrush) View.VISIBLE else View.GONE
+                currentToolIndex = newIndex
+            } else {
+                binding.layoutGroupLight.visibility = View.GONE
+                binding.layoutGroupGeometry.visibility = View.GONE
+                binding.layoutGroupBrush.visibility = View.GONE
+                
+                group.visibility = View.VISIBLE
+                binding.groupSlidersContainer.visibility = View.VISIBLE
+                binding.tsEditorTitle.setText(title)
+                binding.layoutSetOriginal.visibility = View.GONE
+                binding.drawingView.visibility = if (group == binding.layoutGroupBrush) View.VISIBLE else View.GONE
+                currentToolIndex = newIndex
+                animateShowToolGroup()
+            }
+        }
+    }
+
+    private fun animateHorizontalTransition(oldView: View, newView: View, isForward: Boolean) {
+        val screenWidth = binding.root.width.toFloat()
+        val outTranslation = if (isForward) -screenWidth else screenWidth
+        val inTranslation = if (isForward) screenWidth else -screenWidth
+
+        newView.translationX = inTranslation
+        newView.visibility = View.VISIBLE
+        newView.alpha = 0f
+
+        oldView.animate()
+            .translationX(outTranslation)
+            .alpha(0f)
+            .setDuration(300)
+            .withEndAction { 
+                oldView.visibility = View.GONE 
+                oldView.translationX = 0f
+                oldView.alpha = 1f
+            }
+            .start()
+
+        newView.animate()
+            .translationX(0f)
+            .alpha(1f)
+            .setDuration(300)
+            .start()
+    }
+
+    private fun animateShowToolGroup() {
+        binding.groupSlidersContainer.clearAnimation()
+        binding.groupSlidersContainer.alpha = 0f
+        binding.groupSlidersContainer.translationY = 100f
+        binding.groupSlidersContainer.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setDuration(300)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .start()
+    }
+
+    private fun animateHideToolGroup(onEnd: () -> Unit) {
+        binding.groupSlidersContainer.clearAnimation()
+        binding.groupSlidersContainer.animate()
+            .alpha(0f)
+            .translationY(100f)
+            .setDuration(250)
+            .setInterpolator(android.view.animation.AccelerateInterpolator())
+            .withEndAction {
+                onEnd()
+                binding.groupSlidersContainer.translationY = 0f
+            }
+            .start()
     }
 
     private fun updateTopActionVisibility() {
@@ -360,7 +499,7 @@ class PhotoEditorActivity : AppCompatActivity() {
         binding.drawingView.clear()
         binding.drawingView.visibility = View.GONE
         binding.groupSlidersContainer.visibility = View.GONE
-        binding.btnSetOriginal.visibility = View.VISIBLE
+        showOriginalLayout()
         binding.tsEditorTitle.setText("Редактор")
         updateTopActionVisibility()
     }
@@ -468,15 +607,29 @@ class PhotoEditorActivity : AppCompatActivity() {
                 } else if (mode == ZOOM) {
                     val newDist = spacing(event)
                     if (newDist > 10f) {
+                        val scaleFactor = newDist / oldDist
+                        
+                        // Получаем текущий масштаб
+                        val values = FloatArray(9)
+                        savedMatrix.getValues(values)
+                        val currentScale = values[Matrix.MSCALE_X]
+                        
+                        // Вычисляем итоговый масштаб и ограничиваем его
+                        var finalScaleFactor = scaleFactor
+                        if (currentScale * scaleFactor < MIN_ZOOM) {
+                            finalScaleFactor = MIN_ZOOM / currentScale
+                        } else if (currentScale * scaleFactor > MAX_ZOOM) {
+                            finalScaleFactor = MAX_ZOOM / currentScale
+                        }
+
                         mainMatrix.set(savedMatrix)
-                        val scale = newDist / oldDist
-                        mainMatrix.postScale(scale, scale, midPoint.x, midPoint.y)
+                        mainMatrix.postScale(finalScaleFactor, finalScaleFactor, midPoint.x, midPoint.y)
                         
                         // Синхронизация слайдера масштаба
-                        val values = FloatArray(9)
-                        mainMatrix.getValues(values)
-                        val currentScale = values[Matrix.MSCALE_X]
-                        binding.sliderScale.value = currentScale.coerceIn(0.5f, 3.0f)
+                        val finalValues = FloatArray(9)
+                        mainMatrix.getValues(finalValues)
+                        val updatedScale = finalValues[Matrix.MSCALE_X]
+                        binding.sliderScale.value = updatedScale.coerceIn(MIN_ZOOM, MAX_ZOOM)
                     }
                 }
                 updatePreview()
@@ -548,23 +701,98 @@ class PhotoEditorActivity : AppCompatActivity() {
         point.set(x / 2, y / 2)
     }
 
-    inner class AspectAdapter(private val ratios: List<String>) : 
-        RecyclerView.Adapter<AspectAdapter.ViewHolder>() {
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = ViewHolder(
-            LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_1, parent, false)
-        )
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val actualPos = position % ratios.size
-            (holder.itemView as TextView).apply {
-                text = ratios[actualPos]
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
-                textSize = 18f
-                setTypeface(null, Typeface.BOLD)
-                layoutParams = ViewGroup.LayoutParams((120 * resources.displayMetrics.density).toInt(), ViewGroup.LayoutParams.MATCH_PARENT)
+    private fun updateBrushPreview(size: Float) {
+        val density = resources.displayMetrics.density
+        val pixelSize = (size * density).toInt()
+        val params = binding.brushPreview.layoutParams
+        params.width = pixelSize
+        params.height = pixelSize
+        binding.brushPreview.layoutParams = params
+        
+        // Учитываем прозрачность кисти (жесткость)
+        binding.brushPreview.alpha = brushHardness
+        
+        // Цвет
+        binding.brushPreview.backgroundTintList = android.content.res.ColorStateList.valueOf(currentBrushColor)
+    }
+
+    private fun showOriginalLayout() {
+        if (isOriginalLayoutDismissed) return
+        if (binding.layoutSetOriginal.visibility == View.VISIBLE && binding.layoutSetOriginal.alpha == 1f) return
+        
+        binding.layoutSetOriginal.visibility = View.VISIBLE
+        binding.layoutSetOriginal.alpha = 0f
+        binding.layoutSetOriginal.translationX = -400f // Начинаем чуть дальше для более живой анимации
+        binding.layoutSetOriginal.animate()
+            .alpha(1f)
+            .translationX(0f)
+            .setDuration(500)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+    }
+
+    private fun hideOriginalLayoutWithTimer(onEnd: () -> Unit) {
+        binding.pbCloseTimer.visibility = View.VISIBLE
+        binding.pbCloseTimer.progress = 1000
+        
+        val animator = ValueAnimator.ofInt(1000, 0).apply {
+            duration = 800L // Немного ускорим для отзывчивости
+            interpolator = android.view.animation.LinearInterpolator()
+            addUpdateListener { valueAnimator ->
+                binding.pbCloseTimer.progress = valueAnimator.animatedValue as Int
             }
         }
-        override fun getItemCount() = Int.MAX_VALUE
-        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view)
+        
+        animator.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                binding.layoutSetOriginal.animate()
+                    .alpha(0f)
+                    .translationX(400f) // Улетает вправо при скрытии
+                    .setDuration(300)
+                    .withEndAction {
+                        binding.layoutSetOriginal.visibility = View.GONE
+                        binding.pbCloseTimer.visibility = View.INVISIBLE
+                        binding.layoutSetOriginal.translationX = 0f
+                        binding.layoutSetOriginal.alpha = 1f
+                        onEnd()
+                    }
+                    .start()
+            }
+        })
+        animator.start()
     }
+
+    private fun loadOptimizedBitmap(uri: Uri): Bitmap? {
+        val inputStream = contentResolver.openInputStream(uri) ?: return null
+        
+        // 1. Получаем размеры фото без загрузки в память
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeStream(inputStream, null, options)
+        inputStream.close()
+
+        // 2. Рассчитываем оптимальный масштаб под экран
+        val screenWidth = resources.displayMetrics.widthPixels
+        val screenHeight = resources.displayMetrics.heightPixels
+        var inSampleSize = 1
+        
+        if (options.outHeight > screenHeight || options.outWidth > screenWidth) {
+            val halfHeight = options.outHeight / 2
+            val halfWidth = options.outWidth / 2
+            while (halfHeight / inSampleSize >= screenHeight && halfWidth / inSampleSize >= screenWidth) {
+                inSampleSize *= 2
+            }
+        }
+
+        // 3. Загружаем отмасштабированный битмап
+        val finalOptions = BitmapFactory.Options().apply {
+            this.inSampleSize = inSampleSize
+            inMutable = true // Чтобы можно было редактировать
+        }
+        
+        val finalStream = contentResolver.openInputStream(uri)
+        val bitmap = BitmapFactory.decodeStream(finalStream, null, finalOptions)
+        finalStream?.close()
+        return bitmap
+    }
+
 }

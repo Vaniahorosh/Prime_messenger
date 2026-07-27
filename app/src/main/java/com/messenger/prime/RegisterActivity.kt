@@ -105,6 +105,22 @@ class RegisterActivity : AppCompatActivity() {
             onBackPressedDispatcher.onBackPressed()
         }
 
+        binding.etName.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                binding.inputLayoutName.error = null
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
+
+        binding.etPassword.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                binding.inputLayoutPassword.error = null
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
+
         binding.btnForward.setOnClickListener {
             val name = binding.etName.text.toString().trim()
             val password = binding.etPassword.text.toString()

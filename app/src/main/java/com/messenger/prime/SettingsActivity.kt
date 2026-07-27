@@ -309,6 +309,7 @@ class SettingsActivity : AppCompatActivity() {
                 val isChanged = newName != currentName && newName.isNotEmpty()
                 dialogBinding.btnSave.isEnabled = isChanged
                 dialogBinding.btnSave.alpha = if (isChanged) 1.0f else 0.5f
+                dialogBinding.inputLayoutName.error = null
             }
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
@@ -396,12 +397,30 @@ class SettingsActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 checkAccountChanges()
+                binding.inputLayoutLogin.error = null
+                binding.inputLayoutPassword.error = null
             }
             override fun afterTextChanged(s: android.text.Editable?) {}
         }
 
         binding.etSettingsLogin.addTextChangedListener(textWatcher)
         binding.etSettingsPassword.addTextChangedListener(textWatcher)
+
+        binding.etSettingsLogin.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_NEXT) {
+                binding.etSettingsPassword.requestFocus()
+                true
+            } else false
+        }
+
+        binding.etSettingsPassword.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                if (binding.btnSaveAccount.visibility == View.VISIBLE) {
+                    binding.btnSaveAccount.performClick()
+                }
+                true
+            } else false
+        }
 
 
         // Логика отмены изменений

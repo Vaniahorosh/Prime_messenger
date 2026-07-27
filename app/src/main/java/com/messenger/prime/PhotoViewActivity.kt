@@ -13,10 +13,14 @@ import android.view.View
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import androidx.activity.OnBackPressedCallback
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.messenger.prime.databinding.ActivityPhotoViewBinding
+import com.r0adkll.slidr.Slidr
+import com.r0adkll.slidr.model.SlidrConfig
+import com.r0adkll.slidr.model.SlidrPosition
 
 class PhotoViewActivity : AppCompatActivity() {
 
@@ -31,30 +35,6 @@ class PhotoViewActivity : AppCompatActivity() {
     private lateinit var scaleDetector: ScaleGestureDetector
     private lateinit var gestureDetector: android.view.GestureDetector
 
-    private val photoEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == RESULT_OK) {
-            val editedUriString = result.data?.getStringExtra("EDITED_IMAGE_URI")
-            if (editedUriString != null) {
-                currentUri = Uri.parse(editedUriString)
-                binding.ivFullPhoto.setImageURI(currentUri)
-                
-                val data = Intent()
-                data.putExtra("NEW_URI", currentUri.toString())
-                setResult(RESULT_OK, data)
-                PrimeNotification.show(this, "Фото обновлено")
-            }
-        }
-    }
-
-    private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let {
-            val intent = Intent(this, PhotoEditorActivity::class.java)
-            intent.putExtra("EXTRA_IMAGE_URI", it.toString())
-            photoEditorLauncher.launch(intent)
-            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityPhotoViewBinding.inflate(layoutInflater)
@@ -62,6 +42,17 @@ class PhotoViewActivity : AppCompatActivity() {
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.TRANSPARENT
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.topToolbar) { view, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars())
+            view.setPadding(view.paddingLeft, insets.top, view.paddingRight, view.paddingBottom)
+            windowInsets
+        }
+
+        val slidrConfig = SlidrConfig.Builder()
+            .position(SlidrPosition.LEFT)
+            .build()
+        Slidr.attach(this, slidrConfig)
 
         val uriString = intent.getStringExtra("EXTRA_URI")
         currentUri = uriString?.let { Uri.parse(it) }
@@ -75,7 +66,6 @@ class PhotoViewActivity : AppCompatActivity() {
 
         // Скрываем элементы управления для анимации появления
         binding.topToolbar.alpha = 0f
-        binding.sideActionsTray.alpha = 0f
         binding.viewBackgroundDim.alpha = 0f
 
         // Запуск анимации появления
@@ -91,17 +81,6 @@ class PhotoViewActivity : AppCompatActivity() {
     private fun setupListeners() {
         binding.btnBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         
-        binding.btnEditPhoto.setOnClickListener { pickImage.launch("image/*") }
-        
-        binding.btnDeletePhoto.setOnClickListener {
-            val data = Intent()
-            data.putExtra("DELETED", true)
-            setResult(RESULT_OK, data)
-            currentUri = null
-            binding.ivFullPhoto.setImageResource(R.drawable.ic_person)
-            startExitAnimation()
-        }
-
         binding.ivFullPhoto.setOnTouchListener { _, event ->
             if (isClosing) return@setOnTouchListener true
             scaleDetector.onTouchEvent(event)
@@ -139,7 +118,6 @@ class PhotoViewActivity : AppCompatActivity() {
         binding.viewBackgroundDim.animate().alpha(1f).setDuration(450).start()
         
         binding.topToolbar.animate().alpha(1f).translationY(0f).setDuration(300).setStartDelay(200).start()
-        binding.sideActionsTray.animate().alpha(1f).translationX(0f).setDuration(300).setStartDelay(300).start()
     }
 
     private fun startExitAnimation() {
@@ -149,7 +127,6 @@ class PhotoViewActivity : AppCompatActivity() {
         val rect = sourceRect ?: run { finish(); return }
         
         binding.topToolbar.animate().alpha(0f).translationY(-50f).setDuration(200).start()
-        binding.sideActionsTray.animate().alpha(0f).translationX(50f).setDuration(200).start()
 
         val screenWidth = resources.displayMetrics.widthPixels.toFloat()
         val targetScale = rect.width().toFloat() / screenWidth

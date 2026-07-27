@@ -21,6 +21,18 @@
         android:layout_height="match_parent"
         android:visibility="gone" />
 
+    <!-- Предпросмотр размера кисти -->
+    <View
+        android:id="@+id/brushPreview"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:background="@drawable/bg_brush_preview"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <!-- Маскировка -->
     <View
         android:id="@+id/maskTop"
@@ -129,7 +141,7 @@
                 android:text="Назад"
                 android:textColor="@color/white"
                 android:visibility="gone"
-                app:icon="@drawable/ic_undo"
+                app:icon="@drawable/ic_arrow_back"
                 app:iconTint="@color/white"
                 app:cornerRadius="20dp" />
 
@@ -148,28 +160,68 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Кнопка оригинала -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnSetOriginal"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+    <!-- Контейнер для кнопки оригинала и крестика -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutSetOriginal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        android:text="Поставить фото без редактирования"
-        android:textColor="@color/white"
-        app:cornerRadius="20dp"
-        app:strokeColor="@color/white"
-        app:strokeWidth="1dp"
         app:layout_constraintBottom_toTopOf="@+id/toolsLayout"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSetOriginal"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Поставить фото без редактирования"
+            android:textColor="@color/white"
+            app:cornerRadius="20dp"
+            app:strokeColor="@color/white"
+            app:strokeWidth="1dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <FrameLayout
+            android:id="@+id/layoutCloseTimer"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="4dp"
+            app:layout_constraintStart_toEndOf="@+id/btnSetOriginal"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <ProgressBar
+                android:id="@+id/pbCloseTimer"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:indeterminate="false"
+                android:max="1000"
+                android:progress="0"
+                android:progressDrawable="@drawable/bg_notification_timer"
+                android:visibility="invisible" />
+
+            <ImageButton
+                android:id="@+id/btnCloseOriginal"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_cancel"
+                app:tint="@color/white" />
+        </FrameLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- Групповые ползунки (плавающие сверху) -->
-    <LinearLayout
+    <FrameLayout
         android:id="@+id/groupSlidersContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
         android:padding="16dp"
         android:background="#66000000"
         android:visibility="gone"
@@ -207,7 +259,7 @@
             android:visibility="gone">
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Масштаб" android:textColor="@color/white" android:textSize="12sp" />
-            <com.google.android.material.slider.Slider android:id="@+id/sliderScale" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0.5" android:valueTo="3.0" android:value="1.0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderScale" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0.5" android:valueTo="5.0" android:value="1.0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Поворот" android:textColor="@color/white" android:textSize="12sp" />
             <com.google.android.material.slider.Slider android:id="@+id/sliderRotate" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0" android:valueTo="360" android:value="0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
@@ -216,12 +268,33 @@
             <com.google.android.material.slider.Slider android:id="@+id/sliderPerspective" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="-0.5" android:valueTo="0.5" android:value="0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Пропорции" android:textColor="@color/white" android:textSize="12sp" />
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvAspectRatios"
+
+            <FrameLayout
+                android:id="@+id/aspectSelectorContainer"
                 android:layout_width="match_parent"
-                android:layout_height="64dp"
-                android:layout_marginTop="4dp"
-                android:clipToPadding="false" />
+                android:layout_height="56dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_aspect_selector"
+                android:padding="4dp">
+
+                <View
+                    android:id="@+id/aspectSelectionDrop"
+                    android:layout_width="80dp"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_aspect_drop" />
+
+                <LinearLayout
+                    android:id="@+id/aspectLabelsLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:weightSum="4">
+                    <TextView android:id="@+id/tvRatio11" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="1:1" android:textColor="@color/white" android:gravity="center" android:textStyle="bold" android:clickable="true" android:focusable="true" />
+                    <TextView android:id="@+id/tvRatio169" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="16:9" android:textColor="@color/white" android:gravity="center" android:textStyle="bold" android:clickable="true" android:focusable="true" />
+                    <TextView android:id="@+id/tvRatio43" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="4:3" android:textColor="@color/white" android:gravity="center" android:textStyle="bold" android:clickable="true" android:focusable="true" />
+                    <TextView android:id="@+id/tvRatioFull" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Full" android:textColor="@color/white" android:gravity="center" android:textStyle="bold" android:clickable="true" android:focusable="true" />
+                </LinearLayout>
+            </FrameLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnFlipToggle"
@@ -284,7 +357,7 @@
                     app:strokeColor="@color/white" />
             </com.google.android.material.button.MaterialButtonToggleGroup>
         </LinearLayout>
-    </LinearLayout>
+    </FrameLayout>
 
     <!-- Панель инструментов (горизонтальная) -->
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -310,9 +383,9 @@
                 android:paddingHorizontal="8dp"
                 android:gravity="center">
 
-                <ImageButton android:id="@+id/toolLight" style="@style/EditorToolButton" android:src="@drawable/ic_settings" app:tint="@color/white" />
-                <ImageButton android:id="@+id/toolGeometry" style="@style/EditorToolButton" android:src="@drawable/ic_rotate" app:tint="@color/white" />
-                <ImageButton android:id="@+id/toolBrushGroup" style="@style/EditorToolButton" android:src="@drawable/ic_brush" app:tint="@color/white" />
+                <ImageButton android:id="@+id/toolLight" style="@style/EditorToolButton" android:src="@drawable/sun_icon" app:tint="@color/white" />
+                <ImageButton android:id="@+id/toolGeometry" style="@style/EditorToolButton" android:src="@drawable/perspect_icon" app:tint="@color/white" />
+                <ImageButton android:id="@+id/toolBrushGroup" style="@style/EditorToolButton" android:src="@drawable/ic_pipette" app:tint="@color/white" />
 
             </LinearLayout>
         </HorizontalScrollView>

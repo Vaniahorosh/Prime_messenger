@@ -129,7 +129,6 @@ object PrimeNotification {
                 MotionEvent.ACTION_DOWN -> {
                     startX = event.rawX
                     startY = event.rawY
-                    timerAnimator.pause() // ставим на паузу при удержании
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -143,7 +142,6 @@ object PrimeNotification {
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (!isDragging) {
-                        timerAnimator.resume()
                         return@setOnTouchListener false
                     }
                     val dx = event.rawX - startX
@@ -158,7 +156,6 @@ object PrimeNotification {
                             .translationY(0f)
                             .alpha(1f)
                             .setDuration(200)
-                            .withEndAction { timerAnimator.resume() }
                             .start()
                     }
                     isDragging = false

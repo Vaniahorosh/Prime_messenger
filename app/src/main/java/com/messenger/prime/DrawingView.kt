@@ -11,11 +11,15 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
     private var drawPath: Path = Path()
     private var drawPaint: Paint = Paint()
     private var canvasBitmap: Bitmap? = null
+    private var drawCanvas: Canvas? = null
+    private var canvasPaint: Paint = Paint(Paint.DITHER_FLAG)
 
     private var paintColor = Color.RED
     private var brushSize = 20f
     private var hardness = 1.0f // 0.1 to 1.0
     private var isEraser = false
+
+    private var onDrawingStateListener: ((Boolean) -> Unit)? = null
 
     // История для Undo
     private val paths = mutableListOf<Path>()
@@ -52,12 +56,13 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
         super.onSizeChanged(w, h, oldw, oldh)
         if (w > 0 && h > 0) {
             canvasBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            drawCanvas = Canvas(canvasBitmap!!)
         }
     }
 
     override fun onDraw(canvas: Canvas) {
-        for (i in paths.indices) {
-            canvas.drawPath(paths[i], paints[i])
+        canvasBitmap?.let {
+            canvas.drawBitmap(it, 0f, 0f, canvasPaint)
         }
         canvas.drawPath(drawPath, drawPaint)
     }
@@ -69,16 +74,22 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 drawPath.moveTo(touchX, touchY)
+                onDrawingStateListener?.invoke(true)
             }
             MotionEvent.ACTION_MOVE -> {
                 drawPath.lineTo(touchX, touchY)
             }
             MotionEvent.ACTION_UP -> {
+                drawCanvas?.drawPath(drawPath, drawPaint)
                 paths.add(Path(drawPath))
                 paints.add(Paint(drawPaint))
                 drawPath.reset()
                 onUndoAvailableListener?.invoke(true)
+                onDrawingStateListener?.invoke(false)
                 performClick()
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                onDrawingStateListener?.invoke(false)
             }
             else -> return false
         }
@@ -95,8 +106,17 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
         if (paths.isNotEmpty()) {
             paths.removeAt(paths.size - 1)
             paints.removeAt(paints.size - 1)
+            redrawOnBitmap()
             invalidate()
             onUndoAvailableListener?.invoke(paths.isNotEmpty())
+        }
+    }
+
+    private fun redrawOnBitmap() {
+        if (canvasBitmap == null) return
+        canvasBitmap?.eraseColor(Color.TRANSPARENT)
+        for (i in paths.indices) {
+            drawCanvas?.drawPath(paths[i], paints[i])
         }
     }
 
@@ -134,6 +154,10 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
         onUndoAvailableListener = listener
     }
 
+    fun setOnDrawingStateListener(listener: (Boolean) -> Unit) {
+        onDrawingStateListener = listener
+    }
+
     fun getResultBitmap(): Bitmap? {
         val w = width
         val h = height
@@ -150,6 +174,7 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
         paths.clear()
         paints.clear()
         drawPath.reset()
+        canvasBitmap?.eraseColor(Color.TRANSPARENT)
         invalidate()
         onUndoAvailableListener?.invoke(false)
     }

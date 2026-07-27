@@ -80,31 +80,25 @@
                 android:maxLines="1"
                 android:textColor="@color/white"
                 android:paddingVertical="10dp"
+                android:paddingEnd="40dp"
                 android:background="@android:color/transparent" />
         </com.google.android.material.textfield.TextInputLayout>
 
+        <ImageButton
+            android:id="@+id/btnSearchClear"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_cancel"
+            android:visibility="invisible"
+            android:alpha="0"
+            app:tint="@color/white"
+            app:layout_constraintBottom_toBottomOf="@+id/inputLayoutSearch"
+            app:layout_constraintEnd_toEndOf="@+id/inputLayoutSearch"
+            app:layout_constraintTop_toTopOf="@+id/inputLayoutSearch" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- Индикатор должен быть в самом низу XML и иметь высокую элевацию, чтобы быть поверх всего -->
-    <TextView
-        android:id="@+id/tvPullIndicator"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="↓ ПОТЯНИТЕ ВНИЗ ↓"
-        android:textColor="@color/prime_background_blue"
-        android:alpha="0"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.05"
-        android:background="@drawable/bg_glass_card"
-        android:paddingHorizontal="20dp"
-        android:paddingVertical="10dp"
-        android:translationY="-100dp"
-        android:scaleX="0.5"
-        android:scaleY="0.5"
-        android:elevation="100dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

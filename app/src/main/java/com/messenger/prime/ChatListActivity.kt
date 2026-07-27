@@ -12,6 +12,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
+import android.view.View
 import android.view.inputmethod.InputMethodManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -36,6 +37,9 @@ class ChatListActivity : AppCompatActivity() {
     private var isPulling = false
     private var isThresholdCrossed = false
     private val PULL_THRESHOLD = 250f // Более отзывчивый порог
+
+    private var isIslandHidden = false
+    private var isTransitioning = false
 
     // Слушатель изменения состояния сети
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
@@ -93,14 +97,20 @@ class ChatListActivity : AppCompatActivity() {
             }
         }
 
-        // 2. Механика оттягивания списка (Pull-to-Profile)
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 startY = event.y
                 isPulling = false
                 isThresholdCrossed = false
+                isTransitioning = false
             }
             MotionEvent.ACTION_MOVE -> {
+                // Если мы уже в процессе перехода, ничего не делаем
+                if (isTransitioning) return true
+                
+                // Если активен поиск, блокируем жест оттягивания к профилю
+                if (adapter.isSearchActive) return super.dispatchTouchEvent(event)
+
                 if (!binding.recyclerViewChats.canScrollVertically(-1)) {
                     val dy = event.y - startY
 
@@ -113,41 +123,30 @@ class ChatListActivity : AppCompatActivity() {
                             // Эффект пружины для списка
                             binding.recyclerViewChats.translationY = dy * 0.35f
 
-                            // Прогресс оттягивания (0.0 до 1.0)
                             val progress = (dy / PULL_THRESHOLD).coerceIn(0f, 1.2f)
 
-                            // Анимация пузырька
-                            binding.tvPullIndicator.alpha = (progress * 2).coerceIn(0f, 1f)
-                            binding.tvPullIndicator.scaleX = 0.5f + (progress * 0.6f).coerceIn(0f, 0.7f)
-                            binding.tvPullIndicator.scaleY = 0.5f + (progress * 0.6f).coerceIn(0f, 0.7f)
-                            
-                            // Вылет из верхней точки (район камеры)
-                            val startOffset = -100f * resources.displayMetrics.density
-                            val endOffset = 40f * resources.displayMetrics.density
-                            binding.tvPullIndicator.translationY = startOffset + (progress * (endOffset - startOffset))
+                            // Масштабирование верхнего островка
+                            binding.recyclerViewChats.layoutManager?.findViewByPosition(0)?.let { headerView ->
+                                headerView.pivotY = 0f
+                                headerView.scaleX = 1f + (progress * 0.1f) // +10%
+                                headerView.scaleY = 1f + (progress * 0.2f) // +20%
+                            }
+
 
                             if (dy > PULL_THRESHOLD) {
                                 if (!isThresholdCrossed) {
                                     isThresholdCrossed = true
-                                    binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                    binding.tvPullIndicator.text = "ОТПУСТИТЕ ДЛЯ ПРОФИЛЯ"
+                                    isTransitioning = true // Блокируем повторные входы
                                     
-                                    // Легкая пульсация при достижении порога
-                                    binding.tvPullIndicator.animate()
-                                        .scaleX(1.3f).scaleY(1.3f)
-                                        .setDuration(100)
-                                        .withEndAction {
-                                            binding.tvPullIndicator.animate().scaleX(1.1f).scaleY(1.1f).setDuration(100).start()
-                                        }.start()
-                                }
-                            } else {
-                                if (isThresholdCrossed) {
-                                    isThresholdCrossed = false
-                                    binding.tvPullIndicator.text = "ПОТЯНИТЕ ДЛЯ ПРОФИЛЯ"
-                                } else {
-                                    if (binding.tvPullIndicator.text != "ПОТЯНИТЕ ДЛЯ ПРОФИЛЯ") {
-                                        binding.tvPullIndicator.text = "ПОТЯНИТЕ ДЛЯ ПРОФИЛЯ"
-                                    }
+                                    binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                    
+                                    // Мгновенный переход
+                                    startActivity(android.content.Intent(this, SettingsActivity::class.java))
+                                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                                    
+                                    // Сбрасываем визуально
+                                    resetPullUiInstant()
+                                    isPulling = false
                                 }
                             }
                         } else {
@@ -190,25 +189,24 @@ class ChatListActivity : AppCompatActivity() {
             .setInterpolator(android.view.animation.OvershootInterpolator())
             .start()
 
-        // Текст эффектно улетает наверх
-        binding.tvPullIndicator.animate()
-            .alpha(0f)
-            .translationY(-150f * resources.displayMetrics.density) // Улетает выше для акцента
-            .scaleX(0.4f)
-            .scaleY(0.4f)
-            .setDuration(400)
-            .setInterpolator(android.view.animation.AnticipateInterpolator())
-            .start()
+        // Сброс масштаба верхнего островка
+        binding.recyclerViewChats.layoutManager?.findViewByPosition(0)?.animate()
+            ?.scaleX(1f)?.scaleY(1f)
+            ?.setDuration(400)
+            ?.setInterpolator(android.view.animation.OvershootInterpolator())
+            ?.start()
+
+        // Текст больше не показываем
     }
 
     private fun resetPullUiInstant() {
         isPulling = false
         isThresholdCrossed = false
         binding.recyclerViewChats.translationY = 0f
-        binding.tvPullIndicator.alpha = 0f
-        binding.tvPullIndicator.translationY = -150f * resources.displayMetrics.density
-        binding.tvPullIndicator.scaleX = 0.5f
-        binding.tvPullIndicator.scaleY = 0.5f
+        binding.recyclerViewChats.layoutManager?.findViewByPosition(0)?.let {
+            it.scaleX = 1f
+            it.scaleY = 1f
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -244,10 +242,6 @@ class ChatListActivity : AppCompatActivity() {
             val bottomPadding = systemBarsInsets.bottom + (100 * resources.displayMetrics.density).toInt()
             binding.recyclerViewChats.setPadding(0, topPadding, 0, bottomPadding)
 
-            // Задаем базовый отступ тексту индикатора, чтобы он всегда был под тулбаром
-            val layoutParams = binding.tvPullIndicator.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            layoutParams.topMargin = (20 * resources.displayMetrics.density).toInt() // Небольшой отступ от самого верха
-            binding.tvPullIndicator.layoutParams = layoutParams
 
             // view.setPadding(0, 0, 0, imeInsets.bottom) // Это больше не нужно, так как островок сам подпрыгивает
             windowInsets
@@ -259,17 +253,6 @@ class ChatListActivity : AppCompatActivity() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
-
-        if (savedAvatarUri != null) {
-            binding.ivToolbarAvatar.setImageURI(Uri.parse(savedAvatarUri))
-        } else {
-            binding.ivToolbarAvatar.setImageResource(R.drawable.ic_person)
-        }
-
-        binding.ivToolbarAvatar.setOnClickListener {
-            startActivity(android.content.Intent(this, SettingsActivity::class.java))
-            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-        }
 
         // ==========================================
         // 3. СПИСОК ЧАТОВ
@@ -292,12 +275,73 @@ class ChatListActivity : AppCompatActivity() {
             ChatModel("15", "Вика", "Билеты на поезд до Анапы уже у тебя?", "04 Мая", null, OnlineStatus.OFFLINE, MessageStatus.NONE, 1, false)
         )
 
-        adapter = ChatAdapter(allChats) {
-            // Клик по кнопке "Начать общение" в футере
-            PrimeNotification.show(this, "Поиск контактов...")
-        }
+        adapter = ChatAdapter(
+            allChats,
+            savedAvatarUri,
+            onStartChatClick = {
+                PrimeNotification.show(this, "Поиск контактов...")
+            },
+            onAvatarClick = {
+                startActivity(android.content.Intent(this, SettingsActivity::class.java))
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+            },
+            onHeaderSearchClick = {
+                activateIslandSearch()
+            }
+        )
         binding.recyclerViewChats.layoutManager = LinearLayoutManager(this)
         binding.recyclerViewChats.adapter = adapter
+
+        binding.etSearch.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                animateShowSearchClear()
+            } else if (binding.etSearch.text.isNullOrEmpty()) {
+                animateHideSearchClear()
+            }
+        }
+
+        binding.btnSearchClear.setOnClickListener {
+            animateHideSearchClear()
+            binding.etSearch.text?.clear()
+            hideKeyboardAndClearFocus()
+        }
+
+        binding.recyclerViewChats.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                val firstVisiblePos = layoutManager.findFirstVisibleItemPosition()
+                
+                // Если поиск активен, островок должен быть всегда виден
+                if (adapter.isSearchActive) {
+                    showIsland()
+                    return
+                }
+
+                // Если первый элемент (хедер) виден, скрываем островок
+                if (firstVisiblePos == 0) {
+                    hideIsland()
+                } else {
+                    showIsland()
+                }
+            }
+        })
+
+        if (savedAvatarUri != null) {
+            binding.ivToolbarAvatar.setImageURI(Uri.parse(savedAvatarUri))
+        } else {
+            binding.ivToolbarAvatar.setImageResource(R.drawable.ic_person)
+        }
+
+        binding.ivToolbarAvatar.setOnClickListener {
+            startActivity(android.content.Intent(this, SettingsActivity::class.java))
+            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+        }
+
+        binding.ivToolbarAvatar.setOnLongClickListener {
+            binding.recyclerViewChats.smoothScrollToPosition(0)
+            it.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            true
+        }
 
         // ==========================================
         // 4. ГЛАССМОРФИЗМ (BLUR)
@@ -309,13 +353,26 @@ class ChatListActivity : AppCompatActivity() {
         // ==========================================
         binding.etSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                // Если ввели пробел в пустом поле - скрываем клавиатуру
+                if (s?.toString() == " ") {
+                    binding.etSearch.text?.clear()
+                    hideKeyboardAndClearFocus()
+                }
+            }
 
             override fun afterTextChanged(s: Editable?) {
                 val query = s.toString().trim().lowercase()
                 if (query.isEmpty()) {
                     adapter.updateList(allChats)
+                    adapter.setSearchActive(false)
+                    // Если мы в самом верху, при окончании поиска прячем островок
+                    if (!binding.recyclerViewChats.canScrollVertically(-1)) {
+                        hideIsland()
+                    }
                 } else {
+                    adapter.setSearchActive(true)
+                    showIsland()
                     val filteredChats = allChats.filter { chat ->
                         chat.name.lowercase().contains(query) || chat.lastMessage.lowercase().contains(query)
                     }
@@ -323,6 +380,17 @@ class ChatListActivity : AppCompatActivity() {
                 }
             }
         })
+
+        // Обработка удаления (Backspace) в пустом поле
+        binding.etSearch.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == android.view.KeyEvent.KEYCODE_DEL && event.action == android.view.KeyEvent.ACTION_DOWN) {
+                if (binding.etSearch.text.isNullOrEmpty()) {
+                    hideKeyboardAndClearFocus()
+                    return@setOnKeyListener true
+                }
+            }
+            false
+        }
 
         // ==========================================
         // 5. МОНИТОРИНГ СЕТИ
@@ -336,19 +404,134 @@ class ChatListActivity : AppCompatActivity() {
 
         val networkRequest = NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build()
         connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
+
+        // Показ одноразового совета
+        showScrollTopHintOnce(sharedPrefs)
+    }
+
+    private fun showScrollTopHintOnce(sharedPrefs: android.content.SharedPreferences) {
+        val hintShown = sharedPrefs.getBoolean("hint_scroll_top_shown", false)
+        if (!hintShown) {
+            PrimeNotification.show(this, "Зажмите, для подтягивание к верху экрана")
+            sharedPrefs.edit().putBoolean("hint_scroll_top_shown", true).apply()
+        }
     }
 
     override fun onResume() {
         super.onResume()
-        // Синхронизируем аватарку при возвращении на экран
+        // 1. Синхронизируем аватарку (могла измениться в настройках)
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
 
         if (savedAvatarUri != null) {
             binding.ivToolbarAvatar.setImageURI(Uri.parse(savedAvatarUri))
+            adapter.updateAvatar(savedAvatarUri)
         } else {
             binding.ivToolbarAvatar.setImageResource(R.drawable.ic_person)
+            adapter.updateAvatar(null)
+        }
+
+        // 2. Синхронизируем видимость островка в зависимости от позиции скролла
+        binding.recyclerViewChats.post {
+            val layoutManager = binding.recyclerViewChats.layoutManager as? LinearLayoutManager
+            if (layoutManager != null) {
+                val firstVisiblePos = layoutManager.findFirstVisibleItemPosition()
+                
+                // Если мы в самом верху и поиск не активен - прячем нижний островок
+                if (firstVisiblePos == 0 && !adapter.isSearchActive) {
+                    if (!isIslandHidden) {
+                        isIslandHidden = true
+                        binding.islandHeader.translationY = 300f
+                        binding.islandHeader.alpha = 0f
+                    }
+                } else {
+                    // Если прокручено ниже - показываем
+                    if (isIslandHidden) {
+                        isIslandHidden = false
+                        binding.islandHeader.translationY = 0f
+                        binding.islandHeader.alpha = 1f
+                    }
+                }
+            }
+        }
+
+        // 3. Сбрасываем флаги свайпа (на всякий случай)
+        isPulling = false
+        isThresholdCrossed = false
+    }
+
+    private fun showIsland() {
+        if (!isIslandHidden) return
+        isIslandHidden = false
+        binding.islandHeader.animate()
+            .translationY(0f)
+            .alpha(1f)
+            .setDuration(300)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .start()
+    }
+
+    private fun hideIsland() {
+        if (isIslandHidden) return
+        isIslandHidden = true
+        binding.islandHeader.animate()
+            .translationY(300f) // Уходит вниз
+            .alpha(0f)
+            .setDuration(300)
+            .setInterpolator(android.view.animation.AccelerateInterpolator())
+            .start()
+    }
+
+    private fun activateIslandSearch() {
+        adapter.setSearchActive(true) // Скрываем статичный хедер сразу
+        showIsland()
+        binding.etSearch.requestFocus()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.showSoftInput(binding.etSearch, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun animateShowSearchClear() {
+        if (binding.btnSearchClear.visibility == View.VISIBLE && binding.btnSearchClear.alpha == 1f) return
+        
+        binding.btnSearchClear.visibility = View.VISIBLE
+        binding.btnSearchClear.translationY = -50f * resources.displayMetrics.density
+        binding.btnSearchClear.alpha = 0f
+        binding.btnSearchClear.animate()
+            .translationY(0f)
+            .alpha(1f)
+            .setDuration(300)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .start()
+    }
+
+    private fun animateHideSearchClear() {
+        if (binding.btnSearchClear.visibility != View.VISIBLE) return
+        
+        binding.btnSearchClear.animate()
+            .translationY(50f * resources.displayMetrics.density)
+            .alpha(0f)
+            .setDuration(300)
+            .setInterpolator(android.view.animation.AccelerateInterpolator())
+            .withEndAction {
+                binding.btnSearchClear.visibility = View.INVISIBLE
+                binding.btnSearchClear.translationY = 0f
+            }
+            .start()
+    }
+
+    private fun hideKeyboardAndClearFocus() {
+        binding.etSearch.clearFocus()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(binding.etSearch.windowToken, 0)
+        
+        // Сбрасываем состояние если поле пустое
+        if (binding.etSearch.text.isNullOrEmpty()) {
+            adapter.setSearchActive(false)
+            if (!binding.recyclerViewChats.canScrollVertically(-1)) {
+                hideIsland()
+            }
+            animateHideSearchClear()
         }
     }
 
