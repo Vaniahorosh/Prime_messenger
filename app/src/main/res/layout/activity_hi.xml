@@ -53,25 +53,31 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
-    <!-- Кнопка "Прайме!" -->
-    <!-- app:cornerRadius делает её закругленной ("таблеткой") -->
-    <com.google.android.material.button.MaterialButton
+    <!-- Кнопка "Прайме!" (теперь CardView для анимации текста) -->
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/btnPrime"
         android:layout_width="0dp"
         android:layout_height="60dp"
         android:layout_marginStart="40dp"
         android:layout_marginEnd="40dp"
         android:layout_marginBottom="32dp"
-        android:backgroundTint="@color/prime_button_teal"
-        android:text="Прайме!"
-        android:textAllCaps="false"
-        android:textColor="@color/white"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        app:cornerRadius="15dp"
+        android:clickable="true"
+        android:focusable="true"
+        app:cardBackgroundColor="@color/prime_button_teal"
+        app:cardCornerRadius="15dp"
+        app:cardElevation="4dp"
+        app:rippleColor="@color/white"
         app:layout_constraintBottom_toTopOf="@+id/tvLicense"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent">
+
+        <TextSwitcher
+            android:id="@+id/textSwitcherButton"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingHorizontal="16dp" />
+
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- Лицензионное соглашение -->
     <com.google.android.material.textview.MaterialTextView

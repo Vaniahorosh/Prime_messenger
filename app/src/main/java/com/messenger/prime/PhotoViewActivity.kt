@@ -31,16 +31,27 @@ class PhotoViewActivity : AppCompatActivity() {
     private lateinit var scaleDetector: ScaleGestureDetector
     private lateinit var gestureDetector: android.view.GestureDetector
 
+    private val photoEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val editedUriString = result.data?.getStringExtra("EDITED_IMAGE_URI")
+            if (editedUriString != null) {
+                currentUri = Uri.parse(editedUriString)
+                binding.ivFullPhoto.setImageURI(currentUri)
+                
+                val data = Intent()
+                data.putExtra("NEW_URI", currentUri.toString())
+                setResult(RESULT_OK, data)
+                PrimeNotification.show(this, "Фото обновлено")
+            }
+        }
+    }
+
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
-            contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            currentUri = it
-            binding.ivFullPhoto.setImageURI(it)
-            
-            val data = Intent()
-            data.putExtra("NEW_URI", it.toString())
-            setResult(RESULT_OK, data)
-            PrimeNotification.show(this, "Фото обновлено")
+            val intent = Intent(this, PhotoEditorActivity::class.java)
+            intent.putExtra("EXTRA_IMAGE_URI", it.toString())
+            photoEditorLauncher.launch(intent)
+            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         }
     }
 
@@ -88,7 +99,6 @@ class PhotoViewActivity : AppCompatActivity() {
             setResult(RESULT_OK, data)
             currentUri = null
             binding.ivFullPhoto.setImageResource(R.drawable.ic_person)
-            PrimeNotification.show(this, "Фото удалено")
             startExitAnimation()
         }
 

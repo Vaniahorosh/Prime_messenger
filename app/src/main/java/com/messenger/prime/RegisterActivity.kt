@@ -28,15 +28,26 @@ class RegisterActivity : AppCompatActivity() {
     // Переменная для хранения ссылки на выбранное фото
     private var avatarUri: Uri? = null
 
-    // Инструмент для открытия галереи и получения результата
-    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        if (uri != null) {
-            // Магия: Сохраняем права на чтение этой картинки НАВСЕГДА
-            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    // Launcher для фоторедактора
+    private val photoEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val editedUriString = result.data?.getStringExtra("EDITED_IMAGE_URI")
+            if (editedUriString != null) {
+                avatarUri = Uri.parse(editedUriString)
+                binding.ivSelectedAvatar.setImageURI(avatarUri)
+                binding.tvAvatarHint.visibility = View.GONE
+                PrimeNotification.show(this, "Фото готово")
+            }
+        }
+    }
 
-            avatarUri = uri
-            binding.ivSelectedAvatar.setImageURI(uri)
-            binding.tvAvatarHint.visibility = View.GONE
+    // Инструмент для открытия галереи
+    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) {
+            val intent = Intent(this, PhotoEditorActivity::class.java)
+            intent.putExtra("EXTRA_IMAGE_URI", uri.toString())
+            photoEditorLauncher.launch(intent)
+            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         }
     }
 
@@ -80,7 +91,7 @@ class RegisterActivity : AppCompatActivity() {
 
         // Открываем галерею по клику на CardView
         binding.cvAvatar.setOnClickListener {
-            pickImageLauncher.launch(arrayOf("image/*"))
+            pickImageLauncher.launch("image/*")
         }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {

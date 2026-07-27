@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#121212"
+    tools:context=".PhotoEditorActivity">
+
+    <!-- Область предпросмотра -->
+    <ImageView
+        android:id="@+id/ivEditorPreview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="matrix" />
+
+    <!-- Слой для рисования -->
+    <com.messenger.prime.DrawingView
+        android:id="@+id/drawingView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+    <!-- Маскировка -->
+    <View
+        android:id="@+id/maskTop"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:background="#99000000"
+        android:clickable="false"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/cropFrame" />
+
+    <View
+        android:id="@+id/maskBottom"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:background="#99000000"
+        android:clickable="false"
+        app:layout_constraintTop_toBottomOf="@+id/cropFrame"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <View
+        android:id="@+id/maskLeft"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#99000000"
+        android:clickable="false"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/cropFrame"
+        app:layout_constraintTop_toBottomOf="@+id/maskTop"
+        app:layout_constraintBottom_toTopOf="@+id/maskBottom" />
+
+    <View
+        android:id="@+id/maskRight"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#99000000"
+        android:clickable="false"
+        app:layout_constraintStart_toEndOf="@+id/cropFrame"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/maskTop"
+        app:layout_constraintBottom_toTopOf="@+id/maskBottom" />
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cropFrame"
+        android:layout_width="300dp"
+        android:layout_height="300dp"
+        app:cardBackgroundColor="@android:color/transparent"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="0dp"
+        app:strokeColor="@color/white"
+        app:strokeWidth="2dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Верхняя панель -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="64dp">
+            <ImageButton
+                android:id="@+id/btnBack"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_arrow_back"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:tint="@color/white" />
+
+            <TextSwitcher
+                android:id="@+id/tsEditorTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:inAnimation="@anim/slide_in_top_alpha"
+                android:outAnimation="@anim/slide_out_bottom"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <LinearLayout
+            android:id="@+id/topActionsLayout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:alpha="0"
+            android:layout_marginBottom="8dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnUndoTop"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Назад"
+                android:textColor="@color/white"
+                android:visibility="gone"
+                app:icon="@drawable/ic_undo"
+                app:iconTint="@color/white"
+                app:cornerRadius="20dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnReset"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:text="Сброс"
+                android:textColor="@color/white"
+                android:visibility="gone"
+                app:cornerRadius="20dp"
+                app:strokeColor="@color/white"
+                app:strokeWidth="1dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Кнопка оригинала -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSetOriginal"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:text="Поставить фото без редактирования"
+        android:textColor="@color/white"
+        app:cornerRadius="20dp"
+        app:strokeColor="@color/white"
+        app:strokeWidth="1dp"
+        app:layout_constraintBottom_toTopOf="@+id/toolsLayout"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <!-- Групповые ползунки (плавающие сверху) -->
+    <LinearLayout
+        android:id="@+id/groupSlidersContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="#66000000"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/toolsLayout">
+
+        <!-- Группа 1: Свет -->
+        <LinearLayout
+            android:id="@+id/layoutGroupLight"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Яркость" android:textColor="@color/white" android:textSize="12sp" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderBrightness" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="-100" android:valueTo="100" android:value="0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Контраст" android:textColor="@color/white" android:textSize="12sp" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderContrast" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0.5" android:valueTo="2.0" android:value="1.0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Насыщенность" android:textColor="@color/white" android:textSize="12sp" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderSaturation" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0" android:valueTo="2.0" android:value="1.0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Температура" android:textColor="@color/white" android:textSize="12sp" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderTemperature" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="-50" android:valueTo="50" android:value="0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Оттенок" android:textColor="@color/white" android:textSize="12sp" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderTint" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="-50" android:valueTo="50" android:value="0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+        </LinearLayout>
+
+        <!-- Группа 2: Геометрия -->
+        <LinearLayout
+            android:id="@+id/layoutGroupGeometry"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Масштаб" android:textColor="@color/white" android:textSize="12sp" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderScale" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0.5" android:valueTo="3.0" android:value="1.0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Поворот" android:textColor="@color/white" android:textSize="12sp" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderRotate" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0" android:valueTo="360" android:value="0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Перспектива" android:textColor="@color/white" android:textSize="12sp" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderPerspective" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="-0.5" android:valueTo="0.5" android:value="0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Пропорции" android:textColor="@color/white" android:textSize="12sp" />
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvAspectRatios"
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:layout_marginTop="4dp"
+                android:clipToPadding="false" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnFlipToggle"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Отзеркаливание"
+                android:textColor="@color/white"
+                app:icon="@drawable/ic_flip"
+                app:iconTint="@color/white" />
+        </LinearLayout>
+
+        <!-- Группа 3: Кисть -->
+        <LinearLayout
+            android:id="@+id/layoutGroupBrush"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Размер" android:textColor="@color/white" android:textSize="12sp" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderBrushSize" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="5" android:valueTo="100" android:value="20" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Жесткость" android:textColor="@color/white" android:textSize="12sp" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderBrushHardness" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0.1" android:valueTo="1.0" android:value="1.0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+
+            <TextView
+                android:id="@+id/tvColorPickerLink"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="Выбор цвета"
+                android:textColor="@color/white"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/toggleBrushMode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="8dp"
+                app:singleSelection="true"
+                app:checkedButton="@+id/btnModeBrush">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnModeBrush"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Кисть"
+                    android:textColor="@color/white"
+                    app:strokeColor="@color/white" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnModeEraser"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Ластик"
+                    android:textColor="@color/white"
+                    app:strokeColor="@color/white" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Панель инструментов (горизонтальная) -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/toolsLayout"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:background="#88000000"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <HorizontalScrollView
+            android:id="@+id/toolsScroll"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:scrollbars="none"
+            android:fillViewport="true"
+            app:layout_constraintEnd_toStartOf="@+id/btnDone"
+            app:layout_constraintStart_toStartOf="parent">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:paddingHorizontal="8dp"
+                android:gravity="center">
+
+                <ImageButton android:id="@+id/toolLight" style="@style/EditorToolButton" android:src="@drawable/ic_settings" app:tint="@color/white" />
+                <ImageButton android:id="@+id/toolGeometry" style="@style/EditorToolButton" android:src="@drawable/ic_rotate" app:tint="@color/white" />
+                <ImageButton android:id="@+id/toolBrushGroup" style="@style/EditorToolButton" android:src="@drawable/ic_brush" app:tint="@color/white" />
+
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <ImageButton
+            android:id="@+id/btnDone"
+            android:layout_width="80dp"
+            android:layout_height="match_parent"
+            android:background="@color/white"
+            android:src="@drawable/ic_arrow_forward"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:tint="@color/prime_background_blue" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

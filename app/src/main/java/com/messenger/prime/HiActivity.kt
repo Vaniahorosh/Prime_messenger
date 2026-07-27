@@ -98,6 +98,7 @@ class HiActivity : AppCompatActivity() {
     }
 
     private fun setupTextSwitcher() {
+        // Фабрика для слогана
         binding.textSwitcherSlogan.setFactory {
             TextView(this).apply {
                 gravity = Gravity.CENTER
@@ -111,8 +112,29 @@ class HiActivity : AppCompatActivity() {
             }
         }
 
-        binding.textSwitcherSlogan.inAnimation = AnimationUtils.loadAnimation(this, R.anim.slide_up_in)
-        binding.textSwitcherSlogan.outAnimation = AnimationUtils.loadAnimation(this, R.anim.slide_up_out)
+        // Фабрика для текста внутри кнопки
+        binding.textSwitcherButton.setFactory {
+            TextView(this).apply {
+                gravity = Gravity.CENTER
+                textSize = 22f
+                setTextColor(Color.WHITE)
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+        }
+
+        // Устанавливаем анимации "переката" (сверху-вниз)
+        val inAnim = AnimationUtils.loadAnimation(this, R.anim.slide_in_top_alpha)
+        val outAnim = AnimationUtils.loadAnimation(this, R.anim.slide_out_bottom)
+
+        binding.textSwitcherSlogan.inAnimation = inAnim
+        binding.textSwitcherSlogan.outAnimation = outAnim
+        
+        binding.textSwitcherButton.inAnimation = inAnim
+        binding.textSwitcherButton.outAnimation = outAnim
     }
 
     private fun startDynamicSequence() {
@@ -126,18 +148,9 @@ class HiActivity : AppCompatActivity() {
                 currentDataIndex = nextIndex
                 val content = contents[currentDataIndex]
 
-                // Смена текста слогана с анимацией вылета
+                // Синхронная смена текста слогана и кнопки с анимацией "переката"
                 binding.textSwitcherSlogan.setText(content.slogan)
-
-                // Смена текста кнопки с плавным затуханием
-                binding.btnPrime.animate()
-                    .alpha(0f)
-                    .setDuration(400)
-                    .withEndAction {
-                        binding.btnPrime.text = content.button
-                        binding.btnPrime.animate().alpha(1f).setDuration(400).start()
-                    }
-                    .start()
+                binding.textSwitcherButton.setText(content.button)
 
                 handler.postDelayed(this, 3000)
             }

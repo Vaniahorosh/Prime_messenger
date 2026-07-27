@@ -58,4 +58,13 @@
     <style name="Widget.Prime.Button.Dialog.Negative" parent="Widget.MaterialComponents.Button.TextButton">
         <item name="android:textColor">#D32F2F</item>
     </style>
+
+    <style name="EditorToolButton">
+        <item name="android:layout_width">56dp</item>
+        <item name="android:layout_height">56dp</item>
+        <item name="android:layout_marginHorizontal">4dp</item>
+        <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:scaleType">fitCenter</item>
+    </style>
 </resources>
