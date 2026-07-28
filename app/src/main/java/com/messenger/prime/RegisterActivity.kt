@@ -130,6 +130,14 @@ class RegisterActivity : AppCompatActivity() {
                 binding.inputLayoutName.shake()
                 binding.btnForward.shake()
                 return@setOnClickListener
+            }
+
+            val error = ValidationUtils.getValidationError(name, false)
+            if (error != null) {
+                binding.inputLayoutName.error = error
+                binding.inputLayoutName.shake()
+                binding.btnForward.shake()
+                return@setOnClickListener
             } else {
                 binding.inputLayoutName.error = null
             }

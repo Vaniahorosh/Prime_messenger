@@ -53,6 +53,12 @@
             android:exported="false"
             android:theme="@style/Theme.Prime.Swipe" />
 
+        <activity
+            android:name=".BanActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Prime" />
+
     </application>
 
 </manifest>

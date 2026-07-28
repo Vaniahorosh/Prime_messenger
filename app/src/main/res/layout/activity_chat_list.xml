@@ -76,7 +76,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textNoSuggestions"
-                android:maxLength="20"
+                android:maxLength="196"
                 android:maxLines="1"
                 android:textColor="@color/white"
                 android:paddingVertical="10dp"

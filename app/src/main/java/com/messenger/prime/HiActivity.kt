@@ -53,7 +53,23 @@ class HiActivity : AppCompatActivity() {
         val isLoggedIn = sharedPreferences.getBoolean("is_logged_in", false)
 
         if (isLoggedIn) {
-            startActivity(Intent(this, ChatListActivity::class.java))
+            // Проверка активной блокировки
+            val banExpiry = sharedPreferences.getLong("ban_expiry", 0)
+            val isBanned = if (banExpiry == -1L) true else System.currentTimeMillis() < banExpiry
+            
+            if (isBanned) {
+                val intent = Intent(this, BanActivity::class.java).apply {
+                    val currentUser = sharedPreferences.getString("current_user", "") ?: ""
+                    val userName = sharedPreferences.getString("${currentUser}_name", "Пользователь")
+                    putExtra("EXTRA_USER_NAME", userName)
+                    putExtra("EXTRA_REASON", sharedPreferences.getString("ban_reason", "Нарушение"))
+                    putExtra("EXTRA_VALUE", sharedPreferences.getLong("ban_value", 0))
+                    putExtra("EXTRA_UNIT", sharedPreferences.getString("ban_unit", "S"))
+                }
+                startActivity(intent)
+            } else {
+                startActivity(Intent(this, ChatListActivity::class.java))
+            }
             finish()
             return
         }

@@ -26,7 +26,8 @@ class ChatAdapter(
     private val onStartChatClick: () -> Unit,
     private val onAvatarClick: () -> Unit,
     private val onHeaderSearchClick: () -> Unit,
-    private val onNameClick: () -> Unit
+    private val onNameClick: () -> Unit,
+    private val onChatClick: (ChatModel) -> Unit
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -146,11 +147,16 @@ class ChatAdapter(
                 binding.tvLastMessage.text = chat.lastMessage
                 binding.tvMessageTime.text = chat.time
 
-                if (chat.avatarUri != null) {
+                // Специальная обработка для тестового контакта
+                if (chat.id == "block_test_contact") {
+                    binding.ivUserAvatar.setImageResource(R.drawable.prime_logo)
+                } else if (chat.avatarUri != null) {
                     binding.ivUserAvatar.setImageURI(Uri.parse(chat.avatarUri))
                 } else {
                     binding.ivUserAvatar.setImageResource(R.drawable.ic_person)
                 }
+                
+                binding.root.setOnClickListener { onChatClick(chat) }
 
                 val onlineBadge = GradientDrawable().apply { shape = GradientDrawable.OVAL }
                 when (chat.onlineStatus) {

@@ -107,6 +107,14 @@ class LoginActivity : AppCompatActivity() {
                 binding.btnForward.shake()
                 return@setOnClickListener
             }
+
+            val error = ValidationUtils.getValidationError(login, true)
+            if (error != null) {
+                binding.inputLayoutLogin.error = error
+                binding.inputLayoutLogin.shake()
+                binding.btnForward.shake()
+                return@setOnClickListener
+            }
             binding.inputLayoutLogin.error = null
 
             if (!isPasswordState) {

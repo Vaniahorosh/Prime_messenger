@@ -326,6 +326,12 @@ class SettingsActivity : AppCompatActivity() {
         dialogBinding.btnBack.setOnClickListener { hideNameEditDialog(dialogBinding) }
         dialogBinding.btnSave.setOnClickListener {
             val newName = dialogBinding.etNewName.text.toString().trim()
+            val error = ValidationUtils.getValidationError(newName, false)
+            if (error != null) {
+                dialogBinding.inputLayoutName.error = error
+                dialogBinding.cardContainer.shake()
+                return@setOnClickListener
+            }
             val oldName = currentName // Запоминаем старое имя для отмены
             
             sharedPrefs.edit().putString("${currentUser}_name", newName).apply()
@@ -437,7 +443,14 @@ class SettingsActivity : AppCompatActivity() {
                 binding.inputLayoutLogin.shake()
                 hasError = true
             } else {
-                binding.inputLayoutLogin.error = null
+                val loginError = ValidationUtils.getValidationError(newLogin, true)
+                if (loginError != null) {
+                    binding.inputLayoutLogin.error = loginError
+                    binding.inputLayoutLogin.shake()
+                    hasError = true
+                } else {
+                    binding.inputLayoutLogin.error = null
+                }
             }
 
             if (newPass.length < 8) {

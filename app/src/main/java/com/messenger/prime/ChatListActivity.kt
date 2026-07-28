@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
+import android.content.Intent
 import android.graphics.Rect
 import android.net.ConnectivityManager
 import android.net.Network
@@ -19,6 +20,7 @@ import android.view.View
 import android.view.inputmethod.InputMethodManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.textfield.TextInputEditText
@@ -39,33 +41,26 @@ class ChatListActivity : AppCompatActivity() {
     private var startY = 0f
     private var isPulling = false
     private var isThresholdCrossed = false
-    private val PULL_THRESHOLD = 250f // Более отзывчивый порог
-
+    private val PULL_THRESHOLD = 250f
     private var isIslandHidden = false
     private var isTransitioning = false
 
-    // Слушатель изменения состояния сети
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             super.onAvailable(network)
             isNetworkConnected = true
-            runOnUiThread {
-                animateSearchHint("ПОИСК")
-            }
+            runOnUiThread { animateSearchHint("ПОИСК") }
         }
 
         override fun onLost(network: Network) {
             super.onLost(network)
             isNetworkConnected = false
-            runOnUiThread {
-                animateSearchHint("Ожидание сети...")
-            }
+            runOnUiThread { animateSearchHint("Ожидание сети...") }
         }
     }
 
     private fun animateSearchHint(newHint: String) {
         if (binding.inputLayoutSearch.hint == newHint) return
-        
         animateViewHint(binding.inputLayoutSearch, newHint)
         adapter.updateNetworkHint(newHint)
     }
@@ -87,11 +82,7 @@ class ChatListActivity : AppCompatActivity() {
             .start()
     }
 
-    // ==========================================
-    // ГЛОБАЛЬНЫЙ ПЕРЕХВАТ КАСАНИЙ
-    // ==========================================
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        // 1. Закрытие клавиатуры при клике мимо поля
         if (event.action == MotionEvent.ACTION_DOWN) {
             val v = currentFocus
             if (v is TextInputEditText) {
@@ -113,52 +104,36 @@ class ChatListActivity : AppCompatActivity() {
                 isTransitioning = false
             }
             MotionEvent.ACTION_MOVE -> {
-                // Если мы уже в процессе перехода, ничего не делаем
                 if (isTransitioning) return true
-                
-                // Если активен поиск, блокируем жест оттягивания к профилю
                 if (adapter.isSearchActive) return super.dispatchTouchEvent(event)
 
                 if (!binding.recyclerViewChats.canScrollVertically(-1)) {
                     val dy = event.y - startY
-
-                    if (dy > 30f && !isPulling) {
-                        isPulling = true
-                    }
+                    if (dy > 30f && !isPulling) isPulling = true
 
                     if (isPulling) {
                         if (dy > 0) {
-                            // Эффект пружины для списка
                             binding.recyclerViewChats.translationY = dy * 0.35f
-
                             val progress = (dy / PULL_THRESHOLD).coerceIn(0f, 1.2f)
 
-                            // Масштабирование верхнего островка
                             binding.recyclerViewChats.layoutManager?.findViewByPosition(0)?.let { headerView ->
                                 headerView.pivotY = 0f
-                                headerView.scaleX = 1f + (progress * 0.1f) // +10%
-                                headerView.scaleY = 1f + (progress * 0.2f) // +20%
+                                headerView.scaleX = 1f + (progress * 0.1f)
+                                headerView.scaleY = 1f + (progress * 0.2f)
                             }
 
-
-                            if (dy > PULL_THRESHOLD) {
-                                if (!isThresholdCrossed) {
-                                    isThresholdCrossed = true
-                                    isTransitioning = true // Блокируем повторные входы
-                                    
-                                    binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                    
-                                    // Мгновенный переход
-                                    startActivity(android.content.Intent(this, SettingsActivity::class.java))
-                                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-                                    
-                                    // Сбрасываем визуально
-                                    resetPullUiInstant()
-                                    isPulling = false
-                                }
+                            if (dy > PULL_THRESHOLD && !isThresholdCrossed) {
+                                isThresholdCrossed = true
+                                isTransitioning = true
+                                binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                
+                                startActivity(Intent(this, SettingsActivity::class.java))
+                                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                                
+                                resetPullUiInstant()
+                                isPulling = false
                             }
                         } else {
-                            // Если dy <= 0, значит пользователь свайпнул обратно вверх - отменяем действие
                             cancelPullToProfile()
                         }
                     }
@@ -167,15 +142,11 @@ class ChatListActivity : AppCompatActivity() {
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (isPulling) {
                     val dy = event.y - startY
-                    
-                    // Открытие настроек, если порог пройден
                     if (dy > PULL_THRESHOLD) {
                         isPulling = false
                         binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                        startActivity(android.content.Intent(this, SettingsActivity::class.java))
+                        startActivity(Intent(this, SettingsActivity::class.java))
                         overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-                        
-                        // Сбрасываем визуально без анимации (так как мы уже уходим на другой экран)
                         resetPullUiInstant()
                     } else {
                         cancelPullToProfile()
@@ -189,22 +160,12 @@ class ChatListActivity : AppCompatActivity() {
     private fun cancelPullToProfile() {
         isPulling = false
         isThresholdCrossed = false
+        binding.recyclerViewChats.animate().translationY(0f).setDuration(400)
+            .setInterpolator(android.view.animation.OvershootInterpolator()).start()
 
-        // Плавный отскок списка
-        binding.recyclerViewChats.animate()
-            .translationY(0f)
-            .setDuration(400)
-            .setInterpolator(android.view.animation.OvershootInterpolator())
-            .start()
-
-        // Сброс масштаба верхнего островка
         binding.recyclerViewChats.layoutManager?.findViewByPosition(0)?.animate()
-            ?.scaleX(1f)?.scaleY(1f)
-            ?.setDuration(400)
-            ?.setInterpolator(android.view.animation.OvershootInterpolator())
-            ?.start()
-
-        // Текст больше не показываем
+            ?.scaleX(1f)?.scaleY(1f)?.setDuration(400)
+            ?.setInterpolator(android.view.animation.OvershootInterpolator())?.start()
     }
 
     private fun resetPullUiInstant() {
@@ -222,50 +183,30 @@ class ChatListActivity : AppCompatActivity() {
         binding = ActivityChatListBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // ==========================================
-        // 1. СТАТУС-БАР И ОТСТУПЫ
-        // ==========================================
-        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
-        // Устанавливаем темные иконки статус-бара (для светлого фона)
-        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
 
-            // Островок теперь внизу, учитываем отступ навигационной панели и клавиатуры
             val islandParams = binding.islandHeader.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            val bottomMargin = if (imeInsets.bottom > 0) {
-                imeInsets.bottom + (16 * resources.displayMetrics.density).toInt()
-            } else {
-                systemBarsInsets.bottom + (16 * resources.displayMetrics.density).toInt()
-            }
-            islandParams.bottomMargin = bottomMargin
+            islandParams.bottomMargin = if (imeInsets.bottom > 0) imeInsets.bottom + (16 * resources.displayMetrics.density).toInt() 
+                                         else systemBarsInsets.bottom + (16 * resources.displayMetrics.density).toInt()
             binding.islandHeader.layoutParams = islandParams
 
-            // Верхний отступ для списка (статус-бар)
             val topPadding = systemBarsInsets.top + (16 * resources.displayMetrics.density).toInt()
-            // Нижний отступ для списка (островок + навигационная панель)
             val bottomPadding = systemBarsInsets.bottom + (100 * resources.displayMetrics.density).toInt()
             binding.recyclerViewChats.setPadding(0, topPadding, 0, bottomPadding)
-
-
-            // view.setPadding(0, 0, 0, imeInsets.bottom) // Это больше не нужно, так как островок сам подпрыгивает
             windowInsets
         }
 
-        // ==========================================
-        // 2. АВАТАРКА ПОЛЬЗОВАТЕЛЯ
-        // ==========================================
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
         val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
 
-        // ==========================================
-        // 3. СПИСОК ЧАТОВ
-        // ==========================================
         allChats = listOf(
             ChatModel("1", "Дмитрий", "Привет! Как успехи с приложением?", "14:23", null, OnlineStatus.ONLINE, MessageStatus.READ, 0, false),
             ChatModel("2", "Анна", "Скинула новые макеты на ревью", "12:05", null, OnlineStatus.OFFLINE, MessageStatus.SENT, 12, false),
@@ -285,32 +226,47 @@ class ChatListActivity : AppCompatActivity() {
         )
 
         adapter = ChatAdapter(
-            allChats,
-            savedAvatarUri,
-            savedName,
-            onStartChatClick = {
-                PrimeNotification.show(this, "Поиск контактов...")
-            },
-            onAvatarClick = {
-                startActivity(android.content.Intent(this, SettingsActivity::class.java))
+            allChats, savedAvatarUri, savedName,
+            onStartChatClick = { PrimeNotification.show(this, "Поиск контактов...") },
+            onAvatarClick = { 
+                startActivity(Intent(this, SettingsActivity::class.java))
                 overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             },
-            onHeaderSearchClick = {
-                activateIslandSearch()
-            },
-            onNameClick = {
-                showNameEditDialog()
+            onHeaderSearchClick = { activateIslandSearch() },
+            onNameClick = { showNameEditDialog() },
+            onChatClick = { chat ->
+                if (chat.id == "block_test_contact") {
+                    val parts = binding.etSearch.text.toString().split(" ")
+                    if (parts.size >= 4) {
+                        val reason = parts.subList(1, parts.size - 2).joinToString(" ")
+                        val value = parts[parts.size - 2].toLongOrNull() ?: 0
+                        val unit = parts[parts.size - 1]
+                        
+                        val expiry = if (value <= 0) -1L else System.currentTimeMillis() + calculateMillis(value, unit)
+                        sharedPrefs.edit().apply {
+                            putString("ban_reason", reason)
+                            putLong("ban_value", value)
+                            putString("ban_unit", unit)
+                            putLong("ban_expiry", expiry)
+                            apply()
+                        }
+
+                        val intent = Intent(this, BanActivity::class.java).apply {
+                            putExtra("EXTRA_USER_NAME", savedName)
+                            putExtra("EXTRA_REASON", reason)
+                            putExtra("EXTRA_VALUE", value)
+                            putExtra("EXTRA_UNIT", unit)
+                        }
+                        startActivity(intent)
+                    }
+                }
             }
         )
         binding.recyclerViewChats.layoutManager = LinearLayoutManager(this)
         binding.recyclerViewChats.adapter = adapter
 
         binding.etSearch.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                animateShowSearchClear()
-            } else if (binding.etSearch.text.isNullOrEmpty()) {
-                animateHideSearchClear()
-            }
+            if (hasFocus) animateShowSearchClear() else if (binding.etSearch.text.isNullOrEmpty()) animateHideSearchClear()
         }
 
         binding.btnSearchClear.setOnClickListener {
@@ -323,30 +279,16 @@ class ChatListActivity : AppCompatActivity() {
             override fun onScrolled(recyclerView: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
                 val layoutManager = recyclerView.layoutManager as LinearLayoutManager
                 val firstVisiblePos = layoutManager.findFirstVisibleItemPosition()
-                
-                // Если поиск активен, островок должен быть всегда виден
-                if (adapter.isSearchActive) {
-                    showIsland()
-                    return
-                }
-
-                // Если первый элемент (хедер) виден, скрываем островок
-                if (firstVisiblePos == 0) {
-                    hideIsland()
-                } else {
-                    showIsland()
-                }
+                if (adapter.isSearchActive) { showIsland(); return }
+                if (firstVisiblePos == 0) hideIsland() else showIsland()
             }
         })
 
-        if (savedAvatarUri != null) {
-            binding.ivToolbarAvatar.setImageURI(Uri.parse(savedAvatarUri))
-        } else {
-            binding.ivToolbarAvatar.setImageResource(R.drawable.ic_person)
-        }
+        if (savedAvatarUri != null) binding.ivToolbarAvatar.setImageURI(Uri.parse(savedAvatarUri))
+        else binding.ivToolbarAvatar.setImageResource(R.drawable.ic_person)
 
         binding.ivToolbarAvatar.setOnClickListener {
-            startActivity(android.content.Intent(this, SettingsActivity::class.java))
+            startActivity(Intent(this, SettingsActivity::class.java))
             overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         }
 
@@ -356,75 +298,68 @@ class ChatListActivity : AppCompatActivity() {
             true
         }
 
-        // ==========================================
-        // 4. ГЛАССМОРФИЗМ (BLUR)
-        // ==========================================
         binding.islandBlurBackground.applyGlassBlur(25f)
 
-        // ==========================================
-        // 5. ПОИСК ЧАТОВ
-        // ==========================================
         binding.etSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                // Если ввели пробел в пустом поле - скрываем клавиатуру
-                if (s?.toString() == " ") {
-                    binding.etSearch.text?.clear()
-                    hideKeyboardAndClearFocus()
-                }
+                if (s?.toString() == " ") { binding.etSearch.text?.clear(); hideKeyboardAndClearFocus() }
             }
 
             override fun afterTextChanged(s: Editable?) {
                 val query = s.toString().trim().lowercase()
+                if (query.startsWith("/blocktestme")) {
+                    adapter.setSearchActive(true)
+                    showIsland()
+                    val testContact = ChatModel("block_test_contact", "Тестирование активити блока", "Нажмите, чтобы протестировать", "сейчас", null, OnlineStatus.ONLINE)
+                    adapter.updateList(listOf(testContact))
+                    return
+                }
+
                 if (query.isEmpty()) {
                     adapter.updateList(allChats)
-                    adapter.setSearchActive(false)
-                    // Если мы в самом верху, при окончании поиска прячем островок
-                    if (!binding.recyclerViewChats.canScrollVertically(-1)) {
-                        hideIsland()
-                    }
+                    // Убрали автоматическое отключение режима поиска при пустом поле,
+                    // чтобы островок не пропадал пока пользователь печатает.
                 } else {
                     adapter.setSearchActive(true)
                     showIsland()
-                    val filteredChats = allChats.filter { chat ->
-                        chat.name.lowercase().contains(query) || chat.lastMessage.lowercase().contains(query)
-                    }
-                    adapter.updateList(filteredChats)
+                    val filtered = allChats.filter { it.name.lowercase().contains(query) || it.lastMessage.lowercase().contains(query) }
+                    adapter.updateList(filtered)
                 }
             }
         })
 
-        // Обработка удаления (Backspace) в пустом поле
         binding.etSearch.setOnKeyListener { _, keyCode, event ->
             if (keyCode == android.view.KeyEvent.KEYCODE_DEL && event.action == android.view.KeyEvent.ACTION_DOWN) {
-                if (binding.etSearch.text.isNullOrEmpty()) {
-                    hideKeyboardAndClearFocus()
-                    return@setOnKeyListener true
-                }
+                if (binding.etSearch.text.isNullOrEmpty()) { hideKeyboardAndClearFocus(); return@setOnKeyListener true }
             }
             false
         }
 
-        // ==========================================
-        // 5. МОНИТОРИНГ СЕТИ
-        // ==========================================
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val activeNetwork = connectivityManager.activeNetwork
-        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
-        isNetworkConnected = capabilities != null && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-
+        isNetworkConnected = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+            ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
         binding.inputLayoutSearch.hint = if (isNetworkConnected) "ПОИСК" else "Ожидание сети..."
+        connectivityManager.registerNetworkCallback(NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build(), networkCallback)
 
-        val networkRequest = NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build()
-        connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
-
-        // Показ одноразового совета
         showScrollTopHintOnce(sharedPrefs)
     }
 
+    private fun calculateMillis(value: Long, unit: String): Long {
+        val seconds = when (unit.uppercase()) {
+            "S", "SECOND" -> value
+            "M", "MIN", "MINUTE" -> value * 60
+            "H", "HOUR" -> value * 3600
+            "D", "DAYS" -> value * 86400
+            "MO", "MOUNTH" -> value * 2592000
+            "Y", "YEAR" -> value * 31536000
+            else -> value
+        }
+        return seconds * 1000
+    }
+
     private fun showScrollTopHintOnce(sharedPrefs: android.content.SharedPreferences) {
-        val hintShown = sharedPrefs.getBoolean("hint_scroll_top_shown", false)
-        if (!hintShown) {
+        if (!sharedPrefs.getBoolean("hint_scroll_top_shown", false)) {
             PrimeNotification.show(this, "Зажмите, для подтягивание к верху экрана")
             sharedPrefs.edit().putBoolean("hint_scroll_top_shown", true).apply()
         }
@@ -432,78 +367,46 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 1. Синхронизируем аватарку и имя (могли измениться в настройках)
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
-        val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
+        val avatar = sharedPrefs.getString("${currentUser}_avatar", null)
+        val name = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
 
-        if (savedAvatarUri != null) {
-            binding.ivToolbarAvatar.setImageURI(Uri.parse(savedAvatarUri))
-            adapter.updateAvatar(savedAvatarUri)
-        } else {
-            binding.ivToolbarAvatar.setImageResource(R.drawable.ic_person)
-            adapter.updateAvatar(null)
-        }
-        adapter.updateUserName(savedName)
+        if (avatar != null) binding.ivToolbarAvatar.setImageURI(Uri.parse(avatar)) else binding.ivToolbarAvatar.setImageResource(R.drawable.ic_person)
+        adapter.updateAvatar(avatar)
+        adapter.updateUserName(name)
 
-        // 2. Синхронизируем видимость островка в зависимости от позиции скролла
         binding.recyclerViewChats.post {
             val layoutManager = binding.recyclerViewChats.layoutManager as? LinearLayoutManager
             if (layoutManager != null) {
-                val firstVisiblePos = layoutManager.findFirstVisibleItemPosition()
-                
-                // Если мы в самом верху и поиск не активен - прячем нижний островок
-                if (firstVisiblePos == 0 && !adapter.isSearchActive) {
-                    if (!isIslandHidden) {
-                        isIslandHidden = true
-                        binding.islandHeader.translationY = 300f
-                        binding.islandHeader.alpha = 0f
-                    }
-                } else {
-                    // Если прокручено ниже - показываем
-                    if (isIslandHidden) {
-                        isIslandHidden = false
-                        binding.islandHeader.translationY = 0f
-                        binding.islandHeader.alpha = 1f
-                    }
+                val first = layoutManager.findFirstVisibleItemPosition()
+                if (first == 0 && !adapter.isSearchActive) {
+                    if (!isIslandHidden) { isIslandHidden = true; binding.islandHeader.translationY = 300f; binding.islandHeader.alpha = 0f }
+                } else if (isIslandHidden) {
+                    isIslandHidden = false; binding.islandHeader.translationY = 0f; binding.islandHeader.alpha = 1f
                 }
             }
         }
-
-        // 3. Сбрасываем флаги свайпа (на всякий случай)
-        isPulling = false
-        isThresholdCrossed = false
+        isPulling = false; isThresholdCrossed = false
     }
 
     private fun showIsland() {
         if (!isIslandHidden) return
         isIslandHidden = false
-        binding.islandHeader.animate()
-            .translationY(0f)
-            .alpha(1f)
-            .setDuration(300)
-            .setInterpolator(android.view.animation.DecelerateInterpolator())
-            .start()
+        binding.islandHeader.animate().translationY(0f).alpha(1f).setDuration(300).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
     }
 
     private fun hideIsland() {
         if (isIslandHidden) return
         isIslandHidden = true
-        binding.islandHeader.animate()
-            .translationY(300f) // Уходит вниз
-            .alpha(0f)
-            .setDuration(300)
-            .setInterpolator(android.view.animation.AccelerateInterpolator())
-            .start()
+        binding.islandHeader.animate().translationY(300f).alpha(0f).setDuration(300).setInterpolator(android.view.animation.AccelerateInterpolator()).start()
     }
 
     private fun activateIslandSearch() {
-        adapter.setSearchActive(true) // Скрываем статичный хедер сразу
+        adapter.setSearchActive(true)
         showIsland()
         binding.etSearch.requestFocus()
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.showSoftInput(binding.etSearch, InputMethodManager.SHOW_IMPLICIT)
+        (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(binding.etSearch, InputMethodManager.SHOW_IMPLICIT)
     }
 
     private fun showNameEditDialog() {
@@ -512,112 +415,74 @@ class ChatListActivity : AppCompatActivity() {
         binding.dialogContainer.addView(dialogBinding.root)
         binding.dialogContainer.visibility = View.VISIBLE
 
-        dialogBinding.cardContainer.scaleX = 0.8f
-        dialogBinding.cardContainer.scaleY = 0.8f
-        dialogBinding.cardContainer.alpha = 0f
-        dialogBinding.dialogRoot.alpha = 0f
-
+        dialogBinding.cardContainer.scaleX = 0.8f; dialogBinding.cardContainer.scaleY = 0.8f
+        dialogBinding.cardContainer.alpha = 0f; dialogBinding.dialogRoot.alpha = 0f
         dialogBinding.dialogRoot.animate().alpha(1f).setDuration(300).start()
-        dialogBinding.cardContainer.animate()
-            .scaleX(1f).scaleY(1f).alpha(1f)
-            .setDuration(400)
-            .setInterpolator(android.view.animation.DecelerateInterpolator())
-            .start()
+        dialogBinding.cardContainer.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(400).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         val currentName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
 
         dialogBinding.etNewName.setText(currentName)
-        
-        // Изначально кнопка сохранить выключена, т.к. имя еще не изменено
-        dialogBinding.btnSave.isEnabled = false
-        dialogBinding.btnSave.alpha = 0.5f
+        dialogBinding.btnSave.isEnabled = false; dialogBinding.btnSave.alpha = 0.5f
 
         dialogBinding.etNewName.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                val newName = s.toString().trim()
-                val isChanged = newName != currentName && newName.isNotEmpty()
-                dialogBinding.btnSave.isEnabled = isChanged
-                dialogBinding.btnSave.alpha = if (isChanged) 1.0f else 0.5f
+                val new = s.toString().trim()
+                val changed = new != currentName && new.isNotEmpty()
+                dialogBinding.btnSave.isEnabled = changed; dialogBinding.btnSave.alpha = if (changed) 1f else 0.5f
                 dialogBinding.inputLayoutName.error = null
             }
             override fun afterTextChanged(s: Editable?) {}
         })
 
         dialogBinding.btnSave.setOnClickListener {
-            val newName = dialogBinding.etNewName.text.toString().trim()
-            val oldName = currentName
-            
-            sharedPrefs.edit().putString("${currentUser}_name", newName).apply()
-            adapter.updateUserName(newName)
-            
+            val new = dialogBinding.etNewName.text.toString().trim()
+            sharedPrefs.edit().putString("${currentUser}_name", new).apply()
+            adapter.updateUserName(new)
             PrimeNotification.show(this, "Имя обновлено") {
-                sharedPrefs.edit().putString("${currentUser}_name", oldName).apply()
-                adapter.updateUserName(oldName)
+                sharedPrefs.edit().putString("${currentUser}_name", currentName).apply()
+                adapter.updateUserName(currentName)
             }
             hideNameEditDialog(dialogBinding)
         }
-
         dialogBinding.btnBack.setOnClickListener { hideNameEditDialog(dialogBinding) }
         dialogBinding.dialogRoot.setOnClickListener { hideNameEditDialog(dialogBinding) }
     }
 
     private fun hideNameEditDialog(dialogBinding: com.messenger.prime.databinding.DialogEditNameBinding) {
         dialogBinding.dialogRoot.animate().alpha(0f).setDuration(300).start()
-        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
-        dialogBinding.cardContainer.animate()
-            .translationX(screenWidth).alpha(0f)
-            .setDuration(350)
-            .setInterpolator(android.view.animation.DecelerateInterpolator())
-            .withEndAction {
-                binding.dialogContainer.visibility = View.GONE
-                binding.dialogContainer.removeAllViews()
-            }
-            .start()
+        dialogBinding.cardContainer.animate().translationX(resources.displayMetrics.widthPixels.toFloat()).alpha(0f).setDuration(350)
+            .setInterpolator(android.view.animation.DecelerateInterpolator()).withEndAction {
+                binding.dialogContainer.visibility = View.GONE; binding.dialogContainer.removeAllViews()
+            }.start()
     }
 
     private fun animateShowSearchClear() {
         if (binding.btnSearchClear.visibility == View.VISIBLE && binding.btnSearchClear.alpha == 1f) return
-        
         binding.btnSearchClear.visibility = View.VISIBLE
         binding.btnSearchClear.translationY = -50f * resources.displayMetrics.density
         binding.btnSearchClear.alpha = 0f
-        binding.btnSearchClear.animate()
-            .translationY(0f)
-            .alpha(1f)
-            .setDuration(300)
-            .setInterpolator(android.view.animation.DecelerateInterpolator())
-            .start()
+        binding.btnSearchClear.animate().translationY(0f).alpha(1f).setDuration(300).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
     }
 
     private fun animateHideSearchClear() {
         if (binding.btnSearchClear.visibility != View.VISIBLE) return
-        
-        binding.btnSearchClear.animate()
-            .translationY(50f * resources.displayMetrics.density)
-            .alpha(0f)
-            .setDuration(300)
-            .setInterpolator(android.view.animation.AccelerateInterpolator())
-            .withEndAction {
-                binding.btnSearchClear.visibility = View.INVISIBLE
-                binding.btnSearchClear.translationY = 0f
-            }
-            .start()
+        binding.btnSearchClear.animate().translationY(50f * resources.displayMetrics.density).alpha(0f).setDuration(300)
+            .setInterpolator(android.view.animation.AccelerateInterpolator()).withEndAction {
+                binding.btnSearchClear.visibility = View.INVISIBLE; binding.btnSearchClear.translationY = 0f
+            }.start()
     }
 
     private fun hideKeyboardAndClearFocus() {
         binding.etSearch.clearFocus()
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(binding.etSearch.windowToken, 0)
-        
-        // Сбрасываем состояние если поле пустое
         if (binding.etSearch.text.isNullOrEmpty()) {
             adapter.setSearchActive(false)
-            if (!binding.recyclerViewChats.canScrollVertically(-1)) {
-                hideIsland()
-            }
+            if (!binding.recyclerViewChats.canScrollVertically(-1)) hideIsland()
             animateHideSearchClear()
         }
     }
