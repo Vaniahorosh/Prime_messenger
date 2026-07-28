@@ -1,11 +1,16 @@
 package com.messenger.prime
 
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
@@ -16,9 +21,12 @@ import com.messenger.prime.databinding.ItemChatIslandHeaderBinding
 class ChatAdapter(
     private var chatList: List<ChatModel>,
     private var userAvatarUri: String? = null,
+    private var userName: String = "Пользователь",
+    private var currentNetworkHint: String = "Прайм",
     private val onStartChatClick: () -> Unit,
     private val onAvatarClick: () -> Unit,
-    private val onHeaderSearchClick: () -> Unit
+    private val onHeaderSearchClick: () -> Unit,
+    private val onNameClick: () -> Unit
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -32,7 +40,70 @@ class ChatAdapter(
 
     class ChatViewHolder(val binding: ItemChatBinding) : RecyclerView.ViewHolder(binding.root)
     class FooterViewHolder(val binding: ItemChatFooterBinding) : RecyclerView.ViewHolder(binding.root)
-    class HeaderViewHolder(val binding: ItemChatIslandHeaderBinding) : RecyclerView.ViewHolder(binding.root)
+    class HeaderViewHolder(val binding: ItemChatIslandHeaderBinding) : RecyclerView.ViewHolder(binding.root) {
+        private val handler = Handler(Looper.getMainLooper())
+        private var isShowingName = false
+        private val switchRunnable = object : Runnable {
+            override fun run() {
+                if (networkHint == "Прайм" || networkHint == "ПОИСК") {
+                    isShowingName = !isShowingName
+                    updateTitle()
+                }
+                handler.postDelayed(this, 5000)
+            }
+        }
+
+        private var currentUserName = ""
+        private var networkHint = "Прайм"
+
+        fun bind(avatarUri: String?, userName: String, netHint: String, onAvatarClick: () -> Unit, onSearchClick: () -> Unit, onNameClick: () -> Unit) {
+            currentUserName = userName
+            networkHint = netHint
+            
+            if (avatarUri != null) {
+                binding.ivHeaderAvatar.setImageURI(Uri.parse(avatarUri))
+            } else {
+                binding.ivHeaderAvatar.setImageResource(R.drawable.ic_person)
+            }
+            binding.ivHeaderAvatar.setOnClickListener { onAvatarClick() }
+            binding.btnHeaderSearch.setOnClickListener { onSearchClick() }
+            
+            if (binding.tsHeaderTitle.childCount == 0) {
+                binding.tsHeaderTitle.setFactory {
+                    TextView(binding.root.context).apply {
+                        gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                        setTextColor(Color.WHITE)
+                        textSize = 18f
+                        setTypeface(null, Typeface.BOLD)
+                        layoutParams = FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    }
+                }
+            }
+            
+            updateTitle()
+            binding.tsHeaderTitle.setOnClickListener { 
+                if (isShowingName) onNameClick() 
+            }
+
+            handler.removeCallbacks(switchRunnable)
+            handler.postDelayed(switchRunnable, 5000)
+        }
+
+        private fun updateTitle() {
+            if (networkHint != "Прайм" && networkHint != "ПОИСК") {
+                binding.tsHeaderTitle.setText(networkHint)
+            } else {
+                binding.tsHeaderTitle.setText(if (isShowingName) currentUserName else "Прайм")
+            }
+        }
+
+        fun stopAnimation() {
+            handler.removeCallbacks(switchRunnable)
+        }
+    }
 
     override fun getItemViewType(position: Int): Int {
         if (!isSearchActive && position == 0) return TYPE_HEADER
@@ -60,14 +131,7 @@ class ChatAdapter(
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         when (holder) {
             is HeaderViewHolder -> {
-                if (userAvatarUri != null) {
-                    holder.binding.ivHeaderAvatar.setImageURI(Uri.parse(userAvatarUri))
-                } else {
-                    holder.binding.ivHeaderAvatar.setImageResource(R.drawable.ic_person)
-                }
-                holder.binding.ivHeaderAvatar.setOnClickListener { onAvatarClick() }
-                holder.binding.etHeaderSearch.setOnClickListener { onHeaderSearchClick() }
-                holder.binding.inputLayoutHeaderSearch.setOnClickListener { onHeaderSearchClick() }
+                holder.bind(userAvatarUri, userName, currentNetworkHint, onAvatarClick, onHeaderSearchClick, onNameClick)
             }
             is FooterViewHolder -> {
                 holder.binding.btnStartChatFooter.setOnClickListener { onStartChatClick() }
@@ -143,6 +207,13 @@ class ChatAdapter(
         }
     }
 
+    override fun onViewDetachedFromWindow(holder: RecyclerView.ViewHolder) {
+        super.onViewDetachedFromWindow(holder)
+        if (holder is HeaderViewHolder) {
+            holder.stopAnimation()
+        }
+    }
+
     override fun getItemCount(): Int = if (isSearchActive) chatList.size + 1 else chatList.size + 2
 
     fun updateList(newList: List<ChatModel>) {
@@ -158,6 +229,16 @@ class ChatAdapter(
 
     fun updateAvatar(newUri: String?) {
         userAvatarUri = newUri
+        if (!isSearchActive) notifyItemChanged(0)
+    }
+
+    fun updateUserName(newName: String) {
+        userName = newName
+        if (!isSearchActive) notifyItemChanged(0)
+    }
+
+    fun updateNetworkHint(newHint: String) {
+        currentNetworkHint = newHint
         if (!isSearchActive) notifyItemChanged(0)
     }
 }

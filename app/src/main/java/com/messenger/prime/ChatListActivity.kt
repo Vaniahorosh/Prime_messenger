@@ -1,5 +1,8 @@
 package com.messenger.prime
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Rect
 import android.net.ConnectivityManager
@@ -62,15 +65,20 @@ class ChatListActivity : AppCompatActivity() {
 
     private fun animateSearchHint(newHint: String) {
         if (binding.inputLayoutSearch.hint == newHint) return
+        
+        animateViewHint(binding.inputLayoutSearch, newHint)
+        adapter.updateNetworkHint(newHint)
+    }
 
-        binding.inputLayoutSearch.animate()
+    private fun animateViewHint(view: com.google.android.material.textfield.TextInputLayout, newHint: String) {
+        view.animate()
             .alpha(0f)
             .translationY(-30f)
             .setDuration(150)
             .withEndAction {
-                binding.inputLayoutSearch.hint = newHint
-                binding.inputLayoutSearch.translationY = 30f
-                binding.inputLayoutSearch.animate()
+                view.hint = newHint
+                view.translationY = 30f
+                view.animate()
                     .alpha(1f)
                     .translationY(0f)
                     .setDuration(250)
@@ -253,6 +261,7 @@ class ChatListActivity : AppCompatActivity() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
+        val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
 
         // ==========================================
         // 3. СПИСОК ЧАТОВ
@@ -278,6 +287,7 @@ class ChatListActivity : AppCompatActivity() {
         adapter = ChatAdapter(
             allChats,
             savedAvatarUri,
+            savedName,
             onStartChatClick = {
                 PrimeNotification.show(this, "Поиск контактов...")
             },
@@ -287,6 +297,9 @@ class ChatListActivity : AppCompatActivity() {
             },
             onHeaderSearchClick = {
                 activateIslandSearch()
+            },
+            onNameClick = {
+                showNameEditDialog()
             }
         )
         binding.recyclerViewChats.layoutManager = LinearLayoutManager(this)
@@ -419,10 +432,11 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 1. Синхронизируем аватарку (могла измениться в настройках)
+        // 1. Синхронизируем аватарку и имя (могли измениться в настройках)
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
+        val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
 
         if (savedAvatarUri != null) {
             binding.ivToolbarAvatar.setImageURI(Uri.parse(savedAvatarUri))
@@ -431,6 +445,7 @@ class ChatListActivity : AppCompatActivity() {
             binding.ivToolbarAvatar.setImageResource(R.drawable.ic_person)
             adapter.updateAvatar(null)
         }
+        adapter.updateUserName(savedName)
 
         // 2. Синхронизируем видимость островка в зависимости от позиции скролла
         binding.recyclerViewChats.post {
@@ -489,6 +504,78 @@ class ChatListActivity : AppCompatActivity() {
         binding.etSearch.requestFocus()
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.showSoftInput(binding.etSearch, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun showNameEditDialog() {
+        val dialogBinding = com.messenger.prime.databinding.DialogEditNameBinding.inflate(layoutInflater)
+        binding.dialogContainer.removeAllViews()
+        binding.dialogContainer.addView(dialogBinding.root)
+        binding.dialogContainer.visibility = View.VISIBLE
+
+        dialogBinding.cardContainer.scaleX = 0.8f
+        dialogBinding.cardContainer.scaleY = 0.8f
+        dialogBinding.cardContainer.alpha = 0f
+        dialogBinding.dialogRoot.alpha = 0f
+
+        dialogBinding.dialogRoot.animate().alpha(1f).setDuration(300).start()
+        dialogBinding.cardContainer.animate()
+            .scaleX(1f).scaleY(1f).alpha(1f)
+            .setDuration(400)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .start()
+
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val currentName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
+
+        dialogBinding.etNewName.setText(currentName)
+        
+        // Изначально кнопка сохранить выключена, т.к. имя еще не изменено
+        dialogBinding.btnSave.isEnabled = false
+        dialogBinding.btnSave.alpha = 0.5f
+
+        dialogBinding.etNewName.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val newName = s.toString().trim()
+                val isChanged = newName != currentName && newName.isNotEmpty()
+                dialogBinding.btnSave.isEnabled = isChanged
+                dialogBinding.btnSave.alpha = if (isChanged) 1.0f else 0.5f
+                dialogBinding.inputLayoutName.error = null
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        dialogBinding.btnSave.setOnClickListener {
+            val newName = dialogBinding.etNewName.text.toString().trim()
+            val oldName = currentName
+            
+            sharedPrefs.edit().putString("${currentUser}_name", newName).apply()
+            adapter.updateUserName(newName)
+            
+            PrimeNotification.show(this, "Имя обновлено") {
+                sharedPrefs.edit().putString("${currentUser}_name", oldName).apply()
+                adapter.updateUserName(oldName)
+            }
+            hideNameEditDialog(dialogBinding)
+        }
+
+        dialogBinding.btnBack.setOnClickListener { hideNameEditDialog(dialogBinding) }
+        dialogBinding.dialogRoot.setOnClickListener { hideNameEditDialog(dialogBinding) }
+    }
+
+    private fun hideNameEditDialog(dialogBinding: com.messenger.prime.databinding.DialogEditNameBinding) {
+        dialogBinding.dialogRoot.animate().alpha(0f).setDuration(300).start()
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        dialogBinding.cardContainer.animate()
+            .translationX(screenWidth).alpha(0f)
+            .setDuration(350)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .withEndAction {
+                binding.dialogContainer.visibility = View.GONE
+                binding.dialogContainer.removeAllViews()
+            }
+            .start()
     }
 
     private fun animateShowSearchClear() {
