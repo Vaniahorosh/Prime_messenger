@@ -1,5 +1,8 @@
 package com.messenger.prime
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -10,13 +13,12 @@ import android.transition.ChangeBounds
 import android.transition.Fade
 import android.transition.TransitionManager
 import android.transition.TransitionSet
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
-import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.messenger.prime.databinding.ActivitySettingsBinding
@@ -28,15 +30,22 @@ class SettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
 
+    private var isHeaderExpanded = false
+    private var isHeaderMoving = false
+    private var isAnimating = false
+    private var pullStartY = 0f
+    private val PULL_THRESHOLD = 250f
+    private var currentAnimator: ValueAnimator? = null
+    private var isVibrated = false
+    private var isClosing = false
+
     private var currentAvatarUri: String? = null
     private var activeNameDialogBinding: com.messenger.prime.databinding.DialogEditNameBinding? = null
     private var activePhotoDialogBinding: com.messenger.prime.databinding.DialogPhotoActionsBinding? = null
 
-    // Текущие данные пользователя в базе (для отслеживания изменений)
     private var currentLoginInDB: String = ""
     private var currentPassInDB: String = ""
 
-    // Launcher для открытия PhotoViewActivity и получения результата (если фото изменили или удалили)
     private val photoViewLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
             val data = result.data
@@ -45,7 +54,6 @@ class SettingsActivity : AppCompatActivity() {
             } else {
                 val newUri = data?.getStringExtra("NEW_URI")
                 if (newUri != null) {
-                    // Фото обновлено
                     currentAvatarUri = newUri
                     val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                     val currentUser = sharedPrefs.getString("current_user", "") ?: ""
@@ -56,21 +64,16 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    // Launcher для фоторедактора
     private val photoEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
             val editedUriString = result.data?.getStringExtra("EDITED_IMAGE_URI")
             if (editedUriString != null) {
-                val editedUri = Uri.parse(editedUriString)
-                // Для файлов из кэша (Uri.fromFile) НЕЛЬЗЯ вызывать takePersistableUriPermission
-                currentAvatarUri = editedUri.toString()
-                
+                currentAvatarUri = editedUriString
                 val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                 val currentUser = sharedPrefs.getString("current_user", "") ?: ""
                 sharedPrefs.edit().putString("${currentUser}_avatar", currentAvatarUri).apply()
-                
                 applyAvatarState(currentAvatarUri)
-                PrimeNotification.show(this, "Фото обновлено")
+                PrimeNotification.show(this, "Фото готово")
             }
         }
     }
@@ -108,8 +111,6 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.tvUserNameFloating.text = savedName
         binding.tvUserNameStatic.text = savedName
-        
-        // Активируем "выделение" для работы бегущей строки (marquee)
         binding.tvUserNameFloating.isSelected = true
         binding.tvUserNameStatic.isSelected = true
 
@@ -118,7 +119,6 @@ class SettingsActivity : AppCompatActivity() {
 
         applyAvatarState(savedAvatarUri)
 
-        // Слушатели кнопок
         val backAction = View.OnClickListener {
             finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
@@ -126,22 +126,19 @@ class SettingsActivity : AppCompatActivity() {
         binding.btnBackWP.setOnClickListener(backAction)
         binding.btnBackNP.setOnClickListener(backAction)
 
-        val logoutAction = View.OnClickListener { showLogoutDialog() }
-        binding.btnLogout.setOnClickListener(logoutAction)
-        binding.btnLogoutNP.setOnClickListener(logoutAction)
+        binding.btnLogout.setOnClickListener { showLogoutDialog() }
+        binding.btnLogoutNP.setOnClickListener { showLogoutDialog() }
 
-        val photoAction = View.OnClickListener { pickImage.launch("image/*") }
-        binding.btnChangePhoto.setOnClickListener(photoAction)
-        binding.btnChangePhotoNP.setOnClickListener(photoAction)
+        binding.btnChangePhoto.setOnClickListener { pickImage.launch("image/*") }
+        binding.btnChangePhotoNP.setOnClickListener { pickImage.launch("image/*") }
 
-        val extraSettingsAction = View.OnClickListener {
-            val rect = android.graphics.Rect()
+        binding.btnExtraSettings.setOnClickListener {
+            val rect = Rect()
             binding.layoutSettingsTitle.getDrawingRect(rect)
             binding.nestedScrollView.offsetDescendantRectToMyCoords(binding.layoutSettingsTitle, rect)
             binding.nestedScrollView.smoothScrollTo(0, rect.top - (16 * resources.displayMetrics.density).toInt())
         }
-        binding.btnExtraSettings.setOnClickListener(extraSettingsAction)
-        binding.btnExtraSettingsNP.setOnClickListener(extraSettingsAction)
+        binding.btnExtraSettingsNP.setOnClickListener { binding.btnExtraSettings.performClick() }
 
         setupInlineAccountEditing()
 
@@ -163,19 +160,244 @@ class SettingsActivity : AppCompatActivity() {
             sharedPrefs.edit().putBoolean("settings_hide_search", isChecked).apply()
         }
 
-        binding.ivProfilePhoto.setOnClickListener { showPhotoActionDialog() }
+        binding.ivProfilePhoto.setOnClickListener { 
+            if (!isHeaderExpanded) showPhotoActionDialog() 
+            else openFullPhoto()
+        }
+        
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.headerStaticBlock) { view, windowInsets ->
+            val insets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            view.setPadding(0, insets.top, 0, 0)
+            windowInsets
+        }
+
+        setupHeaderExpansion()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        isClosing = false
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь")
+        val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
+        
+        currentAvatarUri = savedAvatarUri
+        binding.tvUserNameFloating.text = savedName
+        binding.tvUserNameStatic.text = savedName
+        applyAvatarState(savedAvatarUri)
     }
 
     private fun applyAvatarState(avatarUri: String?) {
         if (avatarUri != null) {
-            val uri = Uri.parse(avatarUri)
-            binding.ivProfilePhoto.setImageURI(uri)
+            binding.ivProfilePhoto.setImageURI(Uri.parse(avatarUri))
             binding.layoutWithPhoto.visibility = View.VISIBLE
             binding.layoutNoPhoto.visibility = View.GONE
         } else {
             binding.layoutWithPhoto.visibility = View.GONE
             binding.layoutNoPhoto.visibility = View.VISIBLE
         }
+    }
+
+    private fun setupHeaderExpansion() {
+        binding.nestedScrollView.setOnTouchListener { v, event ->
+            // Блокируем любые касания, если идет автоматическая анимация
+            if (isAnimating) return@setOnTouchListener true
+
+            if (binding.nestedScrollView.scrollY > 0 && !isHeaderExpanded) {
+                pullStartY = -1f
+                return@setOnTouchListener false
+            }
+
+            if (currentAvatarUri == null) return@setOnTouchListener false
+
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    pullStartY = event.y
+                    isVibrated = false
+                    isHeaderMoving = false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (pullStartY == -1f) {
+                        pullStartY = event.y
+                        return@setOnTouchListener false
+                    }
+
+                    val dy = event.y - pullStartY
+
+                    if (!isHeaderExpanded) {
+                        if (dy > 20f && binding.nestedScrollView.scrollY == 0) {
+                            if (!isHeaderMoving) {
+                                isHeaderMoving = true
+                                // Запрещаем родителю перехватывать жесты, пока мы "тянем" хедер
+                                v.parent.requestDisallowInterceptTouchEvent(true)
+                            }
+                            val progress = (dy / PULL_THRESHOLD).coerceIn(0f, 1.2f) // Добавляем "резиновость"
+                            updateHeaderAnimation(progress)
+                            
+                            if (progress >= 1f && !isVibrated) {
+                                binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                isVibrated = true
+                            }
+                            return@setOnTouchListener true
+                        }
+                    } else {
+                        if (dy < -20f) {
+                            if (!isHeaderMoving) {
+                                isHeaderMoving = true
+                                v.parent.requestDisallowInterceptTouchEvent(true)
+                            }
+                            val progress = (1f - (Math.abs(dy) / PULL_THRESHOLD)).coerceIn(0f, 1f)
+                            updateHeaderAnimation(progress)
+                            
+                            if (progress <= 0f) {
+                                isHeaderExpanded = false
+                                isHeaderMoving = false
+                                v.parent.requestDisallowInterceptTouchEvent(false)
+                                return@setOnTouchListener false 
+                            }
+                            return@setOnTouchListener true
+                        } else if (dy > 150f && !isClosing) {
+                            openFullPhoto()
+                            pullStartY = event.y
+                            return@setOnTouchListener true
+                        }
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (pullStartY != -1f && isHeaderMoving) {
+                        val dy = event.y - pullStartY
+                        if (!isHeaderExpanded) {
+                            if (dy > PULL_THRESHOLD / 2) animateHeaderState(true)
+                            else animateHeaderState(false)
+                        } else {
+                            if (dy < -PULL_THRESHOLD / 3) animateHeaderState(false)
+                            else animateHeaderState(true)
+                        }
+                    }
+                    pullStartY = -1f
+                    isHeaderMoving = false
+                    v.parent.requestDisallowInterceptTouchEvent(false)
+                }
+            }
+            false
+        }
+    }
+
+    private fun updateHeaderAnimation(progress: Float) {
+        val density = resources.displayMetrics.density
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        
+        val leftColWidth = binding.layoutLeftColumn.width.toFloat()
+        val cardWidth = binding.photoCard.width.toFloat()
+        val cardHeight = binding.photoCard.height.toFloat()
+        val headerHeight = binding.headerStaticBlock.height.toFloat()
+        val textHeight = binding.floatingTitleContainer.height.toFloat()
+
+        if (leftColWidth == 0f || cardWidth == 0f || headerHeight == 0f || textHeight == 0f) return
+
+        val topPadding = binding.headerStaticBlock.paddingTop.toFloat() // insets.top
+        val innerPadding = binding.layoutWithPhoto.paddingTop.toFloat() // 16dp
+        val totalOffsetUp = topPadding + innerPadding
+
+        // 1. Колонки
+        binding.layoutLeftColumn.translationX = -leftColWidth * progress
+        binding.layoutLeftColumn.alpha = (1f - progress * 2.5f).coerceIn(0f, 1f)
+
+        // 2. Карточка (Pivot Top-Left)
+        binding.photoCard.pivotX = 0f
+        binding.photoCard.pivotY = 0f
+        
+        // Смещаем карточку влево к краю экрана
+        binding.photoCard.translationX = -(leftColWidth * progress)
+        // Смещаем карточку ВВЕРХ, чтобы полностью перекрыть область StatusBar
+        binding.photoCard.translationY = -(totalOffsetUp * progress)
+        
+        val targetScaleX = screenWidth / cardWidth
+        // Масштабируем так, чтобы закрыть всю высоту синего блока, включая все отступы
+        val targetScaleY = headerHeight / cardHeight
+        
+        val scaleX = 1f + (targetScaleX - 1f) * progress
+        val scaleY = 1f + (targetScaleY - 1f) * progress
+        
+        binding.photoCard.scaleX = scaleX
+        binding.photoCard.scaleY = scaleY
+
+        // 3. Текст (Идеальная привязка к углу)
+        // Конечная точка: 24dp от нижнего края хедера
+        val targetVisualX = 4 * density
+        val targetVisualY = headerHeight - 24 * density
+        
+        // Начальная точка: под карточкой
+        val startVisualX = leftColWidth
+        val startVisualY = totalOffsetUp + cardHeight
+        
+        // Интерполяция положения на экране
+        val currentX = startVisualX + (targetVisualX - startVisualX) * progress
+        val currentY = startVisualY + (targetVisualY - startVisualY) * progress
+        
+        // Текущее положение карточки на экране
+        val cardLeftOnScreen = leftColWidth * (1f - progress)
+        val cardTopOnScreen = totalOffsetUp * (1f - progress)
+        
+        binding.floatingTitleContainer.pivotX = 0f
+        binding.floatingTitleContainer.pivotY = textHeight
+        
+        // Компенсация масштаба родителя
+        binding.floatingTitleContainer.scaleX = 1f / scaleX
+        binding.floatingTitleContainer.scaleY = 1f / scaleY
+        
+        // Перевод экранных координат в translation относительно масштабированной карточки
+        binding.floatingTitleContainer.translationX = (currentX - cardLeftOnScreen) / scaleX
+        binding.floatingTitleContainer.translationY = (currentY - cardTopOnScreen) / scaleY - cardHeight
+
+        // 4. Визуал
+        binding.photoCard.radius = (24 * (1f - progress)).coerceAtLeast(0f) * density
+        binding.photoCard.cardElevation = (8 * (1f - progress)).coerceAtLeast(0f) * density
+    }
+
+    private fun animateHeaderState(expand: Boolean) {
+        currentAnimator?.cancel()
+        isAnimating = true
+        
+        // Определяем текущий прогресс на основе положения вьюхи, чтобы не было рывка
+        val currentProgress = if (isHeaderExpanded) {
+            // Если было расширено, но мы тянем вверх
+            (1f - Math.abs(binding.layoutLeftColumn.translationX) / binding.layoutLeftColumn.width).coerceIn(0f, 1f)
+        } else {
+            // Если было свернуто, но мы тянем вниз
+            (Math.abs(binding.layoutLeftColumn.translationX) / binding.layoutLeftColumn.width).coerceIn(0f, 1f)
+        }
+
+        val animator = ValueAnimator.ofFloat(currentProgress, if (expand) 1f else 0f)
+        currentAnimator = animator
+        
+        animator.addUpdateListener { anim -> 
+            updateHeaderAnimation(anim.animatedValue as Float) 
+        }
+        animator.duration = 300
+        animator.interpolator = DecelerateInterpolator()
+        animator.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                isHeaderExpanded = expand
+                isAnimating = false
+                currentAnimator = null
+            }
+        })
+        animator.start()
+    }
+
+    private fun openFullPhoto() {
+        if (currentAvatarUri == null || isClosing) return
+        isClosing = true
+        
+        val intent = Intent(this, PhotoViewActivity::class.java)
+        intent.putExtra("EXTRA_URI", currentAvatarUri)
+        val rect = Rect()
+        binding.ivProfilePhoto.getGlobalVisibleRect(rect)
+        intent.putExtra("EXTRA_RECT", rect)
+        photoViewLauncher.launch(intent)
+        overridePendingTransition(0, 0)
     }
 
     private fun showPhotoActionDialog() {
@@ -199,18 +421,7 @@ class SettingsActivity : AppCompatActivity() {
 
         dialogBinding.btnOpenPhoto.setOnClickListener {
             hidePhotoActionDialog(dialogBinding)
-            if (currentAvatarUri != null) {
-                val intent = Intent(this, PhotoViewActivity::class.java)
-                intent.putExtra("EXTRA_URI", currentAvatarUri)
-                
-                // Передаем координаты для анимации
-                val rect = Rect()
-                binding.ivProfilePhoto.getGlobalVisibleRect(rect)
-                intent.putExtra("EXTRA_RECT", rect)
-                
-                photoViewLauncher.launch(intent)
-                overridePendingTransition(0, 0)
-            }
+            openFullPhoto()
         }
 
         dialogBinding.btnChangePhoto.setOnClickListener {
@@ -225,37 +436,6 @@ class SettingsActivity : AppCompatActivity() {
 
         dialogBinding.btnClose.setOnClickListener { hidePhotoActionDialog(dialogBinding) }
         dialogBinding.dialogRoot.setOnClickListener { hidePhotoActionDialog(dialogBinding) }
-        
-        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
-        dialogBinding.cardContainer.setOnTouchListener(object : View.OnTouchListener {
-            private var startX = 0f
-            private var isDragging = false
-            override fun onTouch(v: View, event: MotionEvent): Boolean {
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> { startX = event.rawX; isDragging = false; return false }
-                    MotionEvent.ACTION_MOVE -> {
-                        val deltaX = event.rawX - startX
-                        if (deltaX > 30f && !isDragging) isDragging = true
-                        if (isDragging) {
-                            v.translationX = deltaX.coerceAtLeast(0f)
-                            dialogBinding.dialogRoot.alpha = 1f - (deltaX / screenWidth).coerceIn(0f, 0.5f)
-                            return true
-                        }
-                    }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        if (isDragging) {
-                            if (event.rawX - startX > screenWidth / 4) hidePhotoActionDialog(dialogBinding)
-                            else {
-                                v.animate().translationX(0f).setDuration(200).start()
-                                dialogBinding.dialogRoot.animate().alpha(1f).setDuration(200).start()
-                            }
-                            return true
-                        }
-                    }
-                }
-                return false
-            }
-        })
     }
 
     private fun hidePhotoActionDialog(dialogBinding: com.messenger.prime.databinding.DialogPhotoActionsBinding) {
@@ -297,8 +477,6 @@ class SettingsActivity : AppCompatActivity() {
         val currentName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
 
         dialogBinding.etNewName.setText(currentName)
-        
-        // Кнопка сохранить изначально выключена (т.к. изменений нет)
         dialogBinding.btnSave.isEnabled = false
         dialogBinding.btnSave.alpha = 0.5f
 
@@ -314,15 +492,6 @@ class SettingsActivity : AppCompatActivity() {
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
 
-        dialogBinding.etNewName.setOnEditorActionListener { textView: android.widget.TextView?, actionId: Int, event: android.view.KeyEvent? ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
-                if (dialogBinding.btnSave.isEnabled) {
-                    dialogBinding.btnSave.performClick()
-                }
-                true
-            } else false
-        }
-
         dialogBinding.btnBack.setOnClickListener { hideNameEditDialog(dialogBinding) }
         dialogBinding.btnSave.setOnClickListener {
             val newName = dialogBinding.etNewName.text.toString().trim()
@@ -332,55 +501,19 @@ class SettingsActivity : AppCompatActivity() {
                 dialogBinding.cardContainer.shake()
                 return@setOnClickListener
             }
-            val oldName = currentName // Запоминаем старое имя для отмены
-            
+            val oldName = currentName
             sharedPrefs.edit().putString("${currentUser}_name", newName).apply()
-            
             binding.tvUserNameFloating.text = newName
             binding.tvUserNameStatic.text = newName
             
             PrimeNotification.show(this, "Имя обновлено") {
-                // Логика отката имени (Undo)
                 sharedPrefs.edit().putString("${currentUser}_name", oldName).apply()
                 binding.tvUserNameFloating.text = oldName
                 binding.tvUserNameStatic.text = oldName
             }
             hideNameEditDialog(dialogBinding)
         }
-        
         dialogBinding.dialogRoot.setOnClickListener { hideNameEditDialog(dialogBinding) }
-        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
-        dialogBinding.cardContainer.setOnTouchListener(object : View.OnTouchListener {
-            private var startX = 0f
-            private var isDragging = false
-            override fun onTouch(v: View, event: MotionEvent): Boolean {
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> { startX = event.rawX; isDragging = false; return false }
-                    MotionEvent.ACTION_MOVE -> {
-                        val deltaX = event.rawX - startX
-                        if (deltaX > 30f && !isDragging) isDragging = true
-                        if (isDragging) {
-                            v.translationX = deltaX.coerceAtLeast(0f)
-                            dialogBinding.dialogRoot.alpha = 1f - (deltaX / screenWidth).coerceIn(0f, 0.5f)
-                            return true
-                        }
-                    }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        if (isDragging) {
-                            if (event.rawX - startX > screenWidth / 4) hideNameEditDialog(dialogBinding)
-                            else {
-                                v.animate().translationX(0f).setDuration(200).start()
-                                dialogBinding.dialogRoot.animate().alpha(1f).setDuration(200).start()
-                            }
-                            isDragging = false
-                            return true
-                        }
-                    }
-                }
-                return false
-            }
-        })
-        dialogBinding.cardContainer.setOnClickListener { }
     }
 
     private fun hideNameEditDialog(dialogBinding: com.messenger.prime.databinding.DialogEditNameBinding) {
@@ -412,26 +545,6 @@ class SettingsActivity : AppCompatActivity() {
         binding.etSettingsLogin.addTextChangedListener(textWatcher)
         binding.etSettingsPassword.addTextChangedListener(textWatcher)
 
-        binding.etSettingsLogin.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_NEXT) {
-                binding.etSettingsPassword.requestFocus()
-                true
-            } else false
-        }
-
-        binding.etSettingsPassword.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
-                if (binding.btnSaveAccount.visibility == View.VISIBLE) {
-                    binding.btnSaveAccount.performClick()
-                }
-                true
-            } else false
-        }
-
-
-        // Логика отмены изменений
-        // Оставляем пустым, будем настраивать динамически в checkAccountChanges
-
         binding.btnSaveAccount.setOnClickListener {
             val newLogin = binding.etSettingsLogin.text.toString().trim()
             val newPass = binding.etSettingsPassword.text.toString()
@@ -448,8 +561,6 @@ class SettingsActivity : AppCompatActivity() {
                     binding.inputLayoutLogin.error = loginError
                     binding.inputLayoutLogin.shake()
                     hasError = true
-                } else {
-                    binding.inputLayoutLogin.error = null
                 }
             }
 
@@ -457,20 +568,16 @@ class SettingsActivity : AppCompatActivity() {
                 binding.inputLayoutPassword.error = "Минимум 8 символов"
                 binding.inputLayoutPassword.shake()
                 hasError = true
-            } else {
-                binding.inputLayoutPassword.error = null
             }
 
             if (hasError) return@setOnClickListener
 
-            // Проверка: занят ли новый логин другим пользователем
             if (newLogin != currentLoginInDB && sharedPrefs.contains(newLogin)) {
                 binding.inputLayoutLogin.error = "Этот логин уже занят"
                 binding.inputLayoutLogin.shake()
                 return@setOnClickListener
             }
 
-            // Сохранение
             sharedPrefs.edit().apply {
                 if (newLogin != currentLoginInDB) {
                     val name = sharedPrefs.getString("${currentLoginInDB}_name", "Пользователь")
@@ -488,26 +595,20 @@ class SettingsActivity : AppCompatActivity() {
                 apply()
             }
             
-            // Запоминаем старые данные для возможности отмены
             val oldLogin = currentLoginInDB
             val oldPass = currentPassInDB
-            
-            // Обновляем текущие данные в памяти
             currentLoginInDB = newLogin
             currentPassInDB = newPass
             
             PrimeNotification.show(this, "Данные обновлены") {
-                // Логика отката изменений (Undo)
                 sharedPrefs.edit().apply {
                     if (newLogin != oldLogin) {
                         val name = sharedPrefs.getString("${newLogin}_name", "Пользователь")
                         val avatar = sharedPrefs.getString("${newLogin}_avatar", null)
-                        
                         putString("current_user", oldLogin)
                         putString(oldLogin, oldPass)
                         putString("${oldLogin}_name", name)
                         if (avatar != null) putString("${oldLogin}_avatar", avatar)
-                        
                         remove(newLogin)
                         remove("${newLogin}_name")
                         remove("${newLogin}_avatar")
@@ -516,8 +617,6 @@ class SettingsActivity : AppCompatActivity() {
                     }
                     apply()
                 }
-                
-                // Возвращаем старые данные в память и UI
                 currentLoginInDB = oldLogin
                 currentPassInDB = oldPass
                 binding.etSettingsLogin.setText(oldLogin)
@@ -525,17 +624,12 @@ class SettingsActivity : AppCompatActivity() {
                 checkAccountChanges()
             }
             
-            // Прячем клавиатуру и сбрасываем фокус
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
             imm.hideSoftInputFromWindow(binding.etSettingsPassword.windowToken, 0)
             binding.etSettingsLogin.clearFocus()
             binding.etSettingsPassword.clearFocus()
-
-            // Скрываем кнопку и крестики
             checkAccountChanges()
         }
-
-        // Первичная проверка (чтобы скрыть иконки при запуске)
         checkAccountChanges()
     }
 
@@ -546,12 +640,10 @@ class SettingsActivity : AppCompatActivity() {
         val loginChanged = newLogin != currentLoginInDB
         val passChanged = newPass != currentPassInDB
 
-        // Управляем крестиком СЛЕВА (startIcon), глазик СПРАВА остается всегда
         if (loginChanged) {
             binding.inputLayoutLogin.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel)
             binding.inputLayoutLogin.setStartIconOnClickListener {
                 binding.etSettingsLogin.setText(currentLoginInDB)
-                it.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
             }
         } else {
             binding.inputLayoutLogin.startIconDrawable = null
@@ -562,7 +654,6 @@ class SettingsActivity : AppCompatActivity() {
             binding.inputLayoutPassword.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel)
             binding.inputLayoutPassword.setStartIconOnClickListener {
                 binding.etSettingsPassword.setText(currentPassInDB)
-                it.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
             }
         } else {
             binding.inputLayoutPassword.startIconDrawable = null
@@ -593,11 +684,9 @@ class SettingsActivity : AppCompatActivity() {
         if (event.action == MotionEvent.ACTION_DOWN) {
             val x = event.rawX.toInt()
             val y = event.rawY.toInt()
-
             var hitProtected = false
-            val rect = android.graphics.Rect()
+            val rect = Rect()
 
-            // Проверка для диалога имени
             activeNameDialogBinding?.let { db ->
                 val protectedViews = listOf(db.btnBack, db.etNewName, db.btnSave)
                 for (view in protectedViews) {
@@ -620,14 +709,11 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun handlePhotoDeletionWithUndo(uriToDelete: String?) {
         if (uriToDelete == null) return
-        
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        
         sharedPrefs.edit().remove("${currentUser}_avatar").apply()
         currentAvatarUri = null
         applyAvatarState(null)
-        
         PrimeNotification.show(this, "Фото удалено") {
             sharedPrefs.edit().putString("${currentUser}_avatar", uriToDelete).apply()
             currentAvatarUri = uriToDelete

@@ -5,14 +5,17 @@
     android:id="@+id/photoRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FF000000">
+    android:background="#FF000000"
+    android:clipChildren="false">
 
-    <!-- Фоновое изображение (затемнитель для анимации) -->
-    <View
-        android:id="@+id/viewBackgroundDim"
+    <!-- Фоновое изображение (размытое) -->
+    <ImageView
+        android:id="@+id/ivBlurredBackground"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#FF000000" />
+        android:scaleType="centerCrop"
+        android:alpha="0.6"
+        tools:src="@drawable/ic_person" />
 
     <!-- Основное изображение -->
     <ImageView

@@ -11,7 +11,8 @@
         android:id="@+id/nestedScrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:overScrollMode="never">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
@@ -23,10 +24,11 @@
                 android:id="@+id/headerStaticBlock"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:minHeight="320dp"
                 android:background="@color/prime_background_blue"
-                android:paddingBottom="24dp"
-                android:paddingTop="32dp"
                 android:elevation="4dp"
+                android:clipChildren="false"
+                android:clipToPadding="false"
                 app:layout_constraintTop_toTopOf="parent">
 
                 <!-- 1. ВАРИАНТ: С ФОТОГРАФИЕЙ (двухколоночный) -->
@@ -35,6 +37,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:visibility="visible"
+                    android:paddingTop="16dp"
+                    android:paddingBottom="16dp"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
                     app:layout_constraintTop_toTopOf="parent">
 
                     <LinearLayout
@@ -172,7 +178,7 @@
                         app:layout_constraintBottom_toBottomOf="@+id/layoutLeftColumn"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintStart_toEndOf="@+id/layoutLeftColumn"
-                        app:layout_constraintTop_toTopOf="@+id/layoutLeftColumn">
+                        app:layout_constraintTop_toTopOf="parent">
 
                         <FrameLayout
                             android:layout_width="match_parent"
@@ -454,7 +460,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:focusable="true"
-                        android:inputType="textNoSuggestions"
+                        android:inputType="textPassword"
                         android:maxLength="15"
                         android:imeOptions="actionNext"
                         android:textColor="@color/prime_background_blue"

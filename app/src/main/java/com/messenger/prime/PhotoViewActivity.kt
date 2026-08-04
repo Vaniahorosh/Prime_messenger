@@ -18,9 +18,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.messenger.prime.databinding.ActivityPhotoViewBinding
-import com.r0adkll.slidr.Slidr
-import com.r0adkll.slidr.model.SlidrConfig
-import com.r0adkll.slidr.model.SlidrPosition
 
 class PhotoViewActivity : AppCompatActivity() {
 
@@ -49,24 +46,30 @@ class PhotoViewActivity : AppCompatActivity() {
             windowInsets
         }
 
-        val slidrConfig = SlidrConfig.Builder()
-            .position(SlidrPosition.LEFT)
-            .build()
-        Slidr.attach(this, slidrConfig)
+        binding.topToolbar.post {
+            binding.topToolbar.translationY = -50f
+        }
 
         val uriString = intent.getStringExtra("EXTRA_URI")
         currentUri = uriString?.let { Uri.parse(it) }
         sourceRect = intent.getParcelableExtra("EXTRA_RECT")
 
-        currentUri?.let { binding.ivFullPhoto.setImageURI(it) }
-            ?: binding.ivFullPhoto.setImageResource(R.drawable.ic_person)
+        currentUri?.let { 
+            binding.ivFullPhoto.setImageURI(it)
+            binding.ivBlurredBackground.setImageURI(it)
+            binding.ivBlurredBackground.applyGlassBlur(50f)
+        } ?: run {
+            binding.ivFullPhoto.setImageResource(R.drawable.ic_person)
+            binding.ivBlurredBackground.setImageResource(R.drawable.ic_person)
+            binding.ivBlurredBackground.applyGlassBlur(50f)
+        }
 
         initGestures()
         setupListeners()
 
         // Скрываем элементы управления для анимации появления
         binding.topToolbar.alpha = 0f
-        binding.viewBackgroundDim.alpha = 0f
+        binding.ivBlurredBackground.alpha = 0f
 
         // Запуск анимации появления
         binding.photoRoot.post { startEnterAnimation() }
@@ -83,8 +86,29 @@ class PhotoViewActivity : AppCompatActivity() {
         
         binding.ivFullPhoto.setOnTouchListener { _, event ->
             if (isClosing) return@setOnTouchListener true
-            scaleDetector.onTouchEvent(event)
+            
+            val handled = scaleDetector.onTouchEvent(event)
             gestureDetector.onTouchEvent(event)
+            
+            if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+                if (photoScale == 1f && !isClosing) {
+                    if (Math.abs(photoTranslateY) > 250) {
+                        startExitAnimation()
+                    } else if (photoTranslateY != 0f) {
+                        // Возвращаем фото на место
+                        binding.ivFullPhoto.animate()
+                            .translationY(0f)
+                            .setDuration(250)
+                            .setInterpolator(DecelerateInterpolator())
+                            .start()
+                        binding.ivBlurredBackground.animate()
+                            .alpha(0.6f)
+                            .setDuration(250)
+                            .start()
+                        photoTranslateY = 0f
+                    }
+                }
+            }
             true
         }
     }
@@ -115,7 +139,7 @@ class PhotoViewActivity : AppCompatActivity() {
             }
             .start()
 
-        binding.viewBackgroundDim.animate().alpha(1f).setDuration(450).start()
+        binding.ivBlurredBackground.animate().alpha(0.6f).setDuration(450).start()
         
         binding.topToolbar.animate().alpha(1f).translationY(0f).setDuration(300).setStartDelay(200).start()
     }
@@ -148,7 +172,7 @@ class PhotoViewActivity : AppCompatActivity() {
             })
             .start()
 
-        binding.viewBackgroundDim.animate().alpha(0f).setDuration(400).start()
+        binding.ivBlurredBackground.animate().alpha(0f).setDuration(400).start()
     }
 
     private fun initGestures() {
@@ -168,8 +192,22 @@ class PhotoViewActivity : AppCompatActivity() {
                     photoTranslateY -= distanceY
                     updateTransform()
                     return true
-                } else if (!isClosing && distanceY < -30) {
-                    // Свайп вниз для закрытия
+                } else if (!isClosing) {
+                    // Свободное перемещение по вертикали для закрытия
+                    photoTranslateY -= distanceY
+                    
+                    // Уменьшаем прозрачность фона при свайпе
+                    val dragProgress = Math.abs(photoTranslateY) / 1000f
+                    binding.ivBlurredBackground.alpha = (0.6f * (1f - dragProgress)).coerceIn(0f, 0.6f)
+                    
+                    updateTransform()
+                    return true
+                }
+                return false
+            }
+
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+                if (photoScale == 1f && Math.abs(velocityY) > 1500) {
                     startExitAnimation()
                     return true
                 }

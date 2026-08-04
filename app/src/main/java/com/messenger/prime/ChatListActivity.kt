@@ -48,14 +48,26 @@ class ChatListActivity : AppCompatActivity() {
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             super.onAvailable(network)
-            isNetworkConnected = true
-            runOnUiThread { animateSearchHint("ПОИСК") }
+            val isCurrentlyConnected = connectivityManager.getNetworkCapabilities(network)
+                ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+            
+            if (isCurrentlyConnected) {
+                isNetworkConnected = true
+                runOnUiThread { animateSearchHint("ПОИСК") }
+            }
         }
 
         override fun onLost(network: Network) {
             super.onLost(network)
-            isNetworkConnected = false
-            runOnUiThread { animateSearchHint("Ожидание сети...") }
+            // Проверяем, нет ли других активных сетей с интернетом
+            val activeNetwork = connectivityManager.activeNetwork
+            val hasInternet = connectivityManager.getNetworkCapabilities(activeNetwork)
+                ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+            
+            if (!hasInternet) {
+                isNetworkConnected = false
+                runOnUiThread { animateSearchHint("Ожидание сети...") }
+            }
         }
     }
 
@@ -69,14 +81,14 @@ class ChatListActivity : AppCompatActivity() {
         view.animate()
             .alpha(0f)
             .translationY(-30f)
-            .setDuration(150)
+            .setDuration(300)
             .withEndAction {
                 view.hint = newHint
                 view.translationY = 30f
                 view.animate()
                     .alpha(1f)
                     .translationY(0f)
-                    .setDuration(250)
+                    .setDuration(400)
                     .start()
             }
             .start()
@@ -339,7 +351,11 @@ class ChatListActivity : AppCompatActivity() {
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         isNetworkConnected = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
             ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-        binding.inputLayoutSearch.hint = if (isNetworkConnected) "ПОИСК" else "Ожидание сети..."
+        
+        val initialHint = if (isNetworkConnected) "ПОИСК" else "Ожидание сети..."
+        binding.inputLayoutSearch.hint = initialHint
+        adapter.updateNetworkHint(initialHint)
+        
         connectivityManager.registerNetworkCallback(NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build(), networkCallback)
 
         showScrollTopHintOnce(sharedPrefs)
@@ -440,6 +456,13 @@ class ChatListActivity : AppCompatActivity() {
 
         dialogBinding.btnSave.setOnClickListener {
             val new = dialogBinding.etNewName.text.toString().trim()
+            val error = ValidationUtils.getValidationError(new, false)
+            if (error != null) {
+                dialogBinding.inputLayoutName.error = error
+                dialogBinding.cardContainer.shake()
+                return@setOnClickListener
+            }
+            
             sharedPrefs.edit().putString("${currentUser}_name", new).apply()
             adapter.updateUserName(new)
             PrimeNotification.show(this, "Имя обновлено") {

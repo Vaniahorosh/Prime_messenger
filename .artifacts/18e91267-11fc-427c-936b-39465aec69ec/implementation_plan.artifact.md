@@ -1,34 +1,37 @@
-# План по усилению валидации и защиты от подмены имен
+# План по унификации длительности анимаций (600мс)
 
-Этот план направлен на значительное ужесточение правил создания логинов и имен пользователей для предотвращения мошенничества и использования системных имен (прайм, служба поддержки и др.).
+Этот план направлен на установку единого времени выполнения всех анимаций в проекте равным 600мс для обеспечения плавности и единообразия интерфейса.
 
 ## Предлагаемые изменения
 
 ### [app]
 
-#### [MODIFY] [ValidationUtils.kt](file:///C:/Users/going/AndroidStudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/ValidationUtils.kt)
-- **Улучшенная нормализация**:
-    - Расширить список гомоглифов (похожих символов). Теперь и латинские, и кириллические символы будут приводиться к единому "скелетному" виду.
-    - Пример: `a` (lat), `а` (cyr), `@`, `4` -> все превратятся в `a`.
-    - Это сделает невозможным обход фильтра через `Pr1me`, `Пр@йм` и т.д.
-- **Новые методы**:
-    - `isValidLogin(text: String): Boolean`: проверка логина по строгому регулярному выражению `^[a-z0-9_]+$`. Это запретит использование любых спецсимволов, пробелов и кириллицы в логине.
-    - `isRestricted(text: String): Boolean`: глубокая проверка на наличие запрещенных фраз в очищенном от шума тексте.
+#### XML Ресурсы анимаций (res/anim)
+Во всех XML файлах анимаций значение `android:duration` будет изменено на "600".
+- `slide_in_left.xml`
+- `slide_in_right.xml`
+- `slide_in_top.xml`
+- `slide_in_top_alpha.xml`
+- `slide_out_bottom.xml`
+- `slide_out_left.xml`
+- `slide_out_right.xml`
+- `slide_up_in.xml`
+- `slide_up_out.xml`
+- `stay.xml`
 
-#### [MODIFY] [LoginActivity.kt](file:///C:/Users/going/AndroidStudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/LoginActivity.kt)
-- Добавить проверку формата логина: только латиница, цифры и нижнее подчеркивание.
-- Выдавать "Недопустимый формат", если логин содержит запрещенные слова или нарушает правила символов.
-
-#### [MODIFY] [RegisterActivity.kt](file:///C:/Users/going/AndroidStudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/RegisterActivity.kt)
-- Применить жесткую проверку для поля "Ваше Имя". Хотя в имени разрешены пробелы, проверка на `isRestricted` будет удалять их перед анализом, что поймает "С л у ж б а П о д д е р ж к и".
-
-#### [MODIFY] [SettingsActivity.kt](file:///C:/Users/going/AndroidStudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/SettingsActivity.kt)
-- Синхронизировать логику проверок при смене логина и имени в настройках.
+#### Kotlin Классы
+Во всех вызовах `.setDuration()` и присвоениях `duration = ...` значение будет изменено на 600 (или 600L).
+- [ChatListActivity.kt](file:///C:/Users/going/AndroidStudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/ChatListActivity.kt)
+- [LoginActivity.kt](file:///C:/Users/going/AndroidStudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/LoginActivity.kt)
+- [PhotoEditorActivity.kt](file:///C:/Users/going/AndroidStudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/PhotoEditorActivity.kt)
+- [PhotoViewActivity.kt](file:///C:/Users/going/AndroidStudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/PhotoViewActivity.kt)
+- [PrimeNotification.kt](file:///C:/Users/going/AndroidStudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/PrimeNotification.kt)
+- [RegisterActivity.kt](file:///C:/Users/going/AndroidStudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/RegisterActivity.kt)
+- [SettingsActivity.kt](file:///C:/Users/going/AndroidStudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/SettingsActivity.kt)
+- [HiActivity.kt](file:///C:/Users/going/AndroidStudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/HiActivity.kt)
+- [ViewExtensions.kt](file:///C:/Users/going/AndroidStudioProjects/Prime_messenger/app/src/main/java/com/messenger/prime/ViewExtensions.kt)
 
 ## План проверки
-
-### Ручная проверка
-1.  **Тест логина**: Попробовать создать логин `admin_123` (ок), `admin!@#` (ошибка), `Pr1me` (ошибка).
-2.  **Тест подмены**: Попробовать `Службa` (где 'a' английская). Система должна нормализовать это и выдать ошибку.
-3.  **Тест символов**: Попробовать использовать символы-разделители `S.u.p.p.o.r.t`. Фильтр должен сжать это до `support` и заблокировать.
-4.  **Верификация**: Убедиться, что при ошибке всегда выводится текст "Недопустимый формат".
+1. Сборка проекта.
+2. Визуальная проверка различных переходов и анимаций на предмет плавности и корректности времени выполнения.
+3. Проверка того, что анимации не накладываются друг на друга из-за увеличенного времени.

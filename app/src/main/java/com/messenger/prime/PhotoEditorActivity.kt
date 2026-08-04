@@ -472,7 +472,7 @@ class PhotoEditorActivity : AppCompatActivity() {
         binding.groupSlidersContainer.animate()
             .alpha(0f)
             .translationY(100f)
-            .setDuration(250)
+            .setDuration(300)
             .setInterpolator(android.view.animation.AccelerateInterpolator())
             .withEndAction {
                 onEnd()
@@ -489,7 +489,7 @@ class PhotoEditorActivity : AppCompatActivity() {
         val matrixChanged = values[Matrix.MSCALE_X] != 1.0f || values[Matrix.MTRANS_X] != 0f || values[Matrix.MTRANS_Y] != 0f
         
         binding.btnReset.visibility = if (hasTransform || hasDrawing || matrixChanged) View.VISIBLE else View.GONE
-        binding.topActionsLayout.animate().alpha(if (binding.btnReset.visibility == View.VISIBLE || binding.btnUndoTop.visibility == View.VISIBLE) 1f else 0f).setDuration(300).start()
+        binding.topActionsLayout.animate().alpha(if (binding.btnReset.visibility == View.VISIBLE || binding.btnUndoTop.visibility == View.VISIBLE) 1f else 0f).setDuration(250).start()
     }
 
     private fun resetAll() {

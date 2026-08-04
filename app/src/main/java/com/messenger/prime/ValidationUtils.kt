@@ -68,14 +68,18 @@ object ValidationUtils {
      */
     private fun normalizeToSkeleton(input: String): String {
         val mapping = mapOf(
-            // Кириллица -> Латиница (наиболее частые подмены)
-            'а' to 'a', 'б' to 'b', 'в' to 'v', 'е' to 'e', 'з' to 'z',
-            'и' to 'i', 'й' to 'i', 'к' to 'k', 'л' to 'l', 'м' to 'm',
-            'н' to 'n', 'о' to 'o', 'р' to 'p', 'с' to 'c', 'т' to 't',
-            'у' to 'y', 'х' to 'x', 'і' to 'i', 'ј' to 'j', 'ь' to 'b',
+            // Кириллица -> Латиница (скелетные совпадения)
+            'а' to 'a', 'б' to 'b', 'в' to 'v', 'г' to 'g', 'д' to 'd',
+            'е' to 'e', 'ё' to 'e', 'ж' to 'z', 'з' to 'z', 'и' to 'i',
+            'й' to 'i', 'к' to 'k', 'л' to 'l', 'м' to 'm', 'н' to 'n',
+            'о' to 'o', 'п' to 'n', 'р' to 'p', 'с' to 'c', 'т' to 't',
+            'у' to 'y', 'ф' to 'f', 'х' to 'x', 'ц' to 'c', 'ч' to 'c',
+            'ш' to 's', 'щ' to 's', 'ы' to 'i', 'э' to 'e', 'ю' to 'u',
+            'я' to 'a', 'і' to 'i', 'ј' to 'j', 'ь' to 'b', 'ъ' to 'b',
             // Спецсимволы и цифры, похожие на буквы
             '@' to 'a', '4' to 'a', '0' to 'o', '3' to 'e', '1' to 'i',
-            '!' to 'i', '$' to 's', '5' to 's', '7' to 't', '8' to 'b'
+            '!' to 'i', '$' to 's', '5' to 's', '7' to 't', '8' to 'b',
+            '|' to 'l', 'v' to 'v', 'w' to 'v'
         )
 
         val sb = StringBuilder()
