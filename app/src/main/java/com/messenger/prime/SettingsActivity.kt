@@ -6,8 +6,12 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Rect
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.transition.ChangeBounds
 import android.transition.Fade
@@ -118,6 +122,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.etSettingsPassword.setText(savedPassword)
 
         applyAvatarState(savedAvatarUri)
+        binding.ivPhotoInfoBlur.applyGlassBlur(40f)
 
         val backAction = View.OnClickListener {
             finish()
@@ -172,6 +177,25 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         setupHeaderExpansion()
+
+        // Слушатель изменения размера и ПОЛОЖЕНИЯ текста для динамического блюра
+        binding.floatingTitleContainer.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            updateGradientBlurPosition()
+        }
+        
+        // Инициализируем высоту сразу после загрузки вьюх
+        binding.root.post { updateGradientBlurPosition() }
+    }
+
+    private fun updateGradientBlurPosition() {
+        val containerHeight = binding.photoCard.height.toFloat()
+        val textHeight = binding.floatingTitleContainer.height.toFloat()
+        
+        if (containerHeight > 0 && textHeight > 0) {
+            val textTopInCard = containerHeight - textHeight
+            applyGradientBlurToView(binding.ivPhotoInfoBlur, containerHeight, textTopInCard, textHeight)
+            applyGradientMaskToView(binding.viewPhotoInfoGradient, containerHeight, textTopInCard)
+        }
     }
 
     override fun onResume() {
@@ -190,18 +214,84 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun applyAvatarState(avatarUri: String?) {
         if (avatarUri != null) {
-            binding.ivProfilePhoto.setImageURI(Uri.parse(avatarUri))
+            val uri = Uri.parse(avatarUri)
+            binding.ivProfilePhoto.setImageURI(uri)
+            binding.ivPhotoInfoBlur.setImageURI(uri)
+            
+            // Добавляем темный фильтр на размытый слой, чтобы убрать белесость (YouTube style)
+            binding.ivPhotoInfoBlur.setColorFilter(Color.argb(80, 0, 0, 0), android.graphics.PorterDuff.Mode.SRC_ATOP)
+            
+            // Пересчитываем блюр
+            binding.ivPhotoInfoBlur.post { updateGradientBlurPosition() }
+
             binding.layoutWithPhoto.visibility = View.VISIBLE
             binding.layoutNoPhoto.visibility = View.GONE
+            
+            // Устанавливаем минимальную высоту для красивого вида с фото
+            binding.headerStaticBlock.minimumHeight = (320 * resources.displayMetrics.density).toInt()
         } else {
             binding.layoutWithPhoto.visibility = View.GONE
             binding.layoutNoPhoto.visibility = View.VISIBLE
+            
+            // Сбрасываем ограничение высоты, чтобы блок подстроился под кнопки
+            binding.headerStaticBlock.minimumHeight = 0
         }
+    }
+
+    private fun applyGradientBlurToView(view: View, totalHeight: Float, textTop: Float, textHeight: Float) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Увеличиваем радиус для более мягкого "кинематографичного" эффекта
+            val blurEffect = RenderEffect.createBlurEffect(80f, 80f, Shader.TileMode.CLAMP)
+            
+            val density = resources.displayMetrics.density
+            // Начинаем размытие чуть выше текста для мягкости
+            val startFadeY = (textTop - 20 * density).coerceAtLeast(0f)
+            
+            // Создаем градиентную маску (DST_IN работает по альфе)
+            val alphaShader = LinearGradient(
+                0f, 0f, 0f, totalHeight,
+                intArrayOf(
+                    Color.TRANSPARENT,
+                    Color.TRANSPARENT,
+                    Color.BLACK.withAlpha(140), // Около 55% прозрачности в середине
+                    Color.BLACK.withAlpha(210)  // Около 80% в самом низу
+                ),
+                floatArrayOf(
+                    0f, 
+                    startFadeY / totalHeight, 
+                    (textTop + textHeight / 2f) / totalHeight, 
+                    1f
+                ),
+                Shader.TileMode.CLAMP
+            )
+            
+            val maskEffect = RenderEffect.createShaderEffect(alphaShader)
+            val combinedEffect = RenderEffect.createBlendModeEffect(maskEffect, blurEffect, android.graphics.BlendMode.DST_IN)
+            view.setRenderEffect(combinedEffect)
+        }
+    }
+
+    private fun applyGradientMaskToView(view: View, totalHeight: Float, textTop: Float) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alphaShader = LinearGradient(
+                0f, 0f, 0f, totalHeight,
+                intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT, Color.WHITE),
+                floatArrayOf(0f, textTop / totalHeight, 1f),
+                Shader.TileMode.CLAMP
+            )
+            val maskEffect = RenderEffect.createShaderEffect(alphaShader)
+            // Используем пустой эффект цепочки вместо null
+            view.setRenderEffect(maskEffect)
+        }
+    }
+
+    // Вспомогательная функция для удобной работы с цветами
+    private fun Int.withAlpha(alpha: Int): Int {
+        return (this and 0x00FFFFFF) or (alpha shl 24)
     }
 
     private fun setupHeaderExpansion() {
         binding.nestedScrollView.setOnTouchListener { v, event ->
-            // Блокируем любые касания, если идет автоматическая анимация
             if (isAnimating) return@setOnTouchListener true
 
             if (binding.nestedScrollView.scrollY > 0 && !isHeaderExpanded) {
@@ -229,10 +319,9 @@ class SettingsActivity : AppCompatActivity() {
                         if (dy > 20f && binding.nestedScrollView.scrollY == 0) {
                             if (!isHeaderMoving) {
                                 isHeaderMoving = true
-                                // Запрещаем родителю перехватывать жесты, пока мы "тянем" хедер
                                 v.parent.requestDisallowInterceptTouchEvent(true)
                             }
-                            val progress = (dy / PULL_THRESHOLD).coerceIn(0f, 1.2f) // Добавляем "резиновость"
+                            val progress = (dy / PULL_THRESHOLD).coerceIn(0f, 1.2f)
                             updateHeaderAnimation(progress)
                             
                             if (progress >= 1f && !isVibrated) {
@@ -296,25 +385,33 @@ class SettingsActivity : AppCompatActivity() {
 
         if (leftColWidth == 0f || cardWidth == 0f || headerHeight == 0f || textHeight == 0f) return
 
-        val topPadding = binding.headerStaticBlock.paddingTop.toFloat() // insets.top
-        val innerPadding = binding.layoutWithPhoto.paddingTop.toFloat() // 16dp
+        val topPadding = binding.headerStaticBlock.paddingTop.toFloat()
+        val innerPadding = binding.layoutWithPhoto.paddingTop.toFloat()
         val totalOffsetUp = topPadding + innerPadding
 
-        // 1. Колонки
-        binding.layoutLeftColumn.translationX = -leftColWidth * progress
-        binding.layoutLeftColumn.alpha = (1f - progress * 2.5f).coerceIn(0f, 1f)
+        // 1. Анимация элементов управления
+        val otherAlpha = (1f - progress * 2.5f).coerceIn(0f, 1f)
+        val otherTranslationX = -leftColWidth * progress
 
-        // 2. Карточка (Pivot Top-Left)
+        // Кнопка назад остается, но становится полупрозрачной
+        binding.btnBackWP.alpha = (1f - progress * 0.6f).coerceIn(0.4f, 1f)
+        binding.btnBackWP.translationX = 0f 
+        
+        // Текст "Назад" исчезает
+        binding.tvBackLabelWP.alpha = otherAlpha
+        binding.tvBackLabelWP.translationX = otherTranslationX
+
+        // Остальная колонка (Фото, Выход, Настройки) уезжает
+        binding.layoutLeftColumn.alpha = otherAlpha
+        binding.layoutLeftColumn.translationX = otherTranslationX
+
+        // 2. Карточка
         binding.photoCard.pivotX = 0f
         binding.photoCard.pivotY = 0f
-        
-        // Смещаем карточку влево к краю экрана
         binding.photoCard.translationX = -(leftColWidth * progress)
-        // Смещаем карточку ВВЕРХ, чтобы полностью перекрыть область StatusBar
         binding.photoCard.translationY = -(totalOffsetUp * progress)
         
         val targetScaleX = screenWidth / cardWidth
-        // Масштабируем так, чтобы закрыть всю высоту синего блока, включая все отступы
         val targetScaleY = headerHeight / cardHeight
         
         val scaleX = 1f + (targetScaleX - 1f) * progress
@@ -323,33 +420,30 @@ class SettingsActivity : AppCompatActivity() {
         binding.photoCard.scaleX = scaleX
         binding.photoCard.scaleY = scaleY
 
-        // 3. Текст (Идеальная привязка к углу)
-        // Конечная точка: 24dp от нижнего края хедера
-        val targetVisualX = 4 * density
-        val targetVisualY = headerHeight - 24 * density
+        // 3. Текст и его фон (Имя и Статус)
+        // Контейнер (фон) теперь расширяется на всю ширину карточки (screenWidth)
+        binding.floatingTitleContainer.scaleX = 1f 
+        binding.floatingTitleContainer.scaleY = 1f
+        binding.floatingTitleContainer.translationY = 0f
         
-        // Начальная точка: под карточкой
-        val startVisualX = leftColWidth
-        val startVisualY = totalOffsetUp + cardHeight
+        // Компенсируем масштаб для самих надписей, чтобы они не растягивались
+        val invScaleX = 1f / scaleX
+        val invScaleY = 1f / scaleY
         
-        // Интерполяция положения на экране
-        val currentX = startVisualX + (targetVisualX - startVisualX) * progress
-        val currentY = startVisualY + (targetVisualY - startVisualY) * progress
+        // Пивот в начало, чтобы текст не прыгал при масштабировании
+        binding.tvUserNameFloating.pivotX = 0f
+        binding.tvStatusFloating.pivotX = 0f
         
-        // Текущее положение карточки на экране
-        val cardLeftOnScreen = leftColWidth * (1f - progress)
-        val cardTopOnScreen = totalOffsetUp * (1f - progress)
+        binding.tvUserNameFloating.scaleX = invScaleX
+        binding.tvUserNameFloating.scaleY = invScaleY
+        binding.tvStatusFloating.scaleX = invScaleX
+        binding.tvStatusFloating.scaleY = invScaleY
         
-        binding.floatingTitleContainer.pivotX = 0f
-        binding.floatingTitleContainer.pivotY = textHeight
-        
-        // Компенсация масштаба родителя
-        binding.floatingTitleContainer.scaleX = 1f / scaleX
-        binding.floatingTitleContainer.scaleY = 1f / scaleY
-        
-        // Перевод экранных координат в translation относительно масштабированной карточки
-        binding.floatingTitleContainer.translationX = (currentX - cardLeftOnScreen) / scaleX
-        binding.floatingTitleContainer.translationY = (currentY - cardTopOnScreen) / scaleY - cardHeight
+        // Точный расчет положения текста, чтобы он всегда был в 16dp от края экрана
+        // (12dp - исходный padding в XML)
+        val textShiftX = (16 * density) / scaleX - 12 * density
+        binding.tvUserNameFloating.translationX = textShiftX
+        binding.tvStatusFloating.translationX = textShiftX
 
         // 4. Визуал
         binding.photoCard.radius = (24 * (1f - progress)).coerceAtLeast(0f) * density
@@ -360,12 +454,9 @@ class SettingsActivity : AppCompatActivity() {
         currentAnimator?.cancel()
         isAnimating = true
         
-        // Определяем текущий прогресс на основе положения вьюхи, чтобы не было рывка
         val currentProgress = if (isHeaderExpanded) {
-            // Если было расширено, но мы тянем вверх
             (1f - Math.abs(binding.layoutLeftColumn.translationX) / binding.layoutLeftColumn.width).coerceIn(0f, 1f)
         } else {
-            // Если было свернуто, но мы тянем вниз
             (Math.abs(binding.layoutLeftColumn.translationX) / binding.layoutLeftColumn.width).coerceIn(0f, 1f)
         }
 

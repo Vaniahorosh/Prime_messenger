@@ -63,10 +63,25 @@ class ChatAdapter(
             
             if (avatarUri != null) {
                 binding.ivHeaderAvatar.setImageURI(Uri.parse(avatarUri))
+                binding.tvHeaderInitials.visibility = View.GONE
+                binding.ivHeaderAvatar.visibility = View.VISIBLE
             } else {
-                binding.ivHeaderAvatar.setImageResource(R.drawable.ic_person)
+                val initial = userName.take(1).uppercase()
+                binding.tvHeaderInitials.text = initial
+                binding.tvHeaderInitials.visibility = View.VISIBLE
+                binding.ivHeaderAvatar.visibility = View.INVISIBLE
+                
+                // Генерируем цвет фона на основе имени
+                val color = getAvatarColor(userName)
+                val bg = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = 15 * binding.root.context.resources.displayMetrics.density // 15%
+                    setColor(color)
+                }
+                binding.tvHeaderInitials.background = bg
             }
             binding.ivHeaderAvatar.setOnClickListener { onAvatarClick() }
+            binding.tvHeaderInitials.setOnClickListener { onAvatarClick() }
             binding.btnHeaderSearch.setOnClickListener { onSearchClick() }
             
             if (binding.tsHeaderTitle.childCount == 0) {
@@ -103,6 +118,12 @@ class ChatAdapter(
 
         fun stopAnimation() {
             handler.removeCallbacks(switchRunnable)
+        }
+
+        private fun getAvatarColor(name: String): Int {
+            val colors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFEB3B", "#FFC107", "#FF9800", "#FF5722")
+            val index = Math.abs(name.hashCode()) % colors.size
+            return Color.parseColor(colors[index])
         }
     }
 
@@ -150,10 +171,25 @@ class ChatAdapter(
                 // Специальная обработка для тестового контакта
                 if (chat.id == "block_test_contact") {
                     binding.ivUserAvatar.setImageResource(R.drawable.prime_logo)
+                    binding.ivUserAvatar.visibility = View.VISIBLE
+                    binding.tvUserInitials.visibility = View.GONE
                 } else if (chat.avatarUri != null) {
                     binding.ivUserAvatar.setImageURI(Uri.parse(chat.avatarUri))
+                    binding.ivUserAvatar.visibility = View.VISIBLE
+                    binding.tvUserInitials.visibility = View.GONE
                 } else {
-                    binding.ivUserAvatar.setImageResource(R.drawable.ic_person)
+                    val initial = chat.name.take(1).uppercase()
+                    binding.tvUserInitials.text = initial
+                    binding.tvUserInitials.visibility = View.VISIBLE
+                    binding.ivUserAvatar.visibility = View.INVISIBLE
+                    
+                    val color = getAvatarColor(chat.name)
+                    val bg = GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        cornerRadius = 8 * context.resources.displayMetrics.density // Примерно 15% от 54dp
+                        setColor(color)
+                    }
+                    binding.tvUserInitials.background = bg
                 }
                 
                 binding.root.setOnClickListener { onChatClick(chat) }
@@ -246,5 +282,11 @@ class ChatAdapter(
     fun updateNetworkHint(newHint: String) {
         currentNetworkHint = newHint
         if (!isSearchActive) notifyItemChanged(0)
+    }
+
+    private fun getAvatarColor(name: String): Int {
+        val colors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFEB3B", "#FFC107", "#FF9800", "#FF5722")
+        val index = Math.abs(name.hashCode()) % colors.size
+        return Color.parseColor(colors[index])
     }
 }

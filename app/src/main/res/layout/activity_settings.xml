@@ -24,9 +24,9 @@
                 android:id="@+id/headerStaticBlock"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="320dp"
                 android:background="@color/prime_background_blue"
                 android:elevation="4dp"
+                android:paddingBottom="24dp"
                 android:clipChildren="false"
                 android:clipToPadding="false"
                 app:layout_constraintTop_toTopOf="parent">
@@ -43,6 +43,41 @@
                     android:clipToPadding="false"
                     app:layout_constraintTop_toTopOf="parent">
 
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnBackWP"
+                        style="@style/Widget.MaterialComponents.Button.Icon"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:layout_marginStart="27dp"
+                        android:backgroundTint="@color/glass_white_20"
+                        android:padding="0dp"
+                        android:insetLeft="0dp"
+                        android:insetTop="0dp"
+                        android:insetRight="0dp"
+                        android:insetBottom="0dp"
+                        app:cornerRadius="16dp"
+                        app:icon="@drawable/ic_arrow_back"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconSize="24dp"
+                        app:iconTint="@color/white"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/tvBackLabelWP"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Назад"
+                        android:textColor="@color/white"
+                        android:alpha="0.8"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        app:layout_constraintStart_toStartOf="@id/btnBackWP"
+                        app:layout_constraintEnd_toEndOf="@id/btnBackWP"
+                        app:layout_constraintTop_toBottomOf="@id/btnBackWP" />
+
                     <LinearLayout
                         android:id="@+id/layoutLeftColumn"
                         android:layout_width="110dp"
@@ -50,36 +85,8 @@
                         android:gravity="center"
                         android:orientation="vertical"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent">
-
-                        <!-- Назад -->
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnBackWP"
-                            style="@style/Widget.MaterialComponents.Button.Icon"
-                            android:layout_width="56dp"
-                            android:layout_height="56dp"
-                            android:layout_marginBottom="2dp"
-                            android:backgroundTint="@color/glass_white_20"
-                            android:padding="0dp"
-                            android:insetLeft="0dp"
-                            android:insetTop="0dp"
-                            android:insetRight="0dp"
-                            android:insetBottom="0dp"
-                            app:cornerRadius="16dp"
-                            app:icon="@drawable/ic_arrow_back"
-                            app:iconGravity="textStart"
-                            app:iconPadding="0dp"
-                            app:iconSize="24dp"
-                            app:iconTint="@color/white" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="8dp"
-                            android:text="Назад"
-                            android:textColor="@color/white"
-                            android:alpha="0.8"
-                            android:textSize="10sp"
-                            android:textStyle="bold" />
+                        app:layout_constraintTop_toBottomOf="@id/tvBackLabelWP"
+                        android:layout_marginTop="8dp">
 
                         <!-- Фото -->
                         <com.google.android.material.button.MaterialButton
@@ -180,9 +187,10 @@
                         app:layout_constraintStart_toEndOf="@+id/layoutLeftColumn"
                         app:layout_constraintTop_toTopOf="parent">
 
-                        <FrameLayout
+                        <androidx.constraintlayout.widget.ConstraintLayout
                             android:layout_width="match_parent"
                             android:layout_height="match_parent">
+
                             <ImageView
                                 android:id="@+id/ivProfilePhoto"
                                 android:layout_width="match_parent"
@@ -191,22 +199,32 @@
                                 android:src="@drawable/ic_person"
                                 android:clickable="true"
                                 android:focusable="true" />
-                            <View
-                                android:id="@+id/photoShimmer"
+
+                            <!-- Слой с размытой копией фото (на весь экран для совпадения пикселей) -->
+                            <ImageView
+                                android:id="@+id/ivPhotoInfoBlur"
                                 android:layout_width="match_parent"
-                                android:layout_height="80dp"
-                                android:layout_gravity="bottom"
-                                android:background="@drawable/bg_photo_shimmer" />
+                                android:layout_height="match_parent"
+                                android:scaleType="centerCrop"
+                                android:alpha="1.0" />
+
+                            <!-- Слой с легким градиентом поверх размытия (только для читаемости) -->
+                            <View
+                                android:id="@+id/viewPhotoInfoGradient"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:background="@drawable/bg_photo_info_gradient" />
 
                             <LinearLayout
                                 android:id="@+id/floatingTitleContainer"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_gravity="bottom|start"
-                                android:background="@color/glass_bg_dark"
+                                android:background="@android:color/transparent"
                                 android:orientation="vertical"
                                 android:paddingHorizontal="12dp"
-                                android:paddingVertical="8dp">
+                                android:paddingTop="20dp"
+                                android:paddingBottom="12dp"
+                                app:layout_constraintBottom_toBottomOf="parent">
 
                                 <TextView
                                     android:id="@+id/tvUserNameFloating"
@@ -232,7 +250,7 @@
                                     android:textColor="#E6FFFFFF"
                                     android:textSize="12sp" />
                             </LinearLayout>
-                        </FrameLayout>
+                        </androidx.constraintlayout.widget.ConstraintLayout>
                     </androidx.cardview.widget.CardView>
                 </androidx.constraintlayout.widget.ConstraintLayout>
 

@@ -41,18 +41,36 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <com.google.android.material.imageview.ShapeableImageView
-            android:id="@+id/ivToolbarAvatar"
+        <FrameLayout
+            android:id="@+id/layoutToolbarAvatarContainer"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_margin="8dp"
-            android:scaleType="centerCrop"
-            android:background="@color/glass_white_10"
-            android:src="@drawable/ic_person"
-            app:shapeAppearanceOverlay="@style/Rounded15PercentImageView"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent">
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/ivToolbarAvatar"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:background="@color/glass_white_10"
+                android:src="@drawable/ic_person"
+                app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
+
+            <TextView
+                android:id="@+id/tvToolbarInitials"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                tools:text="П"
+                tools:visibility="visible" />
+        </FrameLayout>
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/inputLayoutSearch"
@@ -66,10 +84,10 @@
             app:boxStrokeWidth="0dp"
             app:boxStrokeWidthFocused="0dp"
             app:hintTextColor="@color/glass_white_30"
-            app:layout_constraintBottom_toBottomOf="@+id/ivToolbarAvatar"
+            app:layout_constraintBottom_toBottomOf="@+id/layoutToolbarAvatarContainer"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/ivToolbarAvatar"
-            app:layout_constraintTop_toTopOf="@+id/ivToolbarAvatar">
+            app:layout_constraintStart_toEndOf="@+id/layoutToolbarAvatarContainer"
+            app:layout_constraintTop_toTopOf="@+id/layoutToolbarAvatarContainer">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etSearch"

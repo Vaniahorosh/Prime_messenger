@@ -296,12 +296,31 @@ class ChatListActivity : AppCompatActivity() {
             }
         })
 
-        if (savedAvatarUri != null) binding.ivToolbarAvatar.setImageURI(Uri.parse(savedAvatarUri))
-        else binding.ivToolbarAvatar.setImageResource(R.drawable.ic_person)
+        if (savedAvatarUri != null) {
+            binding.ivToolbarAvatar.setImageURI(Uri.parse(savedAvatarUri))
+            binding.tvToolbarInitials.visibility = View.GONE
+            binding.ivToolbarAvatar.visibility = View.VISIBLE
+        } else {
+            val initial = savedName.take(1).uppercase()
+            binding.tvToolbarInitials.text = initial
+            binding.tvToolbarInitials.visibility = View.VISIBLE
+            binding.ivToolbarAvatar.visibility = View.INVISIBLE
+            
+            val color = getAvatarColor(savedName)
+            val bg = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = 15 * resources.displayMetrics.density
+                setColor(color)
+            }
+            binding.tvToolbarInitials.background = bg
+        }
 
         binding.ivToolbarAvatar.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
             overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+        }
+        binding.tvToolbarInitials.setOnClickListener {
+            binding.ivToolbarAvatar.performClick()
         }
 
         binding.ivToolbarAvatar.setOnLongClickListener {
@@ -388,8 +407,27 @@ class ChatListActivity : AppCompatActivity() {
         val avatar = sharedPrefs.getString("${currentUser}_avatar", null)
         val name = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
 
-        if (avatar != null) binding.ivToolbarAvatar.setImageURI(Uri.parse(avatar)) else binding.ivToolbarAvatar.setImageResource(R.drawable.ic_person)
-        adapter.updateAvatar(avatar)
+        if (avatar != null) {
+            binding.ivToolbarAvatar.setImageURI(Uri.parse(avatar))
+            binding.tvToolbarInitials.visibility = View.GONE
+            binding.ivToolbarAvatar.visibility = View.VISIBLE
+            adapter.updateAvatar(avatar)
+        } else {
+            val initial = name.take(1).uppercase()
+            binding.tvToolbarInitials.text = initial
+            binding.tvToolbarInitials.visibility = View.VISIBLE
+            binding.ivToolbarAvatar.visibility = View.INVISIBLE
+            
+            val color = getAvatarColor(name)
+            val bg = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = 15 * resources.displayMetrics.density
+                setColor(color)
+            }
+            binding.tvToolbarInitials.background = bg
+            
+            adapter.updateAvatar(null)
+        }
         adapter.updateUserName(name)
 
         binding.recyclerViewChats.post {
@@ -513,5 +551,11 @@ class ChatListActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         connectivityManager.unregisterNetworkCallback(networkCallback)
+    }
+
+    private fun getAvatarColor(name: String): Int {
+        val colors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFEB3B", "#FFC107", "#FF9800", "#FF5722")
+        val index = Math.abs(name.hashCode()) % colors.size
+        return android.graphics.Color.parseColor(colors[index])
     }
 }
