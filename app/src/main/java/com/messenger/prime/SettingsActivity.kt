@@ -5,26 +5,26 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.LinearGradient
 import android.graphics.Rect
-import android.graphics.RenderEffect
-import android.graphics.Shader
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.transition.ChangeBounds
-import android.transition.Fade
-import android.transition.TransitionManager
-import android.transition.TransitionSet
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.DecelerateInterpolator
+import android.view.inputmethod.InputMethodManager
+import android.widget.ImageView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.messenger.prime.databinding.ActivitySettingsBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
@@ -49,6 +49,9 @@ class SettingsActivity : AppCompatActivity() {
 
     private var currentLoginInDB: String = ""
     private var currentPassInDB: String = ""
+
+    private val avatarUriState = mutableStateOf<String?>(null)
+    private var profileImageView: ImageView? = null
 
     private val photoViewLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
@@ -97,60 +100,85 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.TRANSPARENT
-
-        val slidrConfig = SlidrConfig.Builder().position(SlidrPosition.LEFT).build()
-        Slidr.attach(this, slidrConfig)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-
         currentLoginInDB = currentUser
         currentPassInDB = sharedPrefs.getString(currentUser, "") ?: ""
-
-        val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь")
-        val savedPassword = sharedPrefs.getString(currentUser, "")
+        
+        val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
         val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
         currentAvatarUri = savedAvatarUri
+        avatarUriState.value = savedAvatarUri
 
-        binding.tvUserNameFloating.text = savedName
         binding.tvUserNameStatic.text = savedName
-        binding.tvUserNameFloating.isSelected = true
+        binding.tvUserNameWP.text = savedName
         binding.tvUserNameStatic.isSelected = true
-
+        binding.tvUserNameWP.isSelected = true
         binding.etSettingsLogin.setText(currentUser)
-        binding.etSettingsPassword.setText(savedPassword)
+        binding.etSettingsPassword.setText(currentPassInDB)
 
+        setupComposePhoto()
+        setupListeners()
         applyAvatarState(savedAvatarUri)
-        binding.ivPhotoInfoBlur.applyGlassBlur(40f)
 
+        val slidrConfig = SlidrConfig.Builder().position(SlidrPosition.LEFT).build()
+        Slidr.attach(this, slidrConfig)
+    }
+
+    private fun setupComposePhoto() {
+        binding.composePhotoCard.setContent {
+            val avatarUri = avatarUriState.value
+            Box(modifier = Modifier.fillMaxSize()) {
+                AndroidView(
+                    factory = { context ->
+                        ImageView(context).apply {
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            setOnClickListener {
+                                if (!isHeaderExpanded) showPhotoActionDialog()
+                                else openFullPhoto()
+                            }
+                            profileImageView = this
+                        }
+                    },
+                    update = { view ->
+                        if (avatarUri != null) view.setImageURI(Uri.parse(avatarUri))
+                        else view.setImageResource(R.drawable.ic_person)
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+    }
+
+    private fun setupListeners() {
         val backAction = View.OnClickListener {
             finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         }
         binding.btnBackWP.setOnClickListener(backAction)
         binding.btnBackNP.setOnClickListener(backAction)
-
         binding.btnLogout.setOnClickListener { showLogoutDialog() }
         binding.btnLogoutNP.setOnClickListener { showLogoutDialog() }
-
         binding.btnChangePhoto.setOnClickListener { pickImage.launch("image/*") }
         binding.btnChangePhotoNP.setOnClickListener { pickImage.launch("image/*") }
 
-        binding.btnExtraSettings.setOnClickListener {
-            val rect = Rect()
-            binding.layoutSettingsTitle.getDrawingRect(rect)
-            binding.nestedScrollView.offsetDescendantRectToMyCoords(binding.layoutSettingsTitle, rect)
-            binding.nestedScrollView.smoothScrollTo(0, rect.top - (16 * resources.displayMetrics.density).toInt())
+        val extraAction = View.OnClickListener {
+            binding.nestedScrollView.smoothScrollTo(0, 1000)
         }
-        binding.btnExtraSettingsNP.setOnClickListener { binding.btnExtraSettings.performClick() }
+        binding.btnExtraSettings.setOnClickListener(extraAction)
+        binding.btnExtraSettingsNP.setOnClickListener(extraAction)
 
         setupInlineAccountEditing()
+        binding.tvUserNameStatic.setOnClickListener { showNameEditDialog() }
+        binding.tvUserNameWP.setOnClickListener { showNameEditDialog() }
 
-        val openNameDialogListener = View.OnClickListener { showNameEditDialog() }
-        binding.floatingTitleContainer.setOnClickListener(openNameDialogListener)
-        binding.tvUserNameStatic.setOnClickListener(openNameDialogListener)
-
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         binding.switchAnimations.isChecked = sharedPrefs.getBoolean("settings_animations", true)
         binding.switchBlocked.isChecked = sharedPrefs.getBoolean("settings_show_blocked", false)
         binding.switchSearch.isChecked = sharedPrefs.getBoolean("settings_hide_search", false)
@@ -165,37 +193,13 @@ class SettingsActivity : AppCompatActivity() {
             sharedPrefs.edit().putBoolean("settings_hide_search", isChecked).apply()
         }
 
-        binding.ivProfilePhoto.setOnClickListener { 
-            if (!isHeaderExpanded) showPhotoActionDialog() 
-            else openFullPhoto()
-        }
-        
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.headerStaticBlock) { view, windowInsets ->
-            val insets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        ViewCompat.setOnApplyWindowInsetsListener(binding.headerStaticBlock) { view, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars())
             view.setPadding(0, insets.top, 0, 0)
             windowInsets
         }
 
         setupHeaderExpansion()
-
-        // Слушатель изменения размера и ПОЛОЖЕНИЯ текста для динамического блюра
-        binding.floatingTitleContainer.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            updateGradientBlurPosition()
-        }
-        
-        // Инициализируем высоту сразу после загрузки вьюх
-        binding.root.post { updateGradientBlurPosition() }
-    }
-
-    private fun updateGradientBlurPosition() {
-        val containerHeight = binding.photoCard.height.toFloat()
-        val textHeight = binding.floatingTitleContainer.height.toFloat()
-        
-        if (containerHeight > 0 && textHeight > 0) {
-            val textTopInCard = containerHeight - textHeight
-            applyGradientBlurToView(binding.ivPhotoInfoBlur, containerHeight, textTopInCard, textHeight)
-            applyGradientMaskToView(binding.viewPhotoInfoGradient, containerHeight, textTopInCard)
-        }
     }
 
     override fun onResume() {
@@ -203,102 +207,37 @@ class SettingsActivity : AppCompatActivity() {
         isClosing = false
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь")
+        val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
         val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
         
         currentAvatarUri = savedAvatarUri
-        binding.tvUserNameFloating.text = savedName
+        avatarUriState.value = savedAvatarUri
         binding.tvUserNameStatic.text = savedName
+        binding.tvUserNameWP.text = savedName
+        binding.tvUserNameStatic.isSelected = true
+        binding.tvUserNameWP.isSelected = true
         applyAvatarState(savedAvatarUri)
     }
 
     private fun applyAvatarState(avatarUri: String?) {
         if (avatarUri != null) {
-            val uri = Uri.parse(avatarUri)
-            binding.ivProfilePhoto.setImageURI(uri)
-            binding.ivPhotoInfoBlur.setImageURI(uri)
-            
-            // Добавляем темный фильтр на размытый слой, чтобы убрать белесость (YouTube style)
-            binding.ivPhotoInfoBlur.setColorFilter(Color.argb(80, 0, 0, 0), android.graphics.PorterDuff.Mode.SRC_ATOP)
-            
-            // Пересчитываем блюр
-            binding.ivPhotoInfoBlur.post { updateGradientBlurPosition() }
-
             binding.layoutWithPhoto.visibility = View.VISIBLE
             binding.layoutNoPhoto.visibility = View.GONE
-            
-            // Устанавливаем минимальную высоту для красивого вида с фото
             binding.headerStaticBlock.minimumHeight = (320 * resources.displayMetrics.density).toInt()
         } else {
             binding.layoutWithPhoto.visibility = View.GONE
             binding.layoutNoPhoto.visibility = View.VISIBLE
-            
-            // Сбрасываем ограничение высоты, чтобы блок подстроился под кнопки
             binding.headerStaticBlock.minimumHeight = 0
         }
-    }
-
-    private fun applyGradientBlurToView(view: View, totalHeight: Float, textTop: Float, textHeight: Float) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // Увеличиваем радиус для более мягкого "кинематографичного" эффекта
-            val blurEffect = RenderEffect.createBlurEffect(80f, 80f, Shader.TileMode.CLAMP)
-            
-            val density = resources.displayMetrics.density
-            // Начинаем размытие чуть выше текста для мягкости
-            val startFadeY = (textTop - 20 * density).coerceAtLeast(0f)
-            
-            // Создаем градиентную маску (DST_IN работает по альфе)
-            val alphaShader = LinearGradient(
-                0f, 0f, 0f, totalHeight,
-                intArrayOf(
-                    Color.TRANSPARENT,
-                    Color.TRANSPARENT,
-                    Color.BLACK.withAlpha(140), // Около 55% прозрачности в середине
-                    Color.BLACK.withAlpha(210)  // Около 80% в самом низу
-                ),
-                floatArrayOf(
-                    0f, 
-                    startFadeY / totalHeight, 
-                    (textTop + textHeight / 2f) / totalHeight, 
-                    1f
-                ),
-                Shader.TileMode.CLAMP
-            )
-            
-            val maskEffect = RenderEffect.createShaderEffect(alphaShader)
-            val combinedEffect = RenderEffect.createBlendModeEffect(maskEffect, blurEffect, android.graphics.BlendMode.DST_IN)
-            view.setRenderEffect(combinedEffect)
-        }
-    }
-
-    private fun applyGradientMaskToView(view: View, totalHeight: Float, textTop: Float) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alphaShader = LinearGradient(
-                0f, 0f, 0f, totalHeight,
-                intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT, Color.WHITE),
-                floatArrayOf(0f, textTop / totalHeight, 1f),
-                Shader.TileMode.CLAMP
-            )
-            val maskEffect = RenderEffect.createShaderEffect(alphaShader)
-            // Используем пустой эффект цепочки вместо null
-            view.setRenderEffect(maskEffect)
-        }
-    }
-
-    // Вспомогательная функция для удобной работы с цветами
-    private fun Int.withAlpha(alpha: Int): Int {
-        return (this and 0x00FFFFFF) or (alpha shl 24)
     }
 
     private fun setupHeaderExpansion() {
         binding.nestedScrollView.setOnTouchListener { v, event ->
             if (isAnimating) return@setOnTouchListener true
-
             if (binding.nestedScrollView.scrollY > 0 && !isHeaderExpanded) {
                 pullStartY = -1f
                 return@setOnTouchListener false
             }
-
             if (currentAvatarUri == null) return@setOnTouchListener false
 
             when (event.action) {
@@ -312,9 +251,7 @@ class SettingsActivity : AppCompatActivity() {
                         pullStartY = event.y
                         return@setOnTouchListener false
                     }
-
                     val dy = event.y - pullStartY
-
                     if (!isHeaderExpanded) {
                         if (dy > 20f && binding.nestedScrollView.scrollY == 0) {
                             if (!isHeaderMoving) {
@@ -323,7 +260,6 @@ class SettingsActivity : AppCompatActivity() {
                             }
                             val progress = (dy / PULL_THRESHOLD).coerceIn(0f, 1.2f)
                             updateHeaderAnimation(progress)
-                            
                             if (progress >= 1f && !isVibrated) {
                                 binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                                 isVibrated = true
@@ -338,7 +274,6 @@ class SettingsActivity : AppCompatActivity() {
                             }
                             val progress = (1f - (Math.abs(dy) / PULL_THRESHOLD)).coerceIn(0f, 1f)
                             updateHeaderAnimation(progress)
-                            
                             if (progress <= 0f) {
                                 isHeaderExpanded = false
                                 isHeaderMoving = false
@@ -376,96 +311,71 @@ class SettingsActivity : AppCompatActivity() {
     private fun updateHeaderAnimation(progress: Float) {
         val density = resources.displayMetrics.density
         val screenWidth = resources.displayMetrics.widthPixels.toFloat()
-        
         val leftColWidth = binding.layoutLeftColumn.width.toFloat()
         val cardWidth = binding.photoCard.width.toFloat()
         val cardHeight = binding.photoCard.height.toFloat()
         val headerHeight = binding.headerStaticBlock.height.toFloat()
-        val textHeight = binding.floatingTitleContainer.height.toFloat()
 
-        if (leftColWidth == 0f || cardWidth == 0f || headerHeight == 0f || textHeight == 0f) return
+        if (leftColWidth == 0f || cardWidth == 0f || headerHeight == 0f) return
 
-        val topPadding = binding.headerStaticBlock.paddingTop.toFloat()
+        val statusBarHeight = ViewCompat.getRootWindowInsets(binding.root)
+            ?.getInsets(WindowInsetsCompat.Type.statusBars())?.top?.toFloat() ?: 0f
         val innerPadding = binding.layoutWithPhoto.paddingTop.toFloat()
-        val totalOffsetUp = topPadding + innerPadding
+        val totalOffsetUp = statusBarHeight + innerPadding
 
-        // 1. Анимация элементов управления
+        val targetScaleX = screenWidth / cardWidth
+        val targetScaleY = headerHeight / cardHeight 
+        
+        val currentScaleX = 1f + (targetScaleX - 1f) * progress
+        val currentScaleY = 1f + (targetScaleY - 1f) * progress
+        
+        binding.photoCard.scaleX = currentScaleX
+        binding.photoCard.scaleY = currentScaleY
+        
+        // ВАЖНО: Применяем обратное скалирование ТОЛЬКО к контейнеру с текстом, а не ко всему содержимому.
+        // Изображение (composePhotoCard) остается вне этого контейнера в XML, поэтому оно будет расширяться.
+        binding.layoutPhotoInternal.scaleX = 1f / currentScaleX
+        binding.layoutPhotoInternal.scaleY = 1f / currentScaleY
+        binding.layoutPhotoInternal.pivotX = 0f
+        binding.layoutPhotoInternal.pivotY = cardHeight
+        
+        val extraPadding = (16 * progress * density)
+        binding.tvUserNameWP.translationX = extraPadding
+        binding.tvUserNameWP.translationY = -extraPadding
+        binding.tvStatusWP.translationX = extraPadding
+        binding.tvStatusWP.translationY = -extraPadding
+
         val otherAlpha = (1f - progress * 2.5f).coerceIn(0f, 1f)
         val otherTranslationX = -leftColWidth * progress
 
-        // Кнопка назад остается, но становится полупрозрачной
         binding.btnBackWP.alpha = (1f - progress * 0.6f).coerceIn(0.4f, 1f)
-        binding.btnBackWP.translationX = 0f 
-        
-        // Текст "Назад" исчезает
         binding.tvBackLabelWP.alpha = otherAlpha
         binding.tvBackLabelWP.translationX = otherTranslationX
-
-        // Остальная колонка (Фото, Выход, Настройки) уезжает
         binding.layoutLeftColumn.alpha = otherAlpha
         binding.layoutLeftColumn.translationX = otherTranslationX
 
-        // 2. Карточка
         binding.photoCard.pivotX = 0f
         binding.photoCard.pivotY = 0f
         binding.photoCard.translationX = -(leftColWidth * progress)
         binding.photoCard.translationY = -(totalOffsetUp * progress)
-        
-        val targetScaleX = screenWidth / cardWidth
-        val targetScaleY = headerHeight / cardHeight
-        
-        val scaleX = 1f + (targetScaleX - 1f) * progress
-        val scaleY = 1f + (targetScaleY - 1f) * progress
-        
-        binding.photoCard.scaleX = scaleX
-        binding.photoCard.scaleY = scaleY
 
-        // 3. Текст и его фон (Имя и Статус)
-        // Контейнер (фон) теперь расширяется на всю ширину карточки (screenWidth)
-        binding.floatingTitleContainer.scaleX = 1f 
-        binding.floatingTitleContainer.scaleY = 1f
-        binding.floatingTitleContainer.translationY = 0f
-        
-        // Компенсируем масштаб для самих надписей, чтобы они не растягивались
-        val invScaleX = 1f / scaleX
-        val invScaleY = 1f / scaleY
-        
-        // Пивот в начало, чтобы текст не прыгал при масштабировании
-        binding.tvUserNameFloating.pivotX = 0f
-        binding.tvStatusFloating.pivotX = 0f
-        
-        binding.tvUserNameFloating.scaleX = invScaleX
-        binding.tvUserNameFloating.scaleY = invScaleY
-        binding.tvStatusFloating.scaleX = invScaleX
-        binding.tvStatusFloating.scaleY = invScaleY
-        
-        // Точный расчет положения текста, чтобы он всегда был в 16dp от края экрана
-        // (12dp - исходный padding в XML)
-        val textShiftX = (16 * density) / scaleX - 12 * density
-        binding.tvUserNameFloating.translationX = textShiftX
-        binding.tvStatusFloating.translationX = textShiftX
-
-        // 4. Визуал
         binding.photoCard.radius = (24 * (1f - progress)).coerceAtLeast(0f) * density
         binding.photoCard.cardElevation = (8 * (1f - progress)).coerceAtLeast(0f) * density
+        
+        val pushDown = (screenWidth - headerHeight).coerceAtLeast(0f) * progress
+        binding.layoutAccountData.translationY = pushDown
+        binding.layoutSwitches.translationY = pushDown
+        binding.tvAppVersion.translationY = pushDown
     }
 
     private fun animateHeaderState(expand: Boolean) {
         currentAnimator?.cancel()
         isAnimating = true
-        
-        val currentProgress = if (isHeaderExpanded) {
-            (1f - Math.abs(binding.layoutLeftColumn.translationX) / binding.layoutLeftColumn.width).coerceIn(0f, 1f)
-        } else {
-            (Math.abs(binding.layoutLeftColumn.translationX) / binding.layoutLeftColumn.width).coerceIn(0f, 1f)
-        }
-
-        val animator = ValueAnimator.ofFloat(currentProgress, if (expand) 1f else 0f)
+        val currentProgress = (binding.photoCard.scaleX - 1f) / ((resources.displayMetrics.widthPixels.toFloat() / binding.photoCard.width) - 1f)
+        val startVal = if (currentProgress.isNaN()) 0f else currentProgress.coerceIn(0f, 1f)
+        val animator = ValueAnimator.ofFloat(startVal, if (expand) 1f else 0f)
         currentAnimator = animator
-        
-        animator.addUpdateListener { anim -> 
-            updateHeaderAnimation(anim.animatedValue as Float) 
-        }
+        animator.addUpdateListener { anim -> updateHeaderAnimation(anim.animatedValue as Float) }
         animator.duration = 300
         animator.interpolator = DecelerateInterpolator()
         animator.addListener(object : AnimatorListenerAdapter() {
@@ -481,11 +391,10 @@ class SettingsActivity : AppCompatActivity() {
     private fun openFullPhoto() {
         if (currentAvatarUri == null || isClosing) return
         isClosing = true
-        
         val intent = Intent(this, PhotoViewActivity::class.java)
         intent.putExtra("EXTRA_URI", currentAvatarUri)
         val rect = Rect()
-        binding.ivProfilePhoto.getGlobalVisibleRect(rect)
+        profileImageView?.getGlobalVisibleRect(rect)
         intent.putExtra("EXTRA_RECT", rect)
         photoViewLauncher.launch(intent)
         overridePendingTransition(0, 0)
@@ -497,34 +406,16 @@ class SettingsActivity : AppCompatActivity() {
         binding.dialogContainer.removeAllViews()
         binding.dialogContainer.addView(dialogBinding.root)
         binding.dialogContainer.visibility = View.VISIBLE
-
         dialogBinding.cardContainer.scaleX = 0.8f
         dialogBinding.cardContainer.scaleY = 0.8f
         dialogBinding.cardContainer.alpha = 0f
         dialogBinding.dialogRoot.alpha = 0f
-
         dialogBinding.dialogRoot.animate().alpha(1f).setDuration(300).start()
-        dialogBinding.cardContainer.animate()
-            .scaleX(1f).scaleY(1f).alpha(1f)
-            .setDuration(400)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
+        dialogBinding.cardContainer.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(400).setInterpolator(DecelerateInterpolator()).start()
 
-        dialogBinding.btnOpenPhoto.setOnClickListener {
-            hidePhotoActionDialog(dialogBinding)
-            openFullPhoto()
-        }
-
-        dialogBinding.btnChangePhoto.setOnClickListener {
-            hidePhotoActionDialog(dialogBinding)
-            pickImage.launch("image/*")
-        }
-
-        dialogBinding.btnDeletePhoto.setOnClickListener {
-            hidePhotoActionDialog(dialogBinding)
-            handlePhotoDeletionWithUndo(currentAvatarUri)
-        }
-
+        dialogBinding.btnOpenPhoto.setOnClickListener { hidePhotoActionDialog(dialogBinding); openFullPhoto() }
+        dialogBinding.btnChangePhoto.setOnClickListener { hidePhotoActionDialog(dialogBinding); pickImage.launch("image/*") }
+        dialogBinding.btnDeletePhoto.setOnClickListener { hidePhotoActionDialog(dialogBinding) ; handlePhotoDeletionWithUndo(currentAvatarUri) }
         dialogBinding.btnClose.setOnClickListener { hidePhotoActionDialog(dialogBinding) }
         dialogBinding.dialogRoot.setOnClickListener { hidePhotoActionDialog(dialogBinding) }
     }
@@ -532,16 +423,11 @@ class SettingsActivity : AppCompatActivity() {
     private fun hidePhotoActionDialog(dialogBinding: com.messenger.prime.databinding.DialogPhotoActionsBinding) {
         dialogBinding.dialogRoot.animate().alpha(0f).setDuration(300).start()
         val screenWidth = resources.displayMetrics.widthPixels.toFloat()
-        dialogBinding.cardContainer.animate()
-            .translationX(screenWidth).alpha(0f)
-            .setDuration(350)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                binding.dialogContainer.visibility = View.GONE
-                binding.dialogContainer.removeAllViews()
-                activePhotoDialogBinding = null
-            }
-            .start()
+        dialogBinding.cardContainer.animate().translationX(screenWidth).alpha(0f).setDuration(350).setInterpolator(DecelerateInterpolator()).withEndAction {
+            binding.dialogContainer.visibility = View.GONE
+            binding.dialogContainer.removeAllViews()
+            activePhotoDialogBinding = null
+        }.start()
     }
 
     private fun showNameEditDialog() {
@@ -550,23 +436,16 @@ class SettingsActivity : AppCompatActivity() {
         binding.dialogContainer.removeAllViews()
         binding.dialogContainer.addView(dialogBinding.root)
         binding.dialogContainer.visibility = View.VISIBLE
-
         dialogBinding.cardContainer.scaleX = 0.8f
         dialogBinding.cardContainer.scaleY = 0.8f
         dialogBinding.cardContainer.alpha = 0f
         dialogBinding.dialogRoot.alpha = 0f
-
         dialogBinding.dialogRoot.animate().alpha(1f).setDuration(300).start()
-        dialogBinding.cardContainer.animate()
-            .scaleX(1f).scaleY(1f).alpha(1f)
-            .setDuration(400)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
+        dialogBinding.cardContainer.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(400).setInterpolator(DecelerateInterpolator()).start()
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         val currentName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
-
         dialogBinding.etNewName.setText(currentName)
         dialogBinding.btnSave.isEnabled = false
         dialogBinding.btnSave.alpha = 0.5f
@@ -586,21 +465,28 @@ class SettingsActivity : AppCompatActivity() {
         dialogBinding.btnBack.setOnClickListener { hideNameEditDialog(dialogBinding) }
         dialogBinding.btnSave.setOnClickListener {
             val newName = dialogBinding.etNewName.text.toString().trim()
-            val error = ValidationUtils.getValidationError(newName, false)
-            if (error != null) {
+            val error = if (newName.isEmpty()) "Имя не может быть пустым" else ValidationUtils.getValidationError(newName, false)
+            
+            if (error != null) { 
                 dialogBinding.inputLayoutName.error = error
-                dialogBinding.cardContainer.shake()
-                return@setOnClickListener
+                dialogBinding.cardContainer.shake() 
+                return@setOnClickListener 
             }
+            
             val oldName = currentName
             sharedPrefs.edit().putString("${currentUser}_name", newName).apply()
-            binding.tvUserNameFloating.text = newName
+            
             binding.tvUserNameStatic.text = newName
+            binding.tvUserNameWP.text = newName
+            binding.tvUserNameStatic.isSelected = true
+            binding.tvUserNameWP.isSelected = true
             
             PrimeNotification.show(this, "Имя обновлено") {
                 sharedPrefs.edit().putString("${currentUser}_name", oldName).apply()
-                binding.tvUserNameFloating.text = oldName
                 binding.tvUserNameStatic.text = oldName
+                binding.tvUserNameWP.text = oldName
+                binding.tvUserNameStatic.isSelected = true
+                binding.tvUserNameWP.isSelected = true
             }
             hideNameEditDialog(dialogBinding)
         }
@@ -610,16 +496,11 @@ class SettingsActivity : AppCompatActivity() {
     private fun hideNameEditDialog(dialogBinding: com.messenger.prime.databinding.DialogEditNameBinding) {
         dialogBinding.dialogRoot.animate().alpha(0f).setDuration(300).start()
         val screenWidth = resources.displayMetrics.widthPixels.toFloat()
-        dialogBinding.cardContainer.animate()
-            .translationX(screenWidth).alpha(0f)
-            .setDuration(350)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                binding.dialogContainer.visibility = View.GONE
-                binding.dialogContainer.removeAllViews()
-                activeNameDialogBinding = null
-            }
-            .start()
+        dialogBinding.cardContainer.animate().translationX(screenWidth).alpha(0f).setDuration(350).setInterpolator(DecelerateInterpolator()).withEndAction {
+            binding.dialogContainer.visibility = View.GONE
+            binding.dialogContainer.removeAllViews()
+            activeNameDialogBinding = null
+        }.start()
     }
 
     private fun setupInlineAccountEditing() {
@@ -632,7 +513,6 @@ class SettingsActivity : AppCompatActivity() {
             }
             override fun afterTextChanged(s: android.text.Editable?) {}
         }
-
         binding.etSettingsLogin.addTextChangedListener(textWatcher)
         binding.etSettingsPassword.addTextChangedListener(textWatcher)
 
@@ -640,83 +520,45 @@ class SettingsActivity : AppCompatActivity() {
             val newLogin = binding.etSettingsLogin.text.toString().trim()
             val newPass = binding.etSettingsPassword.text.toString()
             val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-
-            var hasError = false
-            if (newLogin.isEmpty()) {
-                binding.inputLayoutLogin.error = "Логин не может быть пустым"
-                binding.inputLayoutLogin.shake()
-                hasError = true
-            } else {
-                val loginError = ValidationUtils.getValidationError(newLogin, true)
-                if (loginError != null) {
-                    binding.inputLayoutLogin.error = loginError
+            
+            var errorLogin = when {
+                newLogin.isEmpty() -> "Логин не может быть пустым"
+                newLogin != currentLoginInDB && sharedPrefs.contains(newLogin) -> "Этот логин уже занят"
+                else -> ValidationUtils.getValidationError(newLogin, true)
+            }
+            
+            var errorPass = if (newPass.length < 8) "Минимум 8 символов" else null
+            
+            if (errorLogin != null || errorPass != null) {
+                if (errorLogin != null) {
+                    binding.inputLayoutLogin.error = errorLogin
                     binding.inputLayoutLogin.shake()
-                    hasError = true
                 }
-            }
-
-            if (newPass.length < 8) {
-                binding.inputLayoutPassword.error = "Минимум 8 символов"
-                binding.inputLayoutPassword.shake()
-                hasError = true
-            }
-
-            if (hasError) return@setOnClickListener
-
-            if (newLogin != currentLoginInDB && sharedPrefs.contains(newLogin)) {
-                binding.inputLayoutLogin.error = "Этот логин уже занят"
-                binding.inputLayoutLogin.shake()
+                if (errorPass != null) {
+                    binding.inputLayoutPassword.error = errorPass
+                    binding.inputLayoutPassword.shake()
+                }
                 return@setOnClickListener
             }
-
+            
             sharedPrefs.edit().apply {
                 if (newLogin != currentLoginInDB) {
+// ...
                     val name = sharedPrefs.getString("${currentLoginInDB}_name", "Пользователь")
                     val avatar = sharedPrefs.getString("${currentLoginInDB}_avatar", null)
-                    putString("current_user", newLogin)
-                    putString(newLogin, newPass)
-                    putString("${newLogin}_name", name)
+                    putString("current_user", newLogin); putString(newLogin, newPass); putString("${newLogin}_name", name)
                     if (avatar != null) putString("${newLogin}_avatar", avatar)
-                    remove(currentLoginInDB)
-                    remove("${currentLoginInDB}_name")
-                    remove("${currentLoginInDB}_avatar")
+                    remove(currentLoginInDB); remove("${currentLoginInDB}_name"); remove("${currentLoginInDB}_avatar")
                 } else {
                     putString(currentLoginInDB, newPass)
                 }
                 apply()
             }
-            
-            val oldLogin = currentLoginInDB
-            val oldPass = currentPassInDB
             currentLoginInDB = newLogin
             currentPassInDB = newPass
-            
-            PrimeNotification.show(this, "Данные обновлены") {
-                sharedPrefs.edit().apply {
-                    if (newLogin != oldLogin) {
-                        val name = sharedPrefs.getString("${newLogin}_name", "Пользователь")
-                        val avatar = sharedPrefs.getString("${newLogin}_avatar", null)
-                        putString("current_user", oldLogin)
-                        putString(oldLogin, oldPass)
-                        putString("${oldLogin}_name", name)
-                        if (avatar != null) putString("${oldLogin}_avatar", avatar)
-                        remove(newLogin)
-                        remove("${newLogin}_name")
-                        remove("${newLogin}_avatar")
-                    } else {
-                        putString(oldLogin, oldPass)
-                    }
-                    apply()
-                }
-                currentLoginInDB = oldLogin
-                currentPassInDB = oldPass
-                binding.etSettingsLogin.setText(oldLogin)
-                binding.etSettingsPassword.setText(oldPass)
-                checkAccountChanges()
-            }
-            
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-            imm.hideSoftInputFromWindow(binding.etSettingsPassword.windowToken, 0)
+            PrimeNotification.show(this, "Данные обновлены")
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(binding.etSettingsLogin.windowToken, 0)
             binding.etSettingsLogin.clearFocus()
             binding.etSettingsPassword.clearFocus()
             checkAccountChanges()
@@ -727,47 +569,21 @@ class SettingsActivity : AppCompatActivity() {
     private fun checkAccountChanges() {
         val newLogin = binding.etSettingsLogin.text.toString().trim()
         val newPass = binding.etSettingsPassword.text.toString()
-
         val loginChanged = newLogin != currentLoginInDB
         val passChanged = newPass != currentPassInDB
-
-        if (loginChanged) {
-            binding.inputLayoutLogin.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel)
-            binding.inputLayoutLogin.setStartIconOnClickListener {
-                binding.etSettingsLogin.setText(currentLoginInDB)
-            }
-        } else {
-            binding.inputLayoutLogin.startIconDrawable = null
-            binding.inputLayoutLogin.setStartIconOnClickListener(null)
-        }
-            
-        if (passChanged) {
-            binding.inputLayoutPassword.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel)
-            binding.inputLayoutPassword.setStartIconOnClickListener {
-                binding.etSettingsPassword.setText(currentPassInDB)
-            }
-        } else {
-            binding.inputLayoutPassword.startIconDrawable = null
-            binding.inputLayoutPassword.setStartIconOnClickListener(null)
-        }
-
-        val hasChanges = (loginChanged || passChanged) && newLogin.isNotEmpty()
-        animateSaveButton(hasChanges)
+        
+        if (loginChanged) { binding.inputLayoutLogin.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel); binding.inputLayoutLogin.setStartIconOnClickListener { binding.etSettingsLogin.setText(currentLoginInDB) } }
+        else { binding.inputLayoutLogin.startIconDrawable = null; binding.inputLayoutLogin.setStartIconOnClickListener(null) }
+        
+        if (passChanged) { binding.inputLayoutPassword.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel); binding.inputLayoutPassword.setStartIconOnClickListener { binding.etSettingsPassword.setText(currentPassInDB) } }
+        else { binding.inputLayoutPassword.startIconDrawable = null; binding.inputLayoutPassword.setStartIconOnClickListener(null) }
+        
+        animateSaveButton((loginChanged || passChanged) && newLogin.isNotEmpty())
     }
 
     private fun animateSaveButton(show: Boolean) {
         if (show && binding.btnSaveAccount.visibility == View.VISIBLE) return
         if (!show && binding.btnSaveAccount.visibility == View.GONE) return
-
-        TransitionManager.beginDelayedTransition(
-            binding.layoutAccountData,
-            TransitionSet().apply {
-                addTransition(Fade())
-                addTransition(ChangeBounds())
-                duration = 300
-                interpolator = DecelerateInterpolator()
-            }
-        )
         binding.btnSaveAccount.visibility = if (show) View.VISIBLE else View.GONE
     }
 
@@ -777,21 +593,10 @@ class SettingsActivity : AppCompatActivity() {
             val y = event.rawY.toInt()
             var hitProtected = false
             val rect = Rect()
-
-            activeNameDialogBinding?.let { db ->
-                val protectedViews = listOf(db.btnBack, db.etNewName, db.btnSave)
-                for (view in protectedViews) {
-                    view.getGlobalVisibleRect(rect)
-                    if (rect.contains(x, y)) { hitProtected = true; break }
-                }
-            }
-
+            activeNameDialogBinding?.let { db -> val protectedViews = listOf(db.btnBack, db.etNewName, db.btnSave); for (view in protectedViews) { view.getGlobalVisibleRect(rect); if (rect.contains(x, y)) { hitProtected = true; break } } }
             if (!hitProtected) {
-                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                currentFocus?.let { focusedView ->
-                    imm.hideSoftInputFromWindow(focusedView.windowToken, 0)
-                    focusedView.clearFocus()
-                }
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                currentFocus?.let { focusedView -> imm.hideSoftInputFromWindow(focusedView.windowToken, 0); focusedView.clearFocus() }
                 activePhotoDialogBinding?.let { hidePhotoActionDialog(it) }
             }
         }
@@ -803,25 +608,11 @@ class SettingsActivity : AppCompatActivity() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         sharedPrefs.edit().remove("${currentUser}_avatar").apply()
-        currentAvatarUri = null
-        applyAvatarState(null)
-        PrimeNotification.show(this, "Фото удалено") {
-            sharedPrefs.edit().putString("${currentUser}_avatar", uriToDelete).apply()
-            currentAvatarUri = uriToDelete
-            applyAvatarState(uriToDelete)
-        }
+        currentAvatarUri = null; applyAvatarState(null)
+        PrimeNotification.show(this, "Фото удалено") { sharedPrefs.edit().putString("${currentUser}_avatar", uriToDelete).apply(); currentAvatarUri = uriToDelete; applyAvatarState(uriToDelete) }
     }
 
     private fun showLogoutDialog() {
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
-            .setTitle("Выход")
-            .setMessage("Сделать выход из аккаунта?")
-            .setPositiveButton("Да") { _, _ ->
-                getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-                    .edit().putBoolean("is_logged_in", false).apply()
-                startActivity(Intent(this, LoginActivity::class.java))
-                finishAffinity()
-            }
-            .setNegativeButton("Нет", null).show()
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog).setTitle("Выход").setMessage("Сделать выход из аккаунта?").setPositiveButton("Да") { _, _ -> getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).edit().putBoolean("is_logged_in", false).apply(); startActivity(Intent(this, LoginActivity::class.java)); finishAffinity() }.setNegativeButton("Нет", null).show()
     }
 }

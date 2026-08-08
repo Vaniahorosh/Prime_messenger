@@ -2,7 +2,6 @@ package com.messenger.prime
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
-import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
 import android.graphics.Rect
@@ -11,6 +10,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -19,21 +19,47 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.textfield.TextInputEditText
-import com.messenger.prime.databinding.ActivityChatListBinding
+import com.messenger.prime.databinding.ActivityChatListContentBinding
+import com.messenger.prime.databinding.LayoutIslandBinding
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.hazeEffect
 
 class ChatListActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityChatListBinding
+    private lateinit var binding: ActivityChatListContentBinding
+    private lateinit var islandBinding: LayoutIslandBinding
     private lateinit var adapter: ChatAdapter
     private lateinit var allChats: List<ChatModel>
 
     private lateinit var connectivityManager: ConnectivityManager
     private var isNetworkConnected = true
+
+    // Состояние видимости островка для Compose
+    private var isIslandVisibleState = mutableStateOf(true)
 
     // ==========================================
     // ПЕРЕМЕННЫЕ ДЛЯ СВАЙПА
@@ -42,7 +68,6 @@ class ChatListActivity : AppCompatActivity() {
     private var isPulling = false
     private var isThresholdCrossed = false
     private val PULL_THRESHOLD = 250f
-    private var isIslandHidden = false
     private var isTransitioning = false
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
@@ -50,7 +75,7 @@ class ChatListActivity : AppCompatActivity() {
             super.onAvailable(network)
             val isCurrentlyConnected = connectivityManager.getNetworkCapabilities(network)
                 ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-            
+
             if (isCurrentlyConnected) {
                 isNetworkConnected = true
                 runOnUiThread { animateSearchHint("ПОИСК") }
@@ -59,11 +84,10 @@ class ChatListActivity : AppCompatActivity() {
 
         override fun onLost(network: Network) {
             super.onLost(network)
-            // Проверяем, нет ли других активных сетей с интернетом
             val activeNetwork = connectivityManager.activeNetwork
             val hasInternet = connectivityManager.getNetworkCapabilities(activeNetwork)
                 ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-            
+
             if (!hasInternet) {
                 isNetworkConnected = false
                 runOnUiThread { animateSearchHint("Ожидание сети...") }
@@ -71,9 +95,17 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
+    private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+        val currentUser = sharedPreferences.getString("current_user", "") ?: ""
+        if (key == "${currentUser}_avatar" || key == "${currentUser}_name") {
+            runOnUiThread { refreshUserUi() }
+        }
+    }
+
     private fun animateSearchHint(newHint: String) {
-        if (binding.inputLayoutSearch.hint == newHint) return
-        animateViewHint(binding.inputLayoutSearch, newHint)
+        if (!::islandBinding.isInitialized) return
+        if (islandBinding.inputLayoutSearch.hint == newHint) return
+        animateViewHint(islandBinding.inputLayoutSearch, newHint)
         adapter.updateNetworkHint(newHint)
     }
 
@@ -95,6 +127,8 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (!::binding.isInitialized) return super.dispatchTouchEvent(event)
+        
         if (event.action == MotionEvent.ACTION_DOWN) {
             val v = currentFocus
             if (v is TextInputEditText) {
@@ -128,7 +162,8 @@ class ChatListActivity : AppCompatActivity() {
                             binding.recyclerViewChats.translationY = dy * 0.35f
                             val progress = (dy / PULL_THRESHOLD).coerceIn(0f, 1.2f)
 
-                            binding.recyclerViewChats.layoutManager?.findViewByPosition(0)?.let { headerView ->
+                            val headerView = binding.recyclerViewChats.layoutManager?.findViewByPosition(0)
+                            if (headerView != null) {
                                 headerView.pivotY = 0f
                                 headerView.scaleX = 1f + (progress * 0.1f)
                                 headerView.scaleY = 1f + (progress * 0.2f)
@@ -137,11 +172,11 @@ class ChatListActivity : AppCompatActivity() {
                             if (dy > PULL_THRESHOLD && !isThresholdCrossed) {
                                 isThresholdCrossed = true
                                 isTransitioning = true
-                                binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                
+                                binding.photoRootContainer.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+
                                 startActivity(Intent(this, SettingsActivity::class.java))
                                 overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-                                
+
                                 resetPullUiInstant()
                                 isPulling = false
                             }
@@ -156,7 +191,7 @@ class ChatListActivity : AppCompatActivity() {
                     val dy = event.y - startY
                     if (dy > PULL_THRESHOLD) {
                         isPulling = false
-                        binding.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                        binding.photoRootContainer.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                         startActivity(Intent(this, SettingsActivity::class.java))
                         overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                         resetPullUiInstant()
@@ -170,6 +205,7 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private fun cancelPullToProfile() {
+        if (!::binding.isInitialized) return
         isPulling = false
         isThresholdCrossed = false
         binding.recyclerViewChats.animate().translationY(0f).setDuration(400)
@@ -181,40 +217,28 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private fun resetPullUiInstant() {
+        if (!::binding.isInitialized) return
         isPulling = false
         isThresholdCrossed = false
         binding.recyclerViewChats.translationY = 0f
-        binding.recyclerViewChats.layoutManager?.findViewByPosition(0)?.let {
-            it.scaleX = 1f
-            it.scaleY = 1f
+        val headerView = binding.recyclerViewChats.layoutManager?.findViewByPosition(0)
+        if (headerView != null) {
+            headerView.scaleX = 1f
+            headerView.scaleY = 1f
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityChatListBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_chat_list)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
-            val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
-
-            val islandParams = binding.islandHeader.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            islandParams.bottomMargin = if (imeInsets.bottom > 0) imeInsets.bottom + (16 * resources.displayMetrics.density).toInt() 
-                                         else systemBarsInsets.bottom + (16 * resources.displayMetrics.density).toInt()
-            binding.islandHeader.layoutParams = islandParams
-
-            val topPadding = systemBarsInsets.top + (16 * resources.displayMetrics.density).toInt()
-            val bottomPadding = systemBarsInsets.bottom + (100 * resources.displayMetrics.density).toInt()
-            binding.recyclerViewChats.setPadding(0, topPadding, 0, bottomPadding)
-            windowInsets
-        }
-
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        sharedPrefs.registerOnSharedPreferenceChangeListener(prefListener)
+        
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
         val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
@@ -240,7 +264,7 @@ class ChatListActivity : AppCompatActivity() {
         adapter = ChatAdapter(
             allChats, savedAvatarUri, savedName,
             onStartChatClick = { PrimeNotification.show(this, "Поиск контактов...") },
-            onAvatarClick = { 
+            onAvatarClick = {
                 startActivity(Intent(this, SettingsActivity::class.java))
                 overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             },
@@ -248,47 +272,124 @@ class ChatListActivity : AppCompatActivity() {
             onNameClick = { showNameEditDialog() },
             onChatClick = { chat ->
                 if (chat.id == "block_test_contact") {
-                    val parts = binding.etSearch.text.toString().split(" ")
-                    if (parts.size >= 4) {
-                        val reason = parts.subList(1, parts.size - 2).joinToString(" ")
-                        val value = parts[parts.size - 2].toLongOrNull() ?: 0
-                        val unit = parts[parts.size - 1]
-                        
-                        val expiry = if (value <= 0) -1L else System.currentTimeMillis() + calculateMillis(value, unit)
-                        sharedPrefs.edit().apply {
-                            putString("ban_reason", reason)
-                            putLong("ban_value", value)
-                            putString("ban_unit", unit)
-                            putLong("ban_expiry", expiry)
-                            apply()
-                        }
+                    if (::islandBinding.isInitialized) {
+                        val parts = islandBinding.etSearch.text.toString().split(" ")
+                        if (parts.size >= 4) {
+                            val reason = parts.subList(1, parts.size - 2).joinToString(" ")
+                            val value = parts[parts.size - 2].toLongOrNull() ?: 0
+                            val unit = parts[parts.size - 1]
 
-                        val intent = Intent(this, BanActivity::class.java).apply {
-                            putExtra("EXTRA_USER_NAME", savedName)
-                            putExtra("EXTRA_REASON", reason)
-                            putExtra("EXTRA_VALUE", value)
-                            putExtra("EXTRA_UNIT", unit)
+                            val expiry = if (value <= 0) -1L else System.currentTimeMillis() + calculateMillis(value, unit)
+                            sharedPrefs.edit().apply {
+                                putString("ban_reason", reason)
+                                putLong("ban_value", value)
+                                putString("ban_unit", unit)
+                                putLong("ban_expiry", expiry)
+                                apply()
+                            }
+
+                            val intent = Intent(this, BanActivity::class.java).apply {
+                                putExtra("EXTRA_USER_NAME", savedName)
+                                putExtra("EXTRA_REASON", reason)
+                                putExtra("EXTRA_VALUE", value)
+                                putExtra("EXTRA_UNIT", unit)
+                            }
+                            startActivity(intent)
                         }
-                        startActivity(intent)
                     }
                 }
             }
         )
-        binding.recyclerViewChats.layoutManager = LinearLayoutManager(this)
-        binding.recyclerViewChats.adapter = adapter
 
-        binding.etSearch.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) animateShowSearchClear() else if (binding.etSearch.text.isNullOrEmpty()) animateHideSearchClear()
+        // Интеграция Compose и Haze
+        findViewById<ComposeView>(R.id.composeRoot).setContent {
+            val hazeState = remember { HazeState() }
+            val isIslandVisible by isIslandVisibleState
+            
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Фоновый контент (View-based RecyclerView)
+                AndroidView(
+                    factory = { context ->
+                        val view = layoutInflater.inflate(R.layout.activity_chat_list_content, null)
+                        binding = ActivityChatListContentBinding.bind(view)
+                        
+                        binding.recyclerViewChats.layoutManager = LinearLayoutManager(context)
+                        binding.recyclerViewChats.adapter = adapter
+                        
+                        view
+                    },
+                    modifier = Modifier.fillMaxSize().hazeSource(hazeState)
+                )
+
+                // Островок (Haze)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .imePadding() // Автоматический подъем при появлении клавиатуры
+                        .navigationBarsPadding() // Учитывает системную панель навигации
+                        .padding(bottom = 16.dp, start = 16.dp, end = 16.dp)
+                ) {
+                    AnimatedVisibility(
+                        visible = isIslandVisible,
+                        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+                        exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 })
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(72.dp)
+                                .clip(RoundedCornerShape(24.dp))
+                                .hazeEffect(
+                                    state = hazeState,
+                                    style = HazeStyle(
+                                        blurRadius = 40.dp,
+                                        noiseFactor = 0.15f,
+                                        tint = dev.chrisbanes.haze.HazeTint(Color(0xB3154B87)) 
+                                    )
+                                )
+                        ) {
+                            AndroidView(
+                                factory = { context ->
+                                    val view = layoutInflater.inflate(R.layout.layout_island, null)
+                                    islandBinding = LayoutIslandBinding.bind(view)
+                                    
+                                    setupLegacyListeners()
+                                    updateToolbarInitialUi(savedAvatarUri, savedName)
+                                    
+                                    view
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                }
+            }
         }
 
-        binding.btnSearchClear.setOnClickListener {
+        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        isNetworkConnected = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+            ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+
+        connectivityManager.registerNetworkCallback(NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build(), networkCallback)
+
+        showScrollTopHintOnce(sharedPrefs)
+    }
+
+    private fun setupLegacyListeners() {
+        if (!::islandBinding.isInitialized) return
+        
+        islandBinding.etSearch.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) animateShowSearchClear() else if (islandBinding.etSearch.text.isNullOrEmpty()) animateHideSearchClear()
+        }
+
+        islandBinding.btnSearchClear.setOnClickListener {
             animateHideSearchClear()
-            binding.etSearch.text?.clear()
+            islandBinding.etSearch.text?.clear()
             hideKeyboardAndClearFocus()
         }
 
-        binding.recyclerViewChats.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
-            override fun onScrolled(recyclerView: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+        binding.recyclerViewChats.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 val layoutManager = recyclerView.layoutManager as LinearLayoutManager
                 val firstVisiblePos = layoutManager.findFirstVisibleItemPosition()
                 if (adapter.isSearchActive) { showIsland(); return }
@@ -296,45 +397,24 @@ class ChatListActivity : AppCompatActivity() {
             }
         })
 
-        if (savedAvatarUri != null) {
-            binding.ivToolbarAvatar.setImageURI(Uri.parse(savedAvatarUri))
-            binding.tvToolbarInitials.visibility = View.GONE
-            binding.ivToolbarAvatar.visibility = View.VISIBLE
-        } else {
-            val initial = savedName.take(1).uppercase()
-            binding.tvToolbarInitials.text = initial
-            binding.tvToolbarInitials.visibility = View.VISIBLE
-            binding.ivToolbarAvatar.visibility = View.INVISIBLE
-            
-            val color = getAvatarColor(savedName)
-            val bg = android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                cornerRadius = 15 * resources.displayMetrics.density
-                setColor(color)
-            }
-            binding.tvToolbarInitials.background = bg
-        }
-
-        binding.ivToolbarAvatar.setOnClickListener {
+        islandBinding.ivToolbarAvatar.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
             overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         }
-        binding.tvToolbarInitials.setOnClickListener {
-            binding.ivToolbarAvatar.performClick()
+        islandBinding.tvToolbarInitials.setOnClickListener {
+            islandBinding.ivToolbarAvatar.performClick()
         }
 
-        binding.ivToolbarAvatar.setOnLongClickListener {
+        islandBinding.ivToolbarAvatar.setOnLongClickListener {
             binding.recyclerViewChats.smoothScrollToPosition(0)
             it.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             true
         }
 
-        binding.islandBlurBackground.applyGlassBlur(25f)
-
-        binding.etSearch.addTextChangedListener(object : TextWatcher {
+        islandBinding.etSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                if (s?.toString() == " ") { binding.etSearch.text?.clear(); hideKeyboardAndClearFocus() }
+                if (s?.toString() == " ") { islandBinding.etSearch.text?.clear(); hideKeyboardAndClearFocus() }
             }
 
             override fun afterTextChanged(s: Editable?) {
@@ -349,8 +429,6 @@ class ChatListActivity : AppCompatActivity() {
 
                 if (query.isEmpty()) {
                     adapter.updateList(allChats)
-                    // Убрали автоматическое отключение режима поиска при пустом поле,
-                    // чтобы островок не пропадал пока пользователь печатает.
                 } else {
                     adapter.setSearchActive(true)
                     showIsland()
@@ -359,25 +437,28 @@ class ChatListActivity : AppCompatActivity() {
                 }
             }
         })
+    }
 
-        binding.etSearch.setOnKeyListener { _, keyCode, event ->
-            if (keyCode == android.view.KeyEvent.KEYCODE_DEL && event.action == android.view.KeyEvent.ACTION_DOWN) {
-                if (binding.etSearch.text.isNullOrEmpty()) { hideKeyboardAndClearFocus(); return@setOnKeyListener true }
+    private fun updateToolbarInitialUi(savedAvatarUri: String?, savedName: String) {
+        if (!::islandBinding.isInitialized) return
+        if (savedAvatarUri != null) {
+            islandBinding.ivToolbarAvatar.setImageURI(Uri.parse(savedAvatarUri))
+            islandBinding.tvToolbarInitials.visibility = View.GONE
+            islandBinding.ivToolbarAvatar.visibility = View.VISIBLE
+        } else {
+            val initial = savedName.take(1).uppercase()
+            islandBinding.tvToolbarInitials.text = initial
+            islandBinding.tvToolbarInitials.visibility = View.VISIBLE
+            islandBinding.ivToolbarAvatar.visibility = View.INVISIBLE
+
+            val color = getAvatarColor(savedName)
+            val bg = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = 15 * resources.displayMetrics.density
+                setColor(color)
             }
-            false
+            islandBinding.tvToolbarInitials.setBackground(bg)
         }
-
-        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        isNetworkConnected = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
-            ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-        
-        val initialHint = if (isNetworkConnected) "ПОИСК" else "Ожидание сети..."
-        binding.inputLayoutSearch.hint = initialHint
-        adapter.updateNetworkHint(initialHint)
-        
-        connectivityManager.registerNetworkCallback(NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build(), networkCallback)
-
-        showScrollTopHintOnce(sharedPrefs)
     }
 
     private fun calculateMillis(value: Long, unit: String): Long {
@@ -402,30 +483,38 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        refreshUserUi()
+        isPulling = false; isThresholdCrossed = false
+    }
+
+    private fun refreshUserUi() {
+        if (!::binding.isInitialized || !::islandBinding.isInitialized) return
+        
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         val avatar = sharedPrefs.getString("${currentUser}_avatar", null)
         val name = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
 
         if (avatar != null) {
-            binding.ivToolbarAvatar.setImageURI(Uri.parse(avatar))
-            binding.tvToolbarInitials.visibility = View.GONE
-            binding.ivToolbarAvatar.visibility = View.VISIBLE
+            islandBinding.ivToolbarAvatar.setImageURI(null)
+            islandBinding.ivToolbarAvatar.setImageURI(Uri.parse(avatar))
+            islandBinding.tvToolbarInitials.visibility = View.GONE
+            islandBinding.ivToolbarAvatar.visibility = View.VISIBLE
             adapter.updateAvatar(avatar)
         } else {
             val initial = name.take(1).uppercase()
-            binding.tvToolbarInitials.text = initial
-            binding.tvToolbarInitials.visibility = View.VISIBLE
-            binding.ivToolbarAvatar.visibility = View.INVISIBLE
-            
+            islandBinding.tvToolbarInitials.text = initial
+            islandBinding.tvToolbarInitials.visibility = View.VISIBLE
+            islandBinding.ivToolbarAvatar.visibility = View.INVISIBLE
+
             val color = getAvatarColor(name)
             val bg = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.RECTANGLE
                 cornerRadius = 15 * resources.displayMetrics.density
                 setColor(color)
             }
-            binding.tvToolbarInitials.background = bg
-            
+            islandBinding.tvToolbarInitials.setBackground(bg)
+
             adapter.updateAvatar(null)
         }
         adapter.updateUserName(name)
@@ -435,35 +524,32 @@ class ChatListActivity : AppCompatActivity() {
             if (layoutManager != null) {
                 val first = layoutManager.findFirstVisibleItemPosition()
                 if (first == 0 && !adapter.isSearchActive) {
-                    if (!isIslandHidden) { isIslandHidden = true; binding.islandHeader.translationY = 300f; binding.islandHeader.alpha = 0f }
-                } else if (isIslandHidden) {
-                    isIslandHidden = false; binding.islandHeader.translationY = 0f; binding.islandHeader.alpha = 1f
+                    hideIsland()
+                } else {
+                    showIsland()
                 }
             }
         }
-        isPulling = false; isThresholdCrossed = false
     }
 
     private fun showIsland() {
-        if (!isIslandHidden) return
-        isIslandHidden = false
-        binding.islandHeader.animate().translationY(0f).alpha(1f).setDuration(300).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+        isIslandVisibleState.value = true
     }
 
     private fun hideIsland() {
-        if (isIslandHidden) return
-        isIslandHidden = true
-        binding.islandHeader.animate().translationY(300f).alpha(0f).setDuration(300).setInterpolator(android.view.animation.AccelerateInterpolator()).start()
+        isIslandVisibleState.value = false
     }
 
     private fun activateIslandSearch() {
+        if (!::islandBinding.isInitialized) return
         adapter.setSearchActive(true)
         showIsland()
-        binding.etSearch.requestFocus()
-        (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(binding.etSearch, InputMethodManager.SHOW_IMPLICIT)
+        islandBinding.etSearch.requestFocus()
+        (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(islandBinding.etSearch, InputMethodManager.SHOW_IMPLICIT)
     }
 
     private fun showNameEditDialog() {
+        if (!::binding.isInitialized) return
         val dialogBinding = com.messenger.prime.databinding.DialogEditNameBinding.inflate(layoutInflater)
         binding.dialogContainer.removeAllViews()
         binding.dialogContainer.addView(dialogBinding.root)
@@ -500,7 +586,7 @@ class ChatListActivity : AppCompatActivity() {
                 dialogBinding.cardContainer.shake()
                 return@setOnClickListener
             }
-            
+
             sharedPrefs.edit().putString("${currentUser}_name", new).apply()
             adapter.updateUserName(new)
             PrimeNotification.show(this, "Имя обновлено") {
@@ -522,26 +608,29 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private fun animateShowSearchClear() {
-        if (binding.btnSearchClear.visibility == View.VISIBLE && binding.btnSearchClear.alpha == 1f) return
-        binding.btnSearchClear.visibility = View.VISIBLE
-        binding.btnSearchClear.translationY = -50f * resources.displayMetrics.density
-        binding.btnSearchClear.alpha = 0f
-        binding.btnSearchClear.animate().translationY(0f).alpha(1f).setDuration(300).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+        if (!::islandBinding.isInitialized) return
+        if (islandBinding.btnSearchClear.visibility == View.VISIBLE && islandBinding.btnSearchClear.alpha == 1f) return
+        islandBinding.btnSearchClear.visibility = View.VISIBLE
+        islandBinding.btnSearchClear.translationY = -50f * resources.displayMetrics.density
+        islandBinding.btnSearchClear.alpha = 0f
+        islandBinding.btnSearchClear.animate().translationY(0f).alpha(1f).setDuration(300).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
     }
 
     private fun animateHideSearchClear() {
-        if (binding.btnSearchClear.visibility != View.VISIBLE) return
-        binding.btnSearchClear.animate().translationY(50f * resources.displayMetrics.density).alpha(0f).setDuration(300)
+        if (!::islandBinding.isInitialized) return
+        if (islandBinding.btnSearchClear.visibility != View.VISIBLE) return
+        islandBinding.btnSearchClear.animate().translationY(50f * resources.displayMetrics.density).alpha(0f).setDuration(300)
             .setInterpolator(android.view.animation.AccelerateInterpolator()).withEndAction {
-                binding.btnSearchClear.visibility = View.INVISIBLE; binding.btnSearchClear.translationY = 0f
+                islandBinding.btnSearchClear.visibility = View.INVISIBLE; islandBinding.btnSearchClear.translationY = 0f
             }.start()
     }
 
     private fun hideKeyboardAndClearFocus() {
-        binding.etSearch.clearFocus()
+        if (!::islandBinding.isInitialized) return
+        islandBinding.etSearch.clearFocus()
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(binding.etSearch.windowToken, 0)
-        if (binding.etSearch.text.isNullOrEmpty()) {
+        imm.hideSoftInputFromWindow(islandBinding.etSearch.windowToken, 0)
+        if (islandBinding.etSearch.text.isNullOrEmpty()) {
             adapter.setSearchActive(false)
             if (!binding.recyclerViewChats.canScrollVertically(-1)) hideIsland()
             animateHideSearchClear()
@@ -551,6 +640,7 @@ class ChatListActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         connectivityManager.unregisterNetworkCallback(networkCallback)
+        getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(prefListener)
     }
 
     private fun getAvatarColor(name: String): Int {

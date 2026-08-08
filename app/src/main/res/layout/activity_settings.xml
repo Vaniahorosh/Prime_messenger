@@ -17,32 +17,33 @@
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:paddingBottom="40dp">
 
-            <!-- Шапка с эффектом стекла -->
+            <!-- Шапка с фирменным цветом -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/headerStaticBlock"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/prime_background_blue"
+                android:background="#154B87"
                 android:elevation="4dp"
                 android:paddingBottom="24dp"
                 android:clipChildren="false"
                 android:clipToPadding="false"
                 app:layout_constraintTop_toTopOf="parent">
 
-                <!-- 1. ВАРИАНТ: С ФОТОГРАФИЕЙ (двухколоночный) -->
+                <!-- Режим с ФОТО -->
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/layoutWithPhoto"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:visibility="visible"
                     android:paddingTop="16dp"
                     android:paddingBottom="16dp"
                     android:clipChildren="false"
-                    android:clipToPadding="false"
-                    app:layout_constraintTop_toTopOf="parent">
+                    android:clipToPadding="false">
 
+                    <!-- Кнопка Назад (Размер 56dp, Иконка по центру) -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnBackWP"
                         style="@style/Widget.MaterialComponents.Button.Icon"
@@ -78,6 +79,7 @@
                         app:layout_constraintEnd_toEndOf="@id/btnBackWP"
                         app:layout_constraintTop_toBottomOf="@id/btnBackWP" />
 
+                    <!-- Левая колонка кнопок (Размер 56dp, Иконки по центру) -->
                     <LinearLayout
                         android:id="@+id/layoutLeftColumn"
                         android:layout_width="110dp"
@@ -88,7 +90,6 @@
                         app:layout_constraintTop_toBottomOf="@id/tvBackLabelWP"
                         android:layout_marginTop="8dp">
 
-                        <!-- Фото -->
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnChangePhoto"
                             style="@style/Widget.MaterialComponents.Button.Icon"
@@ -117,7 +118,6 @@
                             android:textSize="10sp"
                             android:textStyle="bold" />
 
-                        <!-- Выход -->
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnLogout"
                             style="@style/Widget.MaterialComponents.Button.Icon"
@@ -145,7 +145,6 @@
                             android:textSize="10sp"
                             android:textStyle="bold" />
 
-                        <!-- Настройки -->
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnExtraSettings"
                             style="@style/Widget.MaterialComponents.Button.Icon"
@@ -174,6 +173,7 @@
                             android:textStyle="bold" />
                     </LinearLayout>
 
+                    <!-- Карточка с фото -->
                     <androidx.cardview.widget.CardView
                         android:id="@+id/photoCard"
                         android:layout_width="0dp"
@@ -191,70 +191,60 @@
                             android:layout_width="match_parent"
                             android:layout_height="match_parent">
 
-                            <ImageView
-                                android:id="@+id/ivProfilePhoto"
+                            <androidx.compose.ui.platform.ComposeView
+                                android:id="@+id/composePhotoCard"
                                 android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:scaleType="centerCrop"
-                                android:src="@drawable/ic_person"
-                                android:clickable="true"
-                                android:focusable="true" />
+                                android:layout_height="match_parent" />
 
-                            <!-- Слой с размытой копией фото (на весь экран для совпадения пикселей) -->
-                            <ImageView
-                                android:id="@+id/ivPhotoInfoBlur"
+                            <!-- Контейнер для текста, который мы будем инверсно скалировать в коде -->
+                            <androidx.constraintlayout.widget.ConstraintLayout
+                                android:id="@+id/layoutPhotoInternal"
                                 android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:scaleType="centerCrop"
-                                android:alpha="1.0" />
+                                android:layout_height="match_parent">
 
-                            <!-- Слой с легким градиентом поверх размытия (только для читаемости) -->
-                            <View
-                                android:id="@+id/viewPhotoInfoGradient"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:background="@drawable/bg_photo_info_gradient" />
-
-                            <LinearLayout
-                                android:id="@+id/floatingTitleContainer"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:background="@android:color/transparent"
-                                android:orientation="vertical"
-                                android:paddingHorizontal="12dp"
-                                android:paddingTop="20dp"
-                                android:paddingBottom="12dp"
-                                app:layout_constraintBottom_toBottomOf="parent">
+                                <View
+                                    android:id="@+id/viewPhotoInfoGradient"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="90dp"
+                                    android:background="@drawable/bg_photo_info_gradient"
+                                    app:layout_constraintBottom_toBottomOf="parent" />
 
                                 <TextView
-                                    android:id="@+id/tvUserNameFloating"
-                                    android:layout_width="match_parent"
+                                    android:id="@+id/tvUserNameWP"
+                                    android:layout_width="0dp"
                                     android:layout_height="wrap_content"
-                                    android:ellipsize="marquee"
-                                    android:focusable="true"
-                                    android:focusableInTouchMode="true"
-                                    android:marqueeRepeatLimit="marquee_forever"
-                                    android:scrollHorizontally="true"
-                                    android:singleLine="true"
+                                    android:layout_marginStart="12dp"
+                                    android:layout_marginEnd="16dp"
+                                    android:layout_marginBottom="2dp"
                                     android:textColor="@color/white"
                                     android:textSize="22sp"
                                     android:textStyle="bold"
-                                    tools:text="Имя" />
+                                    android:singleLine="true"
+                                    android:ellipsize="marquee"
+                                    android:marqueeRepeatLimit="marquee_forever"
+                                    android:scrollHorizontally="true"
+                                    android:focusable="true"
+                                    android:focusableInTouchMode="true"
+                                    app:layout_constraintBottom_toTopOf="@+id/tvStatusWP"
+                                    app:layout_constraintEnd_toEndOf="parent"
+                                    app:layout_constraintStart_toStartOf="parent" />
 
                                 <TextView
-                                    android:id="@+id/tvStatusFloating"
+                                    android:id="@+id/tvStatusWP"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:singleLine="true"
+                                    android:layout_marginBottom="12dp"
                                     android:text="в сети"
                                     android:textColor="#E6FFFFFF"
-                                    android:textSize="12sp" />
-                            </LinearLayout>
+                                    android:textSize="12sp"
+                                    app:layout_constraintBottom_toBottomOf="parent"
+                                    app:layout_constraintStart_toStartOf="@+id/tvUserNameWP" />
+                            </androidx.constraintlayout.widget.ConstraintLayout>
                         </androidx.constraintlayout.widget.ConstraintLayout>
                     </androidx.cardview.widget.CardView>
                 </androidx.constraintlayout.widget.ConstraintLayout>
 
-                <!-- 2. ВАРИАНТ: БЕЗ ФОТОГРАФИИ (горизонтальный) -->
+                <!-- Режим БЕЗ фото -->
                 <LinearLayout
                     android:id="@+id/layoutNoPhoto"
                     android:layout_width="match_parent"
@@ -263,8 +253,7 @@
                     android:gravity="center_horizontal"
                     android:orientation="vertical"
                     android:paddingHorizontal="16dp"
-                    android:visibility="gone"
-                    app:layout_constraintTop_toTopOf="parent">
+                    android:visibility="gone">
 
                     <TextView
                         android:id="@+id/tvUserNameStatic"
@@ -279,11 +268,9 @@
                         android:marqueeRepeatLimit="marquee_forever"
                         android:scrollHorizontally="true"
                         android:focusable="true"
-                        android:focusableInTouchMode="true"
-                        tools:text="дед" />
+                        android:focusableInTouchMode="true" />
 
                     <TextView
-                        android:id="@+id/tvStatusStatic"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="32dp"
@@ -295,14 +282,11 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:gravity="center"
-                        android:orientation="horizontal"
-                        android:baselineAligned="false">
+                        android:orientation="horizontal">
 
-                        <!-- Назад -->
                         <LinearLayout
-                            android:layout_width="0dp"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
                             android:gravity="center"
                             android:orientation="vertical">
                             <com.google.android.material.button.MaterialButton
@@ -325,18 +309,17 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
                                 android:text="Назад"
                                 android:textColor="@color/white"
+                                android:alpha="0.8"
                                 android:textSize="10sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
-                        <!-- Фото -->
                         <LinearLayout
-                            android:layout_width="0dp"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
+                            android:layout_marginHorizontal="8dp"
                             android:gravity="center"
                             android:orientation="vertical">
                             <com.google.android.material.button.MaterialButton
@@ -359,18 +342,16 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
                                 android:text="Фото"
                                 android:textColor="@color/white"
+                                android:alpha="0.8"
                                 android:textSize="10sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
-                        <!-- Выход -->
                         <LinearLayout
-                            android:layout_width="0dp"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
                             android:gravity="center"
                             android:orientation="vertical">
                             <com.google.android.material.button.MaterialButton
@@ -393,18 +374,16 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
                                 android:text="Выход"
                                 android:textColor="#FFCDD2"
                                 android:textSize="10sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
-                        <!-- Настройки -->
                         <LinearLayout
-                            android:layout_width="0dp"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
                             android:gravity="center"
                             android:orientation="vertical">
                             <com.google.android.material.button.MaterialButton
@@ -427,9 +406,9 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:text="Настройки"
+                                android:text="Опции"
                                 android:textColor="@color/white"
+                                android:alpha="0.8"
                                 android:textSize="10sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
@@ -437,7 +416,7 @@
                 </LinearLayout>
             </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <!-- Поля ввода данных -->
+            <!-- Данные аккаунта (СТАРЫЙ ВАРИАНТ) -->
             <LinearLayout
                 android:id="@+id/layoutAccountData"
                 android:layout_width="match_parent"
@@ -454,7 +433,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="8dp"
                     android:text="Логин"
-                    android:textColor="@color/prime_background_blue"
+                    android:textColor="#154B87"
                     android:textStyle="bold" />
 
                 <com.google.android.material.textfield.TextInputLayout
@@ -464,25 +443,21 @@
                     android:layout_height="wrap_content"
                     app:boxBackgroundColor="#0D154B87"
                     app:boxStrokeWidth="0dp"
-                    app:boxStrokeWidthFocused="1dp"
-                    app:boxStrokeColor="@color/prime_background_blue"
+                    app:boxStrokeWidthFocused="1.5dp"
+                    app:boxStrokeColor="#154B87"
                     app:boxCornerRadiusTopStart="12dp"
                     app:boxCornerRadiusTopEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp"
                     app:boxCornerRadiusBottomEnd="12dp"
                     app:endIconMode="password_toggle"
-                    app:endIconTint="@color/prime_background_blue"
-                    app:startIconTint="@color/prime_background_blue">
+                    app:endIconTint="#154B87">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etSettingsLogin"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:focusable="true"
                         android:inputType="textPassword"
-                        android:maxLength="15"
-                        android:imeOptions="actionNext"
-                        android:textColor="@color/prime_background_blue"
-                        tools:text="MyLogin123" />
+                        android:textColor="#154B87"
+                        android:textStyle="bold" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
@@ -491,7 +466,7 @@
                     android:layout_marginTop="16dp"
                     android:layout_marginBottom="8dp"
                     android:text="Пароль"
-                    android:textColor="@color/prime_background_blue"
+                    android:textColor="#154B87"
                     android:textStyle="bold" />
 
                 <com.google.android.material.textfield.TextInputLayout
@@ -501,25 +476,20 @@
                     android:layout_height="wrap_content"
                     app:boxBackgroundColor="#0D154B87"
                     app:boxStrokeWidth="0dp"
-                    app:boxStrokeWidthFocused="1dp"
-                    app:boxStrokeColor="@color/prime_background_blue"
+                    app:boxStrokeWidthFocused="1.5dp"
+                    app:boxStrokeColor="#154B87"
                     app:boxCornerRadiusTopStart="12dp"
                     app:boxCornerRadiusTopEnd="12dp"
                     app:boxCornerRadiusBottomStart="12dp"
                     app:boxCornerRadiusBottomEnd="12dp"
                     app:endIconMode="password_toggle"
-                    app:endIconTint="@color/prime_background_blue"
-                    app:startIconTint="@color/prime_background_blue">
+                    app:endIconTint="#154B87">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etSettingsPassword"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:focusable="true"
                         android:inputType="textPassword"
-                        android:maxLength="32"
-                        android:imeOptions="actionDone"
-                        android:textColor="@color/prime_background_blue"
-                        tools:text="MySuperPassword" />
+                        android:textColor="#154B87" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.button.MaterialButton
@@ -527,94 +497,62 @@
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
                     android:layout_marginTop="20dp"
-                    android:text="Сохранить изменения"
+                    android:text="Сохранить"
                     android:textAllCaps="false"
                     android:textColor="@color/white"
                     android:textStyle="bold"
                     android:visibility="gone"
-                    app:backgroundTint="@color/prime_background_blue"
+                    app:backgroundTint="#154B87"
                     app:cornerRadius="12dp"
                     app:elevation="4dp" />
             </LinearLayout>
 
-            <LinearLayout
-                android:id="@+id/layoutSettingsTitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:paddingHorizontal="24dp"
-                app:layout_constraintTop_toBottomOf="@+id/layoutAccountData">
-
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="1.5dp"
-                    android:layout_weight="1"
-                    android:alpha="0.3"
-                    android:background="@color/prime_background_blue" />
-
-                <TextView
-                    android:id="@+id/tvSettingsTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginHorizontal="16dp"
-                    android:text="Настройки"
-                    android:textColor="@color/prime_background_blue"
-                    android:alpha="0.8"
-                    android:textStyle="bold" />
-
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="1.5dp"
-                    android:layout_weight="1"
-                    android:alpha="0.3"
-                    android:background="@color/prime_background_blue" />
-            </LinearLayout>
-
+            <!-- Блок настроек (СТАРЫЙ ВАРИАНТ) -->
             <LinearLayout
                 android:id="@+id/layoutSwitches"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="24dp"
                 android:layout_marginHorizontal="24dp"
                 android:orientation="vertical"
                 android:padding="12dp"
                 android:background="@drawable/bg_settings_card_white"
-                app:layout_constraintTop_toBottomOf="@+id/layoutSettingsTitle">
+                app:layout_constraintTop_toBottomOf="@+id/layoutAccountData">
+
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchAnimations"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingVertical="12dp"
-                    android:text="Анимации в приложении"
-                    android:textColor="@color/prime_background_blue"
-                    android:textSize="15sp"
-                    app:thumbTint="@color/prime_background_blue"
-                    app:trackTint="#33154B87"
-                    app:useMaterialThemeColors="true" />
+                    android:padding="12dp"
+                    android:text="Анимации интерфейса"
+                    android:textColor="#154B87"
+                    app:thumbTint="#154B87"
+                    app:trackTint="#4D154B87"
+                    android:checked="true" />
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#0D154B87" android:layout_marginHorizontal="12dp" />
+
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchBlocked"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingVertical="12dp"
-                    android:text="Показывать заблокированных"
-                    android:textColor="@color/prime_background_blue"
-                    android:textSize="15sp"
-                    app:thumbTint="@color/prime_background_blue"
-                    app:trackTint="#33154B87"
-                    app:useMaterialThemeColors="true" />
+                    android:padding="12dp"
+                    android:text="Чёрный список"
+                    android:textColor="#154B87"
+                    app:thumbTint="#154B87"
+                    app:trackTint="#4D154B87" />
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#0D154B87" android:layout_marginHorizontal="12dp" />
+
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchSearch"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingVertical="12dp"
-                    android:text="Убрать строку поиска"
-                    android:textColor="@color/prime_background_blue"
-                    android:textSize="15sp"
-                    app:thumbTint="@color/prime_background_blue"
-                    app:trackTint="#33154B87"
-                    app:useMaterialThemeColors="true" />
+                    android:padding="12dp"
+                    android:text="Скрыть поиск"
+                    android:textColor="#154B87"
+                    app:thumbTint="#154B87"
+                    app:trackTint="#4D154B87" />
             </LinearLayout>
 
             <TextView
@@ -623,13 +561,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="32dp"
                 android:text="Prime v1.0.0"
-                android:textColor="@color/prime_background_blue"
+                android:textColor="#154B87"
                 android:alpha="0.4"
                 android:textSize="12sp"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/layoutSwitches"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/layoutSwitches" />
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent" />
+
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
 

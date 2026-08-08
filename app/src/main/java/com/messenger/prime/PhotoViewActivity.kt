@@ -87,8 +87,14 @@ class PhotoViewActivity : AppCompatActivity() {
         binding.ivFullPhoto.setOnTouchListener { _, event ->
             if (isClosing) return@setOnTouchListener true
             
-            val handled = scaleDetector.onTouchEvent(event)
-            gestureDetector.onTouchEvent(event)
+            // Сначала передаем событие в ScaleGestureDetector
+            scaleDetector.onTouchEvent(event)
+            
+            // Если сейчас происходит масштабирование (pinch-to-zoom), 
+            // блокируем обработку обычных жестов (scroll/fling), чтобы избежать "дрожания"
+            if (!scaleDetector.isInProgress) {
+                gestureDetector.onTouchEvent(event)
+            }
             
             if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
                 if (photoScale == 1f && !isClosing) {
@@ -105,6 +111,8 @@ class PhotoViewActivity : AppCompatActivity() {
                             .alpha(0.6f)
                             .setDuration(250)
                             .start()
+                        
+                        // Сбрасываем накопленное смещение
                         photoTranslateY = 0f
                     }
                 }
