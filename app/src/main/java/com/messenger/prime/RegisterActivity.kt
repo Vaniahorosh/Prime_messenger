@@ -67,13 +67,20 @@ class RegisterActivity : AppCompatActivity() {
         binding = ActivityRegisterBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        setupEdgeToEdge()
+
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->
+            val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
+            
+            // Отступ кнопки назад
+            val backParams = binding.btnBack.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            backParams.topMargin = systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt()
+            binding.btnBack.layoutParams = backParams
+
             view.setPadding(0, 0, 0, imeInsets.bottom)
             windowInsets
         }
-
-        setDynamicStatusBar(R.color.prime_background_blue, false)
 
         // Контент прячем сразу — появится после того, как фон развернётся
         contentViews.forEach { it.alpha = 0f }

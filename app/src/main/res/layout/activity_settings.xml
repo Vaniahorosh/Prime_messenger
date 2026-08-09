@@ -196,18 +196,18 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent" />
 
+                            <View
+                                android:id="@+id/viewPhotoInfoGradient"
+                                android:layout_width="match_parent"
+                                android:layout_height="90dp"
+                                android:background="@drawable/bg_photo_info_gradient"
+                                app:layout_constraintBottom_toBottomOf="parent" />
+
                             <!-- Контейнер для текста, который мы будем инверсно скалировать в коде -->
                             <androidx.constraintlayout.widget.ConstraintLayout
                                 android:id="@+id/layoutPhotoInternal"
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent">
-
-                                <View
-                                    android:id="@+id/viewPhotoInfoGradient"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="90dp"
-                                    android:background="@drawable/bg_photo_info_gradient"
-                                    app:layout_constraintBottom_toBottomOf="parent" />
 
                                 <TextView
                                     android:id="@+id/tvUserNameWP"
@@ -416,7 +416,7 @@
                 </LinearLayout>
             </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <!-- Данные аккаунта (СТАРЫЙ ВАРИАНТ) -->
+            <!-- Данные аккаунта -->
             <LinearLayout
                 android:id="@+id/layoutAccountData"
                 android:layout_width="match_parent"
@@ -425,134 +425,331 @@
                 android:layout_marginHorizontal="24dp"
                 android:orientation="vertical"
                 android:padding="20dp"
-                android:background="@drawable/bg_settings_card_white"
+                android:background="@drawable/bg_settings_block_gray"
                 app:layout_constraintTop_toBottomOf="@+id/headerStaticBlock">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    android:text="Логин"
-                    android:textColor="#154B87"
-                    android:textStyle="bold" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputLayoutLogin"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                <!-- Шапка выпадающего списка -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/layoutAccountHeader"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:boxBackgroundColor="#0D154B87"
-                    app:boxStrokeWidth="0dp"
-                    app:boxStrokeWidthFocused="1.5dp"
-                    app:boxStrokeColor="#154B87"
-                    app:boxCornerRadiusTopStart="12dp"
-                    app:boxCornerRadiusTopEnd="12dp"
-                    app:boxCornerRadiusBottomStart="12dp"
-                    app:boxCornerRadiusBottomEnd="12dp"
-                    app:endIconMode="password_toggle"
-                    app:endIconTint="#154B87">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etSettingsLogin"
-                        android:layout_width="match_parent"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <TextView
+                        android:id="@+id/tvAccountHeaderLabel"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:inputType="textPassword"
+                        android:text="Вы в прайме,"
+                        android:textColor="#666666"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintStart_toStartOf="parent" />
+
+                    <TextView
+                        android:id="@+id/tvAccountHeaderSummary"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
                         android:textColor="#154B87"
-                        android:textStyle="bold" />
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        app:layout_constraintTop_toBottomOf="@id/tvAccountHeaderLabel"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toStartOf="@+id/ivAccountArrow"
+                        app:layout_constraintBottom_toBottomOf="parent" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:layout_marginBottom="8dp"
-                    android:text="Пароль"
-                    android:textColor="#154B87"
-                    android:textStyle="bold" />
+                    <ImageView
+                        android:id="@+id/ivAccountArrow"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_arrow_forward"
+                        android:rotation="90"
+                        app:tint="#154B87"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent" />
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputLayoutPassword"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <!-- Выпадающий контент -->
+                <LinearLayout
+                    android:id="@+id/layoutAccountCollapsible"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:boxBackgroundColor="#0D154B87"
-                    app:boxStrokeWidth="0dp"
-                    app:boxStrokeWidthFocused="1.5dp"
-                    app:boxStrokeColor="#154B87"
-                    app:boxCornerRadiusTopStart="12dp"
-                    app:boxCornerRadiusTopEnd="12dp"
-                    app:boxCornerRadiusBottomStart="12dp"
-                    app:boxCornerRadiusBottomEnd="12dp"
-                    app:endIconMode="password_toggle"
-                    app:endIconTint="#154B87">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etSettingsPassword"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="12dp"
+                        android:background="#E0E0E0" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:text="Имя"
+                        android:textColor="#666666"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/inputLayoutName"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="textPassword"
-                        android:textColor="#154B87" />
-                </com.google.android.material.textfield.TextInputLayout>
+                        app:boxBackgroundColor="@android:color/transparent"
+                        app:boxStrokeWidth="0dp"
+                        app:boxStrokeWidthFocused="0dp"
+                        app:hintEnabled="false"
+                        app:counterEnabled="true"
+                        app:counterMaxLength="16"
+                        app:startIconTint="#154B87">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etSettingsName"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:padding="0dp"
+                            android:background="@android:color/transparent"
+                            android:hint="Введите имя"
+                            android:maxLength="16"
+                            android:inputType="textPersonName"
+                            android:textColor="#154B87"
+                            android:textStyle="bold" />
+                    </com.google.android.material.textfield.TextInputLayout>
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnSaveAccount"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:layout_marginTop="20dp"
-                    android:text="Сохранить"
-                    android:textAllCaps="false"
-                    android:textColor="@color/white"
-                    android:textStyle="bold"
-                    android:visibility="gone"
-                    app:backgroundTint="#154B87"
-                    app:cornerRadius="12dp"
-                    app:elevation="4dp" />
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="12dp"
+                        android:background="#E0E0E0" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:text="Логин"
+                        android:textColor="#666666"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/inputLayoutLogin"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:boxBackgroundColor="@android:color/transparent"
+                        app:boxStrokeWidth="0dp"
+                        app:boxStrokeWidthFocused="0dp"
+                        app:hintEnabled="false"
+                        app:counterEnabled="true"
+                        app:counterMaxLength="15"
+                        app:endIconMode="password_toggle"
+                        app:endIconTint="#154B87"
+                        app:startIconTint="#154B87">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etSettingsLogin"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:padding="0dp"
+                            android:background="@android:color/transparent"
+                            android:hint="Введите логин"
+                            android:maxLength="15"
+                            android:digits="abcdefghijklmnopqrstuvwxyz0123456789_"
+                            android:inputType="textPassword"
+                            android:textColor="#154B87"
+                            android:textStyle="bold" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="12dp"
+                        android:background="#E0E0E0" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:text="Пароль"
+                        android:textColor="#666666"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/inputLayoutPassword"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:boxBackgroundColor="@android:color/transparent"
+                        app:boxStrokeWidth="0dp"
+                        app:boxStrokeWidthFocused="0dp"
+                        app:hintEnabled="false"
+                        app:counterEnabled="true"
+                        app:counterMaxLength="32"
+                        app:endIconMode="password_toggle"
+                        app:endIconTint="#154B87">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etSettingsPassword"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:padding="0dp"
+                            android:background="@android:color/transparent"
+                            android:hint="Введите пароль"
+                            android:maxLength="32"
+                            android:inputType="textPassword"
+                            android:textColor="#154B87" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnSaveAccount"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:layout_marginTop="20dp"
+                        android:text="Сохранить"
+                        android:textAllCaps="false"
+                        android:textColor="@color/white"
+                        android:textStyle="bold"
+                        android:visibility="gone"
+                        app:backgroundTint="#154B87"
+                        app:cornerRadius="12dp"
+                        app:elevation="4dp" />
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- Блок настроек (СТАРЫЙ ВАРИАНТ) -->
+            <!-- Разделитель "Настройки" с линиями -->
             <LinearLayout
-                android:id="@+id/layoutSwitches"
+                android:id="@+id/layoutSettingsHeader"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:layout_marginHorizontal="24dp"
+                android:gravity="center"
+                android:orientation="horizontal"
+                app:layout_constraintTop_toBottomOf="@id/layoutAccountData">
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1"
+                    android:background="@color/grad_end" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="16dp"
+                    android:text="Настройки"
+                    android:textColor="@color/grad_start"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.1" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1"
+                    android:background="#154A86" />
+            </LinearLayout>
+
+            <!-- Блок настроек (тумблеры) -->
+            <LinearLayout
+                android:id="@+id/layoutSwitches"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginHorizontal="24dp"
                 android:orientation="vertical"
-                android:padding="12dp"
-                android:background="@drawable/bg_settings_card_white"
-                app:layout_constraintTop_toBottomOf="@+id/layoutAccountData">
+                app:layout_constraintTop_toBottomOf="@+id/layoutSettingsHeader">
 
-                <com.google.android.material.switchmaterial.SwitchMaterial
-                    android:id="@+id/switchAnimations"
+                <!-- Анимации -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="12dp"
-                    android:text="Анимации интерфейса"
-                    android:textColor="#154B87"
-                    app:thumbTint="#154B87"
-                    app:trackTint="#4D154B87"
-                    android:checked="true" />
+                    android:layout_marginBottom="12dp"
+                    android:background="@drawable/bg_settings_block_gray"
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#0D154B87" android:layout_marginHorizontal="12dp" />
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switchAnimations"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Анимации интерфейса"
+                        android:textColor="#154B87"
+                        android:textStyle="bold"
+                        app:thumbTint="#154B87"
+                        app:trackTint="#4D154B87"
+                        android:checked="true" />
 
-                <com.google.android.material.switchmaterial.SwitchMaterial
-                    android:id="@+id/switchBlocked"
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Включает плавные переходы и визуальные эффекты в приложении"
+                        android:textColor="#757575"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- Чёрный список -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="12dp"
-                    android:text="Чёрный список"
-                    android:textColor="#154B87"
-                    app:thumbTint="#154B87"
-                    app:trackTint="#4D154B87" />
+                    android:layout_marginBottom="12dp"
+                    android:background="@drawable/bg_settings_block_gray"
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#0D154B87" android:layout_marginHorizontal="12dp" />
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switchBlocked"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Чёрный список"
+                        android:textColor="#154B87"
+                        android:textStyle="bold"
+                        app:thumbTint="#154B87"
+                        app:trackTint="#4D154B87" />
 
-                <com.google.android.material.switchmaterial.SwitchMaterial
-                    android:id="@+id/switchSearch"
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Управление списком заблокированных контактов и пользователей"
+                        android:textColor="#757575"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- Скрыть поиск -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="12dp"
-                    android:text="Скрыть поиск"
-                    android:textColor="#154B87"
-                    app:thumbTint="#154B87"
-                    app:trackTint="#4D154B87" />
+                    android:layout_marginBottom="12dp"
+                    android:background="@drawable/bg_settings_block_gray"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switchSearch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Скрыть поиск"
+                        android:textColor="#154B87"
+                        android:textStyle="bold"
+                        app:thumbTint="#154B87"
+                        app:trackTint="#4D154B87" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Скрывает строку поиска на главном экране чатов"
+                        android:textColor="#757575"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
             </LinearLayout>
 
             <TextView

@@ -8,12 +8,16 @@ import android.content.Intent
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
+import android.transition.AutoTransition
+import android.transition.TransitionManager
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.ImageView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Box
@@ -44,9 +48,9 @@ class SettingsActivity : AppCompatActivity() {
     private var isClosing = false
 
     private var currentAvatarUri: String? = null
-    private var activeNameDialogBinding: com.messenger.prime.databinding.DialogEditNameBinding? = null
     private var activePhotoDialogBinding: com.messenger.prime.databinding.DialogPhotoActionsBinding? = null
 
+    private var currentNameInDB: String = ""
     private var currentLoginInDB: String = ""
     private var currentPassInDB: String = ""
 
@@ -99,8 +103,7 @@ class SettingsActivity : AppCompatActivity() {
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        setupEdgeToEdge(isDarkIcons = true)
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
@@ -108,6 +111,7 @@ class SettingsActivity : AppCompatActivity() {
         currentPassInDB = sharedPrefs.getString(currentUser, "") ?: ""
         
         val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
+        currentNameInDB = savedName
         val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
         currentAvatarUri = savedAvatarUri
         avatarUriState.value = savedAvatarUri
@@ -116,8 +120,14 @@ class SettingsActivity : AppCompatActivity() {
         binding.tvUserNameWP.text = savedName
         binding.tvUserNameStatic.isSelected = true
         binding.tvUserNameWP.isSelected = true
+        binding.etSettingsName.setText(savedName)
         binding.etSettingsLogin.setText(currentUser)
         binding.etSettingsPassword.setText(currentPassInDB)
+        binding.tvAccountHeaderSummary.text = savedName
+
+        val isExpanded = sharedPrefs.getBoolean("settings_account_expanded", false)
+        binding.layoutAccountCollapsible.visibility = if (isExpanded) View.VISIBLE else View.GONE
+        binding.ivAccountArrow.rotation = if (isExpanded) -90f else 90f
 
         setupComposePhoto()
         setupListeners()
@@ -125,6 +135,13 @@ class SettingsActivity : AppCompatActivity() {
 
         val slidrConfig = SlidrConfig.Builder().position(SlidrPosition.LEFT).build()
         Slidr.attach(this, slidrConfig)
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                finish()
+                overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+            }
+        })
     }
 
     private fun setupComposePhoto() {
@@ -175,8 +192,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.btnExtraSettingsNP.setOnClickListener(extraAction)
 
         setupInlineAccountEditing()
-        binding.tvUserNameStatic.setOnClickListener { showNameEditDialog() }
-        binding.tvUserNameWP.setOnClickListener { showNameEditDialog() }
+        setupAccountCollapsible()
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         binding.switchAnimations.isChecked = sharedPrefs.getBoolean("settings_animations", true)
@@ -193,9 +209,10 @@ class SettingsActivity : AppCompatActivity() {
             sharedPrefs.edit().putBoolean("settings_hide_search", isChecked).apply()
         }
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.headerStaticBlock) { view, windowInsets ->
-            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars())
-            view.setPadding(0, insets.top, 0, 0)
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->
+            val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            binding.headerStaticBlock.setPadding(0, systemBarsInsets.top, 0, 0)
+            binding.nestedScrollView.setPadding(0, 0, 0, systemBarsInsets.bottom)
             windowInsets
         }
 
@@ -214,6 +231,9 @@ class SettingsActivity : AppCompatActivity() {
         avatarUriState.value = savedAvatarUri
         binding.tvUserNameStatic.text = savedName
         binding.tvUserNameWP.text = savedName
+        binding.etSettingsName.setText(savedName)
+        binding.tvAccountHeaderSummary.text = savedName
+        currentNameInDB = savedName
         binding.tvUserNameStatic.isSelected = true
         binding.tvUserNameWP.isSelected = true
         applyAvatarState(savedAvatarUri)
@@ -345,6 +365,15 @@ class SettingsActivity : AppCompatActivity() {
         binding.tvStatusWP.translationX = extraPadding
         binding.tvStatusWP.translationY = -extraPadding
 
+        // Анимация расширения фона текста (градиента)
+        val gradView = binding.viewPhotoInfoGradient
+        // Поскольку теперь градиент находится вне layoutPhotoInternal, он масштабируется ВМЕСТЕ с карточкой.
+        // Нам нужно только компенсировать его высоту, чтобы она оставалась постоянной (90dp), а ширина росла.
+        gradView.pivotX = 0f
+        gradView.pivotY = gradView.height.toFloat()
+        gradView.scaleY = 1f / currentScaleY
+        gradView.scaleX = 1f // scaleX наследуется от photoCard, поэтому здесь 1.0 относительно родителя
+
         val otherAlpha = (1f - progress * 2.5f).coerceIn(0f, 1f)
         val otherTranslationX = -leftColWidth * progress
 
@@ -430,77 +459,23 @@ class SettingsActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun showNameEditDialog() {
-        val dialogBinding = com.messenger.prime.databinding.DialogEditNameBinding.inflate(layoutInflater)
-        activeNameDialogBinding = dialogBinding
-        binding.dialogContainer.removeAllViews()
-        binding.dialogContainer.addView(dialogBinding.root)
-        binding.dialogContainer.visibility = View.VISIBLE
-        dialogBinding.cardContainer.scaleX = 0.8f
-        dialogBinding.cardContainer.scaleY = 0.8f
-        dialogBinding.cardContainer.alpha = 0f
-        dialogBinding.dialogRoot.alpha = 0f
-        dialogBinding.dialogRoot.animate().alpha(1f).setDuration(300).start()
-        dialogBinding.cardContainer.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(400).setInterpolator(DecelerateInterpolator()).start()
-
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        val currentName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
-        dialogBinding.etNewName.setText(currentName)
-        dialogBinding.btnSave.isEnabled = false
-        dialogBinding.btnSave.alpha = 0.5f
-
-        dialogBinding.etNewName.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                val newName = s.toString().trim()
-                val isChanged = newName != currentName && newName.isNotEmpty()
-                dialogBinding.btnSave.isEnabled = isChanged
-                dialogBinding.btnSave.alpha = if (isChanged) 1.0f else 0.5f
-                dialogBinding.inputLayoutName.error = null
+    private fun setupAccountCollapsible() {
+        binding.layoutAccountHeader.setOnClickListener {
+            val isExpanded = binding.layoutAccountCollapsible.visibility == View.VISIBLE
+            val newVisibility = if (isExpanded) View.GONE else View.VISIBLE
+            
+            // Используем родительский контейнер для плавной анимации всех элементов и ускоряем её
+            val transition = AutoTransition().apply {
+                duration = 200 // Быстрая анимация
             }
-            override fun afterTextChanged(s: android.text.Editable?) {}
-        })
-
-        dialogBinding.btnBack.setOnClickListener { hideNameEditDialog(dialogBinding) }
-        dialogBinding.btnSave.setOnClickListener {
-            val newName = dialogBinding.etNewName.text.toString().trim()
-            val error = if (newName.isEmpty()) "Имя не может быть пустым" else ValidationUtils.getValidationError(newName, false)
+            TransitionManager.beginDelayedTransition(binding.layoutAccountData.parent as ViewGroup, transition)
             
-            if (error != null) { 
-                dialogBinding.inputLayoutName.error = error
-                dialogBinding.cardContainer.shake() 
-                return@setOnClickListener 
-            }
+            binding.layoutAccountCollapsible.visibility = newVisibility
+            binding.ivAccountArrow.animate().rotation(if (isExpanded) 90f else -90f).setDuration(200).start()
             
-            val oldName = currentName
-            sharedPrefs.edit().putString("${currentUser}_name", newName).apply()
-            
-            binding.tvUserNameStatic.text = newName
-            binding.tvUserNameWP.text = newName
-            binding.tvUserNameStatic.isSelected = true
-            binding.tvUserNameWP.isSelected = true
-            
-            PrimeNotification.show(this, "Имя обновлено") {
-                sharedPrefs.edit().putString("${currentUser}_name", oldName).apply()
-                binding.tvUserNameStatic.text = oldName
-                binding.tvUserNameWP.text = oldName
-                binding.tvUserNameStatic.isSelected = true
-                binding.tvUserNameWP.isSelected = true
-            }
-            hideNameEditDialog(dialogBinding)
+            val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            sharedPrefs.edit().putBoolean("settings_account_expanded", !isExpanded).apply()
         }
-        dialogBinding.dialogRoot.setOnClickListener { hideNameEditDialog(dialogBinding) }
-    }
-
-    private fun hideNameEditDialog(dialogBinding: com.messenger.prime.databinding.DialogEditNameBinding) {
-        dialogBinding.dialogRoot.animate().alpha(0f).setDuration(300).start()
-        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
-        dialogBinding.cardContainer.animate().translationX(screenWidth).alpha(0f).setDuration(350).setInterpolator(DecelerateInterpolator()).withEndAction {
-            binding.dialogContainer.visibility = View.GONE
-            binding.dialogContainer.removeAllViews()
-            activeNameDialogBinding = null
-        }.start()
     }
 
     private fun setupInlineAccountEditing() {
@@ -508,18 +483,36 @@ class SettingsActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 checkAccountChanges()
+                binding.inputLayoutName.error = null
                 binding.inputLayoutLogin.error = null
                 binding.inputLayoutPassword.error = null
             }
             override fun afterTextChanged(s: android.text.Editable?) {}
         }
+        binding.etSettingsName.addTextChangedListener(textWatcher)
         binding.etSettingsLogin.addTextChangedListener(textWatcher)
         binding.etSettingsPassword.addTextChangedListener(textWatcher)
 
+        val focusListener = View.OnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                v.postDelayed({
+                    val parent = v.parent as? View ?: return@postDelayed
+                    val targetY = binding.layoutAccountData.top + parent.top - (60 * resources.displayMetrics.density).toInt()
+                    binding.nestedScrollView.smoothScrollTo(0, targetY.coerceAtLeast(0))
+                }, 100)
+            }
+        }
+        binding.etSettingsName.onFocusChangeListener = focusListener
+        binding.etSettingsLogin.onFocusChangeListener = focusListener
+        binding.etSettingsPassword.onFocusChangeListener = focusListener
+
         binding.btnSaveAccount.setOnClickListener {
+            val newName = binding.etSettingsName.text.toString().trim()
             val newLogin = binding.etSettingsLogin.text.toString().trim()
             val newPass = binding.etSettingsPassword.text.toString()
             val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            
+            val errorName = if (newName.isEmpty()) "Имя не может быть пустым" else ValidationUtils.getValidationError(newName, false)
             
             var errorLogin = when {
                 newLogin.isEmpty() -> "Логин не может быть пустым"
@@ -529,7 +522,11 @@ class SettingsActivity : AppCompatActivity() {
             
             var errorPass = if (newPass.length < 8) "Минимум 8 символов" else null
             
-            if (errorLogin != null || errorPass != null) {
+            if (errorName != null || errorLogin != null || errorPass != null) {
+                if (errorName != null) {
+                    binding.inputLayoutName.error = errorName
+                    binding.inputLayoutName.shake()
+                }
                 if (errorLogin != null) {
                     binding.inputLayoutLogin.error = errorLogin
                     binding.inputLayoutLogin.shake()
@@ -541,24 +538,67 @@ class SettingsActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             
+            val oldName = currentNameInDB
+            val oldLogin = currentLoginInDB
+            val oldPass = currentPassInDB
+
             sharedPrefs.edit().apply {
                 if (newLogin != currentLoginInDB) {
-// ...
-                    val name = sharedPrefs.getString("${currentLoginInDB}_name", "Пользователь")
                     val avatar = sharedPrefs.getString("${currentLoginInDB}_avatar", null)
-                    putString("current_user", newLogin); putString(newLogin, newPass); putString("${newLogin}_name", name)
+                    putString("current_user", newLogin)
+                    putString(newLogin, newPass)
+                    putString("${newLogin}_name", newName)
                     if (avatar != null) putString("${newLogin}_avatar", avatar)
-                    remove(currentLoginInDB); remove("${currentLoginInDB}_name"); remove("${currentLoginInDB}_avatar")
+                    remove(currentLoginInDB)
+                    remove("${currentLoginInDB}_name")
+                    remove("${currentLoginInDB}_avatar")
                 } else {
+                    putString("${currentLoginInDB}_name", newName)
                     putString(currentLoginInDB, newPass)
                 }
                 apply()
             }
+            currentNameInDB = newName
             currentLoginInDB = newLogin
             currentPassInDB = newPass
-            PrimeNotification.show(this, "Данные обновлены")
+            
+            binding.tvUserNameStatic.text = newName
+            binding.tvUserNameWP.text = newName
+            binding.tvAccountHeaderSummary.text = newName
+            
+            PrimeNotification.show(this, "Данные обновлены") {
+                sharedPrefs.edit().apply {
+                    if (newLogin != oldLogin) {
+                        val currentAvatar = sharedPrefs.getString("${newLogin}_avatar", null)
+                        putString("current_user", oldLogin)
+                        putString(oldLogin, oldPass)
+                        putString("${oldLogin}_name", oldName)
+                        if (currentAvatar != null) putString("${oldLogin}_avatar", currentAvatar)
+                        remove(newLogin)
+                        remove("${newLogin}_name")
+                        remove("${newLogin}_avatar")
+                    } else {
+                        putString("${oldLogin}_name", oldName)
+                        putString(oldLogin, oldPass)
+                    }
+                    apply()
+                }
+                currentNameInDB = oldName
+                currentLoginInDB = oldLogin
+                currentPassInDB = oldPass
+
+                binding.etSettingsName.setText(oldName)
+                binding.etSettingsLogin.setText(oldLogin)
+                binding.etSettingsPassword.setText(oldPass)
+
+                binding.tvUserNameStatic.text = oldName
+                binding.tvUserNameWP.text = oldName
+                binding.tvAccountHeaderSummary.text = oldName
+                checkAccountChanges()
+            }
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(binding.etSettingsLogin.windowToken, 0)
+            imm.hideSoftInputFromWindow(binding.etSettingsName.windowToken, 0)
+            binding.etSettingsName.clearFocus()
             binding.etSettingsLogin.clearFocus()
             binding.etSettingsPassword.clearFocus()
             checkAccountChanges()
@@ -567,18 +607,39 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun checkAccountChanges() {
+        val newName = binding.etSettingsName.text.toString().trim()
         val newLogin = binding.etSettingsLogin.text.toString().trim()
         val newPass = binding.etSettingsPassword.text.toString()
+        
+        val nameChanged = newName != currentNameInDB
         val loginChanged = newLogin != currentLoginInDB
         val passChanged = newPass != currentPassInDB
         
-        if (loginChanged) { binding.inputLayoutLogin.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel); binding.inputLayoutLogin.setStartIconOnClickListener { binding.etSettingsLogin.setText(currentLoginInDB) } }
-        else { binding.inputLayoutLogin.startIconDrawable = null; binding.inputLayoutLogin.setStartIconOnClickListener(null) }
+        if (nameChanged) {
+            binding.inputLayoutName.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel)
+            binding.inputLayoutName.setStartIconOnClickListener { binding.etSettingsName.setText(currentNameInDB) }
+        } else {
+            binding.inputLayoutName.startIconDrawable = null
+            binding.inputLayoutName.setStartIconOnClickListener(null)
+        }
         
-        if (passChanged) { binding.inputLayoutPassword.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel); binding.inputLayoutPassword.setStartIconOnClickListener { binding.etSettingsPassword.setText(currentPassInDB) } }
-        else { binding.inputLayoutPassword.startIconDrawable = null; binding.inputLayoutPassword.setStartIconOnClickListener(null) }
+        if (loginChanged) {
+            binding.inputLayoutLogin.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel)
+            binding.inputLayoutLogin.setStartIconOnClickListener { binding.etSettingsLogin.setText(currentLoginInDB) }
+        } else {
+            binding.inputLayoutLogin.startIconDrawable = null
+            binding.inputLayoutLogin.setStartIconOnClickListener(null)
+        }
         
-        animateSaveButton((loginChanged || passChanged) && newLogin.isNotEmpty())
+        if (passChanged) {
+            binding.inputLayoutPassword.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel)
+            binding.inputLayoutPassword.setStartIconOnClickListener { binding.etSettingsPassword.setText(currentPassInDB) }
+        } else {
+            binding.inputLayoutPassword.startIconDrawable = null
+            binding.inputLayoutPassword.setStartIconOnClickListener(null)
+        }
+        
+        animateSaveButton((nameChanged || loginChanged || passChanged) && newLogin.isNotEmpty() && newName.isNotEmpty())
     }
 
     private fun animateSaveButton(show: Boolean) {
@@ -589,16 +650,9 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) {
-            val x = event.rawX.toInt()
-            val y = event.rawY.toInt()
-            var hitProtected = false
-            val rect = Rect()
-            activeNameDialogBinding?.let { db -> val protectedViews = listOf(db.btnBack, db.etNewName, db.btnSave); for (view in protectedViews) { view.getGlobalVisibleRect(rect); if (rect.contains(x, y)) { hitProtected = true; break } } }
-            if (!hitProtected) {
-                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                currentFocus?.let { focusedView -> imm.hideSoftInputFromWindow(focusedView.windowToken, 0); focusedView.clearFocus() }
-                activePhotoDialogBinding?.let { hidePhotoActionDialog(it) }
-            }
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            currentFocus?.let { focusedView -> imm.hideSoftInputFromWindow(focusedView.windowToken, 0); focusedView.clearFocus() }
+            activePhotoDialogBinding?.let { hidePhotoActionDialog(it) }
         }
         return super.dispatchTouchEvent(event)
     }

@@ -78,14 +78,15 @@ class PhotoEditorActivity : AppCompatActivity() {
         binding = ActivityPhotoEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        setupEdgeToEdge()
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.hide(WindowInsetsCompat.Type.statusBars())
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { _, windowInsets ->
-            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-            binding.topBar.setPadding(0, insets.top, 0, 0)
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
+            val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            binding.topBar.setPadding(0, systemBarsInsets.top, 0, 0)
+            binding.toolsLayout.setPadding(0, 0, 0, systemBarsInsets.bottom)
             windowInsets
         }
 

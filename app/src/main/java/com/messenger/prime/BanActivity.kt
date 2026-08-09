@@ -15,6 +15,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import com.messenger.prime.databinding.ActivityBanBinding
 import java.text.SimpleDateFormat
@@ -43,6 +44,7 @@ class BanActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityBanBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setupEdgeToEdge()
 
         // Параметры из интента
         val userName = intent.getStringExtra("EXTRA_USER_NAME") ?: "Пользователь"
@@ -55,6 +57,13 @@ class BanActivity : AppCompatActivity() {
 
         isPermanent = value <= 0
         setupUI(userName, reason)
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                finish()
+                overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+            }
+        })
     }
 
     override fun onResume() {
@@ -139,7 +148,7 @@ class BanActivity : AppCompatActivity() {
         val intent = Intent(this, ChatListActivity::class.java)
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(intent)
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         finish()
     }
 

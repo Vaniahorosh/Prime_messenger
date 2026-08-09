@@ -41,11 +41,7 @@ class LoginActivity : AppCompatActivity() {
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Делаем статус-бар прозрачным, чтобы цветная шапка уходила под него
-        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
-        // Иконки статус-бара белые, т.к. шапка темная
-        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
+        setupEdgeToEdge()
 
         // Магия для клавиатуры и кнопки "Назад" (WindowInsets)
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->

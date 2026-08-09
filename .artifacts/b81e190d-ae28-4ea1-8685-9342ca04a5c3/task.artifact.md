@@ -1,0 +1,5 @@
+- [x] Create `bg_settings_block_gray.xml`
+- [x] Update `activity_settings.xml`
+    - [x] Redesign Login/Password block
+    - [x] Add "Settings" header with side lines
+    - [x] Redesign Switches with descriptions

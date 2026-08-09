@@ -37,12 +37,11 @@ class PhotoViewActivity : AppCompatActivity() {
         binding = ActivityPhotoViewBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.TRANSPARENT
+        setupEdgeToEdge()
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.topToolbar) { view, windowInsets ->
-            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars())
-            view.setPadding(view.paddingLeft, insets.top, view.paddingRight, view.paddingBottom)
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(view.paddingLeft, insets.top, view.paddingRight, insets.bottom)
             windowInsets
         }
 

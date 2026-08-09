@@ -14,6 +14,7 @@ import android.view.View
 import android.view.animation.AnimationUtils
 import android.widget.FrameLayout
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.messenger.prime.databinding.ActivityHiBinding
@@ -76,7 +77,7 @@ class HiActivity : AppCompatActivity() {
 
         binding = ActivityHiBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        setDynamicStatusBar(R.color.prime_background_blue, false)
+        setupEdgeToEdge()
 
         setupTextSwitcher()
         startDynamicSequence()
@@ -111,6 +112,13 @@ class HiActivity : AppCompatActivity() {
         binding.btnExit.setOnClickListener {
             finishAffinity()
         }
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                finish()
+                overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+            }
+        })
     }
 
     private fun setupTextSwitcher() {

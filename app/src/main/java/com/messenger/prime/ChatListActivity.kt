@@ -18,6 +18,7 @@ import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.InputMethodManager
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -232,9 +233,7 @@ class ChatListActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_chat_list)
 
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
+        setupEdgeToEdge(isDarkIcons = true)
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         sharedPrefs.registerOnSharedPreferenceChangeListener(prefListener)
@@ -321,6 +320,23 @@ class ChatListActivity : AppCompatActivity() {
                     modifier = Modifier.fillMaxSize().hazeSource(hazeState)
                 )
 
+                // Размытие для системной панели навигации
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                        .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp)
+                        .hazeEffect(
+                            state = hazeState,
+                            style = HazeStyle(
+                                blurRadius = 20.dp,
+                                noiseFactor = 0f, // Убираем шум совсем для идеальной прозрачности
+                                tint = dev.chrisbanes.haze.HazeTint(Color(0x0DFFFFFF)) // 5% белого — почти невидимая тонировка
+                            )
+                        )
+                )
+
                 // Островок (Haze)
                 Box(
                     modifier = Modifier
@@ -342,9 +358,9 @@ class ChatListActivity : AppCompatActivity() {
                                 .hazeEffect(
                                     state = hazeState,
                                     style = HazeStyle(
-                                        blurRadius = 40.dp,
-                                        noiseFactor = 0.15f,
-                                        tint = dev.chrisbanes.haze.HazeTint(Color(0xB3154B87)) 
+                                        blurRadius = 20.dp,
+                                        noiseFactor = 0.05f,
+                                        tint = dev.chrisbanes.haze.HazeTint(Color(0x66154B87)) 
                                     )
                                 )
                         ) {
@@ -373,6 +389,24 @@ class ChatListActivity : AppCompatActivity() {
         connectivityManager.registerNetworkCallback(NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build(), networkCallback)
 
         showScrollTopHintOnce(sharedPrefs)
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (adapter.isSearchActive) {
+                    if (islandBinding.etSearch.hasFocus()) {
+                        // Первый этап: Скрываем клавиатуру и убираем фокус
+                        hideKeyboardAndClearFocus()
+                    } else {
+                        // Второй этап: Если фокуса нет, но поиск активен (есть текст) - очищаем всё
+                        islandBinding.etSearch.text?.clear()
+                        hideKeyboardAndClearFocus() // Это сбросит состояние поиска, так как текст пуст
+                    }
+                } else {
+                    finish()
+                    overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+                }
+            }
+        })
     }
 
     private fun setupLegacyListeners() {
