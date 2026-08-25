@@ -4,7 +4,12 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.content.Context
 import android.content.Intent
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
+import android.graphics.RectF
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -19,6 +24,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -26,6 +33,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
@@ -39,6 +47,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.textfield.TextInputEditText
@@ -48,157 +57,113 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.hazeEffect
+import org.json.JSONArray
+import org.json.JSONObject
 
 class ChatListActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityChatListContentBinding
     private lateinit var islandBinding: LayoutIslandBinding
     private lateinit var adapter: ChatAdapter
-    private lateinit var allChats: List<ChatModel>
+    private var allChats: List<ChatModel> = ArrayList()
 
     private lateinit var connectivityManager: ConnectivityManager
     private var isNetworkConnected = true
+    private var isLegacyListenersSetup = false
+    private val isContentBindingReady = mutableStateOf(false)
+    private val isIslandBindingReady = mutableStateOf(false)
 
-    // Состояние видимости островка для Compose
-    private var isIslandVisibleState = mutableStateOf(true)
+    private val isIslandVisibleState = mutableStateOf(true)
+    private val isContactDialogVisible = mutableStateOf(false)
+    private val chatListState = mutableStateListOf<ChatModel>()
 
-    // ==========================================
-    // ПЕРЕМЕННЫЕ ДЛЯ СВАЙПА
-    // ==========================================
     private var startY = 0f
     private var isPulling = false
     private var isThresholdCrossed = false
-    private val PULL_THRESHOLD = 250f
+    private val PULL_THRESHOLD = 350f
     private var isTransitioning = false
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            super.onAvailable(network)
-            val isCurrentlyConnected = connectivityManager.getNetworkCapabilities(network)
-                ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-
-            if (isCurrentlyConnected) {
+            runOnUiThread {
                 isNetworkConnected = true
-                runOnUiThread { animateSearchHint("ПОИСК") }
+                adapter.updateNetworkHint("Прайм")
+                refreshUserUi()
             }
         }
 
         override fun onLost(network: Network) {
-            super.onLost(network)
-            val activeNetwork = connectivityManager.activeNetwork
-            val hasInternet = connectivityManager.getNetworkCapabilities(activeNetwork)
-                ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-
-            if (!hasInternet) {
+            runOnUiThread {
                 isNetworkConnected = false
-                runOnUiThread { animateSearchHint("Ожидание сети...") }
+                adapter.updateNetworkHint("ОЖИДАНИЕ СЕТИ")
             }
         }
     }
 
-    private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
-        val currentUser = sharedPreferences.getString("current_user", "") ?: ""
-        if (key == "${currentUser}_avatar" || key == "${currentUser}_name") {
-            runOnUiThread { refreshUserUi() }
+    private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
+        if (key == "current_user" || key?.endsWith("_name") == true || key?.endsWith("_avatar") == true) {
+            refreshUserUi()
         }
     }
 
-    private fun animateSearchHint(newHint: String) {
+    private fun animateSearchHint(hint: String) {
         if (!::islandBinding.isInitialized) return
-        if (islandBinding.inputLayoutSearch.hint == newHint) return
-        animateViewHint(islandBinding.inputLayoutSearch, newHint)
-        adapter.updateNetworkHint(newHint)
+        animateViewHint(islandBinding.inputLayoutSearch, hint)
     }
 
-    private fun animateViewHint(view: com.google.android.material.textfield.TextInputLayout, newHint: String) {
-        view.animate()
-            .alpha(0f)
-            .translationY(-30f)
-            .setDuration(300)
-            .withEndAction {
-                view.hint = newHint
-                view.translationY = 30f
-                view.animate()
-                    .alpha(1f)
-                    .translationY(0f)
-                    .setDuration(400)
-                    .start()
-            }
-            .start()
+    private fun animateViewHint(inputLayout: com.google.android.material.textfield.TextInputLayout, newHint: String) {
+        val editText = inputLayout.editText ?: return
+        editText.animate().alpha(0f).setDuration(150).withEndAction {
+            inputLayout.hint = newHint
+            editText.animate().alpha(1f).setDuration(150).start()
+        }.start()
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (!::binding.isInitialized) return super.dispatchTouchEvent(event)
-        
-        if (event.action == MotionEvent.ACTION_DOWN) {
-            val v = currentFocus
-            if (v is TextInputEditText) {
-                val outRect = Rect()
-                v.getGlobalVisibleRect(outRect)
-                if (!outRect.contains(event.rawX.toInt(), event.rawY.toInt())) {
-                    v.clearFocus()
-                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                    imm.hideSoftInputFromWindow(v.windowToken, 0)
-                }
-            }
-        }
+        if (isTransitioning) return true
 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 startY = event.y
                 isPulling = false
                 isThresholdCrossed = false
-                isTransitioning = false
             }
             MotionEvent.ACTION_MOVE -> {
-                if (isTransitioning) return true
-                if (adapter.isSearchActive) return super.dispatchTouchEvent(event)
+                val dy = event.y - startY
+                val layoutManager = binding.recyclerViewChats.layoutManager as LinearLayoutManager
+                val isAtTop = layoutManager.findFirstCompletelyVisibleItemPosition() <= 0
 
-                if (!binding.recyclerViewChats.canScrollVertically(-1)) {
-                    val dy = event.y - startY
-                    if (dy > 30f && !isPulling) isPulling = true
-
-                    if (isPulling) {
-                        if (dy > 0) {
-                            binding.recyclerViewChats.translationY = dy * 0.35f
-                            val progress = (dy / PULL_THRESHOLD).coerceIn(0f, 1.2f)
-
-                            val headerView = binding.recyclerViewChats.layoutManager?.findViewByPosition(0)
-                            if (headerView != null) {
-                                headerView.pivotY = 0f
-                                headerView.scaleX = 1f + (progress * 0.1f)
-                                headerView.scaleY = 1f + (progress * 0.2f)
-                            }
-
-                            if (dy > PULL_THRESHOLD && !isThresholdCrossed) {
-                                isThresholdCrossed = true
-                                isTransitioning = true
-                                binding.photoRootContainer.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-
-                                startActivity(Intent(this, SettingsActivity::class.java))
-                                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-
-                                resetPullUiInstant()
-                                isPulling = false
-                            }
-                        } else {
-                            cancelPullToProfile()
-                        }
+                if (isAtTop && dy > 50 && !adapter.isSearchActive) {
+                    isPulling = true
+                    val progress = (dy / PULL_THRESHOLD).coerceIn(0f, 1.2f)
+                    
+                    if (progress >= 1.0f && !isThresholdCrossed) {
+                        isThresholdCrossed = true
+                        binding.recyclerViewChats.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    } else if (progress < 1.0f) {
+                        isThresholdCrossed = false
                     }
+                    
+                    binding.recyclerViewChats.translationY = dy * 0.4f
+                    return true
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (isPulling) {
-                    val dy = event.y - startY
-                    if (dy > PULL_THRESHOLD) {
-                        isPulling = false
-                        binding.photoRootContainer.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                        startActivity(Intent(this, SettingsActivity::class.java))
+                    if (isThresholdCrossed && !isTransitioning) {
+                        isTransitioning = true
+                        val intent = Intent(this, SettingsActivity::class.java)
+                        startActivity(intent)
                         overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-                        resetPullUiInstant()
+                        
+                        binding.recyclerViewChats.postDelayed({
+                            resetPullUiInstant()
+                            isTransitioning = false
+                        }, 500)
                     } else {
                         cancelPullToProfile()
                     }
+                    return true
                 }
             }
         }
@@ -206,31 +171,47 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private fun cancelPullToProfile() {
-        if (!::binding.isInitialized) return
-        isPulling = false
-        isThresholdCrossed = false
-        binding.recyclerViewChats.animate().translationY(0f).setDuration(400)
-            .setInterpolator(android.view.animation.OvershootInterpolator()).start()
-
-        binding.recyclerViewChats.layoutManager?.findViewByPosition(0)?.animate()
-            ?.scaleX(1f)?.scaleY(1f)?.setDuration(400)
-            ?.setInterpolator(android.view.animation.OvershootInterpolator())?.start()
+        binding.recyclerViewChats.animate()
+            .translationY(0f)
+            .setDuration(300)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .withEndAction {
+                isPulling = false
+                isThresholdCrossed = false
+            }
+            .start()
     }
 
     private fun resetPullUiInstant() {
-        if (!::binding.isInitialized) return
+        binding.recyclerViewChats.translationY = 0f
         isPulling = false
         isThresholdCrossed = false
-        binding.recyclerViewChats.translationY = 0f
-        val headerView = binding.recyclerViewChats.layoutManager?.findViewByPosition(0)
-        if (headerView != null) {
-            headerView.scaleX = 1f
-            headerView.scaleY = 1f
+    }
+
+    private val backCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            if (adapter.isSearchActive) {
+                if (islandBinding.etSearch.hasFocus()) {
+                    hideKeyboardAndClearFocus()
+                } else {
+                    islandBinding.etSearch.text?.clear()
+                    hideKeyboardAndClearFocus()
+                }
+            }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        if (android.os.Build.VERSION.SDK_INT >= 34) {
+            overrideActivityTransition(
+                android.app.Activity.OVERRIDE_TRANSITION_CLOSE,
+                R.anim.slide_in_left,
+                R.anim.slide_out_right
+            )
+        }
+        
         setContentView(R.layout.activity_chat_list)
 
         setupEdgeToEdge(isDarkIcons = true)
@@ -242,30 +223,23 @@ class ChatListActivity : AppCompatActivity() {
         val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
         val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
 
-        allChats = listOf(
-            ChatModel("1", "Дмитрий", "Привет! Как успехи с приложением?", "14:23", null, OnlineStatus.ONLINE, MessageStatus.READ, 0, false),
-            ChatModel("2", "Анна", "Скинула новые макеты на ревью", "12:05", null, OnlineStatus.OFFLINE, MessageStatus.SENT, 12, false),
-            ChatModel("3", "Команда разработки", "Завтра созвон в 11:00", "Вчера", null, OnlineStatus.OFFLINE, MessageStatus.NONE, 13, true),
-            ChatModel("4", "Максим", "Слушай, не могу загрузить файл...", "Вчера", null, OnlineStatus.ONLINE, MessageStatus.ERROR, 0, false),
-            ChatModel("5", "Неизвестный", "Вы выиграли приз, перейдите по ссылке", "Пн", null, OnlineStatus.BLOCKED, MessageStatus.NONE, 0, false),
-            ChatModel("6", "Елена", "Ок", "Пн", null, OnlineStatus.OFFLINE, MessageStatus.READ, 0, false),
-            ChatModel("7", "Алексей", "Давай обсудим это чуть позже", "10 Мая", null, OnlineStatus.ONLINE, MessageStatus.SENT, 0, false),
-            ChatModel("8", "Мама", "Купи фламиши с ветчиной по пути домой", "09 Мая", null, OnlineStatus.ONLINE, MessageStatus.READ, 0, false),
-            ChatModel("9", "Староста П2-23", "Скиньте лабы по питону до пятницы!", "09 Мая", null, OnlineStatus.OFFLINE, MessageStatus.NONE, 5, false),
-            ChatModel("10", "Влад", "Какую термопасту лучше взять для нового кулера?", "08 Мая", null, OnlineStatus.ONLINE, MessageStatus.NONE, 2, false),
-            ChatModel("11", "Саня", "Го вечером в CS2, я скин на ТП продал", "08 Мая", null, OnlineStatus.OFFLINE, MessageStatus.READ, 0, false),
-            ChatModel("12", "OpenWrt Community", "Как настроить блокировку рекламы на роутере Cudy?", "07 Мая", null, OnlineStatus.OFFLINE, MessageStatus.NONE, 45, true),
-            ChatModel("13", "Доставка", "Ваш заказ (Биг Хит) будет доставлен через 15 минут", "06 Мая", null, OnlineStatus.OFFLINE, MessageStatus.READ, 0, false),
-            ChatModel("14", "Проект Prime", "Кнопка отправки готова, лого телеграма убрал", "05 Мая", null, OnlineStatus.ONLINE, MessageStatus.SENT, 0, false),
-            ChatModel("15", "Вика", "Билеты на поезд до Анапы уже у тебя?", "04 Мая", null, OnlineStatus.OFFLINE, MessageStatus.NONE, 1, false)
-        )
+        try {
+            loadContacts()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        allChats = ArrayList(chatListState)
 
         adapter = ChatAdapter(
             allChats, savedAvatarUri, savedName,
-            onStartChatClick = { PrimeNotification.show(this, "Поиск контактов...") },
+            onStartChatClick = { isContactDialogVisible.value = true },
             onAvatarClick = {
-                startActivity(Intent(this, SettingsActivity::class.java))
+                val intent = Intent(this, SettingsActivity::class.java)
+                startActivity(intent)
                 overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+            },
+            onAvatarLongClick = {
+                showLogoutDialog()
             },
             onHeaderSearchClick = { activateIslandSearch() },
             onNameClick = { showNameEditDialog() },
@@ -294,33 +268,386 @@ class ChatListActivity : AppCompatActivity() {
                                 putExtra("EXTRA_UNIT", unit)
                             }
                             startActivity(intent)
+                            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                         }
                     }
+                } else {
+                    val intent = Intent(this, ChatPersonActivity::class.java)
+                    intent.putExtra("EXTRA_CHAT_ID", chat.id)
+                    intent.putExtra("EXTRA_CHAT_NAME", chat.name)
+                    intent.putExtra("EXTRA_CHAT_AVATAR", chat.avatarUri)
+                    startActivity(intent)
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                 }
+            },
+            onDeleteClick = { chat, _ ->
+                deleteContact(chat)
+            },
+            onEditClick = { chat, _ ->
+                showEditContactDialog(chat)
             }
         )
 
-        // Интеграция Compose и Haze
         findViewById<ComposeView>(R.id.composeRoot).setContent {
             val hazeState = remember { HazeState() }
             val isIslandVisible by isIslandVisibleState
+            val isDialogVisible by isContactDialogVisible
+            val isEditVisible by isEditDialogVisible
             
             Box(modifier = Modifier.fillMaxSize()) {
-                // Фоновый контент (View-based RecyclerView)
                 AndroidView(
                     factory = { context ->
                         val view = layoutInflater.inflate(R.layout.activity_chat_list_content, null)
-                        binding = ActivityChatListContentBinding.bind(view)
+                        val contentBinding = ActivityChatListContentBinding.bind(view)
+                        binding = contentBinding
                         
                         binding.recyclerViewChats.layoutManager = LinearLayoutManager(context)
                         binding.recyclerViewChats.adapter = adapter
                         
+                        binding.btnStartChatEmpty.setOnClickListener {
+                            isContactDialogVisible.value = true
+                        }
+                        
+                        setupSwipeToDelete()
+                        isContentBindingReady.value = true
                         view
+                    },
+                    update = {
+                        updateEmptyState()
+                        if (isContentBindingReady.value && isIslandBindingReady.value) {
+                            setupLegacyListeners()
+                        }
                     },
                     modifier = Modifier.fillMaxSize().hazeSource(hazeState)
                 )
 
-                // Размытие для системной панели навигации
+                AnimatedVisibility(
+                    visible = isDialogVisible,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.4f))
+                            .clickable(enabled = true, onClick = { 
+                                isContactDialogVisible.value = false 
+                            }),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        var contactName by remember { mutableStateOf("") }
+                        var isOnline by remember { mutableStateOf(true) }
+                        var selectedAvatarUri by remember { mutableStateOf<Uri?>(null) }
+                        
+                        val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+                        val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+                            selectedAvatarUri = uri
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .padding(24.dp)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(32.dp))
+                                .hazeEffect(
+                                    state = hazeState,
+                                    style = HazeStyle(
+                                        blurRadius = 24.dp,
+                                        noiseFactor = 0.05f,
+                                        tint = dev.chrisbanes.haze.HazeTint(Color(0x99154B87))
+                                    )
+                                )
+                                .clickable(enabled = true) { 
+                                    focusManager.clearFocus() 
+                                }
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            androidx.compose.material3.Text(
+                                text = "Тестовое окно",
+                                color = Color.White,
+                                style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(Color.White.copy(alpha = 0.2f))
+                                    .clickable { launcher.launch("image/*") },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (selectedAvatarUri != null) {
+                                    androidx.compose.ui.viewinterop.AndroidView(
+                                        factory = { ctx ->
+                                            android.widget.ImageView(ctx).apply {
+                                                scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                                            }
+                                        },
+                                        update = { it.setImageURI(selectedAvatarUri) },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    androidx.compose.material3.Icon(
+                                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_person),
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.fillMaxSize().padding(12.dp)
+                                    )
+                                }
+                            }
+                            androidx.compose.material3.Text(
+                                text = if (selectedAvatarUri == null) "Выбрать фото" else "Изменить фото",
+                                color = Color.White.copy(alpha = 0.7f),
+                                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            androidx.compose.material3.OutlinedTextField(
+                                value = contactName,
+                                onValueChange = { if (it.length <= 16) contactName = it },
+                                label = { androidx.compose.material3.Text("Как зовут контакта", color = Color.White.copy(alpha = 0.7f)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                singleLine = true,
+                                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.White,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    cursorColor = Color.White,
+                                    focusedLabelColor = Color.White,
+                                    unfocusedLabelColor = Color.White.copy(alpha = 0.7f)
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(12.dp)
+                                            .clip(androidx.compose.foundation.shape.CircleShape)
+                                            .background(if (isOnline) Color(0xFF4CAF50) else Color.Gray)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    androidx.compose.material3.Text(
+                                        text = if (isOnline) "В сети" else "Не в сети",
+                                        color = Color.White,
+                                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium
+                                    )
+                                }
+                                androidx.compose.material3.Switch(
+                                    checked = isOnline,
+                                    onCheckedChange = { isOnline = it },
+                                    thumbContent = null,
+                                    colors = androidx.compose.material3.SwitchDefaults.colors(
+                                        checkedThumbColor = Color(0xFF154B87),
+                                        checkedTrackColor = Color.White,
+                                        uncheckedThumbColor = Color.White.copy(alpha = 0.5f),
+                                        uncheckedTrackColor = Color.White.copy(alpha = 0.2f),
+                                        checkedIconColor = Color.White
+                                    )
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(32.dp))
+
+                            androidx.compose.material3.Button(
+                                onClick = {
+                                    if (contactName.isNotBlank() && isDialogVisible) {
+                                        isContactDialogVisible.value = false
+                                        val newChat = ChatModel(
+                                            id = System.currentTimeMillis().toString(),
+                                            name = contactName,
+                                            lastMessage = "Новый контакт создан",
+                                            time = "сейчас",
+                                            avatarUri = selectedAvatarUri?.toString(),
+                                            onlineStatus = if (isOnline) OnlineStatus.ONLINE else OnlineStatus.OFFLINE
+                                        )
+                                        chatListState.add(0, newChat)
+                                        allChats = ArrayList(chatListState)
+                                        adapter.updateList(allChats)
+                                        saveContacts()
+                                        updateEmptyState()
+                                        val intent = Intent(this@ChatListActivity, ChatPersonActivity::class.java).apply {
+                                            putExtra("EXTRA_CHAT_ID", newChat.id)
+                                            putExtra("EXTRA_CHAT_NAME", newChat.name)
+                                            putExtra("EXTRA_CHAT_AVATAR", newChat.avatarUri)
+                                        }
+                                        startActivity(intent)
+                                        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                    containerColor = Color.White,
+                                    contentColor = Color(0xFF154B87)
+                                )
+                            ) {
+                                androidx.compose.material3.Text("Готово", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                // Диалоговое окно РЕДАКТИРОВАНИЯ контакта
+                AnimatedVisibility(
+                    visible = isEditVisible,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.4f))
+                            .clickable(enabled = true, onClick = { 
+                                isEditDialogVisible.value = false 
+                            }),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val currentContact = contactToEdit ?: return@Box
+                        
+                        var contactName by remember(currentContact.id) { mutableStateOf(currentContact.name) }
+                        var selectedAvatarUri by remember(currentContact.id) { 
+                            mutableStateOf(currentContact.avatarUri?.let { Uri.parse(it) }) 
+                        }
+                        
+                        val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+                        val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+                            selectedAvatarUri = uri
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .padding(24.dp)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(32.dp))
+                                .hazeEffect(
+                                    state = hazeState,
+                                    style = HazeStyle(
+                                        blurRadius = 24.dp,
+                                        noiseFactor = 0.05f,
+                                        tint = dev.chrisbanes.haze.HazeTint(Color(0xFF154B87).copy(alpha = 0.6f))
+                                    )
+                                )
+                                .clickable(enabled = true) { 
+                                    focusManager.clearFocus() 
+                                }
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            androidx.compose.material3.Text(
+                                text = "Редактировать",
+                                color = Color.White,
+                                style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(Color.White.copy(alpha = 0.2f))
+                                    .clickable { launcher.launch("image/*") },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (selectedAvatarUri != null) {
+                                    androidx.compose.ui.viewinterop.AndroidView(
+                                        factory = { ctx ->
+                                            android.widget.ImageView(ctx).apply {
+                                                scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                                            }
+                                        },
+                                        update = { it.setImageURI(selectedAvatarUri) },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    androidx.compose.material3.Icon(
+                                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_person),
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.fillMaxSize().padding(12.dp)
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            androidx.compose.material3.OutlinedTextField(
+                                value = contactName,
+                                onValueChange = { if (it.length <= 16) contactName = it },
+                                label = { androidx.compose.material3.Text("Имя", color = Color.White.copy(alpha = 0.7f)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                singleLine = true,
+                                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.White,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    cursorColor = Color.White,
+                                    focusedLabelColor = Color.White,
+                                    unfocusedLabelColor = Color.White.copy(alpha = 0.7f)
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(32.dp))
+
+                            androidx.compose.material3.Button(
+                                onClick = {
+                                    if (contactName.isNotBlank()) {
+                                        isEditDialogVisible.value = false
+                                        
+                                        // Находим контакт в списке и обновляем его
+                                        val index = chatListState.indexOfFirst { it.id == currentContact.id }
+                                        if (index != -1) {
+                                            val updated = chatListState[index].copy(
+                                                name = contactName,
+                                                avatarUri = selectedAvatarUri?.toString()
+                                            )
+                                            chatListState[index] = updated
+                                            allChats = ArrayList(chatListState)
+                                            
+                                            if (adapter.isSearchActive) {
+                                                val query = islandBinding.etSearch.text.toString().trim().lowercase()
+                                                val filtered = allChats.filter { it.name.lowercase().contains(query) || it.lastMessage.lowercase().contains(query) }
+                                                adapter.updateList(filtered)
+                                            } else {
+                                                adapter.updateList(allChats)
+                                            }
+                                            saveContacts()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                    containerColor = Color.White,
+                                    contentColor = Color(0xFF154B87)
+                                )
+                            ) {
+                                androidx.compose.material3.Text("Сохранить", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -331,22 +658,21 @@ class ChatListActivity : AppCompatActivity() {
                             state = hazeState,
                             style = HazeStyle(
                                 blurRadius = 20.dp,
-                                noiseFactor = 0f, // Убираем шум совсем для идеальной прозрачности
-                                tint = dev.chrisbanes.haze.HazeTint(Color(0x0DFFFFFF)) // 5% белого — почти невидимая тонировка
+                                noiseFactor = 0f,
+                                tint = dev.chrisbanes.haze.HazeTint(Color(0x0DFFFFFF))
                             )
                         )
                 )
 
-                // Островок (Haze)
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .imePadding() // Автоматический подъем при появлении клавиатуры
-                        .navigationBarsPadding() // Учитывает системную панель навигации
+                        .imePadding()
+                        .navigationBarsPadding()
                         .padding(bottom = 16.dp, start = 16.dp, end = 16.dp)
                 ) {
                     AnimatedVisibility(
-                        visible = isIslandVisible,
+                        visible = isIslandVisible && !isDialogVisible,
                         enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
                         exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 })
                     ) {
@@ -364,18 +690,22 @@ class ChatListActivity : AppCompatActivity() {
                                     )
                                 )
                         ) {
-                            AndroidView(
-                                factory = { context ->
-                                    val view = layoutInflater.inflate(R.layout.layout_island, null)
-                                    islandBinding = LayoutIslandBinding.bind(view)
-                                    
+                        AndroidView(
+                            factory = { context ->
+                                val view = layoutInflater.inflate(R.layout.layout_island, null)
+                                val islandBind = LayoutIslandBinding.bind(view)
+                                islandBinding = islandBind
+                                updateToolbarInitialUi(savedAvatarUri, savedName)
+                                isIslandBindingReady.value = true
+                                view
+                            },
+                            update = {
+                                if (isContentBindingReady.value && isIslandBindingReady.value) {
                                     setupLegacyListeners()
-                                    updateToolbarInitialUi(savedAvatarUri, savedName)
-                                    
-                                    view
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
                         }
                     }
                 }
@@ -387,33 +717,20 @@ class ChatListActivity : AppCompatActivity() {
             ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
 
         connectivityManager.registerNetworkCallback(NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build(), networkCallback)
-
         showScrollTopHintOnce(sharedPrefs)
-
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (adapter.isSearchActive) {
-                    if (islandBinding.etSearch.hasFocus()) {
-                        // Первый этап: Скрываем клавиатуру и убираем фокус
-                        hideKeyboardAndClearFocus()
-                    } else {
-                        // Второй этап: Если фокуса нет, но поиск активен (есть текст) - очищаем всё
-                        islandBinding.etSearch.text?.clear()
-                        hideKeyboardAndClearFocus() // Это сбросит состояние поиска, так как текст пуст
-                    }
-                } else {
-                    finish()
-                    overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
-                }
-            }
-        })
+        onBackPressedDispatcher.addCallback(this, backCallback)
+        backCallback.isEnabled = false
     }
 
     private fun setupLegacyListeners() {
-        if (!::islandBinding.isInitialized) return
+        if (!::islandBinding.isInitialized || !::binding.isInitialized) return
         
-        islandBinding.etSearch.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) animateShowSearchClear() else if (islandBinding.etSearch.text.isNullOrEmpty()) animateHideSearchClear()
+        islandBinding.etSearch.onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
+            if (hasFocus || !islandBinding.etSearch.text.isNullOrEmpty()) {
+                animateShowSearchClear()
+            } else {
+                animateHideSearchClear()
+            }
         }
 
         islandBinding.btnSearchClear.setOnClickListener {
@@ -422,6 +739,7 @@ class ChatListActivity : AppCompatActivity() {
             hideKeyboardAndClearFocus()
         }
 
+        binding.recyclerViewChats.clearOnScrollListeners()
         binding.recyclerViewChats.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 val layoutManager = recyclerView.layoutManager as LinearLayoutManager
@@ -432,7 +750,8 @@ class ChatListActivity : AppCompatActivity() {
         })
 
         islandBinding.ivToolbarAvatar.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
             overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         }
         islandBinding.tvToolbarInitials.setOnClickListener {
@@ -444,17 +763,27 @@ class ChatListActivity : AppCompatActivity() {
             it.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             true
         }
+        islandBinding.tvToolbarInitials.setOnLongClickListener {
+            islandBinding.ivToolbarAvatar.performLongClick()
+            true
+        }
 
         islandBinding.etSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 if (s?.toString() == " ") { islandBinding.etSearch.text?.clear(); hideKeyboardAndClearFocus() }
+                if (!s.isNullOrEmpty()) {
+                    animateShowSearchClear()
+                } else if (!islandBinding.etSearch.hasFocus()) {
+                    animateHideSearchClear()
+                }
             }
 
             override fun afterTextChanged(s: Editable?) {
                 val query = s.toString().trim().lowercase()
-                if (query.startsWith("/blocktestme")) {
+                if (query == "/blocktestme") {
                     adapter.setSearchActive(true)
+                    backCallback.isEnabled = true
                     showIsland()
                     val testContact = ChatModel("block_test_contact", "Тестирование активити блока", "Нажмите, чтобы протестировать", "сейчас", null, OnlineStatus.ONLINE)
                     adapter.updateList(listOf(testContact))
@@ -462,30 +791,36 @@ class ChatListActivity : AppCompatActivity() {
                 }
 
                 if (query.isEmpty()) {
-                    adapter.updateList(allChats)
+                    adapter.setSearchActive(false)
+                    backCallback.isEnabled = false
+                    val mainList = ArrayList(chatListState)
+                    allChats = mainList
+                    adapter.updateList(mainList)
+                    val layoutManager = binding.recyclerViewChats.layoutManager as? LinearLayoutManager
+                    if (layoutManager?.findFirstVisibleItemPosition() == 0) hideIsland()
                 } else {
                     adapter.setSearchActive(true)
+                    backCallback.isEnabled = true
                     showIsland()
-                    val filtered = allChats.filter { it.name.lowercase().contains(query) || it.lastMessage.lowercase().contains(query) }
+                    val filtered = chatListState.filter { it.name.lowercase().contains(query) || it.lastMessage.lowercase().contains(query) }
                     adapter.updateList(filtered)
                 }
             }
         })
     }
 
-    private fun updateToolbarInitialUi(savedAvatarUri: String?, savedName: String) {
+    private fun updateToolbarInitialUi(avatarUri: String?, name: String) {
         if (!::islandBinding.isInitialized) return
-        if (savedAvatarUri != null) {
-            islandBinding.ivToolbarAvatar.setImageURI(Uri.parse(savedAvatarUri))
+        if (avatarUri != null) {
+            islandBinding.ivToolbarAvatar.setImageURI(Uri.parse(avatarUri))
             islandBinding.tvToolbarInitials.visibility = View.GONE
             islandBinding.ivToolbarAvatar.visibility = View.VISIBLE
         } else {
-            val initial = savedName.take(1).uppercase()
+            val initial = name.take(1).uppercase()
             islandBinding.tvToolbarInitials.text = initial
             islandBinding.tvToolbarInitials.visibility = View.VISIBLE
             islandBinding.ivToolbarAvatar.visibility = View.INVISIBLE
-
-            val color = getAvatarColor(savedName)
+            val color = getAvatarColor(name)
             val bg = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.RECTANGLE
                 cornerRadius = 15 * resources.displayMetrics.density
@@ -523,12 +858,10 @@ class ChatListActivity : AppCompatActivity() {
 
     private fun refreshUserUi() {
         if (!::binding.isInitialized || !::islandBinding.isInitialized) return
-        
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         val avatar = sharedPrefs.getString("${currentUser}_avatar", null)
         val name = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
-
         if (avatar != null) {
             islandBinding.ivToolbarAvatar.setImageURI(null)
             islandBinding.ivToolbarAvatar.setImageURI(Uri.parse(avatar))
@@ -540,7 +873,6 @@ class ChatListActivity : AppCompatActivity() {
             islandBinding.tvToolbarInitials.text = initial
             islandBinding.tvToolbarInitials.visibility = View.VISIBLE
             islandBinding.ivToolbarAvatar.visibility = View.INVISIBLE
-
             val color = getAvatarColor(name)
             val bg = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.RECTANGLE
@@ -548,135 +880,254 @@ class ChatListActivity : AppCompatActivity() {
                 setColor(color)
             }
             islandBinding.tvToolbarInitials.setBackground(bg)
-
             adapter.updateAvatar(null)
         }
         adapter.updateUserName(name)
-
         binding.recyclerViewChats.post {
             val layoutManager = binding.recyclerViewChats.layoutManager as? LinearLayoutManager
             if (layoutManager != null) {
                 val first = layoutManager.findFirstVisibleItemPosition()
-                if (first == 0 && !adapter.isSearchActive) {
-                    hideIsland()
-                } else {
-                    showIsland()
-                }
+                if (first == 0 && !adapter.isSearchActive) hideIsland() else showIsland()
             }
         }
     }
 
-    private fun showIsland() {
-        isIslandVisibleState.value = true
+    private fun showLogoutDialog() {
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
+            .setTitle("Выход")
+            .setMessage("Сделать выход из аккаунта?")
+            .setPositiveButton("Да") { _, _ ->
+                getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).edit()
+                    .putBoolean("is_logged_in", false)
+                    .apply()
+                startActivity(Intent(this, LoginActivity::class.java))
+                finishAffinity()
+                overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+            }
+            .setNegativeButton("Нет", null)
+            .show()
     }
 
-    private fun hideIsland() {
-        isIslandVisibleState.value = false
+    private fun deleteContact(contact: ChatModel) {
+        val index = chatListState.indexOfFirst { it.id == contact.id }
+        if (index == -1) return
+        chatListState.removeAt(index)
+        allChats = ArrayList(chatListState)
+        val adapterPos = if (adapter.isSearchActive) index else index + 1
+        if (adapter.isSearchActive) {
+            val query = islandBinding.etSearch.text.toString().trim().lowercase()
+            val filtered = allChats.filter { it.name.lowercase().contains(query) || it.lastMessage.lowercase().contains(query) }
+            adapter.updateList(filtered, notify = true)
+        } else {
+            adapter.updateList(allChats, notify = false)
+            adapter.notifyItemRemoved(adapterPos)
+            if (allChats.isEmpty()) adapter.notifyItemChanged(1)
+        }
+        saveContacts()
+        updateEmptyState()
+        binding.recyclerViewChats.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
     }
 
+    private val isEditDialogVisible = mutableStateOf(false)
+    private var contactToEdit: ChatModel? = null
+
+    private fun showEditContactDialog(chat: ChatModel) {
+        contactToEdit = chat
+        isEditDialogVisible.value = true
+    }
+
+    private fun setupSwipeToDelete() {
+        val swipeHandler = object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(0, androidx.recyclerview.widget.ItemTouchHelper.LEFT) {
+            override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean = false
+            override fun getSwipeDirs(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder): Int {
+                if (viewHolder.itemViewType != 0) return 0 
+                return super.getSwipeDirs(recyclerView, viewHolder)
+            }
+            override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
+                super.onSelectedChanged(viewHolder, actionState)
+                if (actionState == androidx.recyclerview.widget.ItemTouchHelper.ACTION_STATE_SWIPE && viewHolder is ChatAdapter.ChatViewHolder) {
+                    if (viewHolder.isRevealed) viewHolder.resetReveal()
+                }
+            }
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.bindingAdapterPosition
+                val actualIndex = if (!adapter.isSearchActive) position - 1 else position
+                val currentList = adapter.getChatList()
+                if (actualIndex >= 0 && actualIndex < currentList.size) {
+                    deleteContact(currentList[actualIndex])
+                } else {
+                    adapter.notifyItemChanged(position)
+                }
+            }
+            override fun onChildDraw(c: android.graphics.Canvas, recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, dX: Float, dY: Float, actionState: Int, isCurrentlyActive: Boolean) {
+                val itemView = viewHolder.itemView
+                val itemHeight = itemView.bottom - itemView.top
+                
+                if (dX < 0f) {
+                    val paint = android.graphics.Paint()
+                    val cornerRadius = 24.dpToPx()
+                    
+                    // При свайпе показываем только красный фон (удаление)
+                    paint.color = android.graphics.Color.parseColor("#F44336")
+                    val background = android.graphics.RectF(itemView.right.toFloat() + dX, itemView.top.toFloat() + 6.dpToPx(), itemView.right.toFloat(), itemView.bottom.toFloat() - 6.dpToPx())
+                    c.drawRoundRect(background, cornerRadius, cornerRadius, paint)
+
+                    // Иконка корзины (всегда справа)
+                    val icon = androidx.core.content.ContextCompat.getDrawable(this@ChatListActivity, R.drawable.ic_cancel)
+                    icon?.let {
+                        val iconMargin = (itemHeight - it.intrinsicHeight) / 2
+                        val iconTop = itemView.top + iconMargin
+                        val iconBottom = iconTop + it.intrinsicHeight
+                        val iconRight = itemView.right - iconMargin.toInt()
+                        val iconLeft = iconRight - it.intrinsicWidth
+                        it.setBounds(iconLeft, iconTop, iconRight, iconBottom)
+                        it.setTint(android.graphics.Color.WHITE)
+                        it.draw(c)
+                    }
+                }
+                super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
+            }
+        }
+        androidx.recyclerview.widget.ItemTouchHelper(swipeHandler).attachToRecyclerView(binding.recyclerViewChats)
+    }
+
+    private fun Int.dpToPx(): Float = (this * resources.displayMetrics.density)
+    private fun updateEmptyState() {
+        if (!::binding.isInitialized) return
+        runOnUiThread { binding.layoutEmptyState.visibility = if (chatListState.isEmpty()) View.VISIBLE else View.GONE }
+    }
+    private fun saveContacts() {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val array = JSONArray()
+        chatListState.forEach { chat ->
+            val obj = JSONObject().apply {
+                put("id", chat.id)
+                put("name", chat.name)
+                put("lastMessage", chat.lastMessage)
+                put("time", chat.time)
+                put("avatarUri", chat.avatarUri)
+                put("onlineStatus", chat.onlineStatus.name)
+                put("messageStatus", chat.messageStatus.name)
+                put("unreadCount", chat.unreadCount)
+                put("isMuted", chat.isMuted)
+            }
+            array.put(obj)
+        }
+        sharedPrefs.edit().putString("persisted_chats", array.toString()).apply()
+    }
+    private fun loadContacts() {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val json = sharedPrefs.getString("persisted_chats", null)
+        if (json != null && json.isNotEmpty() && json != "[]") {
+            try {
+                val array = JSONArray(json)
+                val tempList = ArrayList<ChatModel>()
+                for (i in 0 until array.length()) {
+                    try {
+                        val item = array.opt(i)
+                        if (item is JSONObject) {
+                            val obj = item
+                            val chat = ChatModel(
+                                obj.optString("id", System.currentTimeMillis().toString() + i),
+                                obj.optString("name", "Контакт"),
+                                obj.optString("lastMessage", ""),
+                                obj.optString("time", "сейчас"),
+                                if (obj.isNull("avatarUri")) null else obj.optString("avatarUri"),
+                                try { OnlineStatus.valueOf(obj.optString("onlineStatus", "OFFLINE")) } catch(e: Exception) { OnlineStatus.OFFLINE },
+                                try { MessageStatus.valueOf(obj.optString("messageStatus", "NONE")) } catch(e: Exception) { MessageStatus.NONE },
+                                obj.optInt("unreadCount", 0),
+                                obj.optBoolean("isMuted", false)
+                            )
+                            tempList.add(chat)
+                        }
+                    } catch (e: Exception) { e.printStackTrace() }
+                }
+                chatListState.clear(); chatListState.addAll(tempList)
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+    private fun showIsland() { isIslandVisibleState.value = true }
+    private fun hideIsland() { isIslandVisibleState.value = false }
     private fun activateIslandSearch() {
         if (!::islandBinding.isInitialized) return
-        adapter.setSearchActive(true)
         showIsland()
         islandBinding.etSearch.requestFocus()
-        (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(islandBinding.etSearch, InputMethodManager.SHOW_IMPLICIT)
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.showSoftInput(islandBinding.etSearch, InputMethodManager.SHOW_IMPLICIT)
     }
-
     private fun showNameEditDialog() {
-        if (!::binding.isInitialized) return
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val currentName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
         val dialogBinding = com.messenger.prime.databinding.DialogEditNameBinding.inflate(layoutInflater)
         binding.dialogContainer.removeAllViews()
         binding.dialogContainer.addView(dialogBinding.root)
         binding.dialogContainer.visibility = View.VISIBLE
-
-        dialogBinding.cardContainer.scaleX = 0.8f; dialogBinding.cardContainer.scaleY = 0.8f
-        dialogBinding.cardContainer.alpha = 0f; dialogBinding.dialogRoot.alpha = 0f
+        dialogBinding.etNewName.setText(currentName)
+        dialogBinding.etNewName.setSelection(currentName.length)
+        dialogBinding.cardContainer.scaleX = 0.8f; dialogBinding.cardContainer.scaleY = 0.8f; dialogBinding.cardContainer.alpha = 0f
+        dialogBinding.dialogRoot.alpha = 0f
         dialogBinding.dialogRoot.animate().alpha(1f).setDuration(300).start()
         dialogBinding.cardContainer.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(400).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
-
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        val currentName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
-
-        dialogBinding.etNewName.setText(currentName)
-        dialogBinding.btnSave.isEnabled = false; dialogBinding.btnSave.alpha = 0.5f
-
-        dialogBinding.etNewName.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                val new = s.toString().trim()
-                val changed = new != currentName && new.isNotEmpty()
-                dialogBinding.btnSave.isEnabled = changed; dialogBinding.btnSave.alpha = if (changed) 1f else 0.5f
-                dialogBinding.inputLayoutName.error = null
-            }
-            override fun afterTextChanged(s: Editable?) {}
-        })
-
         dialogBinding.btnSave.setOnClickListener {
-            val new = dialogBinding.etNewName.text.toString().trim()
-            val error = ValidationUtils.getValidationError(new, false)
-            if (error != null) {
-                dialogBinding.inputLayoutName.error = error
-                dialogBinding.cardContainer.shake()
-                return@setOnClickListener
+            val newName = dialogBinding.etNewName.text.toString().trim()
+            if (newName.isNotEmpty()) {
+                sharedPrefs.edit().putString("${currentUser}_name", newName).apply()
+                refreshUserUi(); hideNameEditDialog(dialogBinding)
             }
-
-            sharedPrefs.edit().putString("${currentUser}_name", new).apply()
-            adapter.updateUserName(new)
-            PrimeNotification.show(this, "Имя обновлено") {
-                sharedPrefs.edit().putString("${currentUser}_name", currentName).apply()
-                adapter.updateUserName(currentName)
-            }
-            hideNameEditDialog(dialogBinding)
         }
         dialogBinding.btnBack.setOnClickListener { hideNameEditDialog(dialogBinding) }
         dialogBinding.dialogRoot.setOnClickListener { hideNameEditDialog(dialogBinding) }
+        dialogBinding.etNewName.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (s?.toString() == "\n") { dialogBinding.btnSave.performClick() }
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
     }
-
-    private fun hideNameEditDialog(dialogBinding: com.messenger.prime.databinding.DialogEditNameBinding) {
-        dialogBinding.dialogRoot.animate().alpha(0f).setDuration(300).start()
-        dialogBinding.cardContainer.animate().translationX(resources.displayMetrics.widthPixels.toFloat()).alpha(0f).setDuration(350)
-            .setInterpolator(android.view.animation.DecelerateInterpolator()).withEndAction {
-                binding.dialogContainer.visibility = View.GONE; binding.dialogContainer.removeAllViews()
-            }.start()
+    private fun hideNameEditDialog(db: com.messenger.prime.databinding.DialogEditNameBinding) {
+        db.dialogRoot.animate().alpha(0f).setDuration(300).start()
+        db.cardContainer.animate().scaleX(0.8f).scaleY(0.8f).alpha(0f).setDuration(300).withEndAction {
+            binding.dialogContainer.visibility = View.GONE; binding.dialogContainer.removeAllViews()
+        }.start()
     }
-
     private fun animateShowSearchClear() {
         if (!::islandBinding.isInitialized) return
         if (islandBinding.btnSearchClear.visibility == View.VISIBLE && islandBinding.btnSearchClear.alpha == 1f) return
-        islandBinding.btnSearchClear.visibility = View.VISIBLE
-        islandBinding.btnSearchClear.translationY = -50f * resources.displayMetrics.density
-        islandBinding.btnSearchClear.alpha = 0f
-        islandBinding.btnSearchClear.animate().translationY(0f).alpha(1f).setDuration(300).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+        islandBinding.btnSearchClear.visibility = View.VISIBLE; islandBinding.btnSearchClear.alpha = 0f
+        islandBinding.btnSearchClear.translationY = 50f * resources.displayMetrics.density
+        islandBinding.btnSearchClear.animate().translationY(0f).alpha(1f).setDuration(400).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
     }
-
     private fun animateHideSearchClear() {
         if (!::islandBinding.isInitialized) return
         if (islandBinding.btnSearchClear.visibility != View.VISIBLE) return
-        islandBinding.btnSearchClear.animate().translationY(50f * resources.displayMetrics.density).alpha(0f).setDuration(300)
-            .setInterpolator(android.view.animation.AccelerateInterpolator()).withEndAction {
-                islandBinding.btnSearchClear.visibility = View.INVISIBLE; islandBinding.btnSearchClear.translationY = 0f
-            }.start()
+        islandBinding.btnSearchClear.animate().translationY(50f * resources.displayMetrics.density).alpha(0f).setDuration(300).setInterpolator(android.view.animation.AccelerateInterpolator()).withEndAction {
+            islandBinding.btnSearchClear.visibility = View.INVISIBLE; islandBinding.btnSearchClear.translationY = 0f
+        }.start()
     }
-
     private fun hideKeyboardAndClearFocus() {
         if (!::islandBinding.isInitialized) return
         islandBinding.etSearch.clearFocus()
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(islandBinding.etSearch.windowToken, 0)
         if (islandBinding.etSearch.text.isNullOrEmpty()) {
-            adapter.setSearchActive(false)
+            adapter.setSearchActive(false); backCallback.isEnabled = false
             if (!binding.recyclerViewChats.canScrollVertically(-1)) hideIsland()
             animateHideSearchClear()
         }
     }
-
     override fun onDestroy() {
         super.onDestroy()
         connectivityManager.unregisterNetworkCallback(networkCallback)
         getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(prefListener)
     }
-
+    override fun finish() {
+        super.finish()
+        if (android.os.Build.VERSION.SDK_INT < 34) {
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+        }
+    }
     private fun getAvatarColor(name: String): Int {
         val colors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFEB3B", "#FFC107", "#FF9800", "#FF5722")
         val index = Math.abs(name.hashCode()) % colors.size

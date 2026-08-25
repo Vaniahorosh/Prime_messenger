@@ -1,149 +1,209 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/bg_chat_item_light"
-    android:layout_marginHorizontal="16dp"
-    android:layout_marginVertical="6dp"
-    android:clickable="true"
-    android:focusable="true"
-    android:paddingHorizontal="16dp"
-    android:paddingVertical="12dp">
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
-    <!-- Контейнер для аватарки или букв -->
-    <FrameLayout
-        android:id="@+id/layoutAvatarContainer"
-        android:layout_width="54dp"
-        android:layout_height="54dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+    <!-- Задний слой с кнопками действий -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutDelete"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginVertical="6dp"
+        android:visibility="invisible">
 
-        <com.google.android.material.imageview.ShapeableImageView
-            android:id="@+id/ivUserAvatar"
-            android:layout_width="match_parent"
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:background="#F0F0F0"
-            android:scaleType="centerCrop"
-            android:src="@drawable/ic_person"
-            app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
+            app:cardCornerRadius="24dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp"
+            app:layout_constraintEnd_toEndOf="parent">
 
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="horizontal">
+
+                <FrameLayout
+                    android:layout_width="72dp"
+                    android:layout_height="match_parent"
+                    android:background="#BDBDBD">
+                    <ImageButton
+                        android:id="@+id/btnEditContact"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/user_edit"
+                        android:padding="20dp"
+                        android:scaleType="fitCenter"
+                        app:tint="@color/white" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:layout_width="72dp"
+                    android:layout_height="match_parent"
+                    android:background="#F44336">
+                    <ImageButton
+                        android:id="@+id/btnDeleteContact"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_cancel"
+                        android:padding="20dp"
+                        android:scaleType="fitCenter"
+                        app:tint="@color/white" />
+                </FrameLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Передний слой с контентом чата -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutContent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginVertical="6dp"
+        android:background="@drawable/bg_chat_item_light"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp">
+
+        <!-- Контейнер для аватарки или букв -->
+        <FrameLayout
+            android:id="@+id/layoutAvatarContainer"
+            android:layout_width="54dp"
+            android:layout_height="54dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/ivUserAvatar"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#F0F0F0"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_person"
+                app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
+
+            <TextView
+                android:id="@+id/tvUserInitials"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:textColor="@color/white"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                tools:text="Д"
+                tools:visibility="visible" />
+        </FrameLayout>
+
+        <!-- Точка статуса -->
+        <View
+            android:id="@+id/viewOnlineStatus"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:background="@android:color/transparent"
+            app:layout_constraintBottom_toBottomOf="@+id/layoutAvatarContainer"
+            app:layout_constraintEnd_toEndOf="@+id/layoutAvatarContainer"
+            android:layout_marginEnd="-2dp"
+            android:layout_marginBottom="-2dp" />
+
+        <!-- Имя контакта -->
         <TextView
-            android:id="@+id/tvUserInitials"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:textColor="@color/white"
-            android:textSize="20sp"
+            android:id="@+id/tvContactName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#1D1B20"
+            android:textSize="16sp"
             android:textStyle="bold"
-            android:visibility="gone"
-            tools:text="Д"
-            tools:visibility="visible" />
-    </FrameLayout>
+            app:layout_constraintEnd_toStartOf="@+id/tvMessageTime"
+            app:layout_constraintStart_toEndOf="@+id/layoutAvatarContainer"
+            app:layout_constraintTop_toTopOf="@+id/layoutAvatarContainer"
+            tools:text="Имя контакта" />
 
-    <!-- Точка статуса (Онлайн / Заблокирован) -->
-    <!-- Слегка сдвинули ее вниз и вправо, чтобы она красиво легла на менее закругленный угол -->
-    <View
-        android:id="@+id/viewOnlineStatus"
-        android:layout_width="14dp"
-        android:layout_height="14dp"
-        android:background="@android:color/transparent"
-        app:layout_constraintBottom_toBottomOf="@+id/layoutAvatarContainer"
-        app:layout_constraintEnd_toEndOf="@+id/layoutAvatarContainer"
-        android:layout_marginEnd="-2dp"
-        android:layout_marginBottom="-2dp" />
-
-    <!-- Имя контакта -->
-    <TextView
-        android:id="@+id/tvContactName"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textColor="#000000"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toStartOf="@+id/tvMessageTime"
-        app:layout_constraintStart_toEndOf="@+id/layoutAvatarContainer"
-        app:layout_constraintTop_toTopOf="@+id/layoutAvatarContainer"
-        tools:text="Имя контакта" />
-
-    <!-- Время сообщения -->
-    <TextView
-        android:id="@+id/tvMessageTime"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="#8E8E93"
-        android:textSize="12sp"
-        app:layout_constraintBottom_toBottomOf="@+id/tvContactName"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/tvContactName"
-        tools:text="14:23" />
-
-    <!-- Текст последнего сообщения -->
-    <TextView
-        android:id="@+id/tvLastMessage"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textColor="#666666"
-        android:textSize="14sp"
-        app:layout_constraintEnd_toStartOf="@+id/layoutStatusContainer"
-        app:layout_constraintStart_toStartOf="@+id/tvContactName"
-        app:layout_constraintTop_toBottomOf="@+id/tvContactName"
-        tools:text="Последнее написанное сообщение..." />
-
-    <!-- Контейнер для статусов справа внизу -->
-    <LinearLayout
-        android:id="@+id/layoutStatusContainer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical|end"
-        android:orientation="horizontal"
-        app:layout_constraintBottom_toBottomOf="@+id/layoutAvatarContainer"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tvMessageTime">
-
-        <!-- Иконка без звука -->
-        <ImageView
-            android:id="@+id/ivMuteStatus"
-            android:layout_width="16dp"
-            android:layout_height="16dp"
-            android:layout_marginEnd="6dp"
-            android:src="@drawable/ic_notifications_off"
-            android:visibility="gone"
-            app:tint="#8E8E93" />
-
-        <!-- Иконка статуса сообщения (Галочки / Ошибка) -->
-        <ImageView
-            android:id="@+id/ivMessageStatus"
-            android:layout_width="18dp"
-            android:layout_height="18dp"
-            android:layout_marginEnd="6dp"
-            android:visibility="gone"
-            tools:src="@drawable/ic_done_all" />
-
-        <!-- Счетчик новых сообщений -->
+        <!-- Время сообщения -->
         <TextView
-            android:id="@+id/tvUnreadCounter"
+            android:id="@+id/tvMessageTime"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@android:color/transparent"
-            android:gravity="center"
-            android:minWidth="20dp"
-            android:minHeight="20dp"
-            android:paddingHorizontal="6dp"
-            android:textColor="@color/white"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:visibility="gone"
-            tools:text="12" />
+            android:textColor="#8E8E93"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="@+id/tvContactName"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/tvContactName"
+            tools:text="14:23" />
 
-    </LinearLayout>
+        <!-- Текст последнего сообщения -->
+        <TextView
+            android:id="@+id/tvLastMessage"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#49454F"
+            android:textSize="14sp"
+            app:layout_constraintEnd_toStartOf="@+id/layoutStatusContainer"
+            app:layout_constraintStart_toStartOf="@+id/tvContactName"
+            app:layout_constraintTop_toBottomOf="@+id/tvContactName"
+            tools:text="Последнее написанное сообщение..." />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <!-- Контейнер для статусов -->
+        <LinearLayout
+            android:id="@+id/layoutStatusContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical|end"
+            android:orientation="horizontal"
+            app:layout_constraintBottom_toBottomOf="@+id/layoutAvatarContainer"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tvMessageTime">
+
+            <ImageView
+                android:id="@+id/ivMuteStatus"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginEnd="6dp"
+                android:src="@drawable/ic_notifications_off"
+                android:visibility="gone"
+                app:tint="#8E8E93" />
+
+            <ImageView
+                android:id="@+id/ivMessageStatus"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_marginEnd="6dp"
+                android:visibility="gone"
+                tools:src="@drawable/ic_done_all" />
+
+            <TextView
+                android:id="@+id/tvUnreadCounter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@android:color/transparent"
+                android:gravity="center"
+                android:minWidth="20dp"
+                android:minHeight="20dp"
+                android:paddingHorizontal="6dp"
+                android:textColor="@color/white"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                tools:text="12" />
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</FrameLayout>

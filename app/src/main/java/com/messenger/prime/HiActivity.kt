@@ -17,11 +17,10 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.messenger.prime.databinding.ActivityHiBinding
 
 class HiActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityHiBinding
+    private lateinit var binding: com.messenger.prime.databinding.ActivityHiBinding
     private val handler = Handler(Looper.getMainLooper())
     private var currentDataIndex = -1
 
@@ -35,7 +34,6 @@ class HiActivity : AppCompatActivity() {
         DynamicContent("Всегда мы", "Кастомнее!")
     )
 
-    // Все элементы экрана, которые должны красиво погаснуть перед переходом
     private val allViews: List<View> by lazy {
         listOf(
             binding.btnExit,
@@ -49,12 +47,23 @@ class HiActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. ПРОВЕРЯЕМ АВТОРИЗАЦИЮ ПЕРЕД ЗАГРУЗКОЙ ЭКРАНА
+        if (android.os.Build.VERSION.SDK_INT >= 34) {
+            overrideActivityTransition(
+                android.app.Activity.OVERRIDE_TRANSITION_OPEN,
+                R.anim.slide_in_right,
+                R.anim.slide_out_left
+            )
+            overrideActivityTransition(
+                android.app.Activity.OVERRIDE_TRANSITION_CLOSE,
+                R.anim.slide_in_left,
+                R.anim.slide_out_right
+            )
+        }
+
         val sharedPreferences = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val isLoggedIn = sharedPreferences.getBoolean("is_logged_in", false)
 
         if (isLoggedIn) {
-            // Проверка активной блокировки
             val banExpiry = sharedPreferences.getLong("ban_expiry", 0)
             val isBanned = if (banExpiry == -1L) true else System.currentTimeMillis() < banExpiry
             
@@ -75,7 +84,7 @@ class HiActivity : AppCompatActivity() {
             return
         }
 
-        binding = ActivityHiBinding.inflate(layoutInflater)
+        binding = com.messenger.prime.databinding.ActivityHiBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setupEdgeToEdge()
 
@@ -105,24 +114,16 @@ class HiActivity : AppCompatActivity() {
         binding.btnPrime.setOnClickListener {
             binding.btnPrime.isEnabled = false
             binding.btnExit.isEnabled = false
-            handler.removeCallbacksAndMessages(null) // Останавливаем таймер
+            handler.removeCallbacksAndMessages(null)
             fadeOutAndNavigateToLogin()
         }
 
         binding.btnExit.setOnClickListener {
             finishAffinity()
         }
-
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                finish()
-                overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
-            }
-        })
     }
 
     private fun setupTextSwitcher() {
-        // Фабрика для слогана
         binding.textSwitcherSlogan.setFactory {
             TextView(this).apply {
                 gravity = Gravity.CENTER
@@ -136,7 +137,6 @@ class HiActivity : AppCompatActivity() {
             }
         }
 
-        // Фабрика для текста внутри кнопки
         binding.textSwitcherButton.setFactory {
             TextView(this).apply {
                 gravity = Gravity.CENTER
@@ -150,7 +150,6 @@ class HiActivity : AppCompatActivity() {
             }
         }
 
-        // Устанавливаем анимации "переката" (сверху-вниз)
         val inAnim = AnimationUtils.loadAnimation(this, R.anim.slide_in_top_alpha)
         val outAnim = AnimationUtils.loadAnimation(this, R.anim.slide_out_bottom)
 
@@ -172,7 +171,6 @@ class HiActivity : AppCompatActivity() {
                 currentDataIndex = nextIndex
                 val content = contents[currentDataIndex]
 
-                // Синхронная смена текста слогана и кнопки с анимацией "переката"
                 binding.textSwitcherSlogan.setText(content.slogan)
                 binding.textSwitcherButton.setText(content.button)
 
@@ -184,10 +182,6 @@ class HiActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-
-        // При возврате на этот экран (например, по кнопке "Назад" с LoginActivity)
-        // Activity не пересоздаётся заново — восстанавливаем видимость и кликабельность
-        // элементов, которые могли остаться погашенными после fadeOutAndNavigateToLogin().
         if (::binding.isInitialized) {
             allViews.forEach { view ->
                 view.animate().cancel()
@@ -198,10 +192,6 @@ class HiActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Плавно гасит все элементы экрана (fade-out), и только после этого
-     * запускает переход на LoginActivity.
-     */
     private fun fadeOutAndNavigateToLogin() {
         val fadeOutDuration = 300L
         var finishedCount = 0
@@ -213,7 +203,6 @@ class HiActivity : AppCompatActivity() {
                 .setDuration(fadeOutDuration)
                 .withEndAction {
                     finishedCount++
-                    // Как только погас последний элемент — переходим на экран логина
                     if (finishedCount == totalCount) {
                         val intent = Intent(this, LoginActivity::class.java)
                         startActivity(intent)
@@ -222,5 +211,10 @@ class HiActivity : AppCompatActivity() {
                 }
                 .start()
         }
+    }
+
+    override fun finish() {
+        super.finish()
+        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
     }
 }

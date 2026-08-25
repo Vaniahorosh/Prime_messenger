@@ -1,14 +1,26 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
 
-    <style name="Theme.Prime" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.Prime" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/prime_background_blue</item>
-        <item name="android:windowBackground">@color/white</item>
-        <item name="android:colorBackground">@color/white</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/prime_button_teal</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="android:windowBackground">#F7F9FC</item>
+        <item name="android:colorBackground">#F7F9FC</item>
+        <item name="colorSurface">#F7F9FC</item>
+        <item name="colorOnSurface">#1D1B20</item>
+        <item name="colorSurfaceVariant">#E7E0EC</item>
+        <item name="colorOnSurfaceVariant">#49454F</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="p">shortEdges</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
+
+        <!-- Material 3 specific -->
+        <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Material3.HeadlineLarge</item>
+        <item name="textAppearanceTitleMedium">@style/TextAppearance.Material3.TitleMedium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Material3.LargeComponent</item>
     </style>
 
     <style name="Theme.Prime.Swipe" parent="Theme.Prime">
@@ -28,7 +40,7 @@
 
     <style name="Rounded15PercentImageView">
         <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">15%</item>
+        <item name="cornerSize">24dp</item>
     </style>
 
     <style name="Theme.Prime.PhotoViewer" parent="Theme.Prime.Swipe">

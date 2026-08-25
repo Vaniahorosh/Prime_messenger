@@ -13,6 +13,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.Prime"> <activity
         android:name=".HiActivity"
         android:exported="true"
@@ -57,7 +58,12 @@
             android:name=".BanActivity"
             android:exported="false"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.Prime" />
+            android:theme="@style/Theme.Prime.Swipe" />
+
+        <activity
+            android:name=".ChatPersonActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Prime.Swipe" />
 
     </application>
 

@@ -25,9 +25,12 @@ class ChatAdapter(
     private var currentNetworkHint: String = "Прайм",
     private val onStartChatClick: () -> Unit,
     private val onAvatarClick: () -> Unit,
+    private val onAvatarLongClick: () -> Unit,
     private val onHeaderSearchClick: () -> Unit,
     private val onNameClick: () -> Unit,
-    private val onChatClick: (ChatModel) -> Unit
+    private val onChatClick: (ChatModel) -> Unit,
+    private val onDeleteClick: (ChatModel, Int) -> Unit,
+    private val onEditClick: (ChatModel, Int) -> Unit
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -39,8 +42,19 @@ class ChatAdapter(
     var isSearchActive = false
         private set
 
-    class ChatViewHolder(val binding: ItemChatBinding) : RecyclerView.ViewHolder(binding.root)
+    class ChatViewHolder(val binding: ItemChatBinding) : RecyclerView.ViewHolder(binding.root) {
+        var isRevealed = false
+        
+        fun resetReveal() {
+            binding.layoutContent.animate().cancel()
+            binding.layoutContent.translationX = 0f
+            binding.layoutDelete.visibility = View.INVISIBLE
+            isRevealed = false
+        }
+    }
+
     class FooterViewHolder(val binding: ItemChatFooterBinding) : RecyclerView.ViewHolder(binding.root)
+    
     class HeaderViewHolder(val binding: ItemChatIslandHeaderBinding) : RecyclerView.ViewHolder(binding.root) {
         private val handler = Handler(Looper.getMainLooper())
         private var isShowingName = false
@@ -57,7 +71,7 @@ class ChatAdapter(
         private var currentUserName = ""
         private var networkHint = "Прайм"
 
-        fun bind(avatarUri: String?, userName: String, netHint: String, onAvatarClick: () -> Unit, onSearchClick: () -> Unit, onNameClick: () -> Unit) {
+        fun bind(avatarUri: String?, userName: String, netHint: String, onAvatarClick: () -> Unit, onAvatarLongClick: () -> Unit, onSearchClick: () -> Unit, onNameClick: () -> Unit) {
             currentUserName = userName
             networkHint = netHint
             
@@ -71,17 +85,28 @@ class ChatAdapter(
                 binding.tvHeaderInitials.visibility = View.VISIBLE
                 binding.ivHeaderAvatar.visibility = View.INVISIBLE
                 
-                // Генерируем цвет фона на основе имени
                 val color = getAvatarColor(userName)
                 val bg = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE
-                    cornerRadius = 15 * binding.root.context.resources.displayMetrics.density // 15%
+                    cornerRadius = 15 * binding.root.context.resources.displayMetrics.density
                     setColor(color)
                 }
                 binding.tvHeaderInitials.background = bg
             }
             binding.ivHeaderAvatar.setOnClickListener { onAvatarClick() }
             binding.tvHeaderInitials.setOnClickListener { onAvatarClick() }
+            
+            binding.ivHeaderAvatar.setOnLongClickListener {
+                onAvatarLongClick()
+                it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                true
+            }
+            binding.tvHeaderInitials.setOnLongClickListener {
+                onAvatarLongClick()
+                it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                true
+            }
+
             binding.btnHeaderSearch.setOnClickListener { onSearchClick() }
             
             if (binding.tsHeaderTitle.childCount == 0) {
@@ -153,10 +178,24 @@ class ChatAdapter(
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         when (holder) {
             is HeaderViewHolder -> {
-                holder.bind(userAvatarUri, userName, currentNetworkHint, onAvatarClick, onHeaderSearchClick, onNameClick)
+                holder.bind(userAvatarUri, userName, currentNetworkHint, onAvatarClick, onAvatarLongClick, onHeaderSearchClick, onNameClick)
             }
             is FooterViewHolder -> {
                 holder.binding.btnStartChatFooter.setOnClickListener { onStartChatClick() }
+                if (chatList.isEmpty()) {
+                    holder.itemView.layoutParams = RecyclerView.LayoutParams(0, 0)
+                    holder.itemView.visibility = View.GONE
+                } else {
+                    holder.itemView.layoutParams = RecyclerView.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                    holder.itemView.visibility = View.VISIBLE
+                    holder.binding.tvFooterEndHint.visibility = View.VISIBLE
+                    val params = holder.binding.btnStartChatFooter.layoutParams
+                    params.width = ViewGroup.LayoutParams.MATCH_PARENT
+                    holder.binding.btnStartChatFooter.layoutParams = params
+                }
             }
             is ChatViewHolder -> {
                 val actualPos = if (!isSearchActive) position - 1 else position
@@ -164,19 +203,24 @@ class ChatAdapter(
                 val context = holder.itemView.context
                 val binding = holder.binding
 
+                holder.resetReveal()
+
                 binding.tvContactName.text = chat.name
                 binding.tvLastMessage.text = chat.lastMessage
                 binding.tvMessageTime.text = chat.time
 
-                // Специальная обработка для тестового контакта
                 if (chat.id == "block_test_contact") {
                     binding.ivUserAvatar.setImageResource(R.drawable.prime_logo)
                     binding.ivUserAvatar.visibility = View.VISIBLE
                     binding.tvUserInitials.visibility = View.GONE
-                } else if (chat.avatarUri != null) {
-                    binding.ivUserAvatar.setImageURI(Uri.parse(chat.avatarUri))
-                    binding.ivUserAvatar.visibility = View.VISIBLE
-                    binding.tvUserInitials.visibility = View.GONE
+                } else if (chat.avatarUri != null && chat.avatarUri.isNotEmpty()) {
+                    try {
+                        binding.ivUserAvatar.setImageURI(Uri.parse(chat.avatarUri))
+                        binding.ivUserAvatar.visibility = View.VISIBLE
+                        binding.tvUserInitials.visibility = View.GONE
+                    } catch (e: Exception) {
+                        binding.ivUserAvatar.setImageResource(R.drawable.ic_person)
+                    }
                 } else {
                     val initial = chat.name.take(1).uppercase()
                     binding.tvUserInitials.text = initial
@@ -186,13 +230,37 @@ class ChatAdapter(
                     val color = getAvatarColor(chat.name)
                     val bg = GradientDrawable().apply {
                         shape = GradientDrawable.RECTANGLE
-                        cornerRadius = 8 * context.resources.displayMetrics.density // Примерно 15% от 54dp
+                        cornerRadius = 8 * context.resources.displayMetrics.density
                         setColor(color)
                     }
                     binding.tvUserInitials.background = bg
                 }
                 
-                binding.root.setOnClickListener { onChatClick(chat) }
+                binding.layoutContent.setOnClickListener { 
+                    if (holder.isRevealed) {
+                        animateHideDelete(holder)
+                    } else {
+                        onChatClick(chat) 
+                    }
+                }
+
+                binding.layoutContent.setOnLongClickListener {
+                    if (!holder.isRevealed) {
+                        it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                        animateShowDelete(holder)
+                        true
+                    } else false
+                }
+
+                binding.btnDeleteContact.setOnClickListener {
+                    onDeleteClick(chat, position)
+                    holder.resetReveal()
+                }
+
+                binding.btnEditContact.setOnClickListener {
+                    onEditClick(chat, position)
+                    animateHideDelete(holder)
+                }
 
                 val onlineBadge = GradientDrawable().apply { shape = GradientDrawable.OVAL }
                 when (chat.onlineStatus) {
@@ -234,13 +302,8 @@ class ChatAdapter(
                 if (chat.unreadCount > 0) {
                     binding.tvUnreadCounter.visibility = View.VISIBLE
                     binding.tvUnreadCounter.text = chat.unreadCount.toString()
-
                     val counterBg = GradientDrawable().apply { cornerRadius = 100f }
-                    if (chat.isMuted) {
-                        counterBg.setColor(Color.parseColor("#8E8E93"))
-                    } else {
-                        counterBg.setColor(Color.parseColor("#2196F3"))
-                    }
+                    counterBg.setColor(if (chat.isMuted) Color.parseColor("#8E8E93") else Color.parseColor("#2196F3"))
                     binding.tvUnreadCounter.background = counterBg
                 } else {
                     binding.tvUnreadCounter.visibility = View.GONE
@@ -258,10 +321,12 @@ class ChatAdapter(
 
     override fun getItemCount(): Int = if (isSearchActive) chatList.size + 1 else chatList.size + 2
 
-    fun updateList(newList: List<ChatModel>) {
-        chatList = newList
-        notifyDataSetChanged()
+    fun updateList(newList: List<ChatModel>, notify: Boolean = true) {
+        chatList = ArrayList(newList)
+        if (notify) notifyDataSetChanged()
     }
+
+    fun getChatList(): List<ChatModel> = chatList
 
     fun setSearchActive(active: Boolean) {
         if (isSearchActive == active) return
@@ -282,6 +347,27 @@ class ChatAdapter(
     fun updateNetworkHint(newHint: String) {
         currentNetworkHint = newHint
         if (!isSearchActive) notifyItemChanged(0)
+    }
+
+    private fun animateShowDelete(holder: ChatViewHolder) {
+        holder.binding.layoutDelete.visibility = View.VISIBLE
+        holder.binding.layoutContent.animate()
+            .translationX(-440f) // Сдвигаем больше для двух кнопок по 72dp
+            .setDuration(300)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .withEndAction { holder.isRevealed = true }
+            .start()
+    }
+
+    private fun animateHideDelete(holder: ChatViewHolder) {
+        holder.binding.layoutContent.animate()
+            .translationX(0f)
+            .setDuration(250)
+            .setInterpolator(android.view.animation.AccelerateInterpolator())
+            .withEndAction { 
+                holder.resetReveal()
+            }
+            .start()
     }
 
     private fun getAvatarColor(name: String): Int {

@@ -21,4 +21,6 @@
     <color name="grad_start">#154B87</color>
     <color name="grad_center">#1A5EA8</color>
     <color name="grad_end">#0D2F54</color>
+
+    <color name="ic_launcher_background">#F7F9FC</color>
 </resources>
