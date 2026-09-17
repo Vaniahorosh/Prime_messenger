@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Semantic Colors (Dark Theme) -->
+    <color name="login_background">#0F172A</color>
+    <color name="login_button_background">#154B87</color>
+    <color name="login_button_tint">@color/white</color>
+    <color name="hi_background">#154B87</color>
     <color name="prime_base">#0F172A</color>
     <color name="prime_surface">#1E293B</color>
     <color name="prime_search_bg">#1E293B</color>

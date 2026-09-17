@@ -5,13 +5,17 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/prime_background_blue"
     tools:context=".HiActivity">
+
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/composeBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
     <View
         android:id="@+id/topHeader"
         android:layout_width="match_parent"
-        android:layout_height="64dp"
+        android:layout_height="0dp"
         app:layout_constraintTop_toTopOf="parent" />
 
     <ImageView
@@ -19,65 +23,67 @@
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:layout_marginStart="8dp"
+        android:layout_marginTop="32dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:clickable="true"
         android:focusable="true"
         android:padding="12dp"
         android:src="@drawable/ic_arrow_back"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/topHeader"
+        app:layout_constraintTop_toTopOf="parent"
         app:tint="@color/white" />
-    <!-- Замени @drawable/ic_arrow_back на иконку стрелки из Android Studio (Vector Asset) -->
 
-    <!-- Логотип Prime -->
-    <ImageView
-        android:id="@+id/ivLogo"
-        android:layout_width="150dp"
-        android:layout_height="150dp"
-        android:layout_marginTop="64dp"
-        android:src="@drawable/prime_logo"
-        app:layout_constraintBottom_toTopOf="@+id/textSwitcherSlogan"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btnExit"
-        app:layout_constraintVertical_bias="0.4" />
-
-    <!-- Динамический текст слогана -->
-    <TextSwitcher
-        android:id="@+id/textSwitcherSlogan"
+    <!-- Центральный контейнер для контента -->
+    <LinearLayout
+        android:id="@+id/centerContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:layout_marginHorizontal="24dp"
-        app:layout_constraintBottom_toTopOf="@+id/btnPrime"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        android:orientation="vertical"
+        android:gravity="center"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
-    <!-- Кнопка "Прайме!" (теперь CardView для анимации текста) -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/btnPrime"
-        android:layout_width="0dp"
-        android:layout_height="60dp"
-        android:layout_marginStart="40dp"
-        android:layout_marginEnd="40dp"
-        android:layout_marginBottom="32dp"
-        android:clickable="true"
-        android:focusable="true"
-        app:cardBackgroundColor="@color/prime_surface"
-        app:cardCornerRadius="15dp"
-        app:cardElevation="4dp"
-        app:rippleColor="@color/white"
-        app:layout_constraintBottom_toTopOf="@+id/tvLicense"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        <!-- Логотип Prime -->
+        <ImageView
+            android:id="@+id/ivLogo"
+            android:layout_width="150dp"
+            android:layout_height="150dp"
+            android:src="@drawable/prime_logo" />
 
+        <!-- Динамический текст слогана -->
         <TextSwitcher
-            android:id="@+id/textSwitcherButton"
+            android:id="@+id/textSwitcherSlogan"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:paddingHorizontal="16dp" />
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:layout_marginHorizontal="24dp" />
 
-    </com.google.android.material.card.MaterialCardView>
+        <!-- Кнопка "Прайме!" (теперь CardView для анимации текста) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/btnPrime"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_marginStart="40dp"
+            android:layout_marginEnd="40dp"
+            android:layout_marginTop="32dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="@color/prime_surface"
+            app:cardCornerRadius="15dp"
+            app:cardElevation="4dp"
+            app:rippleColor="@color/white">
+
+            <TextSwitcher
+                android:id="@+id/textSwitcherButton"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:paddingHorizontal="16dp" />
+
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
 
     <!-- Лицензионное соглашение -->
     <com.google.android.material.textview.MaterialTextView

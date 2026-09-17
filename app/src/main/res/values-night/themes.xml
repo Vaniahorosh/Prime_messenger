@@ -1,5 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
 
+    <style name="Widget.Material3.CardView.Elevated.Custom" parent="Widget.Material3.CardView.Elevated">
+        <item name="strokeColor">#334155</item>
+        <item name="strokeWidth">1.5dp</item>
+        <item name="cardBackgroundColor">#1E293B</item>
+    </style>
+
     <style name="Theme.Prime" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/prime_brand</item>
         <item name="colorAccent">@color/prime_brand</item>
@@ -14,6 +20,11 @@
         <item name="colorOnSurfaceVariant">@color/prime_text_secondary</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="materialCardViewStyle">@style/Widget.Material3.CardView.Elevated.Custom</item>
+    </style>
+
+    <style name="Widget.MaterialComponents.TextInputLayout.OutlinedBox" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeColor">#334155</item>
     </style>
 
     <style name="Theme.Prime.Swipe" parent="Theme.Prime">

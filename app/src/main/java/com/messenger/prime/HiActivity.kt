@@ -16,7 +16,15 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+
+import androidx.compose.runtime.remember
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 
 class HiActivity : AppCompatActivity() {
 
@@ -45,18 +53,14 @@ class HiActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // LavaBackgroundState handled inside compose setContent for better lifecycle integration
         super.onCreate(savedInstanceState)
 
         if (android.os.Build.VERSION.SDK_INT >= 34) {
             overrideActivityTransition(
                 android.app.Activity.OVERRIDE_TRANSITION_OPEN,
-                R.anim.slide_in_right,
-                R.anim.slide_out_left
-            )
-            overrideActivityTransition(
-                android.app.Activity.OVERRIDE_TRANSITION_CLOSE,
-                R.anim.slide_in_left,
-                R.anim.slide_out_right
+                R.anim.fade_in_slow,
+                R.anim.stay_slow
             )
         }
 
@@ -88,7 +92,21 @@ class HiActivity : AppCompatActivity() {
         setContentView(binding.root)
         setupEdgeToEdge()
 
+        binding.composeBackground.setContent {
+            val hazeState = remember { HazeState() }
+            PrimeTheme {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LavaBackgroundState.onActivityResumed()
+                    AnimatedBackground(
+                        darkTheme = isSystemInDarkTheme(),
+                        modifier = Modifier.hazeSource(state = hazeState)
+                    )
+                }
+            }
+        }
+
         setupTextSwitcher()
+        binding.tvLicense.setTextColor(Color.WHITE)
         startDynamicSequence()
 
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
@@ -124,11 +142,15 @@ class HiActivity : AppCompatActivity() {
     }
 
     private fun setupTextSwitcher() {
+        val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val generalTextColor = Color.WHITE
+        val buttonTextColor = if (isDark) Color.WHITE else Color.parseColor("#154B87")
+
         binding.textSwitcherSlogan.setFactory {
             TextView(this).apply {
                 gravity = Gravity.CENTER
                 textSize = 20f
-                setTextColor(ContextCompat.getColor(this@HiActivity, R.color.prime_brand))
+                setTextColor(generalTextColor)
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
@@ -141,7 +163,7 @@ class HiActivity : AppCompatActivity() {
             TextView(this).apply {
                 gravity = Gravity.CENTER
                 textSize = 22f
-                setTextColor(ContextCompat.getColor(this@HiActivity, R.color.prime_brand))
+                setTextColor(buttonTextColor)
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
@@ -193,27 +215,23 @@ class HiActivity : AppCompatActivity() {
     }
 
     private fun fadeOutAndNavigateToLogin() {
-        val fadeOutDuration = 300L
-        var finishedCount = 0
-        val totalCount = allViews.size
+        LavaBackgroundState.onTransitionStart()
+        val fadeOutDuration = 600L
 
         allViews.forEach { view ->
             view.animate()
                 .alpha(0f)
                 .setDuration(fadeOutDuration)
-                .withEndAction {
-                    finishedCount++
-                    if (finishedCount == totalCount) {
-                        val intent = Intent(this, LoginActivity::class.java)
-                        startActivity(intent)
-                        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-                    }
-                }
                 .start()
         }
+
+        val intent = Intent(this, LoginActivity::class.java)
+        startActivity(intent)
+        overridePendingTransition(R.anim.fade_in_slow, R.anim.stay_slow)
     }
 
     override fun finish() {
+        LavaBackgroundState.onTransitionStart()
         super.finish()
         overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
     }

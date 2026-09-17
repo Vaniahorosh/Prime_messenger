@@ -76,6 +76,7 @@ class ChatListActivity : AppCompatActivity() {
     private val isIslandVisibleState = mutableStateOf(true)
     private val isContactDialogVisible = mutableStateOf(false)
     private val chatListState = mutableStateListOf<ChatModel>()
+    private val hazeState = HazeState()
 
     private var startY = 0f
     private var isPulling = false
@@ -102,7 +103,7 @@ class ChatListActivity : AppCompatActivity() {
 
     private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
         if (key == "current_user" || key?.endsWith("_name") == true || key?.endsWith("_avatar") == true) {
-            refreshUserUi()
+            runOnUiThread { refreshUserUi() }
         }
     }
 
@@ -214,7 +215,8 @@ class ChatListActivity : AppCompatActivity() {
         
         setContentView(R.layout.activity_chat_list)
 
-        setupEdgeToEdge(isDarkIcons = true)
+        val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        setupEdgeToEdge(isDarkIcons = !isDark)
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         sharedPrefs.registerOnSharedPreferenceChangeListener(prefListener)
@@ -289,7 +291,6 @@ class ChatListActivity : AppCompatActivity() {
         )
 
         findViewById<ComposeView>(R.id.composeRoot).setContent {
-            val hazeState = remember { HazeState() }
             val isIslandVisible by isIslandVisibleState
             val isDialogVisible by isContactDialogVisible
             val isEditVisible by isEditDialogVisible
@@ -318,7 +319,7 @@ class ChatListActivity : AppCompatActivity() {
                             setupLegacyListeners()
                         }
                     },
-                    modifier = Modifier.fillMaxSize().hazeSource(hazeState)
+                    modifier = Modifier.fillMaxSize()
                 )
 
                 AnimatedVisibility(
@@ -355,7 +356,7 @@ class ChatListActivity : AppCompatActivity() {
                                     style = HazeStyle(
                                         blurRadius = 24.dp,
                                         noiseFactor = 0.05f,
-                                        tint = dev.chrisbanes.haze.HazeTint(Color(0x99154B87))
+                                        tint = dev.chrisbanes.haze.HazeTint(Color(0xFF154B87).copy(alpha = 0.6f))
                                     )
                                 )
                                 .clickable(enabled = true) { 
@@ -684,9 +685,9 @@ class ChatListActivity : AppCompatActivity() {
                                 .hazeEffect(
                                     state = hazeState,
                                     style = HazeStyle(
-                                        blurRadius = 20.dp,
+                                        blurRadius = 24.dp,
                                         noiseFactor = 0.05f,
-                                        tint = dev.chrisbanes.haze.HazeTint(Color(0x66154B87)) 
+                                        tint = dev.chrisbanes.haze.HazeTint(Color(0xFF154B87).copy(alpha = 0.6f))
                                     )
                                 )
                         ) {
@@ -1059,25 +1060,83 @@ class ChatListActivity : AppCompatActivity() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         val currentName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
+        
+        // Используем ViewBinding для инфлейта диалога
         val dialogBinding = com.messenger.prime.databinding.DialogEditNameBinding.inflate(layoutInflater)
-        binding.dialogContainer.removeAllViews()
-        binding.dialogContainer.addView(dialogBinding.root)
-        binding.dialogContainer.visibility = View.VISIBLE
+        
+        // Находим контейнер в activity_chat_list_content.xml
+        val container = binding.root.findViewById<android.widget.FrameLayout>(R.id.dialogContainer)
+        if (container == null) {
+            // Если контейнер не найден в binding, попробуем найти его напрямую в activity
+            findViewById<android.widget.FrameLayout>(R.id.dialogContainer)?.let {
+                setupDialogInContainer(it, dialogBinding, sharedPrefs, currentUser, currentName)
+            }
+            return
+        }
+        
+        setupDialogInContainer(container, dialogBinding, sharedPrefs, currentUser, currentName)
+    }
+
+    private fun setupDialogInContainer(
+        container: android.widget.FrameLayout,
+        dialogBinding: com.messenger.prime.databinding.DialogEditNameBinding,
+        sharedPrefs: android.content.SharedPreferences,
+        currentUser: String,
+        currentName: String
+    ) {
+        container.removeAllViews()
+        container.addView(dialogBinding.root)
+        container.visibility = View.VISIBLE
+
+        // Центрируем карточку и позволяем ей использовать размеры из XML
+        val cardParams = dialogBinding.cardContainer.layoutParams as android.widget.FrameLayout.LayoutParams
+        cardParams.gravity = android.view.Gravity.CENTER
+        dialogBinding.cardContainer.layoutParams = cardParams
+
+        dialogBinding.hazeView.setContent {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeEffect(
+                        state = hazeState,
+                        style = HazeStyle(
+                            tint = dev.chrisbanes.haze.HazeTint(Color(0xFF154B87).copy(alpha = 0.6f)),
+                            blurRadius = 24.dp,
+                            noiseFactor = 0.05f
+                        )
+                    )
+            )
+        }
+
         dialogBinding.etNewName.setText(currentName)
         dialogBinding.etNewName.setSelection(currentName.length)
-        dialogBinding.cardContainer.scaleX = 0.8f; dialogBinding.cardContainer.scaleY = 0.8f; dialogBinding.cardContainer.alpha = 0f
+        
+        dialogBinding.cardContainer.scaleX = 0.8f
+        dialogBinding.cardContainer.scaleY = 0.8f
+        dialogBinding.cardContainer.alpha = 0f
+        
         dialogBinding.dialogRoot.alpha = 0f
         dialogBinding.dialogRoot.animate().alpha(1f).setDuration(300).start()
-        dialogBinding.cardContainer.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(400).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+        dialogBinding.cardContainer.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .alpha(1f)
+            .setDuration(400)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .start()
+
         dialogBinding.btnSave.setOnClickListener {
             val newName = dialogBinding.etNewName.text.toString().trim()
             if (newName.isNotEmpty()) {
                 sharedPrefs.edit().putString("${currentUser}_name", newName).apply()
-                refreshUserUi(); hideNameEditDialog(dialogBinding)
+                refreshUserUi()
+                hideNameEditDialog(dialogBinding, container)
             }
         }
-        dialogBinding.btnBack.setOnClickListener { hideNameEditDialog(dialogBinding) }
-        dialogBinding.dialogRoot.setOnClickListener { hideNameEditDialog(dialogBinding) }
+        
+        dialogBinding.btnBack.setOnClickListener { hideNameEditDialog(dialogBinding, container) }
+        dialogBinding.dialogRoot.setOnClickListener { hideNameEditDialog(dialogBinding, container) }
+        
         dialogBinding.etNewName.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
@@ -1086,10 +1145,12 @@ class ChatListActivity : AppCompatActivity() {
             override fun afterTextChanged(s: Editable?) {}
         })
     }
-    private fun hideNameEditDialog(db: com.messenger.prime.databinding.DialogEditNameBinding) {
+
+    private fun hideNameEditDialog(db: com.messenger.prime.databinding.DialogEditNameBinding, container: android.widget.FrameLayout) {
         db.dialogRoot.animate().alpha(0f).setDuration(300).start()
         db.cardContainer.animate().scaleX(0.8f).scaleY(0.8f).alpha(0f).setDuration(300).withEndAction {
-            binding.dialogContainer.visibility = View.GONE; binding.dialogContainer.removeAllViews()
+            container.visibility = View.GONE
+            container.removeAllViews()
         }.start()
     }
     private fun animateShowSearchClear() {
@@ -1130,7 +1191,8 @@ class ChatListActivity : AppCompatActivity() {
     }
     private fun getAvatarColor(name: String): Int {
         val colors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFEB3B", "#FFC107", "#FF9800", "#FF5722")
-        val index = Math.abs(name.hashCode()) % colors.size
+        val hash = name.hashCode()
+        val index = (if (hash == Int.MIN_VALUE) 0 else Math.abs(hash)) % colors.size
         return android.graphics.Color.parseColor(colors[index])
     }
 }

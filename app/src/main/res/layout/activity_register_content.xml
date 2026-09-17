@@ -4,19 +4,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="@drawable/bg_main_gradient">
+    android:background="@android:color/transparent">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingBottom="32dp">
-
-        <View
-            android:id="@+id/topHeader"
-            android:layout_width="match_parent"
-            android:layout_height="88dp"
-            android:background="@drawable/bg_main_gradient"
-            app:layout_constraintTop_toTopOf="parent" />
 
         <ImageView
             android:id="@+id/btnBack"

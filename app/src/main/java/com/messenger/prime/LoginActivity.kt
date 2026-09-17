@@ -13,20 +13,16 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
@@ -50,11 +46,13 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         
         if (android.os.Build.VERSION.SDK_INT >= 34) {
+            // Forward transition to Register (if happens)
             overrideActivityTransition(
                 android.app.Activity.OVERRIDE_TRANSITION_OPEN,
-                R.anim.slide_in_right,
-                R.anim.slide_out_left
+                R.anim.fade_in_slow,
+                R.anim.stay_slow
             )
+            // Back transition to Hi
             overrideActivityTransition(
                 android.app.Activity.OVERRIDE_TRANSITION_CLOSE,
                 R.anim.slide_in_left,
@@ -62,163 +60,157 @@ class LoginActivity : AppCompatActivity() {
             )
         }
         
-        setContentView(R.layout.activity_login)
-
         setupEdgeToEdge()
 
         val sharedPreferences = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
 
-        findViewById<ComposeView>(R.id.composeRoot).setContent {
+        setContent {
             val hazeState = remember { HazeState() }
-            Box(modifier = Modifier.fillMaxSize()) {
-                AndroidView(
-                    factory = { _ ->
-                        val view = layoutInflater.inflate(R.layout.activity_login_content, null)
-                        val b = ActivityLoginContentBinding.bind(view)
-                        binding = b
+            val darkTheme = isSystemInDarkTheme()
+            PrimeTheme(darkTheme = darkTheme) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LavaBackgroundState.onActivityResumed()
+                    AnimatedBackground(
+                        darkTheme = darkTheme,
+                        modifier = Modifier.hazeSource(state = hazeState)
+                    )
+                    
+                    AndroidView(
+                        factory = { _ ->
+                            val view = layoutInflater.inflate(R.layout.activity_login_content, null)
+                            val b = ActivityLoginContentBinding.bind(view)
+                            binding = b
 
-                        ViewCompat.setOnApplyWindowInsetsListener(view) { v, windowInsets ->
-                            val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-                            val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
+                            ViewCompat.setOnApplyWindowInsetsListener(view) { v, windowInsets ->
+                                val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+                                val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
 
-                            val backParams = b.btnBack.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-                            backParams.topMargin = systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt()
-                            b.btnBack.layoutParams = backParams
+                                val backParams = b.btnBack.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+                                backParams.topMargin = systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt()
+                                b.btnBack.layoutParams = backParams
 
-                            v.setPadding(0, 0, 0, imeInsets.bottom)
-                            windowInsets
-                        }
-
-                        val contentViews = listOf<View>(b.tvTitle, b.tvSubtitle, b.inputLayoutLogin)
-                        contentViews.forEach { it.alpha = 0f }
-
-                        startHeaderCollapseAnimation(b, contentViews)
-
-                        b.btnBack.setOnClickListener {
-                            onBackPressedDispatcher.onBackPressed()
-                        }
-
-                        b.etLogin.setOnClickListener {
-                            if (isPasswordState) {
-                                showLoginStep(b)
-                            }
-                        }
-
-                        b.btnForward.setOnClickListener {
-                            val login = b.etLogin.text.toString().trim()
-                            if (login.isEmpty()) {
-                                b.inputLayoutLogin.error = "Введите логин"
-                                b.inputLayoutLogin.shake()
-                                b.btnForward.shake()
-                                return@setOnClickListener
+                                v.setPadding(0, 0, 0, imeInsets.bottom)
+                                windowInsets
                             }
 
-                            val error = ValidationUtils.getValidationError(login, true)
-                            if (error != null) {
-                                b.inputLayoutLogin.error = error
-                                b.inputLayoutLogin.shake()
-                                b.btnForward.shake()
-                                return@setOnClickListener
-                            }
-                            b.inputLayoutLogin.error = null
+                            val contentViews = listOf<View>(b.tvTitle, b.tvSubtitle, b.inputLayoutLogin)
+                            contentViews.forEach { it.alpha = 1f }
 
-                            if (!isPasswordState) {
-                                if (sharedPreferences.contains(login)) {
-                                    showPasswordStep(b)
-                                } else {
-                                    val intent = Intent(this@LoginActivity, RegisterActivity::class.java)
-                                    intent.putExtra("EXTRA_LOGIN", login)
-                                    startActivity(intent)
-                                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                            b.btnBack.setOnClickListener {
+                                onBackPressedDispatcher.onBackPressed()
+                            }
+
+                            // Apply contrast colors to XML elements
+                            setupContrastColors(b, darkTheme)
+
+                            b.etLogin.setOnClickListener {
+                                if (isPasswordState) {
+                                    showLoginStep(b)
                                 }
-                            } else {
-                                val password = b.etPassword.text.toString()
-                                val savedPassword = sharedPreferences.getString(login, "")
-                                if (password == savedPassword) {
-                                    b.tvError.visibility = View.GONE
-                                    sharedPreferences.edit().apply {
-                                        putBoolean("is_logged_in", true)
-                                        putString("current_user", login)
-                                        apply()
-                                    }
-                                    startActivity(Intent(this@LoginActivity, ChatListActivity::class.java))
-                                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-                                    finishAffinity()
-                                } else {
-                                    b.tvError.visibility = View.VISIBLE
-                                    b.inputLayoutPassword.shake()
+                            }
+
+                            b.btnForward.setOnClickListener {
+                                val login = b.etLogin.text.toString().trim()
+                                if (login.isEmpty()) {
+                                    b.inputLayoutLogin.error = "Введите логин"
+                                    b.inputLayoutLogin.shake()
                                     b.btnForward.shake()
+                                    return@setOnClickListener
+                                }
+
+                                val error = ValidationUtils.getValidationError(login, true)
+                                if (error != null) {
+                                    b.inputLayoutLogin.error = error
+                                    b.inputLayoutLogin.shake()
+                                    b.btnForward.shake()
+                                    return@setOnClickListener
+                                }
+                                b.inputLayoutLogin.error = null
+
+                                if (!isPasswordState) {
+                                    if (sharedPreferences.contains(login)) {
+                                        showPasswordStep(b)
+                                    } else {
+                                        LavaBackgroundState.onTransitionStart()
+                                        
+                                        // Fade out content before navigation
+                                        b.root.animate()
+                                            .alpha(0f)
+                                            .setDuration(600L)
+                                            .start()
+
+                                        val intent = Intent(this@LoginActivity, RegisterActivity::class.java)
+                                        intent.putExtra("EXTRA_LOGIN", login)
+                                        startActivity(intent)
+                                        overridePendingTransition(R.anim.fade_in_slow, R.anim.stay_slow)
+                                    }
+                                } else {
+                                    val password = b.etPassword.text.toString()
+                                    val savedPassword = sharedPreferences.getString(login, "")
+                                    if (password == savedPassword) {
+                                        b.tvError.visibility = View.GONE
+                                        sharedPreferences.edit().apply {
+                                            putBoolean("is_logged_in", true)
+                                            putString("current_user", login)
+                                            apply()
+                                        }
+                                        startActivity(Intent(this@LoginActivity, ChatListActivity::class.java))
+                                        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                                        finishAffinity()
+                                    } else {
+                                        b.tvError.visibility = View.VISIBLE
+                                        b.inputLayoutPassword.shake()
+                                        b.btnForward.shake()
+                                    }
                                 }
                             }
-                        }
-                        
-                        view
-                    },
-                    modifier = Modifier.fillMaxSize().hazeSource(hazeState)
-                )
+                            
+                            view
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
 
-                // Размытие для системной панели навигации
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                        .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp)
-                        .hazeEffect(
-                            state = hazeState,
-                            style = HazeStyle(
-                                blurRadius = 20.dp,
-                                noiseFactor = 0f,
-                                tint = dev.chrisbanes.haze.HazeTint(Color(0x0DFFFFFF))
+                    // Blur for navigation bar
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.BottomCenter)
+                            .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp)
+                            .hazeEffect(
+                                state = hazeState,
+                                style = HazeStyle(
+                                    blurRadius = 20.dp,
+                                    noiseFactor = 0f,
+                                    tint = dev.chrisbanes.haze.HazeTint(Color(0x0DFFFFFF))
+                                )
                             )
-                        )
-                )
+                    )
+                }
             }
         }
 
-        // Возвращаем Slidr для всех версий
         val slidrConfig = SlidrConfig.Builder()
             .position(SlidrPosition.LEFT)
             .build()
         Slidr.attach(this, slidrConfig)
     }
 
-    private fun startHeaderCollapseAnimation(b: ActivityLoginContentBinding, contentViews: List<View>) {
-        val header = b.topHeader
-        val endHeight = (88 * resources.displayMetrics.density).toInt()
-        val startHeight = resources.displayMetrics.heightPixels
+    private fun setupContrastColors(b: ActivityLoginContentBinding, darkTheme: Boolean) {
+        val titleColor = if (darkTheme) android.graphics.Color.parseColor("#F1F5F9") else android.graphics.Color.WHITE
+        val subtitleColor = if (darkTheme) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.argb(191, 255, 255, 255)
         
-        val animator = ValueAnimator.ofInt(startHeight, endHeight)
-        animator.addUpdateListener { valueAnimator ->
-            val p = header.layoutParams
-            p.height = valueAnimator.animatedValue as Int
-            header.layoutParams = p
-        }
-        animator.duration = 500
-        animator.startDelay = 150
-        animator.interpolator = AccelerateDecelerateInterpolator()
-        animator.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                fadeInContent(contentViews)
-            }
-        })
-        animator.start()
-    }
-
-    private fun fadeInContent(contentViews: List<View>) {
-        contentViews.forEach { view ->
-            view.translationY = -30f
-            view.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(350)
-                .setInterpolator(AccelerateDecelerateInterpolator())
-                .start()
-        }
+        b.tvTitle.setTextColor(titleColor)
+        b.tvSubtitle.setTextColor(subtitleColor)
+        
+        // Input layouts background and stroke
+        val inputBg = if (darkTheme) android.graphics.Color.argb(153, 15, 23, 42) else android.graphics.Color.argb(102, 21, 75, 135)
+        b.inputLayoutLogin.boxBackgroundColor = inputBg
+        b.inputLayoutPassword.boxBackgroundColor = inputBg
     }
 
     private fun showPasswordStep(b: ActivityLoginContentBinding) {
-        val root = b.topHeader.parent as ViewGroup
+        val root = b.btnBack.parent as ViewGroup
         TransitionManager.beginDelayedTransition(root)
         b.inputLayoutPassword.visibility = View.VISIBLE
         b.etLogin.isFocusable = false
@@ -229,7 +221,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun showLoginStep(b: ActivityLoginContentBinding) {
-        val root = b.topHeader.parent as ViewGroup
+        val root = b.btnBack.parent as ViewGroup
         TransitionManager.beginDelayedTransition(root)
         b.inputLayoutPassword.visibility = View.GONE
         b.etPassword.text?.clear()
@@ -269,7 +261,15 @@ class LoginActivity : AppCompatActivity() {
         return super.dispatchTouchEvent(event)
     }
 
+    override fun onResume() {
+        super.onResume()
+        LavaBackgroundState.onActivityResumed()
+        // Восстанавливаем видимость контента (после fadeOut при переходе вперед)
+        binding?.root?.alpha = 1f
+    }
+
     override fun finish() {
+        LavaBackgroundState.onTransitionStart()
         super.finish()
         overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
     }

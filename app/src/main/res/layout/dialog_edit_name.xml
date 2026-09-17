@@ -1,31 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/dialogRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/prime_overlay_dark"
-    android:padding="24dp">
+    android:background="#80000000">
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardContainer"
-        android:layout_width="match_parent"
+        android:layout_width="300dp"
         android:layout_height="wrap_content"
-        app:cardBackgroundColor="@color/prime_brand_alpha_80"
-        app:cardCornerRadius="24dp"
-        app:cardElevation="0dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        android:layout_gravity="center"
+        app:cardBackgroundColor="#99154B87"
+        app:cardCornerRadius="28dp"
+        app:cardElevation="8dp"
+        app:strokeColor="#40FFFFFF"
+        app:strokeWidth="1dp">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="20dp">
+            android:layout_height="wrap_content">
+
+            <androidx.compose.ui.platform.ComposeView
+                android:id="@+id/hazeView"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
                 android:id="@+id/tvTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
                 android:text="Изменить имя"
                 android:textColor="@color/white"
                 android:textSize="20sp"
@@ -39,10 +48,12 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginStart="24dp"
+                android:layout_marginTop="20dp"
+                android:layout_marginEnd="24dp"
                 android:hint="Новое имя"
-                app:boxStrokeWidth="0dp"
-                app:boxStrokeColor="@color/white"
+                app:boxStrokeColor="#40FFFFFF"
+                app:boxStrokeWidth="0.5dp"
                 app:hintTextColor="@color/white"
                 app:layout_constraintTop_toBottomOf="@+id/tvTitle">
 
@@ -50,52 +61,59 @@
                     android:id="@+id/etNewName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/white"
-                    android:maxLength="16"
+                    android:imeOptions="actionDone"
                     android:inputType="textPersonName"
-                    android:imeOptions="actionDone" />
+                    android:maxLength="16"
+                    android:textColor="@color/white"
+                    android:textSize="16sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <LinearLayout
                 android:id="@+id/layoutButtonsActions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
+                android:layout_marginStart="24dp"
+                android:layout_marginTop="28dp"
+                android:layout_marginEnd="24dp"
+                android:layout_marginBottom="24dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
+                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/inputLayoutName">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnBack"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
                     android:insetLeft="0dp"
                     android:insetTop="0dp"
                     android:insetRight="0dp"
                     android:insetBottom="0dp"
                     android:padding="0dp"
-                    app:cornerRadius="15dp"
+                    app:cornerRadius="16dp"
                     app:icon="@drawable/ic_arrow_back"
                     app:iconGravity="textStart"
                     app:iconPadding="0dp"
-                    app:iconSize="24dp"
-                    app:iconTint="@color/white" />
+                    app:iconSize="22dp"
+                    app:iconTint="@color/white"
+                    app:strokeColor="#40FFFFFF" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnSave"
                     android:layout_width="0dp"
-                    android:layout_height="56dp"
-                    android:layout_weight="1"
+                    android:layout_height="52dp"
                     android:layout_marginStart="12dp"
+                    android:layout_weight="1"
                     android:text="Сохранить"
+                    android:textAllCaps="false"
                     android:textColor="@color/prime_background_blue"
                     android:textStyle="bold"
                     app:backgroundTint="@color/white"
-                    app:cornerRadius="15dp" />
+                    app:cornerRadius="16dp" />
             </LinearLayout>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
     </com.google.android.material.card.MaterialCardView>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</FrameLayout>

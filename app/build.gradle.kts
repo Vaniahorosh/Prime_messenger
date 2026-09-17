@@ -49,6 +49,7 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.2.1")
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("dev.chrisbanes.haze:haze:1.7.2")
+    implementation("androidx.graphics:graphics-shapes:1.1.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)

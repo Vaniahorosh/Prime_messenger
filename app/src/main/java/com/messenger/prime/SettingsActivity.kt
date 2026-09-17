@@ -20,26 +20,31 @@ import android.widget.ImageView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.windowInsetsBottomHeight
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import com.messenger.prime.databinding.ActivitySettingsContentBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
@@ -61,8 +66,25 @@ class SettingsActivity : AppCompatActivity() {
     private var currentAnimator: ValueAnimator? = null
     private var isVibrated = false
     private var isClosing = false
-    private var isPhotoMenuMode = false
+    private val isPhotoMenuMode = mutableStateOf(false)
     private val wobbleAnimators = mutableListOf<Animator>()
+
+    private val isThemeDialogVisible = mutableStateOf(false)
+
+    // Состояния для динамических кнопок в шапке
+    private val backLabelState = mutableStateOf("Назад")
+    private val backIconState = mutableIntStateOf(R.drawable.ic_arrow_back)
+    
+    private val logoutLabelState = mutableStateOf("Выход")
+    private val logoutIconState = mutableIntStateOf(R.drawable.ic_exit_to_app)
+    private val logoutColorState = mutableStateOf(Color(0xFFEF5350))
+    
+    private val extraSettingsLabelState = mutableStateOf("Настройки")
+    private val extraSettingsIconState = mutableIntStateOf(R.drawable.ic_settings)
+    private val extraSettingsColorState = mutableStateOf(Color.White)
+
+    private val backLabelAlpha = mutableFloatStateOf(1f)
+    private val backLabelTranslationX = mutableFloatStateOf(0f)
 
     private var currentAvatarUri: String? = null
 
@@ -116,7 +138,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private val backCallback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
-            if (isPhotoMenuMode) {
+            if (isPhotoMenuMode.value) {
                 togglePhotoMenuMode(false)
             } else {
                 finish()
@@ -142,6 +164,9 @@ class SettingsActivity : AppCompatActivity() {
         
         setContentView(R.layout.activity_settings)
 
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+
         setupEdgeToEdge(isDarkIcons = true)
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
@@ -157,55 +182,162 @@ class SettingsActivity : AppCompatActivity() {
 
         findViewById<ComposeView>(R.id.composeRoot).setContent {
             val hazeState = remember { HazeState() }
-            Box(modifier = Modifier.fillMaxSize()) {
-                AndroidView(
-                    factory = { _ ->
-                        val view = layoutInflater.inflate(R.layout.activity_settings_content, null)
-                        val b = ActivitySettingsContentBinding.bind(view)
-                        binding = b
+            val darkTheme = isSystemInDarkTheme()
+            val isThemeVisible = isThemeDialogVisible.value
+            
+            PrimeTheme(darkTheme = darkTheme) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LavaBackgroundState.onActivityResumed()
+                    
+                    AndroidView(
+                        factory = { _ ->
+                            val view = layoutInflater.inflate(R.layout.activity_settings_content, null)
+                            val b = ActivitySettingsContentBinding.bind(view)
+                            binding = b
 
-                        b.tvUserNameStatic.text = savedName
-                        b.tvUserNameWP.text = savedName
-                        b.tvUserNameStatic.isSelected = true
-                        b.tvUserNameWP.isSelected = true
-                        b.etSettingsName.setText(savedName)
-                        b.etSettingsLogin.setText(currentUser)
-                        b.etSettingsPassword.setText(currentPassInDB)
-                        b.tvAccountHeaderSummary.text = savedName
+                            // Сброс смещений при инициализации
+                            b.layoutSettingsBodyContainer.translationY = 0f
 
-                        val isExpanded = sharedPrefs.getBoolean("settings_account_expanded", false)
-                        b.layoutAccountCollapsible.visibility = if (isExpanded) View.VISIBLE else View.GONE
-                        b.ivAccountArrow.rotation = if (isExpanded) -90f else 90f
+                            b.tvUserNameStatic.text = savedName
+                            b.etSettingsName.setText(savedName)
+                            b.etSettingsLogin.setText(currentUser)
+                            b.etSettingsPassword.setText(currentPassInDB)
+                            b.tvAccountHeaderSummary.text = savedName
 
-                        setupComposePhoto(b)
-                        setupListeners(b)
-                        applyAvatarState(savedAvatarUri)
-                        
-                        view
-                    },
-                    modifier = Modifier.fillMaxSize().hazeSource(hazeState)
-                )
+                            val isExpanded = sharedPrefs.getBoolean("settings_account_expanded", false)
+                            b.layoutAccountCollapsible.visibility = if (isExpanded) View.VISIBLE else View.GONE
+                            b.ivAccountArrow.rotation = if (isExpanded) -90f else 90f
 
-                // Размытие для системной панели навигации
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                        .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp)
-                        .hazeEffect(
-                            state = hazeState,
-                            style = HazeStyle(
-                                blurRadius = 20.dp,
-                                noiseFactor = 0f,
-                                tint = dev.chrisbanes.haze.HazeTint(Color(0x0DFFFFFF))
+                            setupComposePhoto(b)
+                            setupListeners(b)
+                            applyAvatarState(savedAvatarUri)
+
+                            // Изоляция фонов
+                            val bgColorInt = if (darkTheme) {
+                                android.graphics.Color.parseColor("#1E293B")
+                            } else {
+                                android.graphics.Color.parseColor("#F1F5F9")
+                            }
+                            b.nestedScrollView.setBackgroundColor(bgColorInt)
+                            b.headerStaticBlock.clipChildren = true
+
+                            ViewCompat.setOnApplyWindowInsetsListener(b.headerStaticBlock) { _, insets ->
+                                val statusBarInset = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+                                val density = resources.displayMetrics.density
+                                val extraPadding = (8 * density).toInt()
+
+                                b.layoutWithPhoto.updatePadding(top = statusBarInset + extraPadding)
+                                b.layoutNoPhoto.updatePadding(top = statusBarInset + extraPadding)
+                                insets
+                            }
+
+                            val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+                            windowInsetsController.isAppearanceLightStatusBars = !darkTheme
+
+                            // Инициализация кнопок с эффектом Haze
+                            setupHazeButtons(b, hazeState, darkTheme)
+                            
+                            // Установка Haze для внутренних вью (если они есть в разметке)
+                            b.root.findViewById<ComposeView>(R.id.hazeView)?.setContent {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .hazeEffect(
+                                            state = hazeState,
+                                            style = HazeStyle(
+                                                tint = dev.chrisbanes.haze.HazeTint(Color(0xFF154B87).copy(alpha = 0.6f)),
+                                                blurRadius = 24.dp,
+                                                noiseFactor = 0.05f
+                                            )
+                                        )
+                                )
+                            }
+
+                            b.composeHeaderBackground.apply {
+                                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+                                setContent {
+                                    PrimeTheme(darkTheme = darkTheme) {
+                                        AnimatedBackground(
+                                            darkTheme = darkTheme,
+                                            ignoreSettingsToggle = false, // Respect toggle here
+                                            modifier = Modifier.hazeSource(state = hazeState, zIndex = 0f)
+                                        )
+                                    }
+                                }
+                            }
+                            
+                            b.headerStaticBlock.translationZ = 4f
+                            b.photoCard.translationZ = 8f
+
+                            view
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    // Кастомное окно выбора темы с эффектом Haze
+                    if (isThemeVisible) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.4f))
+                                .clickable { isThemeDialogVisible.value = false },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            GlassCard(
+                                hazeState = hazeState,
+                                modifier = Modifier
+                                    .padding(32.dp)
+                                    .fillMaxWidth()
+                                    .clickable(enabled = false) { } 
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    androidx.compose.material3.Text(
+                                        text = "Тема оформления",
+                                        color = Color.White,
+                                        style = androidx.compose.material3.MaterialTheme.typography.titleLarge,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                    
+                                    val currentTheme = sharedPrefs.getString("app_theme", "system")
+                                    
+                                    ThemeOptionItem("Системная (Рекомендуется)", "system", currentTheme == "system") {
+                                        applyThemeChange("system")
+                                    }
+                                    ThemeOptionItem("Светлая", "light", currentTheme == "light") {
+                                        applyThemeChange("light")
+                                    }
+                                    ThemeOptionItem("Темная", "dark", currentTheme == "dark") {
+                                        applyThemeChange("dark")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.BottomCenter)
+                            .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp)
+                            .hazeEffect(
+                                state = hazeState,
+                                style = HazeStyle(
+                                    blurRadius = 20.dp,
+                                    noiseFactor = 0f,
+                                    tint = dev.chrisbanes.haze.HazeTint(Color(0x0DFFFFFF))
+                                )
                             )
-                        )
-                )
+                    )
+                }
             }
         }
 
-        // Возвращаем Slidr для всех версий
         val slidrConfig = SlidrConfig.Builder()
             .position(SlidrPosition.LEFT)
             .build()
@@ -217,7 +349,10 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupComposePhoto(b: ActivitySettingsContentBinding) {
         b.composePhotoCard.setContent {
             val avatarUri = avatarUriState.value
-            Box(modifier = Modifier.fillMaxSize()) {
+            
+            Box(
+                modifier = Modifier.fillMaxSize()
+            ) {
                 AndroidView(
                     factory = { context ->
                         ImageView(context).apply {
@@ -244,19 +379,174 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupHazeButtons(b: ActivitySettingsContentBinding, hazeState: HazeState, darkTheme: Boolean) {
+        b.composeBackWP.setContent {
+            HazeIconButton(
+                hazeState = hazeState,
+                buttonState = isPhotoMenuMode.value,
+                iconRes = backIconState.value,
+                label = backLabelState.value,
+                darkTheme = darkTheme,
+                isShaking = isPhotoMenuMode.value,
+                labelAlpha = backLabelAlpha.floatValue,
+                labelTranslationX = backLabelTranslationX.floatValue
+            ) { onBackPressedDispatcher.onBackPressed() }
+        }
+
+        b.composeChangePhoto.setContent {
+            HazeIconButton(
+                hazeState = hazeState,
+                buttonState = isPhotoMenuMode.value,
+                iconRes = R.drawable.ic_add,
+                label = "Фото",
+                darkTheme = darkTheme,
+                isShaking = isPhotoMenuMode.value
+            ) { pickImage.launch("image/*") }
+        }
+
+        b.composeLogout.setContent {
+            HazeIconButton(
+                hazeState = hazeState,
+                buttonState = isPhotoMenuMode.value,
+                iconRes = logoutIconState.value,
+                label = logoutLabelState.value,
+                iconTint = logoutColorState.value,
+                labelColor = logoutColorState.value,
+                darkTheme = darkTheme,
+                isShaking = isPhotoMenuMode.value
+            ) { 
+                if (isPhotoMenuMode.value) openFullPhoto()
+                else showLogoutDialog() 
+            }
+        }
+
+        b.composeExtraSettings.setContent {
+            HazeIconButton(
+                hazeState = hazeState,
+                buttonState = isPhotoMenuMode.value,
+                iconRes = extraSettingsIconState.value,
+                label = extraSettingsLabelState.value,
+                iconTint = extraSettingsColorState.value,
+                labelColor = extraSettingsColorState.value,
+                darkTheme = darkTheme,
+                isShaking = isPhotoMenuMode.value
+            ) { 
+                if (isPhotoMenuMode.value) {
+                    handlePhotoDeletionWithUndo(currentAvatarUri)
+                    togglePhotoMenuMode(false)
+                } else {
+                    b.nestedScrollView.smoothScrollTo(0, 1000)
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun HazeIconButton(
+        hazeState: HazeState,
+        buttonState: Boolean,
+        iconRes: Int,
+        label: String,
+        iconTint: Color = Color.White,
+        labelColor: Color = Color.White,
+        darkTheme: Boolean,
+        isShaking: Boolean = false,
+        labelAlpha: Float = 1f,
+        labelTranslationX: Float = 0f,
+        onClick: () -> Unit
+    ) {
+        val infiniteTransition = rememberInfiniteTransition(label = "shake")
+        
+        val rotation by infiniteTransition.animateFloat(
+            initialValue = -2f,
+            targetValue = 2f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(100, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "rotation"
+        )
+        
+        val translateX by infiniteTransition.animateFloat(
+            initialValue = -1f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(80, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "translateX"
+        )
+
+        AnimatedContent(
+            targetState = buttonState,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.7f, animationSpec = tween(400)))
+                    .togetherWith(fadeOut(animationSpec = tween(400)) + scaleOut(targetScale = 0.7f, animationSpec = tween(400)))
+            },
+            label = "buttonFlip"
+        ) { isMenu ->
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .width(110.dp)
+                    .graphicsLayer {
+                        // Используем isMenu для фиксации состояния анимации
+                        val unused = isMenu
+                        if (isShaking) {
+                            rotationZ = rotation
+                            translationX = translateX
+                        }
+                    }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .hazeEffect(
+                            state = hazeState,
+                            style = HazeStyle(
+                                blurRadius = 20.dp,
+                                noiseFactor = 0.05f,
+                                tint = dev.chrisbanes.haze.HazeTint(Color.White.copy(alpha = 0.1f))
+                            )
+                        )
+                        .border(
+                            width = if (darkTheme) 1.dp else 0.dp,
+                            color = Color.White.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        .clickable { onClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.material3.Icon(
+                        painter = androidx.compose.ui.res.painterResource(id = iconRes),
+                        contentDescription = label,
+                        tint = iconTint,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                androidx.compose.material3.Text(
+                    text = label,
+                    color = labelColor.copy(alpha = 0.8f * labelAlpha),
+                    fontSize = 10.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .graphicsLayer {
+                            translationX = labelTranslationX
+                        }
+                )
+            }
+        }
+    }
+
     private fun setupListeners(b: ActivitySettingsContentBinding) {
-        b.btnBackWP.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         b.btnBackNP.setOnClickListener { finish() }
         
-        b.btnLogout.setOnClickListener { showLogoutDialog() }
         b.btnLogoutNP.setOnClickListener { showLogoutDialog() }
         
-        b.btnChangePhoto.setOnClickListener { pickImage.launch("image/*") }
         b.btnChangePhotoNP.setOnClickListener { pickImage.launch("image/*") }
 
-        b.btnExtraSettings.setOnClickListener {
-            b.nestedScrollView.smoothScrollTo(0, 1000)
-        }
         b.btnExtraSettingsNP.setOnClickListener {
             b.nestedScrollView.smoothScrollTo(0, 1000)
         }
@@ -266,6 +556,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         b.switchAnimations.isChecked = sharedPrefs.getBoolean("settings_animations", true)
+        b.switchLavaBg.isChecked = sharedPrefs.getBoolean("settings_lava_bg", true)
         b.switchBlocked.isChecked = sharedPrefs.getBoolean("settings_show_blocked", false)
         b.switchSearch.isChecked = sharedPrefs.getBoolean("settings_hide_search", false)
 
@@ -280,6 +571,11 @@ class SettingsActivity : AppCompatActivity() {
         b.switchAnimations.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("settings_animations", isChecked).apply()
         }
+        b.switchLavaBg.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("settings_lava_bg", isChecked).apply()
+            // Пересоздаем, чтобы изменения фона подхватились сразу
+            recreate()
+        }
         b.switchBlocked.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("settings_show_blocked", isChecked).apply()
         }
@@ -287,116 +583,67 @@ class SettingsActivity : AppCompatActivity() {
             sharedPrefs.edit().putBoolean("settings_hide_search", isChecked).apply()
         }
 
-        ViewCompat.setOnApplyWindowInsetsListener(b.root) { _, windowInsets ->
-            val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-            b.headerStaticBlock.setPadding(0, systemBarsInsets.top, 0, 0)
-            b.nestedScrollView.setPadding(0, 0, 0, systemBarsInsets.bottom)
-            windowInsets
-        }
-
         setupHeaderExpansion(b)
     }
 
     private fun togglePhotoMenuMode(enable: Boolean) {
-        if (isPhotoMenuMode == enable) return
-        isPhotoMenuMode = enable
+        if (isPhotoMenuMode.value == enable) return
+        isPhotoMenuMode.value = enable
         
         val b = binding ?: return
         
-        if (enable) startWobbling(b) else stopWobbling()
-        
-        // Кнопка назад -> Закрыть
-        flipView(b.btnBackWP, b.tvBackLabelWP) {
-            if (enable) {
-                b.btnBackWP.setIconResource(R.drawable.ic_cancel)
-                b.tvBackLabelWP.text = "Закрыть"
-            } else {
-                b.btnBackWP.setIconResource(R.drawable.ic_arrow_back)
-                b.tvBackLabelWP.text = "Назад"
-            }
-        }
-        
-        // Кнопка Фото не меняется, но флипаем для эффекта
-        flipView(b.btnChangePhoto, b.tvChangePhotoLabel) { }
-        
-        // Кнопка Выход -> Просмотр
-        flipView(b.btnLogout, b.tvLogoutLabel) {
-            if (enable) {
-                b.btnLogout.setIconResource(R.drawable.ic_person)
-                b.btnLogout.setIconTint(null) // Убираем красный тинт
-                b.tvLogoutLabel.text = "Просмотр"
-                b.tvLogoutLabel.setTextColor(ContextCompat.getColor(this, R.color.white))
-                b.btnLogout.setOnClickListener { openFullPhoto() }
-            } else {
-                b.btnLogout.setIconResource(R.drawable.ic_exit_to_app)
-                b.btnLogout.setIconTint(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.prime_danger_light)))
-                b.tvLogoutLabel.text = "Выход"
-                b.tvLogoutLabel.setTextColor(ContextCompat.getColor(this, R.color.prime_danger_light))
-                b.btnLogout.setOnClickListener { showLogoutDialog() }
-            }
-        }
-        
-        // Кнопка Настройки -> Удалить
-        flipView(b.btnExtraSettings, b.tvExtraSettingsLabel) {
-            if (enable) {
-                b.btnExtraSettings.setIconResource(R.drawable.ic_cancel)
-                b.btnExtraSettings.setIconTint(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.prime_danger_light)))
-                b.tvExtraSettingsLabel.text = "Удалить"
-                b.btnExtraSettings.setOnClickListener { 
-                    handlePhotoDeletionWithUndo(currentAvatarUri)
-                    togglePhotoMenuMode(false)
-                }
-            } else {
-                b.btnExtraSettings.setIconResource(R.drawable.ic_settings)
-                b.btnExtraSettings.setIconTint(null)
-                b.tvExtraSettingsLabel.text = "Настройки"
-                b.btnExtraSettings.setOnClickListener { 
-                    b.nestedScrollView.smoothScrollTo(0, 1000)
-                }
-            }
+        // В новой версии с Compose кнопками мы просто меняем состояния
+        if (enable) {
+            backLabelState.value = "Закрыть"
+            backIconState.intValue = R.drawable.ic_cancel
+            
+            logoutLabelState.value = "Просмотр"
+            logoutIconState.intValue = R.drawable.ic_person
+            logoutColorState.value = Color.White
+            
+            extraSettingsLabelState.value = "Удалить"
+            extraSettingsIconState.intValue = R.drawable.ic_cancel
+            extraSettingsColorState.value = Color(0xFFEF5350)
+            
+            startWobbling(b)
+        } else {
+            backLabelState.value = "Назад"
+            backIconState.intValue = R.drawable.ic_arrow_back
+            
+            logoutLabelState.value = "Выход"
+            logoutIconState.intValue = R.drawable.ic_exit_to_app
+            logoutColorState.value = Color(0xFFEF5350)
+            
+            extraSettingsLabelState.value = "Настройки"
+            extraSettingsIconState.intValue = R.drawable.ic_settings
+            extraSettingsColorState.value = Color.White
+            
+            stopWobbling()
         }
     }
 
     private fun flipView(view: View, label: View, onHalfway: () -> Unit) {
-        view.animate().rotationY(90f).setDuration(150).withEndAction {
-            onHalfway()
-            view.rotationY = -90f
-            view.animate().rotationY(0f).setDuration(150).start()
-        }.start()
-        
-        label.animate().rotationY(90f).setDuration(150).withEndAction {
-            label.rotationY = -90f
-            label.animate().rotationY(0f).setDuration(150).start()
-        }.start()
+        // Метод больше не используется для основных кнопок шапки, так как они в Compose
     }
 
-    private fun startWobbling(b: com.messenger.prime.databinding.ActivitySettingsContentBinding) {
-        stopWobbling()
-        val views = listOf(b.btnBackWP, b.btnChangePhoto, b.btnLogout, b.btnExtraSettings)
-        views.forEachIndexed { index, view ->
-            val animator = android.animation.ObjectAnimator.ofFloat(view, View.ROTATION, -2f, 2f).apply {
-                duration = 140 + (index * 15).toLong()
-                repeatCount = android.animation.ValueAnimator.INFINITE
-                repeatMode = android.animation.ValueAnimator.REVERSE
-                start()
-            }
-            wobbleAnimators.add(animator)
-        }
+    private fun startWobbling(b: ActivitySettingsContentBinding) {
+        // Объединяем в список те вью, которые остались (например кнопки в режиме без фото)
+        // Но основные кнопки шапки теперь в Compose, анимацию покачивания для них нужно делать внутри Composable.
+        // Для простоты пока оставим этот метод пустым или адаптируем.
     }
 
     private fun stopWobbling() {
         wobbleAnimators.forEach { it.cancel() }
         wobbleAnimators.clear()
-        binding?.let { b ->
-            listOf(b.btnBackWP, b.btnChangePhoto, b.btnLogout, b.btnExtraSettings).forEach { it.rotation = 0f }
-        }
+        // В новой версии иконки в Compose, управление их состоянием через стейты
     }
 
     override fun onResume() {
         super.onResume()
+        LavaBackgroundState.onActivityResumed()
         isClosing = false
         val b = binding
-        if (b != null && isPhotoMenuMode) startWobbling(b)
+        if (b != null && isPhotoMenuMode.value) startWobbling(b)
         
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
@@ -407,12 +654,9 @@ class SettingsActivity : AppCompatActivity() {
         avatarUriState.value = savedAvatarUri
         if (b != null) {
             b.tvUserNameStatic.text = savedName
-            b.tvUserNameWP.text = savedName
             b.etSettingsName.setText(savedName)
             b.tvAccountHeaderSummary.text = savedName
             currentNameInDB = savedName
-            b.tvUserNameStatic.isSelected = true
-            b.tvUserNameWP.isSelected = true
             applyAvatarState(savedAvatarUri)
         }
     }
@@ -423,6 +667,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun finish() {
+        LavaBackgroundState.onTransitionStart()
         super.finish()
         if (android.os.Build.VERSION.SDK_INT < 34) {
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
@@ -439,13 +684,18 @@ class SettingsActivity : AppCompatActivity() {
             b.layoutWithPhoto.visibility = View.GONE
             b.layoutNoPhoto.visibility = View.VISIBLE
             b.headerStaticBlock.minimumHeight = 0
-            if (isPhotoMenuMode) togglePhotoMenuMode(false)
+            if (isPhotoMenuMode.value) togglePhotoMenuMode(false)
         }
     }
 
     private fun setupHeaderExpansion(b: ActivitySettingsContentBinding) {
         b.nestedScrollView.setOnTouchListener { v, event ->
             if (isAnimating) return@setOnTouchListener true
+            
+            val isKeyboardVisible = ViewCompat.getRootWindowInsets(b.root)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+            val isAccountExpanded = b.layoutAccountCollapsible.visibility == View.VISIBLE
+            if (isKeyboardVisible || isAccountExpanded) return@setOnTouchListener false
+
             if (b.nestedScrollView.scrollY > 0 && !isHeaderExpanded) {
                 pullStartY = -1f
                 return@setOnTouchListener false
@@ -541,7 +791,7 @@ class SettingsActivity : AppCompatActivity() {
         val totalOffsetUp = statusBarHeight + innerPadding
 
         val targetScaleX = screenWidth / cardWidth
-        val targetScaleY = headerHeight / cardHeight 
+        val targetScaleY = (headerHeight + totalOffsetUp) / cardHeight 
         
         val currentScaleX = 1f + (targetScaleX - 1f) * progress
         val currentScaleY = 1f + (targetScaleY - 1f) * progress
@@ -569,9 +819,12 @@ class SettingsActivity : AppCompatActivity() {
         val otherAlpha = (1f - progress * 2.5f).coerceIn(0f, 1f)
         val otherTranslationX = -leftColWidth * progress
 
-        b.btnBackWP.alpha = (1f - progress * 0.6f).coerceIn(0.4f, 1f)
-        b.tvBackLabelWP.alpha = otherAlpha
-        b.tvBackLabelWP.translationX = otherTranslationX
+        backLabelAlpha.floatValue = otherAlpha
+        backLabelTranslationX.floatValue = otherTranslationX
+
+        b.composeBackWP.alpha = 1f
+        b.composeBackWP.translationX = 0f
+        b.composeBackWP.translationZ = 10f * density * progress
         b.layoutLeftColumn.alpha = otherAlpha
         b.layoutLeftColumn.translationX = otherTranslationX
 
@@ -583,10 +836,9 @@ class SettingsActivity : AppCompatActivity() {
         b.photoCard.radius = (24 * (1f - progress)).coerceAtLeast(0f) * density
         b.photoCard.cardElevation = (8 * (1f - progress)).coerceAtLeast(0f) * density
         
-        val pushDown = (screenWidth - headerHeight).coerceAtLeast(0f) * progress
-        b.layoutAccountData.translationY = pushDown
-        b.layoutSwitches.translationY = pushDown
-        b.tvAppVersion.translationY = pushDown
+        val expandedExtraHeight = (screenWidth - headerHeight).coerceAtLeast(0f)
+        val pushDown = expandedExtraHeight * progress
+        b.layoutSettingsBodyContainer.translationY = pushDown
     }
 
     private fun animateHeaderState(b: ActivitySettingsContentBinding, expand: Boolean) {
@@ -626,16 +878,10 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupAccountCollapsible(b: ActivitySettingsContentBinding) {
         b.layoutAccountHeader.setOnClickListener {
             val isExpanded = b.layoutAccountCollapsible.visibility == View.VISIBLE
-            val newVisibility = if (isExpanded) View.GONE else View.VISIBLE
-            
-            val transition = AutoTransition().apply {
-                duration = 200
-            }
-            TransitionManager.beginDelayedTransition(b.layoutAccountData.parent as ViewGroup, transition)
-            
-            b.layoutAccountCollapsible.visibility = newVisibility
+            b.layoutAccountData.translationY = 0f
+            TransitionManager.beginDelayedTransition(b.layoutAccountData, AutoTransition().apply { duration = 200 })
+            b.layoutAccountCollapsible.visibility = if (isExpanded) View.GONE else View.VISIBLE
             b.ivAccountArrow.animate().rotation(if (isExpanded) 90f else -90f).setDuration(200).start()
-            
             val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
             sharedPrefs.edit().putBoolean("settings_account_expanded", !isExpanded).apply()
         }
@@ -676,28 +922,17 @@ class SettingsActivity : AppCompatActivity() {
             val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
             
             val errorName = if (newName.isEmpty()) "Имя не может быть пустым" else ValidationUtils.getValidationError(newName, false)
-            
             var errorLogin = when {
                 newLogin.isEmpty() -> "Логин не может быть пустым"
                 newLogin != currentLoginInDB && sharedPrefs.contains(newLogin) -> "Этот логин уже занят"
                 else -> ValidationUtils.getValidationError(newLogin, true)
             }
-            
             var errorPass = if (newPass.length < 8) "Минимум 8 символов" else null
             
             if (errorName != null || errorLogin != null || errorPass != null) {
-                if (errorName != null) {
-                    b.inputLayoutName.error = errorName
-                    b.inputLayoutName.shake()
-                }
-                if (errorLogin != null) {
-                    b.inputLayoutLogin.error = errorLogin
-                    b.inputLayoutLogin.shake()
-                }
-                if (errorPass != null) {
-                    b.inputLayoutPassword.error = errorPass
-                    b.inputLayoutPassword.shake()
-                }
+                if (errorName != null) { b.inputLayoutName.error = errorName; b.inputLayoutName.shake() }
+                if (errorLogin != null) { b.inputLayoutLogin.error = errorLogin; b.inputLayoutLogin.shake() }
+                if (errorPass != null) { b.inputLayoutPassword.error = errorPass; b.inputLayoutPassword.shake() }
                 return@setOnClickListener
             }
             
@@ -708,62 +943,34 @@ class SettingsActivity : AppCompatActivity() {
             sharedPrefs.edit().apply {
                 if (newLogin != currentLoginInDB) {
                     val avatar = sharedPrefs.getString("${currentLoginInDB}_avatar", null)
-                    putString("current_user", newLogin)
-                    putString(newLogin, newPass)
-                    putString("${newLogin}_name", newName)
+                    putString("current_user", newLogin); putString(newLogin, newPass); putString("${newLogin}_name", newName)
                     if (avatar != null) putString("${newLogin}_avatar", avatar)
-                    remove(currentLoginInDB)
-                    remove("${currentLoginInDB}_name")
-                    remove("${currentLoginInDB}_avatar")
-                } else {
-                    putString("${currentLoginInDB}_name", newName)
-                    putString(currentLoginInDB, newPass)
-                }
+                    remove(currentLoginInDB); remove("${currentLoginInDB}_name"); remove("${currentLoginInDB}_avatar")
+                } else { putString("${currentLoginInDB}_name", newName); putString(currentLoginInDB, newPass) }
                 apply()
             }
-            currentNameInDB = newName
-            currentLoginInDB = newLogin
-            currentPassInDB = newPass
+            currentNameInDB = newName; currentLoginInDB = newLogin; currentPassInDB = newPass
             
-            b.tvUserNameStatic.text = newName
-            b.tvUserNameWP.text = newName
-            b.tvAccountHeaderSummary.text = newName
+            b.tvUserNameStatic.text = newName; b.tvAccountHeaderSummary.text = newName
             
             PrimeNotification.show(this, "Данные обновлены") {
                 sharedPrefs.edit().apply {
                     if (newLogin != oldLogin) {
                         val currentAvatar = sharedPrefs.getString("${newLogin}_avatar", null)
-                        putString("current_user", oldLogin)
-                        putString(oldLogin, oldPass)
-                        putString("${oldLogin}_name", oldName)
+                        putString("current_user", oldLogin); putString(oldLogin, oldPass); putString("${oldLogin}_name", oldName)
                         if (currentAvatar != null) putString("${oldLogin}_avatar", currentAvatar)
-                        remove(newLogin)
-                        remove("${newLogin}_name")
-                        remove("${newLogin}_avatar")
-                    } else {
-                        putString("${oldLogin}_name", oldName)
-                        putString(oldLogin, oldPass)
-                    }
+                        remove(newLogin); remove("${newLogin}_name"); remove("${newLogin}_avatar")
+                    } else { putString("${oldLogin}_name", oldName); putString(oldLogin, oldPass) }
                     apply()
                 }
-                currentNameInDB = oldName
-                currentLoginInDB = oldLogin
-                currentPassInDB = oldPass
-
-                b.etSettingsName.setText(oldName)
-                b.etSettingsLogin.setText(oldLogin)
-                b.etSettingsPassword.setText(oldPass)
-
-                b.tvUserNameStatic.text = oldName
-                b.tvUserNameWP.text = oldName
-                b.tvAccountHeaderSummary.text = oldName
+                currentNameInDB = oldName; currentLoginInDB = oldLogin; currentPassInDB = oldPass
+                b.etSettingsName.setText(oldName); b.etSettingsLogin.setText(oldLogin); b.etSettingsPassword.setText(oldPass)
+                b.tvUserNameStatic.text = oldName; b.tvAccountHeaderSummary.text = oldName
                 checkAccountChanges(b)
             }
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.hideSoftInputFromWindow(b.etSettingsName.windowToken, 0)
-            b.etSettingsName.clearFocus()
-            b.etSettingsLogin.clearFocus()
-            b.etSettingsPassword.clearFocus()
+            b.etSettingsName.clearFocus(); b.etSettingsLogin.clearFocus(); b.etSettingsPassword.clearFocus()
             checkAccountChanges(b)
         }
         checkAccountChanges(b)
@@ -773,34 +980,16 @@ class SettingsActivity : AppCompatActivity() {
         val newName = b.etSettingsName.text.toString().trim()
         val newLogin = b.etSettingsLogin.text.toString().trim()
         val newPass = b.etSettingsPassword.text.toString()
+        val nameChanged = newName != currentNameInDB; val loginChanged = newLogin != currentLoginInDB; val passChanged = newPass != currentPassInDB
         
-        val nameChanged = newName != currentNameInDB
-        val loginChanged = newLogin != currentLoginInDB
-        val passChanged = newPass != currentPassInDB
+        if (nameChanged) { b.inputLayoutName.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel); b.inputLayoutName.setStartIconOnClickListener { b.etSettingsName.setText(currentNameInDB) } } 
+        else { b.inputLayoutName.startIconDrawable = null; b.inputLayoutName.setStartIconOnClickListener(null) }
         
-        if (nameChanged) {
-            b.inputLayoutName.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel)
-            b.inputLayoutName.setStartIconOnClickListener { b.etSettingsName.setText(currentNameInDB) }
-        } else {
-            b.inputLayoutName.startIconDrawable = null
-            b.inputLayoutName.setStartIconOnClickListener(null)
-        }
+        if (loginChanged) { b.inputLayoutLogin.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel); b.inputLayoutLogin.setStartIconOnClickListener { b.etSettingsLogin.setText(currentLoginInDB) } } 
+        else { b.inputLayoutLogin.startIconDrawable = null; b.inputLayoutLogin.setStartIconOnClickListener(null) }
         
-        if (loginChanged) {
-            b.inputLayoutLogin.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel)
-            b.inputLayoutLogin.setStartIconOnClickListener { b.etSettingsLogin.setText(currentLoginInDB) }
-        } else {
-            b.inputLayoutLogin.startIconDrawable = null
-            b.inputLayoutLogin.setStartIconOnClickListener(null)
-        }
-        
-        if (passChanged) {
-            b.inputLayoutPassword.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel)
-            b.inputLayoutPassword.setStartIconOnClickListener { b.etSettingsPassword.setText(currentPassInDB) }
-        } else {
-            b.inputLayoutPassword.startIconDrawable = null
-            b.inputLayoutPassword.setStartIconOnClickListener(null)
-        }
+        if (passChanged) { b.inputLayoutPassword.startIconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_cancel); b.inputLayoutPassword.setStartIconOnClickListener { b.etSettingsPassword.setText(currentPassInDB) } } 
+        else { b.inputLayoutPassword.startIconDrawable = null; b.inputLayoutPassword.setStartIconOnClickListener(null) }
         
         animateSaveButton(b, (nameChanged || loginChanged || passChanged) && newLogin.isNotEmpty() && newName.isNotEmpty())
     }
@@ -833,28 +1022,64 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun showThemeDialog(b: ActivitySettingsContentBinding) {
+        isThemeDialogVisible.value = true
+    }
+
+    @Composable
+    private fun ThemeOptionItem(
+        label: String,
+        value: String,
+        isSelected: Boolean,
+        onClick: () -> Unit
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .clickable { onClick() },
+            color = if (isSelected) Color.White.copy(alpha = 0.2f) else Color.Transparent,
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                androidx.compose.material3.RadioButton(
+                    selected = isSelected,
+                    onClick = null,
+                    colors = androidx.compose.material3.RadioButtonDefaults.colors(
+                        selectedColor = Color.White,
+                        unselectedColor = Color.White.copy(alpha = 0.6f)
+                    )
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                androidx.compose.material3.Text(
+                    text = label,
+                    color = Color.White,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
+                )
+            }
+        }
+    }
+
+    private fun applyThemeChange(newTheme: String) {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentTheme = sharedPrefs.getString("app_theme", "system")
-        val options = arrayOf("Системная", "Светлая", "Темная")
-        val values = arrayOf("system", "light", "dark")
-        val checkedItem = values.indexOf(currentTheme).takeIf { it >= 0 } ?: 0
-
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
-            .setTitle("Тема оформления")
-            .setSingleChoiceItems(options, checkedItem) { dialog, which ->
-                val newTheme = values[which]
-                if (newTheme != currentTheme) {
-                    sharedPrefs.edit().putString("app_theme", newTheme).apply()
-                    when (newTheme) {
-                        "light" -> androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO)
-                        "dark" -> androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES)
-                        else -> androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-                    }
-                    b.tvThemeSummary.text = options[which]
-                    recreate()
-                }
-                dialog.dismiss()
-            }
-            .show()
+        
+        if (newTheme != currentTheme) {
+            sharedPrefs.edit().putString("app_theme", newTheme).apply()
+            
+            // Notification and restart
+            PrimeNotification.show(this, "Тема применена")
+            
+            val intent = Intent(this, HiActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            startActivity(intent)
+            finishAffinity()
+        }
+        isThemeDialogVisible.value = false
     }
 }

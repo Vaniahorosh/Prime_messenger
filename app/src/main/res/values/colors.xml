@@ -11,6 +11,10 @@
     <color name="prime_overlay_dark">#99000000</color>
 
     <!-- Semantic Colors (Light Theme) -->
+    <color name="login_background">@color/grad_start</color>
+    <color name="login_button_background">@color/white</color>
+    <color name="login_button_tint">@color/grad_start</color>
+    <color name="hi_background">@color/prime_background_blue</color>
     <color name="prime_base">#F4F7FB</color>
     <color name="prime_surface">#FFFFFF</color>
     <color name="prime_search_bg">#F0F2F5</color>

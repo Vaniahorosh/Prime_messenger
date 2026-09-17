@@ -4,19 +4,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="@drawable/bg_main_gradient">
+    android:background="@android:color/transparent">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingBottom="32dp">
-
-        <View
-            android:id="@+id/topHeader"
-            android:layout_width="match_parent"
-            android:layout_height="88dp"
-            android:background="@drawable/bg_main_gradient"
-            app:layout_constraintTop_toTopOf="parent" />
 
         <ImageView
             android:id="@+id/btnBack"
@@ -31,138 +24,142 @@
             app:layout_constraintTop_toTopOf="parent"
             app:tint="@color/white" />
 
-        <TextView
-            android:id="@+id/tvTitle"
-            android:layout_width="0dp"
+        <!-- Центрированный контейнер для основного контента -->
+        <LinearLayout
+            android:id="@+id/centerContainer"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"
-            android:text="Приветствуем!"
-            android:textColor="@color/white"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:shadowColor="#40000000"
-            android:shadowDx="2"
-            android:shadowDy="2"
-            android:shadowRadius="4"
-            app:layout_constraintBottom_toBottomOf="@+id/btnBack"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/btnBack"
-            app:layout_constraintTop_toTopOf="@+id/btnBack" />
-
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/glassCard"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
             android:layout_marginHorizontal="24dp"
-            android:layout_marginTop="40dp"
-            android:background="@drawable/bg_glass_card"
-            android:padding="24dp"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tvTitle">
+            app:layout_constraintEnd_toEndOf="parent">
 
             <TextView
-                android:id="@+id/tvSubtitle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:text="Давайте выполним вход, но если вы тут впервые, то введите желаемый логин."
-                android:textAlignment="center"
-                android:textColor="@color/white"
-                android:alpha="0.8"
-                android:textSize="14sp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/inputLayoutLogin"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:hint="Логин"
-                app:boxBackgroundColor="@color/glass_white_10"
-                app:boxStrokeWidth="0dp"
-                app:boxStrokeWidthFocused="1dp"
-                app:boxStrokeColor="@color/white"
-                app:boxCornerRadiusTopStart="16dp"
-                app:boxCornerRadiusTopEnd="16dp"
-                app:boxCornerRadiusBottomStart="16dp"
-                app:boxCornerRadiusBottomEnd="16dp"
-                app:hintTextColor="@color/white"
-                app:placeholderTextColor="@color/glass_white_30"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/tvSubtitle">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etLogin"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:maxLength="15"
-                    android:inputType="textNoSuggestions"
-                    android:textColor="@color/white" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/inputLayoutPassword"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:hint="Пароль"
-                android:visibility="gone"
-                app:boxBackgroundColor="@color/glass_white_10"
-                app:boxStrokeWidth="0dp"
-                app:boxStrokeWidthFocused="1dp"
-                app:boxStrokeColor="@color/white"
-                app:boxCornerRadiusTopStart="16dp"
-                app:boxCornerRadiusTopEnd="16dp"
-                app:boxCornerRadiusBottomStart="16dp"
-                app:boxCornerRadiusBottomEnd="16dp"
-                app:endIconMode="password_toggle"
-                app:endIconTint="@color/white"
-                app:hintTextColor="@color/white"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/inputLayoutLogin">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etPassword"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="textPassword"
-                    android:textColor="@color/white" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <TextView
-                android:id="@+id/tvError"
+                android:id="@+id/tvTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="Неверный пароль"
-                android:textColor="@color/prime_danger_light"
+                android:text="Приветствуем!"
+                android:textColor="@color/white"
+                android:textSize="28sp"
                 android:textStyle="bold"
-                android:visibility="gone"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/inputLayoutPassword" />
+                android:shadowColor="#40000000"
+                android:shadowDx="2"
+                android:shadowDy="2"
+                android:shadowRadius="4"
+                android:layout_marginBottom="40dp" />
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/glassCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_glass_card"
+                android:padding="24dp">
 
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/btnForward"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            app:backgroundTint="@color/white"
-            app:tint="@color/grad_start"
-            android:src="@drawable/ic_arrow_forward"
-            app:layout_constraintEnd_toEndOf="@+id/glassCard"
-            app:layout_constraintTop_toBottomOf="@+id/glassCard"
-            app:shapeAppearanceOverlay="@style/SquareFABShape"
-            app:elevation="8dp"/>
+                <TextView
+                    android:id="@+id/tvSubtitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="Давайте выполним вход, но если вы тут впервые, то введите желаемый логин."
+                    android:textAlignment="center"
+                    android:textColor="@color/white"
+                    android:alpha="0.8"
+                    android:textSize="14sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputLayoutLogin"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:hint="Логин"
+                    app:boxBackgroundColor="@color/glass_white_10"
+                    app:boxStrokeWidth="0dp"
+                    app:boxStrokeWidthFocused="1dp"
+                    app:boxStrokeColor="@color/white"
+                    app:boxCornerRadiusTopStart="16dp"
+                    app:boxCornerRadiusTopEnd="16dp"
+                    app:boxCornerRadiusBottomStart="16dp"
+                    app:boxCornerRadiusBottomEnd="16dp"
+                    app:hintTextColor="@color/white"
+                    app:placeholderTextColor="@color/glass_white_30"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/tvSubtitle">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etLogin"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:maxLength="15"
+                        android:inputType="textNoSuggestions"
+                        android:textColor="@color/white" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputLayoutPassword"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:hint="Пароль"
+                    android:visibility="gone"
+                    app:boxBackgroundColor="@color/glass_white_10"
+                    app:boxStrokeWidth="0dp"
+                    app:boxStrokeWidthFocused="1dp"
+                    app:boxStrokeColor="@color/white"
+                    app:boxCornerRadiusTopStart="16dp"
+                    app:boxCornerRadiusTopEnd="16dp"
+                    app:boxCornerRadiusBottomStart="16dp"
+                    app:boxCornerRadiusBottomEnd="16dp"
+                    app:endIconMode="password_toggle"
+                    app:endIconTint="@color/white"
+                    app:hintTextColor="@color/white"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/inputLayoutLogin">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPassword"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textPassword"
+                        android:textColor="@color/white" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/tvError"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Неверный пароль"
+                    android:textColor="@color/prime_danger_light"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/inputLayoutPassword" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/btnForward"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:layout_gravity="end"
+                app:backgroundTint="@color/login_button_background"
+                app:tint="@color/login_button_tint"
+                android:src="@drawable/ic_arrow_forward"
+                app:shapeAppearanceOverlay="@style/SquareFABShape"
+                app:elevation="8dp"/>
+
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </ScrollView>

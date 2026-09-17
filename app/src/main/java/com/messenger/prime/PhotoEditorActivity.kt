@@ -95,6 +95,8 @@ class PhotoEditorActivity : AppCompatActivity() {
         private const val MAX_ZOOM = 5.0f
     }
 
+    private val hazeState = HazeState()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -127,7 +129,6 @@ class PhotoEditorActivity : AppCompatActivity() {
         val uriString = intent.getStringExtra("EXTRA_IMAGE_URI")
 
         findViewById<ComposeView>(R.id.composeRoot).setContent {
-            val hazeState = remember { HazeState() }
             Box(modifier = Modifier.fillMaxSize()) {
                 AndroidView(
                     factory = { _ ->
@@ -160,7 +161,7 @@ class PhotoEditorActivity : AppCompatActivity() {
                         
                         view
                     },
-                    modifier = Modifier.fillMaxSize().hazeSource(hazeState)
+                    modifier = Modifier.fillMaxSize()
                 )
 
                 // Размытие для системной панели навигации
@@ -586,7 +587,22 @@ class PhotoEditorActivity : AppCompatActivity() {
         val dialogBinding = DialogColorPickerBinding.inflate(layoutInflater)
         val dialog = AlertDialog.Builder(this, R.style.Theme_Prime_AlertDialog).setView(dialogBinding.root).create()
         dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
-        
+
+        dialogBinding.hazeView.setContent {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeEffect(
+                        state = hazeState,
+                        style = HazeStyle(
+                            tint = dev.chrisbanes.haze.HazeTint(Color(0xFF154B87).copy(alpha = 0.6f)),
+                            blurRadius = 24.dp,
+                            noiseFactor = 0.05f
+                        )
+                    )
+            )
+        }
+
         dialogBinding.viewColorPreview.backgroundTintList = android.content.res.ColorStateList.valueOf(currentBrushColor)
         dialogBinding.etHex.setText(String.format("#%06X", (0xFFFFFF and currentBrushColor)))
         dialogBinding.etR.setText(android.graphics.Color.red(currentBrushColor).toString())
