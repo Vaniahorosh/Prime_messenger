@@ -30,6 +30,6 @@
         android:layout_marginTop="12dp"
         android:alpha="0.6"
         android:text="Это все ваши чаты"
-        android:textColor="#8E8E93"
+        android:textColor="@color/prime_text_secondary"
         android:textSize="12sp" />
 </LinearLayout>

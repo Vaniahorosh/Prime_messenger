@@ -128,7 +128,7 @@ class HiActivity : AppCompatActivity() {
             TextView(this).apply {
                 gravity = Gravity.CENTER
                 textSize = 20f
-                setTextColor(ContextCompat.getColor(this@HiActivity, R.color.prime_button_teal))
+                setTextColor(ContextCompat.getColor(this@HiActivity, R.color.prime_brand))
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
@@ -141,7 +141,7 @@ class HiActivity : AppCompatActivity() {
             TextView(this).apply {
                 gravity = Gravity.CENTER
                 textSize = 22f
-                setTextColor(Color.WHITE)
+                setTextColor(ContextCompat.getColor(this@HiActivity, R.color.prime_brand))
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,

@@ -63,7 +63,7 @@
         android:layout_marginBottom="32dp"
         android:clickable="true"
         android:focusable="true"
-        app:cardBackgroundColor="@color/prime_button_teal"
+        app:cardBackgroundColor="@color/prime_surface"
         app:cardCornerRadius="15dp"
         app:cardElevation="4dp"
         app:rippleColor="@color/white"

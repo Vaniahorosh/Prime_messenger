@@ -142,7 +142,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="Неверный пароль"
-                android:textColor="#FF8A80"
+                android:textColor="@color/prime_danger_light"
                 android:textStyle="bold"
                 android:visibility="gone"
                 app:layout_constraintEnd_toEndOf="parent"

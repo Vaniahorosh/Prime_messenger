@@ -4,14 +4,14 @@
     android:id="@+id/dialogRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#99000000"
+    android:background="@color/prime_overlay_dark"
     android:padding="24dp">
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardBackgroundColor="#CC154B86"
+        app:cardBackgroundColor="@color/prime_brand_alpha_80"
         app:cardCornerRadius="24dp"
         app:cardElevation="0dp"
         app:layout_constraintBottom_toBottomOf="parent"

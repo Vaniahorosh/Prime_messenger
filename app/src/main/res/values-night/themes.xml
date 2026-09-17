@@ -1,17 +1,19 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
 
     <style name="Theme.Prime" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/prime_background_blue</item>
+        <item name="colorPrimary">@color/prime_brand</item>
+        <item name="colorAccent">@color/prime_brand</item>
         <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/prime_button_teal</item>
+        <item name="colorSecondary">@color/prime_brand</item>
         <item name="colorOnSecondary">@color/white</item>
-        <item name="android:windowBackground">#121212</item>
-        <item name="android:colorBackground">#121212</item>
-        <item name="colorSurface">#121212</item>
-        <item name="colorOnSurface">@color/white</item>
-        <item name="colorSurfaceVariant">#49454F</item>
-        <item name="colorOnSurfaceVariant">#CAC4D0</item>
+        <item name="android:windowBackground">@color/prime_base</item>
+        <item name="android:colorBackground">@color/prime_base</item>
+        <item name="colorSurface">@color/prime_base</item>
+        <item name="colorOnSurface">@color/prime_text_primary</item>
+        <item name="colorSurfaceVariant">@color/prime_surface</item>
+        <item name="colorOnSurfaceVariant">@color/prime_text_secondary</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
     </style>
 
     <style name="Theme.Prime.Swipe" parent="Theme.Prime">

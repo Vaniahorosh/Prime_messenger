@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
-        android:background="#F7F9FC"
+        android:background="@color/prime_base"
         android:overScrollMode="never">
 
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -27,7 +27,7 @@
                 android:id="@+id/headerStaticBlock"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="#154B87"
+                android:background="@color/prime_brand"
                 android:elevation="4dp"
                 android:paddingBottom="24dp"
                 android:clipChildren="false"
@@ -137,14 +137,14 @@
                             app:iconGravity="textStart"
                             app:iconPadding="0dp"
                             app:iconSize="24dp"
-                            app:iconTint="#FF8A80" />
+                            app:iconTint="@color/prime_danger_light" />
                         <TextView
                             android:id="@+id/tvLogoutLabel"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="8dp"
                             android:text="Выход"
-                            android:textColor="#FFCDD2"
+                            android:textColor="@color/prime_danger_light"
                             android:textSize="10sp"
                             android:textStyle="bold" />
 
@@ -374,12 +374,12 @@
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
                                 app:iconSize="24dp"
-                                app:iconTint="#FF8A80" />
+                                app:iconTint="@color/prime_danger_light" />
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Выход"
-                                android:textColor="#FFCDD2"
+                                android:textColor="@color/prime_danger_light"
                                 android:textSize="10sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
@@ -445,7 +445,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Вы в прайме,"
-                        android:textColor="#666666"
+                        android:textColor="@color/prime_text_secondary"
                         android:textSize="12sp"
                         android:textStyle="bold"
                         app:layout_constraintTop_toTopOf="parent"
@@ -456,7 +456,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:textColor="#154B87"
+                        android:textColor="@color/prime_brand"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         app:layout_constraintTop_toBottomOf="@id/tvAccountHeaderLabel"
@@ -470,7 +470,7 @@
                         android:layout_height="24dp"
                         android:src="@drawable/ic_arrow_forward"
                         android:rotation="90"
-                        app:tint="#154B87"
+                        app:tint="@color/prime_brand"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintBottom_toBottomOf="parent"
                         app:layout_constraintEnd_toEndOf="parent" />
@@ -489,14 +489,14 @@
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_marginVertical="12dp"
-                        android:background="#E0E0E0" />
+                        android:background="@color/prime_divider" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="8dp"
                         android:text="Имя"
-                        android:textColor="#666666"
+                        android:textColor="@color/prime_text_secondary"
                         android:textSize="12sp"
                         android:textStyle="bold" />
 
@@ -511,7 +511,7 @@
                         app:hintEnabled="false"
                         app:counterEnabled="true"
                         app:counterMaxLength="16"
-                        app:startIconTint="#154B87">
+                        app:startIconTint="@color/prime_brand">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etSettingsName"
                             android:layout_width="match_parent"
@@ -521,7 +521,7 @@
                             android:hint="Введите имя"
                             android:maxLength="16"
                             android:inputType="textPersonName"
-                            android:textColor="#154B87"
+                            android:textColor="@color/prime_brand"
                             android:textStyle="bold" />
                     </com.google.android.material.textfield.TextInputLayout>
 
@@ -529,14 +529,14 @@
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_marginVertical="12dp"
-                        android:background="#E0E0E0" />
+                        android:background="@color/prime_divider" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="8dp"
                         android:text="Логин"
-                        android:textColor="#666666"
+                        android:textColor="@color/prime_text_secondary"
                         android:textSize="12sp"
                         android:textStyle="bold" />
 
@@ -552,8 +552,8 @@
                         app:counterEnabled="true"
                         app:counterMaxLength="15"
                         app:endIconMode="password_toggle"
-                        app:endIconTint="#154B87"
-                        app:startIconTint="#154B87">
+                        app:endIconTint="@color/prime_brand"
+                        app:startIconTint="@color/prime_brand">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etSettingsLogin"
                             android:layout_width="match_parent"
@@ -564,7 +564,7 @@
                             android:maxLength="15"
                             android:digits="abcdefghijklmnopqrstuvwxyz0123456789_"
                             android:inputType="textPassword"
-                            android:textColor="#154B87"
+                            android:textColor="@color/prime_brand"
                             android:textStyle="bold" />
                     </com.google.android.material.textfield.TextInputLayout>
 
@@ -572,14 +572,14 @@
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_marginVertical="12dp"
-                        android:background="#E0E0E0" />
+                        android:background="@color/prime_divider" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="8dp"
                         android:text="Пароль"
-                        android:textColor="#666666"
+                        android:textColor="@color/prime_text_secondary"
                         android:textSize="12sp"
                         android:textStyle="bold" />
 
@@ -595,7 +595,7 @@
                         app:counterEnabled="true"
                         app:counterMaxLength="32"
                         app:endIconMode="password_toggle"
-                        app:endIconTint="#154B87">
+                        app:endIconTint="@color/prime_brand">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etSettingsPassword"
                             android:layout_width="match_parent"
@@ -605,7 +605,7 @@
                             android:hint="Введите пароль"
                             android:maxLength="32"
                             android:inputType="textPassword"
-                            android:textColor="#154B87" />
+                            android:textColor="@color/prime_brand" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <com.google.android.material.button.MaterialButton
@@ -618,7 +618,7 @@
                         android:textColor="@color/white"
                         android:textStyle="bold"
                         android:visibility="gone"
-                        app:backgroundTint="#154B87"
+                        app:backgroundTint="@color/prime_brand"
                         app:cornerRadius="12dp"
                         app:elevation="4dp" />
                 </LinearLayout>
@@ -639,14 +639,14 @@
                     android:layout_width="0dp"
                     android:layout_height="1dp"
                     android:layout_weight="1"
-                    android:background="@color/grad_end" />
+                    android:background="@color/prime_brand_dark" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginHorizontal="16dp"
                     android:text="Настройки"
-                    android:textColor="@color/grad_start"
+                    android:textColor="@color/prime_brand"
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:textAllCaps="true"
@@ -656,7 +656,7 @@
                     android:layout_width="0dp"
                     android:layout_height="1dp"
                     android:layout_weight="1"
-                    android:background="#154A86" />
+                    android:background="@color/prime_brand_dark" />
             </LinearLayout>
 
             <!-- Блок настроек (тумблеры) -->
@@ -669,12 +669,49 @@
                 android:orientation="vertical"
                 app:layout_constraintTop_toBottomOf="@+id/layoutSettingsHeader">
 
+                <!-- Тема оформления -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardTheme"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardBackgroundColor="@color/prime_surface"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Тема оформления"
+                            android:textColor="@color/prime_brand"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvThemeSummary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Системная"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
                 <!-- Анимации -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
-                    app:cardBackgroundColor="@color/white"
+                    app:cardBackgroundColor="@color/prime_surface"
                     app:cardCornerRadius="24dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="0dp">
@@ -690,7 +727,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="Анимации интерфейса"
-                            android:textColor="#154B87"
+                            android:textColor="@color/prime_brand"
                             android:textStyle="bold"
                             android:checked="true"
                             app:showText="false" />
@@ -700,7 +737,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
                             android:text="Включает плавные переходы и визуальные эффекты в приложении"
-                            android:textColor="#757575"
+                            android:textColor="@color/prime_text_secondary"
                             android:textSize="12sp" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -710,7 +747,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
-                    app:cardBackgroundColor="@color/white"
+                    app:cardBackgroundColor="@color/prime_surface"
                     app:cardCornerRadius="24dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="0dp">
@@ -726,7 +763,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="Чёрный список"
-                            android:textColor="#154B87"
+                            android:textColor="@color/prime_brand"
                             android:textStyle="bold"
                             app:showText="false" />
 
@@ -735,7 +772,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
                             android:text="Управление списком заблокированных контактов и пользователей"
-                            android:textColor="#757575"
+                            android:textColor="@color/prime_text_secondary"
                             android:textSize="12sp" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -745,7 +782,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
-                    app:cardBackgroundColor="@color/white"
+                    app:cardBackgroundColor="@color/prime_surface"
                     app:cardCornerRadius="24dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="0dp">
@@ -761,7 +798,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="Скрыть поиск"
-                            android:textColor="#154B87"
+                            android:textColor="@color/prime_brand"
                             android:textStyle="bold"
                             app:showText="false" />
 
@@ -770,7 +807,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
                             android:text="Скрывает строку поиска на главном экране чатов"
-                            android:textColor="#757575"
+                            android:textColor="@color/prime_text_secondary"
                             android:textSize="12sp" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -783,7 +820,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="32dp"
                 android:text="Prime v1.0.0"
-                android:textColor="#154B87"
+                android:textColor="@color/prime_brand"
                 android:alpha="0.4"
                 android:textSize="12sp"
                 app:layout_constraintTop_toBottomOf="@+id/layoutSwitches"

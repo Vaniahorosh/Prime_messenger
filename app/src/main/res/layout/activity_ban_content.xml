@@ -93,7 +93,7 @@
         android:textColor="@color/prime_background_blue"
         android:textSize="18sp"
         android:textStyle="bold"
-        app:backgroundTint="#FF8A80"
+        app:backgroundTint="@color/prime_danger_light"
         app:cornerRadius="18dp"
         app:layout_constraintBottom_toTopOf="@+id/tvDeleteWarning"
         app:layout_constraintEnd_toEndOf="parent"

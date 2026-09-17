@@ -32,7 +32,7 @@
                 <FrameLayout
                     android:layout_width="72dp"
                     android:layout_height="match_parent"
-                    android:background="#BDBDBD">
+                    android:background="@color/prime_surface">
                     <ImageButton
                         android:id="@+id/btnEditContact"
                         android:layout_width="match_parent"
@@ -47,7 +47,7 @@
                 <FrameLayout
                     android:layout_width="72dp"
                     android:layout_height="match_parent"
-                    android:background="#F44336">
+                    android:background="@color/prime_danger">
                     <ImageButton
                         android:id="@+id/btnDeleteContact"
                         android:layout_width="match_parent"
@@ -89,7 +89,7 @@
                 android:id="@+id/ivUserAvatar"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="#F0F0F0"
+                android:background="@color/prime_surface"
                 android:scaleType="centerCrop"
                 android:src="@drawable/ic_person"
                 app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
@@ -126,7 +126,7 @@
             android:layout_marginStart="16dp"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="#1D1B20"
+            android:textColor="@color/prime_text_primary"
             android:textSize="16sp"
             android:textStyle="bold"
             app:layout_constraintEnd_toStartOf="@+id/tvMessageTime"
@@ -139,7 +139,7 @@
             android:id="@+id/tvMessageTime"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#8E8E93"
+            android:textColor="@color/prime_text_secondary"
             android:textSize="12sp"
             app:layout_constraintBottom_toBottomOf="@+id/tvContactName"
             app:layout_constraintEnd_toEndOf="parent"
@@ -154,7 +154,7 @@
             android:layout_marginTop="4dp"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="#49454F"
+            android:textColor="@color/prime_text_primary"
             android:textSize="14sp"
             app:layout_constraintEnd_toStartOf="@+id/layoutStatusContainer"
             app:layout_constraintStart_toStartOf="@+id/tvContactName"
@@ -179,7 +179,7 @@
                 android:layout_marginEnd="6dp"
                 android:src="@drawable/ic_notifications_off"
                 android:visibility="gone"
-                app:tint="#8E8E93" />
+                app:tint="@color/prime_text_secondary" />
 
             <ImageView
                 android:id="@+id/ivMessageStatus"

@@ -269,6 +269,14 @@ class SettingsActivity : AppCompatActivity() {
         b.switchBlocked.isChecked = sharedPrefs.getBoolean("settings_show_blocked", false)
         b.switchSearch.isChecked = sharedPrefs.getBoolean("settings_hide_search", false)
 
+        val theme = sharedPrefs.getString("app_theme", "system")
+        b.tvThemeSummary.text = when(theme) {
+            "light" -> "Светлая"
+            "dark" -> "Темная"
+            else -> "Системная"
+        }
+        b.cardTheme.setOnClickListener { showThemeDialog(b) }
+
         b.switchAnimations.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("settings_animations", isChecked).apply()
         }
@@ -317,13 +325,13 @@ class SettingsActivity : AppCompatActivity() {
                 b.btnLogout.setIconResource(R.drawable.ic_person)
                 b.btnLogout.setIconTint(null) // Убираем красный тинт
                 b.tvLogoutLabel.text = "Просмотр"
-                b.tvLogoutLabel.setTextColor(android.graphics.Color.WHITE)
+                b.tvLogoutLabel.setTextColor(ContextCompat.getColor(this, R.color.white))
                 b.btnLogout.setOnClickListener { openFullPhoto() }
             } else {
                 b.btnLogout.setIconResource(R.drawable.ic_exit_to_app)
-                b.btnLogout.setIconTint(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FF8A80")))
+                b.btnLogout.setIconTint(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.prime_danger_light)))
                 b.tvLogoutLabel.text = "Выход"
-                b.tvLogoutLabel.setTextColor(android.graphics.Color.parseColor("#FFCDD2"))
+                b.tvLogoutLabel.setTextColor(ContextCompat.getColor(this, R.color.prime_danger_light))
                 b.btnLogout.setOnClickListener { showLogoutDialog() }
             }
         }
@@ -332,7 +340,7 @@ class SettingsActivity : AppCompatActivity() {
         flipView(b.btnExtraSettings, b.tvExtraSettingsLabel) {
             if (enable) {
                 b.btnExtraSettings.setIconResource(R.drawable.ic_cancel)
-                b.btnExtraSettings.setIconTint(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FF8A80")))
+                b.btnExtraSettings.setIconTint(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.prime_danger_light)))
                 b.tvExtraSettingsLabel.text = "Удалить"
                 b.btnExtraSettings.setOnClickListener { 
                     handlePhotoDeletionWithUndo(currentAvatarUri)
@@ -822,5 +830,31 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun showLogoutDialog() {
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog).setTitle("Выход").setMessage("Сделать выход из аккаунта?").setPositiveButton("Да") { _, _ -> getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).edit().putBoolean("is_logged_in", false).apply(); startActivity(Intent(this, LoginActivity::class.java)); finishAffinity() }.setNegativeButton("Нет", null).show()
+    }
+
+    private fun showThemeDialog(b: ActivitySettingsContentBinding) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentTheme = sharedPrefs.getString("app_theme", "system")
+        val options = arrayOf("Системная", "Светлая", "Темная")
+        val values = arrayOf("system", "light", "dark")
+        val checkedItem = values.indexOf(currentTheme).takeIf { it >= 0 } ?: 0
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
+            .setTitle("Тема оформления")
+            .setSingleChoiceItems(options, checkedItem) { dialog, which ->
+                val newTheme = values[which]
+                if (newTheme != currentTheme) {
+                    sharedPrefs.edit().putString("app_theme", newTheme).apply()
+                    when (newTheme) {
+                        "light" -> androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO)
+                        "dark" -> androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES)
+                        else -> androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+                    }
+                    b.tvThemeSummary.text = options[which]
+                    recreate()
+                }
+                dialog.dismiss()
+            }
+            .show()
     }
 }

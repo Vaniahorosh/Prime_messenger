@@ -968,7 +968,7 @@ class ChatListActivity : AppCompatActivity() {
                     val cornerRadius = 24.dpToPx()
                     
                     // При свайпе показываем только красный фон (удаление)
-                    paint.color = android.graphics.Color.parseColor("#F44336")
+                    paint.color = androidx.core.content.ContextCompat.getColor(this@ChatListActivity, R.color.prime_danger)
                     val background = android.graphics.RectF(itemView.right.toFloat() + dX, itemView.top.toFloat() + 6.dpToPx(), itemView.right.toFloat(), itemView.bottom.toFloat() - 6.dpToPx())
                     c.drawRoundRect(background, cornerRadius, cornerRadius, paint)
 

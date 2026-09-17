@@ -1,16 +1,17 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
 
     <style name="Theme.Prime" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/prime_background_blue</item>
+        <item name="colorPrimary">@color/prime_brand</item>
+        <item name="colorAccent">@color/prime_brand</item>
         <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/prime_button_teal</item>
+        <item name="colorSecondary">@color/prime_brand</item>
         <item name="colorOnSecondary">@color/white</item>
-        <item name="android:windowBackground">#F7F9FC</item>
-        <item name="android:colorBackground">#F7F9FC</item>
-        <item name="colorSurface">#F7F9FC</item>
-        <item name="colorOnSurface">#1D1B20</item>
-        <item name="colorSurfaceVariant">#E7E0EC</item>
-        <item name="colorOnSurfaceVariant">#49454F</item>
+        <item name="android:windowBackground">@color/prime_base</item>
+        <item name="android:colorBackground">@color/prime_base</item>
+        <item name="colorSurface">@color/prime_base</item>
+        <item name="colorOnSurface">@color/prime_text_primary</item>
+        <item name="colorSurfaceVariant">@color/prime_surface</item>
+        <item name="colorOnSurfaceVariant">@color/prime_text_secondary</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="p">shortEdges</item>
@@ -49,11 +50,11 @@
     </style>
 
     <!-- Стиль для диалогов в стиле Prime -->
-    <style name="Theme.Prime.AlertDialog" parent="Theme.MaterialComponents.Light.Dialog.Alert">
-        <item name="colorPrimary">@color/prime_background_blue</item>
-        <item name="colorAccent">@color/prime_background_blue</item>
-        <item name="android:windowBackground">@color/white</item>
-        <item name="android:textColorPrimary">#333333</item>
+    <style name="Theme.Prime.AlertDialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
+        <item name="colorPrimary">@color/prime_brand</item>
+        <item name="colorAccent">@color/prime_brand</item>
+        <item name="android:windowBackground">@color/prime_surface</item>
+        <item name="android:textColorPrimary">@color/prime_text_primary</item>
         <item name="shapeAppearanceMediumComponent">@style/RoundedDialogShape</item>
         <item name="buttonBarPositiveButtonStyle">@style/Widget.Prime.Button.Dialog</item>
         <item name="buttonBarNegativeButtonStyle">@style/Widget.Prime.Button.Dialog.Negative</item>
@@ -65,12 +66,12 @@
     </style>
 
     <style name="Widget.Prime.Button.Dialog" parent="Widget.MaterialComponents.Button.TextButton">
-        <item name="android:textColor">@color/prime_background_blue</item>
+        <item name="android:textColor">@color/prime_brand</item>
         <item name="android:textStyle">bold</item>
     </style>
 
     <style name="Widget.Prime.Button.Dialog.Negative" parent="Widget.MaterialComponents.Button.TextButton">
-        <item name="android:textColor">#D32F2F</item>
+        <item name="android:textColor">@color/prime_danger</item>
     </style>
 
     <style name="EditorToolButton">

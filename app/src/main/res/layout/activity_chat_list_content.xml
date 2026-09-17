@@ -5,7 +5,7 @@
     android:id="@+id/photoRootContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F7F8FA"
+    android:background="@color/prime_base"
     android:clipChildren="false"
     tools:context=".ChatListActivity">
 
@@ -40,7 +40,7 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:text="Прайма не видно, начните с кем нибудь общение!"
-            android:textColor="#49454F"
+            android:textColor="@color/prime_text_secondary"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -49,7 +49,7 @@
             android:layout_width="wrap_content"
             android:layout_height="64dp"
             android:layout_marginTop="24dp"
-            android:backgroundTint="@color/prime_background_blue"
+            android:backgroundTint="@color/prime_brand"
             android:paddingHorizontal="32dp"
             android:text="Начать общение"
             android:textColor="@color/white"

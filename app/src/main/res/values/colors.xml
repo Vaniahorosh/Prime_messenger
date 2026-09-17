@@ -4,8 +4,28 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <!-- Цвета Prime -->
-    <color name="prime_background_blue">#154B87</color> <!-- Синий фон -->
+    <!-- Prime Brand -->
+    <color name="prime_brand">#154B87</color>
+    <color name="prime_brand_alpha_80">#CC154B87</color>
+    <color name="prime_brand_alpha_85">#D9154B87</color>
+    <color name="prime_overlay_dark">#99000000</color>
+
+    <!-- Semantic Colors (Light Theme) -->
+    <color name="prime_base">#F4F7FB</color>
+    <color name="prime_surface">#FFFFFF</color>
+    <color name="prime_search_bg">#F0F2F5</color>
+    <color name="prime_text_primary">#172033</color>
+    <color name="prime_text_secondary">#71809A</color>
+    <color name="prime_divider">#D9E1EC</color>
+    <color name="prime_icon_secondary">#71809A</color>
+    <color name="prime_danger">#D32F2F</color>
+    <color name="prime_danger_light">#FFCDD2</color>
+    <color name="prime_success">#4CAF50</color>
+    <color name="prime_info">#2196F3</color>
+
+    <!-- Legacy / Other Prime Colors -->
+    <color name="prime_brand_dark">#154A86</color>
+    <color name="prime_background_blue">@color/prime_brand</color> <!-- Синий фон -->
     <color name="prime_button_teal">#3EB489</color> <!-- Бирюзовая кнопка -->
     <color name="prime_text_teal">#2BA67A</color> <!-- Текст над кнопкой (чуть темнее для читаемости) -->
 

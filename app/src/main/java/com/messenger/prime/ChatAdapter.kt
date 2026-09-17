@@ -266,12 +266,12 @@ class ChatAdapter(
                 when (chat.onlineStatus) {
                     OnlineStatus.ONLINE -> {
                         binding.viewOnlineStatus.visibility = View.VISIBLE
-                        onlineBadge.setColor(Color.parseColor("#4CAF50"))
+                        onlineBadge.setColor(ContextCompat.getColor(context, R.color.prime_success))
                         binding.viewOnlineStatus.background = onlineBadge
                     }
                     OnlineStatus.BLOCKED -> {
                         binding.viewOnlineStatus.visibility = View.VISIBLE
-                        onlineBadge.setColor(Color.parseColor("#F44336"))
+                        onlineBadge.setColor(ContextCompat.getColor(context, R.color.prime_danger))
                         binding.viewOnlineStatus.background = onlineBadge
                     }
                     OnlineStatus.OFFLINE -> {
@@ -303,7 +303,7 @@ class ChatAdapter(
                     binding.tvUnreadCounter.visibility = View.VISIBLE
                     binding.tvUnreadCounter.text = chat.unreadCount.toString()
                     val counterBg = GradientDrawable().apply { cornerRadius = 100f }
-                    counterBg.setColor(if (chat.isMuted) Color.parseColor("#8E8E93") else Color.parseColor("#2196F3"))
+                    counterBg.setColor(if (chat.isMuted) ContextCompat.getColor(context, R.color.prime_text_secondary) else ContextCompat.getColor(context, R.color.prime_info))
                     binding.tvUnreadCounter.background = counterBg
                 } else {
                     binding.tvUnreadCounter.visibility = View.GONE
