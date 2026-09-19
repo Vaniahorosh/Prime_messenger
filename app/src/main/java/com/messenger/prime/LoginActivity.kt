@@ -68,11 +68,10 @@ class LoginActivity : AppCompatActivity() {
             val hazeState = remember { HazeState() }
             val darkTheme = isSystemInDarkTheme()
             PrimeTheme(darkTheme = darkTheme) {
-                Box(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxSize().hazeSource(state = hazeState)) {
                     LavaBackgroundState.onActivityResumed()
                     AnimatedBackground(
-                        darkTheme = darkTheme,
-                        modifier = Modifier.hazeSource(state = hazeState)
+                        darkTheme = darkTheme
                     )
                     
                     AndroidView(

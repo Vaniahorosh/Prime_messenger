@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
-        android:background="@color/prime_base"
+        android:background="@android:color/transparent"
         android:overScrollMode="never">
 
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -53,12 +53,41 @@
                     android:clipToPadding="false">
 
                     <!-- Кнопка Назад -->
-                    <androidx.compose.ui.platform.ComposeView
-                        android:id="@+id/composeBackWP"
+                    <LinearLayout
+                        android:id="@+id/btnBackWPLayout"
                         android:layout_width="110dp"
                         android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:orientation="vertical"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
+                        app:layout_constraintTop_toTopOf="parent">
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnBackWP"
+                            style="@style/Widget.MaterialComponents.Button.Icon"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:backgroundTint="@color/glass_white_20"
+                            android:padding="0dp"
+                            android:insetLeft="0dp"
+                            android:insetTop="0dp"
+                            android:insetRight="0dp"
+                            android:insetBottom="0dp"
+                            app:cornerRadius="16dp"
+                            app:icon="@drawable/ic_arrow_back"
+                            app:iconGravity="textStart"
+                            app:iconPadding="0dp"
+                            app:iconSize="24dp"
+                            app:iconTint="@color/white" />
+                        <TextView
+                            android:id="@+id/tvBackLabelWP"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Назад"
+                            android:textColor="@color/white"
+                            android:alpha="0.8"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
 
                     <!-- Левая колонка кнопок -->
                     <LinearLayout
@@ -68,25 +97,110 @@
                         android:gravity="center"
                         android:orientation="vertical"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/composeBackWP"
+                        app:layout_constraintTop_toBottomOf="@id/btnBackWPLayout"
                         android:layout_marginTop="8dp">
 
-                        <androidx.compose.ui.platform.ComposeView
-                            android:id="@+id/composeChangePhoto"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" />
-
-                        <androidx.compose.ui.platform.ComposeView
-                            android:id="@+id/composeLogout"
+                        <LinearLayout
+                            android:id="@+id/btnChangePhotoWPLayout"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp" />
+                            android:gravity="center"
+                            android:orientation="vertical">
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnChangePhotoWP"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_add"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="24dp"
+                                app:iconTint="@color/white" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Фото"
+                                android:textColor="@color/white"
+                                android:alpha="0.8"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
 
-                        <androidx.compose.ui.platform.ComposeView
-                            android:id="@+id/composeExtraSettings"
+                        <LinearLayout
+                            android:id="@+id/btnLogoutWPLayout"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp" />
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:orientation="vertical">
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnLogoutWP"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_exit_to_app"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="24dp"
+                                app:iconTint="@color/prime_danger_light" />
+                            <TextView
+                                android:id="@+id/tvLogoutWP"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Выход"
+                                android:textColor="@color/prime_danger_light"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/btnExtraSettingsWPLayout"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:orientation="vertical">
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnExtraSettingsWP"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_settings"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="24dp"
+                                app:iconTint="@color/white" />
+                            <TextView
+                                android:id="@+id/tvExtraSettingsWP"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="К Настройкам"
+                                android:textColor="@color/white"
+                                android:alpha="0.8"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
                     </LinearLayout>
 
                     <!-- Карточка с фото -->
@@ -107,10 +221,11 @@
                             android:layout_width="match_parent"
                             android:layout_height="match_parent">
 
-                            <androidx.compose.ui.platform.ComposeView
-                                android:id="@+id/composePhotoCard"
+                            <ImageView
+                                android:id="@+id/ivPhotoCard"
                                 android:layout_width="match_parent"
-                                android:layout_height="match_parent" />
+                                android:layout_height="match_parent"
+                                android:scaleType="centerCrop" />
 
                             <View
                                 android:id="@+id/viewPhotoInfoGradient"
@@ -440,6 +555,8 @@
                                 android:hint="Введите имя"
                                 android:maxLength="16"
                                 android:inputType="textPersonName"
+                                android:imeOptions="actionNext"
+                                android:singleLine="true"
                                 android:textColor="@color/prime_brand"
                                 android:textStyle="bold" />
                         </com.google.android.material.textfield.TextInputLayout>
@@ -483,6 +600,8 @@
                                 android:maxLength="15"
                                 android:digits="abcdefghijklmnopqrstuvwxyz0123456789_"
                                 android:inputType="textPassword"
+                                android:imeOptions="actionNext"
+                                android:singleLine="true"
                                 android:textColor="@color/prime_brand"
                                 android:textStyle="bold" />
                         </com.google.android.material.textfield.TextInputLayout>
@@ -524,6 +643,8 @@
                                 android:hint="Введите пароль"
                                 android:maxLength="32"
                                 android:inputType="textPassword"
+                                android:imeOptions="actionDone"
+                                android:singleLine="true"
                                 android:textColor="@color/prime_brand" />
                         </com.google.android.material.textfield.TextInputLayout>
 

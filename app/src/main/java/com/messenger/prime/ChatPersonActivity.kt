@@ -92,7 +92,7 @@ class ChatPersonActivity : AppCompatActivity() {
                         
                         view
                     },
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize().hazeSource(state = hazeState)
                 )
 
                 // Размытие для системной панели навигации

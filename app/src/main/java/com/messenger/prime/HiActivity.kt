@@ -22,10 +22,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 
-import androidx.compose.runtime.remember
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
-
 class HiActivity : AppCompatActivity() {
 
     private lateinit var binding: com.messenger.prime.databinding.ActivityHiBinding
@@ -93,13 +89,11 @@ class HiActivity : AppCompatActivity() {
         setupEdgeToEdge()
 
         binding.composeBackground.setContent {
-            val hazeState = remember { HazeState() }
             PrimeTheme {
                 Box(modifier = Modifier.fillMaxSize()) {
                     LavaBackgroundState.onActivityResumed()
                     AnimatedBackground(
-                        darkTheme = isSystemInDarkTheme(),
-                        modifier = Modifier.hazeSource(state = hazeState)
+                        darkTheme = isSystemInDarkTheme()
                     )
                 }
             }

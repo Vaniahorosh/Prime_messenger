@@ -101,7 +101,7 @@ class BanActivity : AppCompatActivity() {
                         setupUI(userName, reason)
                         view
                     },
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize().hazeSource(state = hazeState)
                 )
 
                 // Размытие для системной панели навигации

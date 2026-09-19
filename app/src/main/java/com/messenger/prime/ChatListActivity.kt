@@ -32,20 +32,38 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.compose.foundation.border
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -55,6 +73,7 @@ import com.messenger.prime.databinding.ActivityChatListContentBinding
 import com.messenger.prime.databinding.LayoutIslandBinding
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.hazeEffect
 import org.json.JSONArray
@@ -294,6 +313,7 @@ class ChatListActivity : AppCompatActivity() {
             val isIslandVisible by isIslandVisibleState
             val isDialogVisible by isContactDialogVisible
             val isEditVisible by isEditDialogVisible
+            val isNameEditVisible by isNameEditDialogVisible
             
             Box(modifier = Modifier.fillMaxSize()) {
                 AndroidView(
@@ -319,7 +339,7 @@ class ChatListActivity : AppCompatActivity() {
                             setupLegacyListeners()
                         }
                     },
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize().hazeSource(state = hazeState)
                 )
 
                 AnimatedVisibility(
@@ -649,6 +669,132 @@ class ChatListActivity : AppCompatActivity() {
                     }
                 }
 
+                AnimatedVisibility(
+                    visible = isNameEditVisible,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.4f))
+                            .clickable(enabled = true, onClick = {
+                                isNameEditDialogVisible.value = false
+                            }),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+                        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+                        val currentName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
+                        
+                        var nameInput by remember { mutableStateOf(currentName) }
+                        val focusManager = LocalFocusManager.current
+
+                        Column(
+                            modifier = Modifier
+                                .padding(32.dp)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(32.dp))
+                                .hazeEffect(
+                                    state = hazeState,
+                                    style = HazeStyle(
+                                        blurRadius = 24.dp,
+                                        noiseFactor = 0.05f,
+                                        tint = HazeTint(Color(0xFF154B87).copy(alpha = 0.6f))
+                                    )
+                                )
+                                .border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(32.dp))
+                                .clickable(enabled = true) {
+                                    focusManager.clearFocus()
+                                }
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Изменить имя",
+                                color = Color.White,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            OutlinedTextField(
+                                value = nameInput,
+                                onValueChange = { if (it.length <= 16) nameInput = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        focusManager.clearFocus()
+                                    }
+                                ),
+                                textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
+                                label = { Text("Новое имя") },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.White,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                                    cursorColor = Color.White,
+                                    focusedLabelColor = Color.White,
+                                    unfocusedLabelColor = Color.White.copy(alpha = 0.7f)
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(32.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedButton(
+                                    onClick = { isNameEditDialogVisible.value = false },
+                                    modifier = Modifier.size(52.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    contentPadding = PaddingValues(0.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = Color.White
+                                    ),
+                                    border = BorderStroke(1.dp, Color(0x40FFFFFF))
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_arrow_back),
+                                        contentDescription = "Назад",
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Button(
+                                    onClick = {
+                                        if (nameInput.isNotBlank()) {
+                                            sharedPrefs.edit().putString("${currentUser}_name", nameInput.trim()).apply()
+                                            runOnUiThread { refreshUserUi() }
+                                            isNameEditDialogVisible.value = false
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f).height(52.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.White,
+                                        contentColor = Color(0xFF154B87)
+                                    )
+                                ) {
+                                    Text(
+                                        text = "Сохранить",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -930,6 +1076,7 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private val isEditDialogVisible = mutableStateOf(false)
+    private val isNameEditDialogVisible = mutableStateOf(false)
     private var contactToEdit: ChatModel? = null
 
     private fun showEditContactDialog(chat: ChatModel) {
@@ -1057,102 +1204,10 @@ class ChatListActivity : AppCompatActivity() {
         imm.showSoftInput(islandBinding.etSearch, InputMethodManager.SHOW_IMPLICIT)
     }
     private fun showNameEditDialog() {
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        val currentName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
-        
-        // Используем ViewBinding для инфлейта диалога
-        val dialogBinding = com.messenger.prime.databinding.DialogEditNameBinding.inflate(layoutInflater)
-        
-        // Находим контейнер в activity_chat_list_content.xml
-        val container = binding.root.findViewById<android.widget.FrameLayout>(R.id.dialogContainer)
-        if (container == null) {
-            // Если контейнер не найден в binding, попробуем найти его напрямую в activity
-            findViewById<android.widget.FrameLayout>(R.id.dialogContainer)?.let {
-                setupDialogInContainer(it, dialogBinding, sharedPrefs, currentUser, currentName)
-            }
-            return
-        }
-        
-        setupDialogInContainer(container, dialogBinding, sharedPrefs, currentUser, currentName)
+        isNameEditDialogVisible.value = true
     }
 
-    private fun setupDialogInContainer(
-        container: android.widget.FrameLayout,
-        dialogBinding: com.messenger.prime.databinding.DialogEditNameBinding,
-        sharedPrefs: android.content.SharedPreferences,
-        currentUser: String,
-        currentName: String
-    ) {
-        container.removeAllViews()
-        container.addView(dialogBinding.root)
-        container.visibility = View.VISIBLE
 
-        // Центрируем карточку и позволяем ей использовать размеры из XML
-        val cardParams = dialogBinding.cardContainer.layoutParams as android.widget.FrameLayout.LayoutParams
-        cardParams.gravity = android.view.Gravity.CENTER
-        dialogBinding.cardContainer.layoutParams = cardParams
-
-        dialogBinding.hazeView.setContent {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .hazeEffect(
-                        state = hazeState,
-                        style = HazeStyle(
-                            tint = dev.chrisbanes.haze.HazeTint(Color(0xFF154B87).copy(alpha = 0.6f)),
-                            blurRadius = 24.dp,
-                            noiseFactor = 0.05f
-                        )
-                    )
-            )
-        }
-
-        dialogBinding.etNewName.setText(currentName)
-        dialogBinding.etNewName.setSelection(currentName.length)
-        
-        dialogBinding.cardContainer.scaleX = 0.8f
-        dialogBinding.cardContainer.scaleY = 0.8f
-        dialogBinding.cardContainer.alpha = 0f
-        
-        dialogBinding.dialogRoot.alpha = 0f
-        dialogBinding.dialogRoot.animate().alpha(1f).setDuration(300).start()
-        dialogBinding.cardContainer.animate()
-            .scaleX(1f)
-            .scaleY(1f)
-            .alpha(1f)
-            .setDuration(400)
-            .setInterpolator(android.view.animation.DecelerateInterpolator())
-            .start()
-
-        dialogBinding.btnSave.setOnClickListener {
-            val newName = dialogBinding.etNewName.text.toString().trim()
-            if (newName.isNotEmpty()) {
-                sharedPrefs.edit().putString("${currentUser}_name", newName).apply()
-                refreshUserUi()
-                hideNameEditDialog(dialogBinding, container)
-            }
-        }
-        
-        dialogBinding.btnBack.setOnClickListener { hideNameEditDialog(dialogBinding, container) }
-        dialogBinding.dialogRoot.setOnClickListener { hideNameEditDialog(dialogBinding, container) }
-        
-        dialogBinding.etNewName.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                if (s?.toString() == "\n") { dialogBinding.btnSave.performClick() }
-            }
-            override fun afterTextChanged(s: Editable?) {}
-        })
-    }
-
-    private fun hideNameEditDialog(db: com.messenger.prime.databinding.DialogEditNameBinding, container: android.widget.FrameLayout) {
-        db.dialogRoot.animate().alpha(0f).setDuration(300).start()
-        db.cardContainer.animate().scaleX(0.8f).scaleY(0.8f).alpha(0f).setDuration(300).withEndAction {
-            container.visibility = View.GONE
-            container.removeAllViews()
-        }.start()
-    }
     private fun animateShowSearchClear() {
         if (!::islandBinding.isInitialized) return
         if (islandBinding.btnSearchClear.visibility == View.VISIBLE && islandBinding.btnSearchClear.alpha == 1f) return

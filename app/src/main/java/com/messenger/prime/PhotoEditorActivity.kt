@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -161,7 +162,7 @@ class PhotoEditorActivity : AppCompatActivity() {
                         
                         view
                     },
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize().hazeSource(state = hazeState)
                 )
 
                 // Размытие для системной панели навигации
@@ -592,14 +593,7 @@ class PhotoEditorActivity : AppCompatActivity() {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .hazeEffect(
-                        state = hazeState,
-                        style = HazeStyle(
-                            tint = dev.chrisbanes.haze.HazeTint(Color(0xFF154B87).copy(alpha = 0.6f)),
-                            blurRadius = 24.dp,
-                            noiseFactor = 0.05f
-                        )
-                    )
+                    .background(Color(0xFF154B87).copy(alpha = 0.6f))
             )
         }
 

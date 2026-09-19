@@ -67,26 +67,34 @@ object LavaBackgroundState {
     var startTime: Long = SystemClock.uptimeMillis()
     var pausedTimeOffset: Long = 0L
     private var isTransitioning = false
+    private var lastDarkTheme: Boolean? = null
 
     fun initIfNeeded(darkTheme: Boolean) {
-        if (shapes != null) return
+        if (shapes != null && lastDarkTheme == darkTheme) return
         
-        shapes = List(7) { i ->
-            val startPoly = createRandomPolygon()
-            LavaShapeInstance(
-                id = i,
-                currentPolygon = startPoly,
-                targetPolygon = createRandomPolygon(),
-                size = (200..400).random().dp,
-                startX = Random.nextFloat(),
-                startY = Random.nextFloat(),
-                lissajousParams = generateLissajousParams(),
-                morphDuration = (3000..6000).random(),
-                lastMorphTime = startTime,
-                rotationSpeed = (0.01f + Random.nextFloat() * 0.02f) * (if (Random.nextBoolean()) 1 else -1),
-                colorPalette = if (darkTheme) getDarkPalette() else getLightPalette()
-            )
+        if (shapes == null) {
+            shapes = List(7) { i ->
+                val startPoly = createRandomPolygon()
+                LavaShapeInstance(
+                    id = i,
+                    currentPolygon = startPoly,
+                    targetPolygon = createRandomPolygon(),
+                    size = (200..400).random().dp,
+                    startX = Random.nextFloat(),
+                    startY = Random.nextFloat(),
+                    lissajousParams = generateLissajousParams(),
+                    morphDuration = (3000..6000).random(),
+                    lastMorphTime = startTime,
+                    rotationSpeed = (0.01f + Random.nextFloat() * 0.02f) * (if (Random.nextBoolean()) 1 else -1),
+                    colorPalette = if (darkTheme) getDarkPalette() else getLightPalette()
+                )
+            }
+        } else if (lastDarkTheme != darkTheme) {
+            shapes = shapes?.map { shape ->
+                shape.copy(colorPalette = if (darkTheme) getDarkPalette() else getLightPalette())
+            }
         }
+        lastDarkTheme = darkTheme
     }
 
     fun onTransitionStart() {
@@ -138,15 +146,15 @@ private fun createRandomPolygon(): RoundedPolygon {
 }
 
 private fun getLightPalette() = listOf(
-    Color(0xFFBBDEFB).copy(alpha = 0.25f),
-    Color(0xFFFFF9C4).copy(alpha = 0.20f),
-    Color(0xFFFFFFFF).copy(alpha = 0.15f)
+    Color(0xFF64B5F6).copy(alpha = 0.60f),
+    Color(0xFFFFF176).copy(alpha = 0.45f),
+    Color.Transparent
 )
 
 private fun getDarkPalette() = listOf(
-    Color(0xFFB39DDB).copy(alpha = 0.35f), // Purple
-    Color(0xFF80CBC4).copy(alpha = 0.25f), // Teal
-    Color(0xFF64B5F6).copy(alpha = 0.20f)  // Blue
+    Color(0xFF7E57C2).copy(alpha = 0.65f), // Vibrant Purple
+    Color(0xFF26A69A).copy(alpha = 0.50f), // Vibrant Teal
+    Color.Transparent
 )
 
 // --- Components ---
@@ -183,8 +191,8 @@ fun AnimatedBackground(
     ignoreSettingsToggle: Boolean = true // By default, ignore toggle (for Entry screens)
 ) {
     val context = LocalContext.current
-    val sharedPrefs = remember { context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE) }
-    val isEnabled = remember { sharedPrefs.getBoolean("settings_lava_bg", true) }
+    val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+    val isEnabled = sharedPrefs.getBoolean("settings_lava_bg", true)
     
     val bgColor = if (darkTheme) Color(0xFF1E293B) else Color(0xFF154B87)
     
@@ -197,9 +205,14 @@ fun AnimatedBackground(
     LavaBackgroundState.initIfNeeded(darkTheme)
     val shapes = LavaBackgroundState.shapes ?: return
 
-    Box(modifier = modifier.fillMaxSize().background(bgColor)) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(bgColor)
+            .blur(32.dp)
+    ) {
         shapes.forEach { shape ->
-            LavaShape(shape, darkTheme)
+            LavaShape(shape)
         }
         NoiseOverlay()
     }
@@ -214,6 +227,7 @@ fun GlassCard(
 ) {
     Box(
         modifier = modifier
+            .clip(RoundedCornerShape(32.dp))
             .hazeEffect(
                 state = hazeState,
                 style = HazeStyle(
@@ -231,14 +245,13 @@ fun GlassCard(
                 color = Color.White.copy(alpha = 0.12f),
                 shape = RoundedCornerShape(32.dp)
             )
-            .clip(RoundedCornerShape(32.dp))
     ) {
         content()
     }
 }
 
 @Composable
-private fun LavaShape(instance: LavaShapeInstance, darkTheme: Boolean) {
+private fun LavaShape(instance: LavaShapeInstance) {
     val infiniteTransition = rememberInfiniteTransition(label = "lava")
     
     // Ticker for frame updates
@@ -273,9 +286,7 @@ private fun LavaShape(instance: LavaShapeInstance, darkTheme: Boolean) {
     }
 
     Canvas(
-        modifier = Modifier
-            .fillMaxSize()
-            .then(if (darkTheme) Modifier.blur(60.dp) else Modifier)
+        modifier = Modifier.fillMaxSize()
     ) {
         val t = totalElapsed.toFloat()
         val p = instance.lissajousParams
