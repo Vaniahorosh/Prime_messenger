@@ -41,7 +41,7 @@
 
     <style name="Rounded15PercentImageView">
         <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">24dp</item>
+        <item name="cornerSize">15%</item>
     </style>
 
     <style name="Rounded16dpImageView">

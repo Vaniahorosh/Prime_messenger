@@ -13,6 +13,9 @@ public class ChatMessage {
     private long timestamp;
     private String imagePath;
     private boolean isEdited;
+    private MessageStatus messageStatus = MessageStatus.SENT;
+    private String reaction = null;
+    private String reactionSenderLogin = null;
 
     public ChatMessage(String text, String time, String senderLogin, boolean isOutgoing) {
         this(text, time, senderLogin, isOutgoing, null, System.currentTimeMillis(), null, null);
@@ -96,5 +99,29 @@ public class ChatMessage {
 
     public void setEdited(boolean edited) {
         isEdited = edited;
+    }
+
+    public MessageStatus getMessageStatus() {
+        return messageStatus;
+    }
+
+    public void setMessageStatus(MessageStatus messageStatus) {
+        this.messageStatus = messageStatus;
+    }
+
+    public String getReaction() {
+        return reaction;
+    }
+
+    public void setReaction(String reaction) {
+        this.reaction = reaction;
+    }
+
+    public String getReactionSenderLogin() {
+        return reactionSenderLogin;
+    }
+
+    public void setReactionSenderLogin(String reactionSenderLogin) {
+        this.reactionSenderLogin = reactionSenderLogin;
     }
 }

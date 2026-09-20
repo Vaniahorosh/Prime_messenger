@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.*
 import android.net.Uri
 import android.os.Build
@@ -116,16 +117,10 @@ class PhotoEditorActivity : AppCompatActivity() {
         
         setContentView(R.layout.activity_photo_editor)
 
-        // Возвращаем Slidr для всех версий
-        val slidrConfig = SlidrConfig.Builder()
-            .position(SlidrPosition.LEFT)
-            .build()
-        Slidr.attach(this, slidrConfig)
-
-        setupEdgeToEdge()
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
         val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.hide(WindowInsetsCompat.Type.statusBars())
-        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.isAppearanceLightStatusBars = false
 
         val uriString = intent.getStringExtra("EXTRA_IMAGE_URI")
 
@@ -139,13 +134,21 @@ class PhotoEditorActivity : AppCompatActivity() {
 
                         ViewCompat.setOnApplyWindowInsetsListener(view) { _, windowInsets ->
                             val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-                            b.topBar.setPadding(0, systemBarsInsets.top, 0, 0)
-                            b.toolsLayout.setPadding(0, 0, 0, systemBarsInsets.bottom)
+                            val topInset = if (systemBarsInsets.top > 0) systemBarsInsets.top else (28 * resources.displayMetrics.density).toInt()
+                            b.topBar.setPadding(b.topBar.paddingLeft, topInset, b.topBar.paddingRight, b.topBar.paddingBottom)
+                            b.toolsLayout.setPadding(b.toolsLayout.paddingLeft, b.toolsLayout.paddingTop, b.toolsLayout.paddingRight, systemBarsInsets.bottom)
                             windowInsets
                         }
 
                         setupTitleSwitcher(b)
                         setupAspectSelector(b)
+
+                        val isProfilePhoto = intent.getBooleanExtra("IS_PROFILE_PHOTO", false)
+                        if (isProfilePhoto) {
+                            b.btnSetOriginal.text = "Поставить фото без редактирования"
+                        } else {
+                            b.btnSetOriginal.text = "Отправить без редактирования"
+                        }
 
                         if (uriString != null) {
                             val uri = Uri.parse(uriString)
@@ -412,7 +415,12 @@ class PhotoEditorActivity : AppCompatActivity() {
             if (mode == PIPETTE) {
                 if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_MOVE) {
                     sampleColor(b, event.x, event.y)
-                    if (event.action == MotionEvent.ACTION_UP) mode = NONE
+                    if (event.action == MotionEvent.ACTION_UP) {
+                        mode = NONE
+                        if (b.layoutGroupBrush.visibility == View.VISIBLE) {
+                            b.drawingView.visibility = View.VISIBLE
+                        }
+                    }
                 }
                 return@setOnTouchListener true
             }
@@ -436,6 +444,7 @@ class PhotoEditorActivity : AppCompatActivity() {
         currentBrushColor = bitmap.getPixel(px, py)
         b.drawingView.setBrushColor(currentBrushColor)
         b.tvColorPickerLink.setTextColor(currentBrushColor)
+        b.brushPreview.backgroundTintList = ColorStateList.valueOf(currentBrushColor)
     }
 
     private fun setCropFrameSize(b: ActivityPhotoEditorContentBinding, w: Int, h: Int) {
@@ -585,6 +594,7 @@ class PhotoEditorActivity : AppCompatActivity() {
     }
 
     private fun showColorPicker(b: ActivityPhotoEditorContentBinding) {
+        var isInternalChange = false
         val dialogBinding = DialogColorPickerBinding.inflate(layoutInflater)
         val dialog = AlertDialog.Builder(this, R.style.Theme_Prime_AlertDialog).setView(dialogBinding.root).create()
         dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
@@ -597,23 +607,41 @@ class PhotoEditorActivity : AppCompatActivity() {
             )
         }
 
+        fun updateDialogColors(db: DialogColorPickerBinding, color: Int) {
+            if (isInternalChange) return
+            isInternalChange = true
+            try {
+                db.viewColorPreview.backgroundTintList = ColorStateList.valueOf(color)
+                db.etHex.setText(String.format("#%06X", (0xFFFFFF and color)))
+                db.etR.setText(android.graphics.Color.red(color).toString())
+                db.etG.setText(android.graphics.Color.green(color).toString())
+                db.etB.setText(android.graphics.Color.blue(color).toString())
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                isInternalChange = false
+            }
+        }
+
         dialogBinding.viewColorPreview.backgroundTintList = android.content.res.ColorStateList.valueOf(currentBrushColor)
         dialogBinding.etHex.setText(String.format("#%06X", (0xFFFFFF and currentBrushColor)))
         dialogBinding.etR.setText(android.graphics.Color.red(currentBrushColor).toString())
         dialogBinding.etG.setText(android.graphics.Color.green(currentBrushColor).toString())
         dialogBinding.etB.setText(android.graphics.Color.blue(currentBrushColor).toString())
 
+        var dialogSelectedColor = currentBrushColor
         dialogBinding.spectrumView.setOnColorChangedListener { color ->
+            dialogSelectedColor = color
             updateDialogColors(dialogBinding, color)
         }
 
         dialogBinding.btnPipette.setOnClickListener {
             mode = PIPETTE
+            b.drawingView.visibility = View.GONE
             dialog.dismiss()
             PrimeNotification.show(this, "Выберите цвет на фото")
         }
 
-        var isInternalChange = false
         val rgbWatcher = object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
                 if (isInternalChange) return
@@ -624,13 +652,16 @@ class PhotoEditorActivity : AppCompatActivity() {
                     val color = android.graphics.Color.rgb(r, g, b)
                     isInternalChange = true
                     dialogBinding.etHex.setText(String.format("#%06X", (0xFFFFFF and color)))
+                    dialogBinding.viewColorPreview.backgroundTintList = ColorStateList.valueOf(color)
+                } catch (e: Exception) {
+                } finally {
                     isInternalChange = false
-                    dialogBinding.viewColorPreview.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
-                } catch (e: Exception) {}
+                }
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         }
+
         val hexWatcher = object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
                 if (isInternalChange) return
@@ -640,32 +671,35 @@ class PhotoEditorActivity : AppCompatActivity() {
                     dialogBinding.etR.setText(android.graphics.Color.red(color).toString())
                     dialogBinding.etG.setText(android.graphics.Color.green(color).toString())
                     dialogBinding.etB.setText(android.graphics.Color.blue(color).toString())
+                    dialogBinding.viewColorPreview.backgroundTintList = ColorStateList.valueOf(color)
+                } catch (e: Exception) {
+                } finally {
                     isInternalChange = false
-                    dialogBinding.viewColorPreview.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
-                } catch (e: Exception) {}
+                }
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         }
+
         dialogBinding.etHex.addTextChangedListener(hexWatcher)
-        dialogBinding.etR.addTextChangedListener(rgbWatcher); dialogBinding.etG.addTextChangedListener(rgbWatcher); dialogBinding.etB.addTextChangedListener(rgbWatcher)
+        dialogBinding.etR.addTextChangedListener(rgbWatcher)
+        dialogBinding.etG.addTextChangedListener(rgbWatcher)
+        dialogBinding.etB.addTextChangedListener(rgbWatcher)
+
         dialogBinding.btnApplyColor.setOnClickListener {
             try {
-                currentBrushColor = android.graphics.Color.parseColor(dialogBinding.etHex.text.toString())
-                b.drawingView.setBrushColor(currentBrushColor)
-                b.tvColorPickerLink.setTextColor(currentBrushColor)
-                dialog.dismiss()
-            } catch (e: Exception) {}
+                var hex = dialogBinding.etHex.text.toString().trim()
+                if (!hex.startsWith("#")) hex = "#$hex"
+                currentBrushColor = android.graphics.Color.parseColor(hex)
+            } catch (e: Exception) {
+                currentBrushColor = dialogSelectedColor
+            }
+            b.drawingView.setBrushColor(currentBrushColor)
+            b.tvColorPickerLink.setTextColor(currentBrushColor)
+            b.brushPreview.backgroundTintList = ColorStateList.valueOf(currentBrushColor)
+            dialog.dismiss()
         }
         dialog.show()
-    }
-
-    private fun updateDialogColors(db: DialogColorPickerBinding, color: Int) {
-        db.viewColorPreview.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
-        db.etHex.setText(String.format("#%06X", (0xFFFFFF and color)))
-        db.etR.setText(android.graphics.Color.red(color).toString())
-        db.etG.setText(android.graphics.Color.green(color).toString())
-        db.etB.setText(android.graphics.Color.blue(color).toString())
     }
 
     private fun handleTouch(b: ActivityPhotoEditorContentBinding, event: MotionEvent) {
@@ -801,63 +835,60 @@ class PhotoEditorActivity : AppCompatActivity() {
     }
 
     private fun hideOriginalLayoutWithTimer(b: ActivityPhotoEditorContentBinding, onEnd: () -> Unit) {
-        b.pbCloseTimer.visibility = View.VISIBLE
-        b.pbCloseTimer.progress = 1000
-        
-        val animator = ValueAnimator.ofInt(1000, 0).apply {
-            duration = 800L
-            interpolator = android.view.animation.LinearInterpolator()
-            addUpdateListener { valueAnimator ->
-                b.pbCloseTimer.progress = valueAnimator.animatedValue as Int
+        b.pbCloseTimer.visibility = View.GONE
+        b.layoutSetOriginal.animate()
+            .alpha(0f)
+            .translationX(400f)
+            .setDuration(250)
+            .withEndAction {
+                b.layoutSetOriginal.visibility = View.GONE
+                b.layoutSetOriginal.translationX = 0f
+                b.layoutSetOriginal.alpha = 1f
+                onEnd()
             }
-        }
-        
-        animator.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                b.layoutSetOriginal.animate()
-                    .alpha(0f)
-                    .translationX(400f)
-                    .setDuration(300)
-                    .withEndAction {
-                        b.layoutSetOriginal.visibility = View.GONE
-                        b.pbCloseTimer.visibility = View.INVISIBLE
-                        b.layoutSetOriginal.translationX = 0f
-                        b.layoutSetOriginal.alpha = 1f
-                        onEnd()
-                    }
-                    .start()
-            }
-        })
-        animator.start()
+            .start()
     }
 
     private fun loadOptimizedBitmap(uri: Uri): Bitmap? {
-        val inputStream = contentResolver.openInputStream(uri) ?: return null
-        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeStream(inputStream, null, options)
-        inputStream.close()
+        return try {
+            val inputStream = contentResolver.openInputStream(uri) ?: return null
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeStream(inputStream, null, options)
+            inputStream.close()
 
-        val screenWidth = resources.displayMetrics.widthPixels
-        val screenHeight = resources.displayMetrics.heightPixels
-        var inSampleSize = 1
-        
-        if (options.outHeight > screenHeight || options.outWidth > screenWidth) {
-            val halfHeight = options.outHeight / 2
-            val halfWidth = options.outWidth / 2
-            while (halfHeight / inSampleSize >= screenHeight && halfWidth / inSampleSize >= screenWidth) {
-                inSampleSize *= 2
+            val screenWidth = resources.displayMetrics.widthPixels
+            val screenHeight = resources.displayMetrics.heightPixels
+            var inSampleSize = 1
+            
+            if (options.outHeight > screenHeight || options.outWidth > screenWidth) {
+                val halfHeight = options.outHeight / 2
+                val halfWidth = options.outWidth / 2
+                while (halfHeight / inSampleSize >= screenHeight && halfWidth / inSampleSize >= screenWidth) {
+                    inSampleSize *= 2
+                }
+            }
+
+            val finalOptions = BitmapFactory.Options().apply {
+                this.inSampleSize = inSampleSize
+                inMutable = true
+            }
+            
+            val finalStream = contentResolver.openInputStream(uri)
+            val bitmap = BitmapFactory.decodeStream(finalStream, null, finalOptions)
+            finalStream?.close()
+            bitmap
+        } catch (t: Throwable) {
+            t.printStackTrace()
+            try {
+                val options = BitmapFactory.Options().apply { inSampleSize = 4 }
+                val fallbackStream = contentResolver.openInputStream(uri)
+                val bmp = BitmapFactory.decodeStream(fallbackStream, null, options)
+                fallbackStream?.close()
+                bmp
+            } catch (e: Exception) {
+                null
             }
         }
-
-        val finalOptions = BitmapFactory.Options().apply {
-            this.inSampleSize = inSampleSize
-            inMutable = true
-        }
-        
-        val finalStream = contentResolver.openInputStream(uri)
-        val bitmap = BitmapFactory.decodeStream(finalStream, null, finalOptions)
-        finalStream?.close()
-        return bitmap
     }
 
     override fun finish() {

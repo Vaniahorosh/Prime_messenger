@@ -51,6 +51,10 @@ dependencies {
     implementation("dev.chrisbanes.haze:haze:1.7.2")
     implementation("androidx.graphics:graphics-shapes:1.1.0")
 
+    // ZXing QR Code
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)

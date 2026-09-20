@@ -1,0 +1,47 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Левая верхняя дуга и грань контура -->
+    <path
+        android:strokeColor="#3CAEA3"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 12.5,2.5 H 6.5 A 3.5,3.5 0 0 0 3,6 V 15.5 L 6.8,19.3" />
+
+    <!-- Правый верхний угол контура -->
+    <path
+        android:strokeColor="#3CAEA3"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 14.5,2.5 H 17.5 A 3.5,3.5 0 0 1 21,6 V 9.5" />
+
+    <!-- Правая нижняя диагональная грань -->
+    <path
+        android:strokeColor="#3CAEA3"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M 20.5,12.5 L 15.5,17.5" />
+
+    <!-- Три точки внутри -->
+    <path
+        android:fillColor="#3CAEA3"
+        android:pathData="M 8.5,10.5 m -1.1,0 a 1.1,1.1 0 1,0 2.2,0 a 1.1,1.1 0 1,0 -2.2,0" />
+    <path
+        android:fillColor="#3CAEA3"
+        android:pathData="M 12,10.5 m -1.1,0 a 1.1,1.1 0 1,0 2.2,0 a 1.1,1.1 0 1,0 -2.2,0" />
+    <path
+        android:fillColor="#3CAEA3"
+        android:pathData="M 15.5,10.5 m -1.1,0 a 1.1,1.1 0 1,0 2.2,0 a 1.1,1.1 0 1,0 -2.2,0" />
+
+    <!-- Нижний тёмный штрих-хвостик -->
+    <path
+        android:strokeColor="#0F1B33"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:pathData="M 9,21.5 L 13.5,18" />
+</vector>

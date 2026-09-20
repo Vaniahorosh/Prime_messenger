@@ -6,7 +6,10 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Rect
+import java.io.ByteArrayOutputStream
 import android.net.Uri
 import android.os.Bundle
 import android.transition.AutoTransition
@@ -109,8 +112,9 @@ class SettingsActivity : AppCompatActivity() {
                     currentAvatarUri = newUri
                     val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                     val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-                    sharedPrefs.edit().putString("${currentUser}_avatar", newUri).apply()
+                    sharedPrefs.edit().putString("${currentUser}_avatar", newUri).commit()
                     applyAvatarState(newUri)
+                    sendProfileUpdateOverBluetooth()
                 }
             }
         }
@@ -123,8 +127,9 @@ class SettingsActivity : AppCompatActivity() {
                 currentAvatarUri = editedUriString
                 val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                 val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-                sharedPrefs.edit().putString("${currentUser}_avatar", currentAvatarUri).apply()
+                sharedPrefs.edit().putString("${currentUser}_avatar", currentAvatarUri).commit()
                 applyAvatarState(currentAvatarUri)
+                sendProfileUpdateOverBluetooth()
                 PrimeNotification.show(this, "Фото готово")
             }
         }
@@ -132,8 +137,10 @@ class SettingsActivity : AppCompatActivity() {
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
-            val intent = Intent(this, PhotoEditorActivity::class.java)
-            intent.putExtra("EXTRA_IMAGE_URI", it.toString())
+            val intent = Intent(this, PhotoEditorActivity::class.java).apply {
+                putExtra("EXTRA_IMAGE_URI", it.toString())
+                putExtra("IS_PROFILE_PHOTO", true)
+            }
             photoEditorLauncher.launch(intent)
             overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         }
@@ -996,13 +1003,49 @@ class SettingsActivity : AppCompatActivity() {
         return super.dispatchTouchEvent(event)
     }
 
+    private fun sendProfileUpdateOverBluetooth() {
+        try {
+            val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+            val currentUser = sharedPrefs.getString("current_user", "") ?: return
+            val myDisplayName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: currentUser
+            val localAvatarUri = sharedPrefs.getString("${currentUser}_avatar", "") ?: ""
+
+            val threadObj = BluetoothSocketHolder.getConnectedThreadInstance()
+            if (threadObj is ChatPersonActivity.ConnectedThread && threadObj.isAlive) {
+                val handshake = "HANDSHAKE:login=$currentUser;name=$myDisplayName;avatar=$localAvatarUri;version=${ChatPersonActivity.getAppVersionCode(this)}"
+                threadObj.sendPacket(0x01.toByte(), handshake.toByteArray(Charsets.UTF_8))
+
+                if (localAvatarUri.isNotEmpty()) {
+                    try {
+                        val isStream = contentResolver.openInputStream(Uri.parse(localAvatarUri))
+                        if (isStream != null) {
+                            val bitmap = BitmapFactory.decodeStream(isStream)
+                            isStream.close()
+                            if (bitmap != null) {
+                                val scaled = Bitmap.createScaledBitmap(bitmap, 96, 96, false)
+                                val baos = ByteArrayOutputStream()
+                                scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos)
+                                threadObj.sendPacket(0x07.toByte(), baos.toByteArray())
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private fun handlePhotoDeletionWithUndo(uriToDelete: String?) {
         if (uriToDelete == null) return
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        sharedPrefs.edit().remove("${currentUser}_avatar").apply()
+        sharedPrefs.edit().remove("${currentUser}_avatar").commit()
         currentAvatarUri = null; applyAvatarState(null)
-        PrimeNotification.show(this, "Фото удалено") { sharedPrefs.edit().putString("${currentUser}_avatar", uriToDelete).apply(); currentAvatarUri = uriToDelete; applyAvatarState(uriToDelete) }
+        sendProfileUpdateOverBluetooth()
+        PrimeNotification.show(this, "Фото удалено") { sharedPrefs.edit().putString("${currentUser}_avatar", uriToDelete).commit(); currentAvatarUri = uriToDelete; applyAvatarState(uriToDelete); sendProfileUpdateOverBluetooth() }
     }
 
     private fun showLogoutDialog() {

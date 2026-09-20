@@ -28,6 +28,18 @@
     <color name="prime_success">#4CAF50</color>
     <color name="prime_info">#2196F3</color>
 
+    <!-- Chat Semantic Colors (Light Theme) -->
+    <color name="chat_bubble_incoming_bg">#FFFFFF</color>
+    <color name="chat_bubble_incoming_text">#172033</color>
+    <color name="chat_bubble_incoming_time">#71809A</color>
+    <color name="chat_bubble_outgoing_bg">#154B87</color>
+    <color name="chat_bubble_outgoing_text">#FFFFFF</color>
+    <color name="chat_bubble_outgoing_time">#D0E0F0</color>
+    <color name="chat_island_bg">#D9FFFFFF</color>
+    <color name="chat_island_stroke">#20154B87</color>
+    <color name="chat_date_bubble_bg">#E2E8F0</color>
+    <color name="chat_date_bubble_text">#475569</color>
+
     <!-- Legacy / Other Prime Colors -->
     <color name="prime_brand_dark">#154A86</color>
     <color name="prime_background_blue">@color/prime_brand</color> <!-- Синий фон -->

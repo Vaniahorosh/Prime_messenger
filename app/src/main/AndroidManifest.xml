@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
@@ -52,6 +53,7 @@
 
         <activity
             android:name=".ChatListActivity"
+            android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".SettingsActivity"
@@ -78,6 +80,7 @@
 
         <activity
             android:name=".ChatPersonActivity"
+            android:launchMode="singleTop"
             android:exported="false"
             android:theme="@style/Theme.Prime.Swipe" />
 

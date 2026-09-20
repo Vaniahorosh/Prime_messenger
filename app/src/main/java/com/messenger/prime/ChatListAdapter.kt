@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.messenger.prime.databinding.ItemChatBinding
 import com.messenger.prime.databinding.ItemChatFooterBinding
 import com.messenger.prime.databinding.ItemChatIslandHeaderBinding
+import android.graphics.BitmapFactory
 
 class ChatListAdapter(
     private var chatList: List<ChatModel>,
@@ -77,9 +78,27 @@ class ChatListAdapter(
             networkHint = netHint
             
             if (avatarUri != null) {
-                binding.ivHeaderAvatar.setImageURI(Uri.parse(avatarUri))
-                binding.tvHeaderInitials.visibility = View.GONE
-                binding.ivHeaderAvatar.visibility = View.VISIBLE
+                var loaded = false
+                try {
+                    val uri = Uri.parse(avatarUri)
+                    val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
+                    if (file != null && file.exists()) {
+                        val bmp = BitmapFactory.decodeFile(file.absolutePath)
+                        if (bmp != null) {
+                            binding.ivHeaderAvatar.setImageBitmap(bmp)
+                            loaded = true
+                        }
+                    }
+                } catch (e: Exception) {}
+                
+                if (loaded) {
+                    binding.tvHeaderInitials.visibility = View.GONE
+                    binding.ivHeaderAvatar.visibility = View.VISIBLE
+                } else {
+                    binding.ivHeaderAvatar.setImageURI(Uri.parse(avatarUri))
+                    binding.tvHeaderInitials.visibility = View.GONE
+                    binding.ivHeaderAvatar.visibility = View.VISIBLE
+                }
             } else {
                 val initial = userName.take(1).uppercase()
                 binding.tvHeaderInitials.text = initial
@@ -201,6 +220,7 @@ class ChatListAdapter(
             }
             is ChatViewHolder -> {
                 val actualPos = if (!isSearchActive) position - 1 else position
+                if (actualPos < 0 || actualPos >= chatList.size) return
                 val chat = chatList[actualPos]
                 val context = holder.itemView.context
                 val binding = holder.binding
@@ -208,53 +228,80 @@ class ChatListAdapter(
                 holder.resetReveal()
 
                 binding.tvContactName.text = chat.name
-                binding.tvLastMessage.text = chat.lastMessage
+                if ("SENDING_PHOTO".equals(chat.activityState, ignoreCase = true)) {
+                    binding.tvLastMessage.text = "Отправка фото..."
+                    binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                    binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+                } else if ("VIEWING_PHOTO".equals(chat.activityState, ignoreCase = true)) {
+                    binding.tvLastMessage.text = "Смотрит фото"
+                    binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                    binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+                } else if (chat.isTyping || chat.typingUntil > System.currentTimeMillis() || "TYPING".equals(chat.activityState, ignoreCase = true)) {
+                    binding.tvLastMessage.text = "Печатает..."
+                    binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                    binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+                } else {
+                    binding.tvLastMessage.text = chat.lastMessage
+                    binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_text_secondary))
+                    binding.tvLastMessage.setTypeface(null, Typeface.NORMAL)
+                }
                 binding.tvMessageTime.text = chat.time
 
                 if (chat.id == "block_test_contact") {
                     binding.ivUserAvatar.setImageResource(R.drawable.prime_logo)
                     binding.ivUserAvatar.visibility = View.VISIBLE
                     binding.tvUserInitials.visibility = View.GONE
-                } else if (chat.avatarUri != null && chat.avatarUri.isNotEmpty()) {
-                    var loaded = false
-                    try {
-                        val uri = Uri.parse(chat.avatarUri)
-                        val file = if (uri.scheme == "file") File(uri.path ?: "") else null
-                        if (file == null || file.exists()) {
-                            binding.ivUserAvatar.setImageURI(uri)
-                            binding.ivUserAvatar.visibility = View.VISIBLE
-                            binding.tvUserInitials.visibility = View.GONE
-                            loaded = true
+                } else {
+                    var avatarLoaded = false
+                    if (chat.avatarUri != null && chat.avatarUri.isNotEmpty()) {
+                        try {
+                            val uri = Uri.parse(chat.avatarUri)
+                            val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
+                            if (file != null && file.exists()) {
+                                val bmp = BitmapFactory.decodeFile(file.absolutePath)
+                                if (bmp != null) {
+                                    binding.ivUserAvatar.setImageBitmap(bmp)
+                                    binding.ivUserAvatar.visibility = View.VISIBLE
+                                    binding.tvUserInitials.visibility = View.GONE
+                                    avatarLoaded = true
+                                }
+                            }
+                        } catch (e: Exception) {
+                            avatarLoaded = false
                         }
-                    } catch (e: Exception) {
-                        loaded = false
                     }
-                    if (!loaded) {
-                        val initial = chat.name.take(1).uppercase()
+
+                    if (!avatarLoaded) {
+                        val localAvatarFile = File(context.filesDir, "avatar_${chat.name}.jpg")
+                        if (localAvatarFile.exists()) {
+                            try {
+                                val bmp = BitmapFactory.decodeFile(localAvatarFile.absolutePath)
+                                if (bmp != null) {
+                                    binding.ivUserAvatar.setImageBitmap(bmp)
+                                    binding.ivUserAvatar.visibility = View.VISIBLE
+                                    binding.tvUserInitials.visibility = View.GONE
+                                    avatarLoaded = true
+                                }
+                            } catch (e: Exception) {
+                                avatarLoaded = false
+                            }
+                        }
+                    }
+
+                    if (!avatarLoaded) {
+                        val initial = if (chat.name.isNotEmpty()) chat.name.take(1).uppercase() else "P"
                         binding.tvUserInitials.text = initial
                         binding.tvUserInitials.visibility = View.VISIBLE
                         binding.ivUserAvatar.visibility = View.INVISIBLE
                         val color = getAvatarColor(chat.name)
+                        val radiusPx = 0.15f * 54 * context.resources.displayMetrics.density
                         val bg = GradientDrawable().apply {
                             shape = GradientDrawable.RECTANGLE
-                            cornerRadius = 8 * context.resources.displayMetrics.density
+                            cornerRadius = radiusPx
                             setColor(color)
                         }
                         binding.tvUserInitials.background = bg
                     }
-                } else {
-                    val initial = chat.name.take(1).uppercase()
-                    binding.tvUserInitials.text = initial
-                    binding.tvUserInitials.visibility = View.VISIBLE
-                    binding.ivUserAvatar.visibility = View.INVISIBLE
-                    
-                    val color = getAvatarColor(chat.name)
-                    val bg = GradientDrawable().apply {
-                        shape = GradientDrawable.RECTANGLE
-                        cornerRadius = 8 * context.resources.displayMetrics.density
-                        setColor(color)
-                    }
-                    binding.tvUserInitials.background = bg
                 }
                 
                 binding.layoutContent.setOnClickListener { 
@@ -322,7 +369,7 @@ class ChatListAdapter(
 
                 if (chat.unreadCount > 0) {
                     binding.tvUnreadCounter.visibility = View.VISIBLE
-                    binding.tvUnreadCounter.text = chat.unreadCount.toString()
+                    binding.tvUnreadCounter.text = if (chat.unreadCount > 99) "99+" else chat.unreadCount.toString()
                     val counterBg = GradientDrawable().apply { cornerRadius = 100f }
                     counterBg.setColor(if (chat.isMuted) ContextCompat.getColor(context, R.color.prime_text_secondary) else ContextCompat.getColor(context, R.color.prime_info))
                     binding.tvUnreadCounter.background = counterBg

@@ -175,7 +175,7 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Поставить фото без редактирования"
+            android:text="Отправить без редактирования"
             android:textColor="@color/white"
             app:cornerRadius="20dp"
             app:strokeColor="@color/white"

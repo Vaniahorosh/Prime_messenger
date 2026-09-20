@@ -6,6 +6,26 @@
     android:layout_height="match_parent"
     android:background="@color/prime_base">
 
+    <!-- Градиентный туман в области статус-бара -->
+    <View
+        android:id="@+id/vTopGradient"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:elevation="4dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Градиентный туман в области системной навигации -->
+    <View
+        android:id="@+id/vBottomGradient"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:elevation="4dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
     <!-- 1. Список сообщений (фоновый слой на весь экран) -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvMessages"
@@ -15,9 +35,9 @@
         android:paddingStart="8dp"
         android:paddingTop="88dp"
         android:paddingEnd="8dp"
-        android:paddingBottom="88dp"
+        android:paddingBottom="16dp"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/bottomContainer"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -117,7 +137,7 @@
         android:paddingTop="6dp"
         android:paddingEnd="14dp"
         android:paddingBottom="6dp"
-        android:textColor="#E0E0E0"
+        android:textColor="@color/chat_date_bubble_text"
         android:textSize="12sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
@@ -164,48 +184,104 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@drawable/bg_floating_island"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:paddingStart="6dp"
             android:paddingTop="4dp"
             android:paddingEnd="6dp"
             android:paddingBottom="4dp"
             android:visibility="gone">
 
-            <ImageButton
-                android:id="@+id/btnAttach"
-                android:layout_width="42dp"
-                android:layout_height="42dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Прикрепить"
-                android:src="@android:drawable/ic_menu_gallery"
-                app:tint="@color/prime_text_secondary" />
-
-            <EditText
-                android:id="@+id/etMessage"
-                android:layout_width="0dp"
+            <!-- Плавающая панель режима редактирования -->
+            <LinearLayout
+                android:id="@+id/layoutEditBar"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="@null"
-                android:hint="Сообщение..."
-                android:inputType="textMultiLine|textCapSentences"
-                android:maxLines="4"
-                android:paddingStart="10dp"
-                android:paddingTop="10dp"
-                android:paddingEnd="10dp"
-                android:paddingBottom="10dp"
-                android:textColor="@color/prime_text_primary"
-                android:textColorHint="@color/prime_text_secondary"
-                android:textSize="15sp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:visibility="gone">
 
-            <ImageButton
-                android:id="@+id/btnSend"
-                android:layout_width="42dp"
-                android:layout_height="42dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Отправить"
-                android:src="@android:drawable/ic_menu_send"
-                app:tint="@color/prime_text_primary" />
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_edit"
+                    app:tint="@color/prime_brand" />
+
+                <TextView
+                    android:id="@+id/tvEditBarTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="Редактирование сообщения"
+                    android:textColor="@color/prime_brand"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <ImageButton
+                    android:id="@+id/btnCloseEditBar"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Отменить редактирование"
+                    android:src="@drawable/ic_cancel"
+                    app:tint="@color/prime_danger" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageButton
+                    android:id="@+id/btnAttach"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Прикрепить"
+                    android:src="@android:drawable/ic_menu_gallery"
+                    app:tint="@color/prime_text_secondary" />
+
+                <ImageButton
+                    android:id="@+id/btnCancelEdit"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Отменить"
+                    android:src="@drawable/ic_cancel"
+                    android:visibility="gone"
+                    app:tint="@color/prime_danger" />
+
+                <EditText
+                    android:id="@+id/etMessage"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@null"
+                    android:hint="Сообщение..."
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:maxLines="4"
+                    android:paddingStart="10dp"
+                    android:paddingTop="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="10dp"
+                    android:textColor="@color/prime_text_primary"
+                    android:textColorHint="@color/prime_text_secondary"
+                    android:textSize="15sp" />
+
+                <ImageButton
+                    android:id="@+id/btnSend"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Отправить"
+                    android:src="@android:drawable/ic_menu_send"
+                    app:tint="@color/prime_text_primary" />
+            </LinearLayout>
         </LinearLayout>
     </FrameLayout>
 

@@ -14,5 +14,17 @@
     <color name="prime_icon_secondary">#94A3B8</color>
     <color name="prime_danger">#EF5350</color>
 
+    <!-- Chat Semantic Colors (Dark Theme) -->
+    <color name="chat_bubble_incoming_bg">#1E293B</color>
+    <color name="chat_bubble_incoming_text">#E2E8F0</color>
+    <color name="chat_bubble_incoming_time">#94A3B8</color>
+    <color name="chat_bubble_outgoing_bg">#154B87</color>
+    <color name="chat_bubble_outgoing_text">#FFFFFF</color>
+    <color name="chat_bubble_outgoing_time">#B0C4DE</color>
+    <color name="chat_island_bg">#D9151A23</color>
+    <color name="chat_island_stroke">#26FFFFFF</color>
+    <color name="chat_date_bubble_bg">#40181C24</color>
+    <color name="chat_date_bubble_text">#E0E0E0</color>
+
     <color name="ic_launcher_background">#121212</color>
 </resources>
