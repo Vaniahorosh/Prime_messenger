@@ -6,6 +6,7 @@
 
     <!-- Prime Brand -->
     <color name="prime_brand">#154B87</color>
+    <color name="prime_accent">#154B87</color>
     <color name="prime_brand_alpha_80">#CC154B87</color>
     <color name="prime_brand_alpha_85">#D9154B87</color>
     <color name="prime_overlay_dark">#99000000</color>

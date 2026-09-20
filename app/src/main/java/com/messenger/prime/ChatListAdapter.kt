@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import java.io.File
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -18,7 +19,7 @@ import com.messenger.prime.databinding.ItemChatBinding
 import com.messenger.prime.databinding.ItemChatFooterBinding
 import com.messenger.prime.databinding.ItemChatIslandHeaderBinding
 
-class ChatAdapter(
+class ChatListAdapter(
     private var chatList: List<ChatModel>,
     private var userAvatarUri: String? = null,
     private var userName: String = "Пользователь",
@@ -215,12 +216,31 @@ class ChatAdapter(
                     binding.ivUserAvatar.visibility = View.VISIBLE
                     binding.tvUserInitials.visibility = View.GONE
                 } else if (chat.avatarUri != null && chat.avatarUri.isNotEmpty()) {
+                    var loaded = false
                     try {
-                        binding.ivUserAvatar.setImageURI(Uri.parse(chat.avatarUri))
-                        binding.ivUserAvatar.visibility = View.VISIBLE
-                        binding.tvUserInitials.visibility = View.GONE
+                        val uri = Uri.parse(chat.avatarUri)
+                        val file = if (uri.scheme == "file") File(uri.path ?: "") else null
+                        if (file == null || file.exists()) {
+                            binding.ivUserAvatar.setImageURI(uri)
+                            binding.ivUserAvatar.visibility = View.VISIBLE
+                            binding.tvUserInitials.visibility = View.GONE
+                            loaded = true
+                        }
                     } catch (e: Exception) {
-                        binding.ivUserAvatar.setImageResource(R.drawable.ic_person)
+                        loaded = false
+                    }
+                    if (!loaded) {
+                        val initial = chat.name.take(1).uppercase()
+                        binding.tvUserInitials.text = initial
+                        binding.tvUserInitials.visibility = View.VISIBLE
+                        binding.ivUserAvatar.visibility = View.INVISIBLE
+                        val color = getAvatarColor(chat.name)
+                        val bg = GradientDrawable().apply {
+                            shape = GradientDrawable.RECTANGLE
+                            cornerRadius = 8 * context.resources.displayMetrics.density
+                            setColor(color)
+                        }
+                        binding.tvUserInitials.background = bg
                     }
                 } else {
                     val initial = chat.name.take(1).uppercase()
