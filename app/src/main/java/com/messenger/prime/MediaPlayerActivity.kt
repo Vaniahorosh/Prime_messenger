@@ -2,11 +2,13 @@ package com.messenger.prime
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
-import android.graphics.BitmapFactory
+import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.AttributeSet
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
@@ -14,6 +16,7 @@ import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.VideoView
@@ -23,12 +26,52 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import java.io.File
 import java.util.Locale
+import java.util.concurrent.Executors
+
+class AspectRatioVideoView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : VideoView(context, attrs, defStyleAttr) {
+
+    private var videoWidth = 0
+    private var videoHeight = 0
+
+    fun setVideoSize(width: Int, height: Int) {
+        if (videoWidth != width || videoHeight != height) {
+            videoWidth = width
+            videoHeight = height
+            requestLayout()
+        }
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        var width = getDefaultSize(videoWidth, widthMeasureSpec)
+        var height = getDefaultSize(videoHeight, heightMeasureSpec)
+        if (videoWidth > 0 && videoHeight > 0) {
+            val widthSpecSize = MeasureSpec.getSize(widthMeasureSpec)
+            val heightSpecSize = MeasureSpec.getSize(heightMeasureSpec)
+
+            val viewRatio = widthSpecSize.toFloat() / heightSpecSize.toFloat()
+            val videoRatio = videoWidth.toFloat() / videoHeight.toFloat()
+
+            if (videoRatio > viewRatio) {
+                width = widthSpecSize
+                height = (width / videoRatio).toInt()
+            } else {
+                height = heightSpecSize
+                width = (height * videoRatio).toInt()
+            }
+        }
+        setMeasuredDimension(width, height)
+    }
+}
 
 class MediaPlayerActivity : AppCompatActivity() {
 
     private lateinit var ivBlurredBackground: ImageView
     private lateinit var mediaContainer: FrameLayout
-    private lateinit var videoView: VideoView
+    private lateinit var videoView: AspectRatioVideoView
     private lateinit var ivPhotoMedia: ImageView
     private lateinit var topOverlay: View
     private lateinit var btnBack: ImageButton
@@ -40,6 +83,7 @@ class MediaPlayerActivity : AppCompatActivity() {
     private lateinit var layoutSeekBarRow: View
     private lateinit var tvDuration: TextView
     private lateinit var seekBar: SeekBar
+    private lateinit var navBarProgressBar: ProgressBar
 
     private var mediaUri: Uri? = null
     private var isVideo = false
@@ -48,6 +92,11 @@ class MediaPlayerActivity : AppCompatActivity() {
     private var areControlsVisible = false
     private val autoHideControlsRunnable = Runnable { hideControls() }
 
+    private val backgroundBlurExecutor = Executors.newSingleThreadExecutor()
+    private var lastBlurExtractTime = 0L
+    private val blurRetriever = MediaMetadataRetriever()
+    private var isRetrieverPrepared = false
+
     private val updateProgressRunnable = object : Runnable {
         override fun run() {
             if (isVideo && videoView.isPlaying) {
@@ -55,7 +104,29 @@ class MediaPlayerActivity : AppCompatActivity() {
                 val total = videoView.duration.toLong().coerceAtLeast(1L)
                 val progress = ((current * 1000) / total).toInt().coerceIn(0, 1000)
                 seekBar.progress = progress
+                navBarProgressBar.progress = progress
                 updateDurationText(current, total)
+
+                // Dynamic background blur frame extraction in real-time (~every 500ms)
+                val now = System.currentTimeMillis()
+                if (now - lastBlurExtractTime > 500 && isRetrieverPrepared) {
+                    lastBlurExtractTime = now
+                    val targetUs = current * 1000L
+                    backgroundBlurExecutor.execute {
+                        try {
+                            val bmp = blurRetriever.getFrameAtTime(targetUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                            if (bmp != null) {
+                                runOnUiThread {
+                                    if (!isFinishing && isVideo) {
+                                        ivBlurredBackground.setImageBitmap(bmp)
+                                        ivBlurredBackground.applyGlassBlur(50f)
+                                    }
+                                }
+                            }
+                        } catch (ignored: Exception) {}
+                    }
+                }
+
                 handler.postDelayed(this, 200)
             }
         }
@@ -93,6 +164,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         layoutSeekBarRow = findViewById(R.id.layoutSeekBarRow)
         tvDuration = findViewById(R.id.tvDuration)
         seekBar = findViewById(R.id.seekBar)
+        navBarProgressBar = findViewById(R.id.navBarProgressBar)
     }
 
     private fun setupInsets() {
@@ -151,13 +223,22 @@ class MediaPlayerActivity : AppCompatActivity() {
             ivPhotoMedia.visibility = View.GONE
             videoView.setVideoURI(mediaUri)
 
+            initRetriever(mediaUri)
+            loadInitialVideoThumbnail(mediaUri)
+
             videoView.setOnPreparedListener { mp ->
                 mp.isLooping = true
+                val vWidth = mp.videoWidth
+                val vHeight = mp.videoHeight
+                if (vWidth > 0 && vHeight > 0) {
+                    videoView.setVideoSize(vWidth, vHeight)
+                }
                 val duration = videoView.duration.toLong().coerceAtLeast(0L)
                 updateDurationText(0L, duration)
                 videoView.start()
                 btnPlayPause.setImageResource(R.drawable.ic_media_pause)
                 handler.post(updateProgressRunnable)
+                showControls()
             }
         } else {
             videoView.visibility = View.GONE
@@ -175,6 +256,42 @@ class MediaPlayerActivity : AppCompatActivity() {
                 ivBlurredBackground.applyGlassBlur(50f)
             }
             updateDurationText(0L, 0L)
+        }
+    }
+
+    private fun initRetriever(uri: Uri?) {
+        if (uri == null) return
+        backgroundBlurExecutor.execute {
+            try {
+                if ("file".equals(uri.scheme, ignoreCase = true) && uri.path != null) {
+                    blurRetriever.setDataSource(uri.path)
+                } else {
+                    blurRetriever.setDataSource(this, uri)
+                }
+                isRetrieverPrepared = true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                isRetrieverPrepared = false
+            }
+        }
+    }
+
+    private fun loadInitialVideoThumbnail(uri: Uri?) {
+        if (uri == null) return
+        backgroundBlurExecutor.execute {
+            try {
+                val bmp = blurRetriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                if (bmp != null) {
+                    runOnUiThread {
+                        if (!isFinishing) {
+                            ivBlurredBackground.setImageBitmap(bmp)
+                            ivBlurredBackground.applyGlassBlur(50f)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -209,6 +326,25 @@ class MediaPlayerActivity : AppCompatActivity() {
                     val targetMs = (progress * total) / 1000
                     videoView.seekTo(targetMs.toInt())
                     updateDurationText(targetMs, total)
+                    navBarProgressBar.progress = progress
+
+                    // Instantly update background blur on manual scrub
+                    if (isRetrieverPrepared) {
+                        val targetUs = targetMs * 1000L
+                        backgroundBlurExecutor.execute {
+                            try {
+                                val bmp = blurRetriever.getFrameAtTime(targetUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                                if (bmp != null) {
+                                    runOnUiThread {
+                                        if (!isFinishing) {
+                                            ivBlurredBackground.setImageBitmap(bmp)
+                                            ivBlurredBackground.applyGlassBlur(50f)
+                                        }
+                                    }
+                                }
+                            } catch (ignored: Exception) {}
+                        }
+                    }
                 }
             }
 
@@ -251,9 +387,18 @@ class MediaPlayerActivity : AppCompatActivity() {
                 .setDuration(220)
                 .setInterpolator(DecelerateInterpolator())
                 .start()
+
+            navBarProgressBar.animate()
+                .alpha(0f)
+                .setDuration(180)
+                .setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        if (areControlsVisible) navBarProgressBar.visibility = View.GONE
+                    }
+                })
+                .start()
         }
 
-        // Keep visible for 2.5 seconds (2500 ms) before disappearing again
         handler.postDelayed(autoHideControlsRunnable, 2500L)
     }
 
@@ -295,6 +440,14 @@ class MediaPlayerActivity : AppCompatActivity() {
                     }
                 })
                 .start()
+
+            if (isVideo) {
+                navBarProgressBar.visibility = View.VISIBLE
+                navBarProgressBar.animate()
+                    .alpha(0.4f)
+                    .setDuration(220)
+                    .start()
+            }
         }
     }
 
@@ -322,6 +475,10 @@ class MediaPlayerActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
+        backgroundBlurExecutor.shutdownNow()
+        try {
+            blurRetriever.release()
+        } catch (ignored: Exception) {}
         if (isVideo) {
             videoView.stopPlayback()
         }

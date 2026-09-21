@@ -158,6 +158,7 @@ public class ChatPersonActivity extends AppCompatActivity {
     private static final byte TYPE_PRESENCE = 0x0C;
     private static final byte TYPE_REACTION = 0x0D;
     private static final byte TYPE_FILE = 0x0E;
+    private static final byte TYPE_PROFILE_UPDATE = 0x0F;
 
     private static class PendingMessage {
         byte type;
@@ -480,6 +481,22 @@ public class ChatPersonActivity extends AppCompatActivity {
                 }
             });
 
+    private final SharedPreferences.OnSharedPreferenceChangeListener profileChangeListener = (sharedPreferences, key) -> {
+        try {
+            String currentUser = sharedPreferences.getString("current_user", "");
+            if (key != null && (key.equals(currentUser + "_name") || key.equals(currentUser + "_avatar"))) {
+                reloadLocalProfileFromSettings();
+                if (connectedThread != null && connectedThread.isAlive()) {
+                    String handshake = "HANDSHAKE:login=" + currentUser + ";name=" + localUsername + ";version=" + getAppVersionCode(getApplicationContext());
+                    connectedThread.sendPacket(TYPE_TEXT, handshake.getBytes(StandardCharsets.UTF_8));
+                    sendLocalAvatar();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -618,6 +635,9 @@ public class ChatPersonActivity extends AppCompatActivity {
         tvSendingProgressPercent = findViewById(R.id.tvSendingProgressPercent);
 
         initAttachmentPanel();
+
+        getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                .registerOnSharedPreferenceChangeListener(profileChangeListener);
 
         if (btnCancelEdit != null) {
             btnCancelEdit.setOnClickListener(v -> exitEditMode());
@@ -985,29 +1005,6 @@ public class ChatPersonActivity extends AppCompatActivity {
                             PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Ошибка передачи получателю", null);
                         }
                         break;
-                    case MESSAGE_READ_AVATAR:
-                        byte[] avatarBuf = (byte[]) msg.obj;
-                        try {
-                            Bitmap avatarBmp = BitmapFactory.decodeByteArray(avatarBuf, 0, avatarBuf.length);
-                            if (avatarBmp != null) {
-                                File avatarFile = new File(getFilesDir(), "avatar_" + targetUsername + ".jpg");
-                                FileOutputStream fos = new FileOutputStream(avatarFile);
-                                avatarBmp.compress(Bitmap.CompressFormat.JPEG, 80, fos);
-                                fos.flush();
-                                fos.close();
-                                
-                                remoteAvatarUri = Uri.fromFile(avatarFile).toString();
-                                
-                                ImageView ivAvatar = findViewById(R.id.ivChatAvatar);
-                                if (ivAvatar != null) {
-                                    ivAvatar.setImageBitmap(avatarBmp);
-                                }
-                                saveLastMessageToChatList(null);
-                            }
-                        } catch (Exception e) {
-                            Log.e(TAG, "Failed to receive avatar", e);
-                        }
-                        break;
                     case MESSAGE_WRITE:
                         break;
                     case MESSAGE_TOAST:
@@ -1019,6 +1016,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                     case HANDSHAKE_SUCCESS:
                         connectTimeoutHandler.removeCallbacks(connectTimeoutRunnable);
                         isRemoteUserOnline = true;
+                        setOnlineStatusIndicator(true);
                         saveLastSeenTimestamp();
                         CharSequence curStatus = tvChatStatus != null ? tvChatStatus.getText() : "";
                         if (curStatus == null || (!curStatus.toString().contains("Печатает") && !curStatus.toString().contains("фото"))) {
@@ -1045,45 +1043,45 @@ public class ChatPersonActivity extends AppCompatActivity {
                             currentActivityState = action;
 
                             if ("VIEWING_PHOTO".equalsIgnoreCase(action)) {
+                                stopAnimatingStatus();
                                 setStatusWithAnimation("Смотрит фото", R.color.prime_success);
                                 typingResetHandler.removeCallbacks(resetTypingRunnable);
                                 saveActivityStateToChatList(targetUsername, "VIEWING_PHOTO");
-                            } else if ("SENDING_PHOTO".equalsIgnoreCase(action)) {
-                                setStatusWithAnimation("Отправка фото...", R.color.prime_success);
+                            } else if ("SENDING_PHOTO".equalsIgnoreCase(action) || "SENDING_VIDEO".equalsIgnoreCase(action) || "SENDING_MEDIA".equalsIgnoreCase(action)) {
+                                startAnimatingStatus("Отправка медиа", R.color.prime_success);
                                 typingResetHandler.removeCallbacks(resetTypingRunnable);
-                                saveActivityStateToChatList(targetUsername, "SENDING_PHOTO");
+                                saveActivityStateToChatList(targetUsername, "SENDING_MEDIA");
                             } else if ("VIEWING_VIDEO".equalsIgnoreCase(action)) {
+                                stopAnimatingStatus();
                                 setStatusWithAnimation("Смотрит видео", R.color.prime_success);
                                 typingResetHandler.removeCallbacks(resetTypingRunnable);
                                 saveActivityStateToChatList(targetUsername, "VIEWING_VIDEO");
-                            } else if ("SENDING_VIDEO".equalsIgnoreCase(action)) {
-                                setStatusWithAnimation("Отправка видео...", R.color.prime_success);
-                                typingResetHandler.removeCallbacks(resetTypingRunnable);
-                                saveActivityStateToChatList(targetUsername, "SENDING_VIDEO");
                             } else if ("VIEWING_FILE".equalsIgnoreCase(action)) {
+                                stopAnimatingStatus();
                                 setStatusWithAnimation("Смотрит файл", R.color.prime_success);
                                 typingResetHandler.removeCallbacks(resetTypingRunnable);
                                 saveActivityStateToChatList(targetUsername, "VIEWING_FILE");
                             } else if ("SENDING_FILE".equalsIgnoreCase(action)) {
-                                setStatusWithAnimation("Отправка файла...", R.color.prime_success);
+                                startAnimatingStatus("Отправка файла", R.color.prime_success);
                                 typingResetHandler.removeCallbacks(resetTypingRunnable);
                                 saveActivityStateToChatList(targetUsername, "SENDING_FILE");
                             } else if ("IDLE".equalsIgnoreCase(action)) {
                                 currentActivityState = "IDLE";
+                                stopAnimatingStatus();
                                 typingResetHandler.removeCallbacks(resetTypingRunnable);
                                 saveActivityStateToChatList(targetUsername, "IDLE");
                                 resetTypingRunnable.run();
                             } else if ("TYPING".equalsIgnoreCase(action)) {
-                                if (!"VIEWING_PHOTO".equalsIgnoreCase(currentActivityState) && !"SENDING_PHOTO".equalsIgnoreCase(currentActivityState) && !"VIEWING_VIDEO".equalsIgnoreCase(currentActivityState) && !"SENDING_VIDEO".equalsIgnoreCase(currentActivityState) && !"VIEWING_FILE".equalsIgnoreCase(currentActivityState) && !"SENDING_FILE".equalsIgnoreCase(currentActivityState)) {
-                                    setStatusWithAnimation("Печатает...", R.color.prime_success);
+                                if (!"VIEWING_PHOTO".equalsIgnoreCase(currentActivityState) && !"SENDING_PHOTO".equalsIgnoreCase(currentActivityState) && !"SENDING_VIDEO".equalsIgnoreCase(currentActivityState) && !"SENDING_FILE".equalsIgnoreCase(currentActivityState) && !"SENDING_MEDIA".equalsIgnoreCase(currentActivityState)) {
+                                    startAnimatingStatus("Печатает", R.color.prime_success);
                                     typingResetHandler.removeCallbacks(resetTypingRunnable);
                                     typingResetHandler.postDelayed(resetTypingRunnable, 3000);
                                     saveActivityStateToChatList(targetUsername, "TYPING");
                                 }
                             }
                         } else {
-                            if (!"VIEWING_PHOTO".equalsIgnoreCase(currentActivityState) && !"SENDING_PHOTO".equalsIgnoreCase(currentActivityState) && !"VIEWING_VIDEO".equalsIgnoreCase(currentActivityState) && !"SENDING_VIDEO".equalsIgnoreCase(currentActivityState) && !"VIEWING_FILE".equalsIgnoreCase(currentActivityState) && !"SENDING_FILE".equalsIgnoreCase(currentActivityState)) {
-                                setStatusWithAnimation("Печатает...", R.color.prime_success);
+                            if (!"VIEWING_PHOTO".equalsIgnoreCase(currentActivityState) && !"SENDING_PHOTO".equalsIgnoreCase(currentActivityState) && !"SENDING_VIDEO".equalsIgnoreCase(currentActivityState) && !"SENDING_FILE".equalsIgnoreCase(currentActivityState) && !"SENDING_MEDIA".equalsIgnoreCase(currentActivityState)) {
+                                startAnimatingStatus("Печатает", R.color.prime_success);
                                 typingResetHandler.removeCallbacks(resetTypingRunnable);
                                 typingResetHandler.postDelayed(resetTypingRunnable, 3000);
                                 saveActivityStateToChatList(targetUsername, "TYPING");
@@ -1154,7 +1152,8 @@ public class ChatPersonActivity extends AppCompatActivity {
                     case MESSAGE_DISCONNECTED:
                         isRemoteUserOnline = false;
                         saveLastMessageToChatList(null, MessageStatus.NONE, false, "OFFLINE");
-                        updateOfflineLastSeenStatus();
+                        setStatusWithAnimation("Отключено", R.color.prime_danger);
+                        setOnlineStatusIndicator(false);
                         PrimeNotification.INSTANCE.show(ChatPersonActivity.this, targetUsername + " отключил(а) соединение", null);
                         if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.VISIBLE);
                         if (layoutInput != null) layoutInput.setVisibility(View.GONE);
@@ -1335,7 +1334,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         boolean useExistingSocket = intent.getBooleanExtra("EXTRA_USE_EXISTING_SOCKET", false);
 
         if (BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername)) {
-            Object threadObj = BluetoothSocketHolder.getConnectedThreadInstance();
+            Object threadObj = BluetoothSocketHolder.getThreadFor(deviceAddress, targetUsername);
             if (threadObj instanceof ConnectedThread) {
                 ConnectedThread existingThread = (ConnectedThread) threadObj;
                 if (existingThread.isAlive()) {
@@ -1347,6 +1346,7 @@ public class ChatPersonActivity extends AppCompatActivity {
 
                     if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.GONE);
                     if (layoutInput != null) layoutInput.setVisibility(View.VISIBLE);
+                    setOnlineStatusIndicator(true);
                     if (remoteVersionCode != -1 && remoteVersionCode != getAppVersionCode(this)) {
                         setStatusWithAnimation("В сети (Другая версия)", Color.parseColor("#FFC107"));
                     } else {
@@ -1356,10 +1356,10 @@ public class ChatPersonActivity extends AppCompatActivity {
                     flushPendingMessages();
                 }
             }
-        } else if (useExistingSocket && BluetoothSocketHolder.getSocket() != null && BluetoothSocketHolder.getSocket().isConnected()) {
-            BluetoothSocket existingSocket = BluetoothSocketHolder.getSocket();
-            if (BluetoothSocketHolder.getConnectedThreadInstance() instanceof ConnectedThread) {
-                ConnectedThread existingThread = (ConnectedThread) BluetoothSocketHolder.getConnectedThreadInstance();
+        } else if (useExistingSocket && BluetoothSocketHolder.getSocketFor(deviceAddress, targetUsername) != null && BluetoothSocketHolder.getSocketFor(deviceAddress, targetUsername).isConnected()) {
+            BluetoothSocket existingSocket = BluetoothSocketHolder.getSocketFor(deviceAddress, targetUsername);
+            if (BluetoothSocketHolder.getThreadFor(deviceAddress, targetUsername) instanceof ConnectedThread) {
+                ConnectedThread existingThread = (ConnectedThread) BluetoothSocketHolder.getThreadFor(deviceAddress, targetUsername);
                 if (existingThread.isAlive()) {
                     this.connectedThread = existingThread;
                     this.connectedThread.setUiHandler(handler);
@@ -1369,6 +1369,7 @@ public class ChatPersonActivity extends AppCompatActivity {
 
                     if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.GONE);
                     if (layoutInput != null) layoutInput.setVisibility(View.VISIBLE);
+                    setOnlineStatusIndicator(true);
                     if (remoteVersionCode != -1 && remoteVersionCode != getAppVersionCode(this)) {
                         setStatusWithAnimation("В сети (Другая версия)", Color.parseColor("#FFC107"));
                     } else {
@@ -1674,7 +1675,8 @@ public class ChatPersonActivity extends AppCompatActivity {
         } catch (Exception ignored) {}
 
         saveLastMessageToChatList(null, MessageStatus.NONE, false, "OFFLINE");
-        updateOfflineLastSeenStatus();
+        setStatusWithAnimation("Отключено", R.color.prime_danger);
+        setOnlineStatusIndicator(false);
         updateConnectionStateInAdapter();
 
         if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.VISIBLE);
@@ -1960,6 +1962,71 @@ public class ChatPersonActivity extends AppCompatActivity {
                             .setDuration(160)
                             .start();
                 }).start();
+    }
+
+    private void setOnlineStatusIndicator(boolean connected) {
+        View viewStatus = findViewById(R.id.viewOnlineStatus);
+        if (viewStatus == null) return;
+        GradientDrawable badge = new GradientDrawable();
+        badge.setShape(GradientDrawable.OVAL);
+        
+        if (connected) {
+            viewStatus.setVisibility(View.VISIBLE);
+            badge.setColor(ContextCompat.getColor(this, R.color.prime_success));
+        } else {
+            viewStatus.setVisibility(View.VISIBLE);
+            badge.setColor(ContextCompat.getColor(this, R.color.prime_danger));
+        }
+        viewStatus.setBackground(badge);
+    }
+
+    private final Handler statusAnimHandler = new Handler(Looper.getMainLooper());
+    private int statusDotCount = 0;
+    private String currentBaseStatus = "";
+    private int currentStatusColor = Color.parseColor("#4CAF50");
+
+    private final Runnable statusAnimRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (currentBaseStatus == null || currentBaseStatus.isEmpty()) return;
+            statusDotCount = (statusDotCount + 1) % 4; // 0: "", 1: ".", 2: "..", 3: "..."
+            StringBuilder sb = new StringBuilder(currentBaseStatus);
+            for (int i = 0; i < statusDotCount; i++) {
+                sb.append(".");
+            }
+            setStatusTextDirect(sb.toString(), currentStatusColor);
+            statusAnimHandler.postDelayed(this, 500);
+        }
+    };
+
+    private void setStatusTextDirect(String newText, int colorResOrValue) {
+        if (tvChatStatus == null) return;
+        int finalColor;
+        try {
+            finalColor = ContextCompat.getColor(this, colorResOrValue);
+        } catch (Exception e) {
+            finalColor = colorResOrValue;
+        }
+        tvChatStatus.setText(newText);
+        tvChatStatus.setTextColor(finalColor);
+    }
+
+    private void startAnimatingStatus(String baseStatus, int colorResOrValue) {
+        statusAnimHandler.removeCallbacks(statusAnimRunnable);
+        currentBaseStatus = baseStatus;
+        try {
+            currentStatusColor = ContextCompat.getColor(this, colorResOrValue);
+        } catch (Exception e) {
+            currentStatusColor = colorResOrValue;
+        }
+        statusDotCount = 0;
+        setStatusWithAnimation(baseStatus, currentStatusColor);
+        statusAnimHandler.postDelayed(statusAnimRunnable, 500);
+    }
+
+    private void stopAnimatingStatus() {
+        statusAnimHandler.removeCallbacks(statusAnimRunnable);
+        currentBaseStatus = "";
     }
 
     private Bitmap createLetterAvatar(String name, int sizePx) {
@@ -2446,7 +2513,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         setStatusWithAnimation("Установка связи...", R.color.prime_accent);
 
         connectTimeoutHandler.removeCallbacks(connectTimeoutRunnable);
-        connectTimeoutHandler.postDelayed(connectTimeoutRunnable, 8000L);
+        connectTimeoutHandler.postDelayed(connectTimeoutRunnable, 30000L);
 
         // 1. Немедленно отменяем любое фоновое сканирование ОС (критично для скорости RFCOMM)
         if (bluetoothAdapter != null) {
@@ -2529,9 +2596,9 @@ public class ChatPersonActivity extends AppCompatActivity {
             connectedThread.start();
         }
 
-        BluetoothSocketHolder.setSocket(socket);
-        BluetoothSocketHolder.setConnectedThreadInstance(connectedThread);
-        BluetoothSocketHolder.setActiveDeviceAddress(deviceAddress != null ? deviceAddress : (device != null ? device.getAddress() : null));
+        String resolvedAddress = deviceAddress != null ? deviceAddress : (device != null ? device.getAddress() : null);
+        BluetoothSocketHolder.registerConnection(resolvedAddress, targetUsername, socket, connectedThread);
+        BluetoothSocketHolder.setActiveDeviceAddress(resolvedAddress);
         BluetoothSocketHolder.setActiveTargetUsername(targetUsername);
 
         isRemoteUserOnline = true;
@@ -2545,19 +2612,20 @@ public class ChatPersonActivity extends AppCompatActivity {
 
         runOnUiThread(() -> {
             setStatusWithAnimation("В сети", R.color.prime_success);
+            setOnlineStatusIndicator(true);
             if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.GONE);
             if (layoutInput != null) layoutInput.setVisibility(View.VISIBLE);
         });
     }
 
     private void connectionFailed() {
-        PrimeNotification.INSTANCE.show(this, "Не удалось подключиться", null);
         runOnUiThread(() -> {
             if (btnPrimeConnect != null) {
                 btnPrimeConnect.setEnabled(true);
                 btnPrimeConnect.setText("⚡ Соединиться");
             }
             updateOfflineLastSeenStatus();
+            setOnlineStatusIndicator(false);
         });
 
         if (connectionRetryCount < MAX_AUTO_RETRIES) {
@@ -2565,6 +2633,7 @@ public class ChatPersonActivity extends AppCompatActivity {
             autoRetryHandler.removeCallbacks(autoRetryRunnable);
             autoRetryHandler.postDelayed(autoRetryRunnable, 3000L);
         } else {
+            PrimeNotification.INSTANCE.show(this, "Не удалось подключиться", null);
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 if (!isFinishing()) {
                     finish();
@@ -2580,7 +2649,8 @@ public class ChatPersonActivity extends AppCompatActivity {
 
         runOnUiThread(() -> {
             saveLastMessageToChatList(null, MessageStatus.NONE, false, "OFFLINE");
-            updateOfflineLastSeenStatus();
+            setStatusWithAnimation("Отключено", R.color.prime_danger);
+            setOnlineStatusIndicator(false);
             if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.VISIBLE);
             if (layoutInput != null) layoutInput.setVisibility(View.GONE);
             if (btnPrimeConnect != null) {
@@ -2696,12 +2766,18 @@ public class ChatPersonActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        try {
+            getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                    .unregisterOnSharedPreferenceChangeListener(profileChangeListener);
+        } catch (Exception ignored) {}
+
         if (senderTypingHandler != null) senderTypingHandler.removeCallbacksAndMessages(null);
         if (lastSeenHandler != null) lastSeenHandler.removeCallbacksAndMessages(null);
         if (typingResetHandler != null) typingResetHandler.removeCallbacksAndMessages(null);
         if (dateHideHandler != null) dateHideHandler.removeCallbacksAndMessages(null);
         if (connectTimeoutHandler != null) connectTimeoutHandler.removeCallbacksAndMessages(null);
         if (deletionHandler != null) deletionHandler.removeCallbacksAndMessages(null);
+        if (statusAnimHandler != null) statusAnimHandler.removeCallbacksAndMessages(null);
 
         if (bluetoothAdapter != null) {
             try {
@@ -2901,11 +2977,15 @@ public class ChatPersonActivity extends AppCompatActivity {
             keepAliveRunnable = new Runnable() {
                 @Override
                 public void run() {
+                    if (mmSocket == null || !mmSocket.isConnected()) {
+                        keepAliveHandler.removeCallbacks(this);
+                        return;
+                    }
                     sendPacket(TYPE_PING, new byte[0]);
-                    keepAliveHandler.postDelayed(this, 5000);
+                    keepAliveHandler.postDelayed(this, 10000); // 10s ping is less aggressive
                 }
             };
-            keepAliveHandler.postDelayed(keepAliveRunnable, 5000);
+            keepAliveHandler.postDelayed(keepAliveRunnable, 10000);
 
             while (true) {
                 try {
@@ -2966,15 +3046,38 @@ public class ChatPersonActivity extends AppCompatActivity {
                                 remoteName = data;
                             }
                             
-                            if (!remoteName.isEmpty()) {
+                            if (!remoteName.isEmpty() && !remoteName.equals(targetUsername)) {
                                 String oldTarget = targetUsername;
                                 targetUsername = remoteName;
                                 try {
                                     getIntent().putExtra("EXTRA_CHAT_NAME", remoteName);
                                 } catch (Exception ignored) {}
+                                
+                                // Update BluetoothSocketHolder
+                                BluetoothSocketHolder.setActiveTargetUsername(remoteName);
+                                BluetoothSocketHolder.registerConnection(deviceAddress, remoteName, mmSocket, this);
+                                
+                                // Migrate history
                                 migrateHistoryIfNeeded(oldTarget, remoteName);
                                 if (deviceAddress != null) {
                                     migrateHistoryIfNeeded(deviceAddress, remoteName);
+                                }
+                                
+                                // Update persisted_chats OLD name to NEW name
+                                try {
+                                    SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                                    String jsonChats = sharedPrefs.getString("persisted_chats", "[]");
+                                    JSONArray chatArray = new JSONArray(jsonChats);
+                                    for (int i = 0; i < chatArray.length(); i++) {
+                                        JSONObject obj = chatArray.getJSONObject(i);
+                                        if (oldTarget.equalsIgnoreCase(obj.optString("name")) || (deviceAddress != null && deviceAddress.equalsIgnoreCase(obj.optString("id")))) {
+                                            obj.put("name", remoteName);
+                                            break;
+                                        }
+                                    }
+                                    sharedPrefs.edit().putString("persisted_chats", chatArray.toString()).commit();
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Failed to rename chat in persisted_chats", e);
                                 }
 
                                 final String finalName = remoteName;
@@ -3037,23 +3140,128 @@ public class ChatPersonActivity extends AppCompatActivity {
                         }
                     } else if (type == TYPE_FILE && payload != null) {
                         sendPacket(TYPE_ACK, new byte[0]);
-                        String fileData = new String(payload, StandardCharsets.UTF_8);
-                        String fileMsgId = extractMsgId(fileData);
+                        String fileMetaStr = new String(payload, 0, Math.min(payload.length, 500), StandardCharsets.UTF_8);
+                        String fileMsgId = extractMsgId(fileMetaStr);
                         if (fileMsgId != null && !fileMsgId.isEmpty()) {
                             sendPacket(TYPE_READ_RECEIPT, fileMsgId.getBytes(StandardCharsets.UTF_8));
                         }
 
                         if (activeUiHandler != null) {
                             postToUi(MESSAGE_READ_FILE, payload.length, -1, payload);
-                            String lowerData = fileData.toLowerCase();
+                            String lowerData = fileMetaStr.toLowerCase();
                             boolean isVideo = lowerData.contains(".mp4") || lowerData.contains(".mkv") || lowerData.contains(".3gp") || lowerData.contains(".webm") || lowerData.contains(":::duration:::");
                             saveLastMessageToChatList(isVideo ? "Видео" : "Файл", MessageStatus.READ, false, "ONLINE");
                             saveActivityStateToChatList(targetUsername, isVideo ? "VIEWING_VIDEO" : "VIEWING_FILE");
                         } else {
-                            processBackgroundFileMessage(fileData);
+                            processBackgroundFileMessage(payload);
                         }
-                    } else if (type == TYPE_AVATAR && payload != null) {
-                        postToUi(MESSAGE_READ_AVATAR, payload.length, -1, payload);
+                    } else if (type == TYPE_PROFILE_UPDATE && payload != null) {
+                        String receivedData = new String(payload, StandardCharsets.UTF_8);
+                        if (receivedData.startsWith("HANDSHAKE:")) {
+                            String data = receivedData.substring(10).trim();
+                            String remoteName = targetUsername;
+                            if (data.contains("login=") || data.contains("name=")) {
+                                String[] parts = data.split(";");
+                                for (String p : parts) {
+                                    if (p.startsWith("name=")) remoteName = p.substring(5);
+                                }
+                            } else {
+                                remoteName = data;
+                            }
+                            
+                            if (!remoteName.isEmpty() && !remoteName.equals(targetUsername)) {
+                                String oldTarget = targetUsername;
+                                targetUsername = remoteName;
+                                try {
+                                    getIntent().putExtra("EXTRA_CHAT_NAME", remoteName);
+                                } catch (Exception ignored) {}
+                                
+                                BluetoothSocketHolder.setActiveTargetUsername(remoteName);
+                                BluetoothSocketHolder.registerConnection(deviceAddress, remoteName, mmSocket, this);
+                                
+                                migrateHistoryIfNeeded(oldTarget, remoteName);
+                                if (deviceAddress != null) {
+                                    migrateHistoryIfNeeded(deviceAddress, remoteName);
+                                }
+                                
+                                try {
+                                    SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                                    String jsonChats = sharedPrefs.getString("persisted_chats", "[]");
+                                    JSONArray chatArray = new JSONArray(jsonChats);
+                                    for (int i = 0; i < chatArray.length(); i++) {
+                                        JSONObject obj = chatArray.getJSONObject(i);
+                                        if (oldTarget.equalsIgnoreCase(obj.optString("name")) || (deviceAddress != null && deviceAddress.equalsIgnoreCase(obj.optString("id")))) {
+                                            obj.put("name", remoteName);
+                                            break;
+                                        }
+                                    }
+                                    sharedPrefs.edit().putString("persisted_chats", chatArray.toString()).commit();
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Failed to rename chat in persisted_chats", e);
+                                }
+
+                                final String finalName = remoteName;
+                                saveLastMessageToChatList(null);
+
+                                if (activeUiHandler != null) {
+                                    activeUiHandler.post(() -> {
+                                        if (tvChatName != null) tvChatName.setText(finalName);
+                                        updateAvatarUi(remoteAvatarUri, finalName);
+                                        List<ChatMessage> updatedHistory = ChatHistoryManager.loadMessages(ChatPersonActivity.this, finalName);
+                                        if (chatAdapter != null && !updatedHistory.isEmpty()) {
+                                            chatAdapter.setMessages(updatedHistory);
+                                            if (chatAdapter.getItemCount() > 0) {
+                                                rvMessages.scrollToPosition(chatAdapter.getItemCount() - 1);
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    } else if (type == TYPE_AVATAR) {
+                        try {
+                            SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                            String currUser = sp.getString("current_user", "");
+                            if (targetUsername != null && !targetUsername.isEmpty() && !targetUsername.equalsIgnoreCase(currUser)) {
+                                if (payload == null || payload.length == 0) {
+                                    File avatarFile = new File(getFilesDir(), "avatar_" + targetUsername + ".jpg");
+                                    if (avatarFile.exists()) {
+                                        boolean ignoredDel = avatarFile.delete();
+                                    }
+                                    remoteAvatarUri = null;
+                                    saveLastMessageToChatList(null);
+                                    
+                                    if (activeUiHandler != null) {
+                                        activeUiHandler.post(() -> {
+                                            updateAvatarUi(null, targetUsername);
+                                        });
+                                    }
+                                } else {
+                                    Bitmap avatarBmp = BitmapFactory.decodeByteArray(payload, 0, payload.length);
+                                    if (avatarBmp != null) {
+                                        File avatarFile = new File(getFilesDir(), "avatar_" + targetUsername + ".jpg");
+                                        FileOutputStream fos = new FileOutputStream(avatarFile);
+                                        avatarBmp.compress(Bitmap.CompressFormat.JPEG, 80, fos);
+                                        fos.flush();
+                                        fos.close();
+                                        
+                                        remoteAvatarUri = Uri.fromFile(avatarFile).toString();
+                                        saveLastMessageToChatList(null);
+                                        
+                                        if (activeUiHandler != null) {
+                                            activeUiHandler.post(() -> {
+                                                ImageView ivAvatar = findViewById(R.id.ivChatAvatar);
+                                                if (ivAvatar != null) {
+                                                    ivAvatar.setImageBitmap(avatarBmp);
+                                                }
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to process background avatar", e);
+                        }
                     } else if (type == TYPE_TYPING) {
                         String stateData = (payload != null && payload.length > 0) ? new String(payload, StandardCharsets.UTF_8) : "STATE:TYPING";
                         postToUi(MESSAGE_TYPING, -1, -1, stateData);
@@ -3181,19 +3389,20 @@ public class ChatPersonActivity extends AppCompatActivity {
             }
         }
 
-        private void processBackgroundFileMessage(String fileData) {
-            if (fileData == null) return;
-            byte[] bytes = fileData.getBytes(StandardCharsets.UTF_8);
-            ChatMessage fileMsg = parseFileMessageBytes(bytes, targetUsername);
+        private void processBackgroundFileMessage(byte[] fullPayload) {
+            if (fullPayload == null) return;
+            ChatMessage fileMsg = parseFileMessageBytes(fullPayload, targetUsername);
             if (fileMsg == null) return;
             ChatHistoryManager.saveMessage(getApplicationContext(), targetUsername, fileMsg);
-            saveLastMessageToChatList("Файл: " + fileMsg.getFileName(), MessageStatus.NONE, true, "ONLINE");
+            
+            String desc = (fileMsg.isVideo() ? "Видео: " : "Файл: ") + (fileMsg.getFileName() != null ? fileMsg.getFileName() : "Файл");
+            saveLastMessageToChatList(desc, MessageStatus.NONE, true, "ONLINE");
 
             Handler uiH = activeUiHandler;
             if (uiH != null) {
                 uiH.post(() -> addMessageToUI(fileMsg));
             } else {
-                showBackgroundNotification(targetUsername, "Файл: " + fileMsg.getFileName());
+                showBackgroundNotification(targetUsername, desc);
             }
         }
 

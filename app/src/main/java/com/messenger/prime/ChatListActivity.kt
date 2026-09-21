@@ -282,6 +282,12 @@ class ChatListActivity : AppCompatActivity() {
                             if (primeDevices.add(device.address)) {
                                 triggerPrimeFoundVibration()
                                 PrimeNotification.show(this@ChatListActivity, "⚡ Найден Prime-пользователь: ${devName ?: "Собеседник"}!")
+                                val chatIntent = Intent(this@ChatListActivity, ChatPersonActivity::class.java).apply {
+                                    putExtra("EXTRA_CHAT_NAME", devName ?: "Собеседник")
+                                    putExtra("EXTRA_DEVICE_ADDRESS", device.address)
+                                }
+                                startActivity(chatIntent)
+                                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                             }
                         }
 
@@ -293,6 +299,12 @@ class ChatListActivity : AppCompatActivity() {
                                         val nameToShow = devName ?: "Prime Собеседник"
                                         triggerPrimeFoundVibration()
                                         PrimeNotification.show(this@ChatListActivity, "⚡ Найден Prime-пользователь: $nameToShow!")
+                                        val chatIntent = Intent(this@ChatListActivity, ChatPersonActivity::class.java).apply {
+                                            putExtra("EXTRA_CHAT_NAME", nameToShow)
+                                            putExtra("EXTRA_DEVICE_ADDRESS", device.address)
+                                        }
+                                        startActivity(chatIntent)
+                                        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                                     }
                                     break
                                 }
@@ -334,6 +346,12 @@ class ChatListActivity : AppCompatActivity() {
                                 val devName = try { device.name ?: "Prime Собеседник" } catch(e: Exception) { "Prime Собеседник" }
                                 triggerPrimeFoundVibration()
                                 PrimeNotification.show(this@ChatListActivity, "⚡ Найден Prime-пользователь: $devName!")
+                                val chatIntent = Intent(this@ChatListActivity, ChatPersonActivity::class.java).apply {
+                                    putExtra("EXTRA_CHAT_NAME", devName)
+                                    putExtra("EXTRA_DEVICE_ADDRESS", device.address)
+                                }
+                                startActivity(chatIntent)
+                                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                             }
                         }
                     }
@@ -769,19 +787,19 @@ class ChatListActivity : AppCompatActivity() {
 
 
 
+                            val allDevices = (pairedDevices.map { it to true } + discoveredDevices.map { it to false })
+                                .distinctBy { it.first.address }
+                                .filter { (device, _) ->
+                                    val name = try {
+                                        @Suppress("MissingPermission")
+                                        device.name
+                                    } catch (e: Exception) { null }
+                                    primeDevices.contains(device.address) || (name?.contains("Prime", ignoreCase = true) == true)
+                                }
+
                             LazyColumn(
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 300.dp)
                             ) {
-                                val allDevices = (pairedDevices.map { it to true } + discoveredDevices.map { it to false })
-                                    .distinctBy { it.first.address }
-                                    .sortedByDescending { (device, _) ->
-                                        val name = try {
-                                            @Suppress("MissingPermission")
-                                            device.name
-                                        } catch (e: Exception) { null }
-                                        primeDevices.contains(device.address) || (name?.contains("Prime", ignoreCase = true) == true)
-                                    }
-
                                 items(allDevices) { (device, isPaired) ->
                                     val devName = try {
                                         @Suppress("MissingPermission")
@@ -885,7 +903,7 @@ class ChatListActivity : AppCompatActivity() {
                                 }
                             }
 
-                            if (discoveredDevices.isEmpty() && pairedDevices.isEmpty() && !isScanningState.value) {
+                            if (allDevices.isEmpty() && !isScanningState.value) {
                                 Text(
                                     text = "Устройства не найдены",
                                     color = Color.White.copy(alpha = 0.5f),

@@ -231,16 +231,12 @@ class ChatListAdapter(
                 val isCurrentlyTyping = "TYPING".equals(chat.activityState, ignoreCase = true) && chat.typingUntil > now
 
                 binding.tvContactName.text = chat.name
-                if ("SENDING_PHOTO".equals(chat.activityState, ignoreCase = true)) {
-                    binding.tvLastMessage.text = "Отправка фото..."
+                if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
+                    binding.tvLastMessage.text = "Отправка медиа"
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("VIEWING_PHOTO".equals(chat.activityState, ignoreCase = true)) {
                     binding.tvLastMessage.text = "Смотрит фото"
-                    binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
-                    binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
-                } else if ("SENDING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
-                    binding.tvLastMessage.text = "Отправка видео..."
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("VIEWING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
@@ -248,7 +244,7 @@ class ChatListAdapter(
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
-                    binding.tvLastMessage.text = "Отправка файла..."
+                    binding.tvLastMessage.text = "Отправка файла"
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("VIEWING_FILE".equals(chat.activityState, ignoreCase = true)) {

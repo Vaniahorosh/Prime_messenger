@@ -27,7 +27,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <VideoView
+        <com.messenger.prime.AspectRatioVideoView
             android:id="@+id/videoView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -191,5 +191,21 @@
                 android:max="1000" />
         </LinearLayout>
     </LinearLayout>
+
+    <!-- Тонкий индикатор прогресса в области навигационной панели при скрытых контроллерах -->
+    <ProgressBar
+        android:id="@+id/navBarProgressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="0dp"
+        android:layout_height="3dp"
+        android:max="1000"
+        android:progress="0"
+        android:alpha="0"
+        android:visibility="gone"
+        android:progressTint="@color/prime_text_primary"
+        android:background="@android:color/transparent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

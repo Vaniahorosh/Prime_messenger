@@ -89,6 +89,16 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
 
+            <View
+                android:id="@+id/viewOnlineStatus"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:background="@android:color/transparent"
+                app:layout_constraintBottom_toBottomOf="@+id/ivChatAvatar"
+                app:layout_constraintEnd_toEndOf="@+id/ivChatAvatar"
+                android:layout_marginEnd="-2dp"
+                android:layout_marginBottom="-2dp" />
+
             <TextView
                 android:id="@+id/tvChatName"
                 android:layout_width="0dp"
