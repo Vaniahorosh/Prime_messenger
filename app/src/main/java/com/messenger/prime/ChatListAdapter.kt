@@ -227,6 +227,9 @@ class ChatListAdapter(
 
                 holder.resetReveal()
 
+                val now = System.currentTimeMillis()
+                val isCurrentlyTyping = "TYPING".equals(chat.activityState, ignoreCase = true) && chat.typingUntil > now
+
                 binding.tvContactName.text = chat.name
                 if ("SENDING_PHOTO".equals(chat.activityState, ignoreCase = true)) {
                     binding.tvLastMessage.text = "Отправка фото..."
@@ -236,7 +239,23 @@ class ChatListAdapter(
                     binding.tvLastMessage.text = "Смотрит фото"
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
-                } else if (chat.isTyping || chat.typingUntil > System.currentTimeMillis() || "TYPING".equals(chat.activityState, ignoreCase = true)) {
+                } else if ("SENDING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
+                    binding.tvLastMessage.text = "Отправка видео..."
+                    binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                    binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+                } else if ("VIEWING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
+                    binding.tvLastMessage.text = "Смотрит видео"
+                    binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                    binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+                } else if ("SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
+                    binding.tvLastMessage.text = "Отправка файла..."
+                    binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                    binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+                } else if ("VIEWING_FILE".equals(chat.activityState, ignoreCase = true)) {
+                    binding.tvLastMessage.text = "Смотрит файл"
+                    binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                    binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+                } else if (isCurrentlyTyping || (chat.isTyping && chat.typingUntil > now)) {
                     binding.tvLastMessage.text = "Печатает..."
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
@@ -273,9 +292,11 @@ class ChatListAdapter(
 
                     if (!avatarLoaded) {
                         val localAvatarFile = File(context.filesDir, "avatar_${chat.name}.jpg")
-                        if (localAvatarFile.exists()) {
+                        val localAvatarFileId = File(context.filesDir, "avatar_${chat.id}.jpg")
+                        val targetFile = if (localAvatarFile.exists()) localAvatarFile else if (localAvatarFileId.exists()) localAvatarFileId else null
+                        if (targetFile != null && targetFile.exists()) {
                             try {
-                                val bmp = BitmapFactory.decodeFile(localAvatarFile.absolutePath)
+                                val bmp = BitmapFactory.decodeFile(targetFile.absolutePath)
                                 if (bmp != null) {
                                     binding.ivUserAvatar.setImageBitmap(bmp)
                                     binding.ivUserAvatar.visibility = View.VISIBLE
@@ -348,6 +369,10 @@ class ChatListAdapter(
                 }
 
                 when (chat.messageStatus) {
+                    MessageStatus.SENDING -> {
+                        binding.ivMessageStatus.visibility = View.VISIBLE
+                        binding.ivMessageStatus.setImageResource(R.drawable.ic_clock)
+                    }
                     MessageStatus.SENT -> {
                         binding.ivMessageStatus.visibility = View.VISIBLE
                         binding.ivMessageStatus.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.ic_done))

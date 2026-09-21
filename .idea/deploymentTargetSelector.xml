@@ -15,12 +15,12 @@
           <targets>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=RF8R90E98ZT" />
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=65221VDCR000G9" />
               </handle>
             </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=65221VDCR000G9" />
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=RF8R90E98ZT" />
               </handle>
             </Target>
           </targets>

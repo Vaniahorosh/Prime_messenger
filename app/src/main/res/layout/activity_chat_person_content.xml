@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/chatRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -16,16 +17,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Градиентный туман в области системной навигации -->
-    <View
-        android:id="@+id/vBottomGradient"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:elevation="4dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
     <!-- 1. Список сообщений (фоновый слой на весь экран) -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvMessages"
@@ -35,12 +26,22 @@
         android:paddingStart="8dp"
         android:paddingTop="88dp"
         android:paddingEnd="8dp"
-        android:paddingBottom="16dp"
+        android:paddingBottom="96dp"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-        app:layout_constraintBottom_toTopOf="@+id/bottomContainer"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Градиентный туман в области системной навигации -->
+    <View
+        android:id="@+id/vBottomGradient"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:elevation="4dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
     <!-- 2. Верхний парящий островок (Floating Glass Header) -->
     <LinearLayout
@@ -132,6 +133,8 @@
         android:layout_marginTop="88dp"
         android:alpha="0"
         android:background="@drawable/bg_date_bubble"
+        android:clickable="true"
+        android:focusable="true"
         android:elevation="6dp"
         android:paddingStart="14dp"
         android:paddingTop="6dp"
@@ -145,7 +148,7 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <!-- 3. Нижний парящий контейнер (Floating Glass Footer) -->
-    <FrameLayout
+    <LinearLayout
         android:id="@+id/bottomContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -153,6 +156,7 @@
         android:layout_marginEnd="12dp"
         android:layout_marginBottom="12dp"
         android:elevation="8dp"
+        android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
@@ -171,7 +175,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
                 android:backgroundTint="@color/prime_brand"
-                android:text="⚡ Праймериться!"
+                android:text="⚡ Соединиться"
                 android:textColor="@color/white"
                 android:textSize="16sp"
                 android:textStyle="bold"
@@ -191,6 +195,167 @@
             android:paddingBottom="4dp"
             android:visibility="gone">
 
+            <!-- Плавающая панель прогресса отправки / доставки -->
+            <LinearLayout
+                android:id="@+id/layoutSendingProgress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="12dp"
+                android:paddingTop="6dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="6dp"
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:id="@+id/pbSendingProgress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="0dp"
+                    android:layout_height="6dp"
+                    android:layout_weight="1"
+                    android:max="100" />
+
+                <TextView
+                    android:id="@+id/tvSendingProgressPercent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:textColor="@color/prime_brand"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    tools:text="Доставка... 45%" />
+            </LinearLayout>
+
+            <!-- Плавающая панель ожидающего вложения -->
+            <LinearLayout
+                android:id="@+id/layoutPendingAttachment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="4dp"
+                android:background="@drawable/bg_pending_attachment"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="6dp"
+                android:visibility="gone">
+
+                <FrameLayout
+                    android:layout_width="44dp"
+                    android:layout_height="44dp">
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/ivPendingThumbnail"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/ic_file"
+                        app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
+
+                    <ImageView
+                        android:id="@+id/ivPendingVideoBadge"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_video"
+                        android:visibility="gone"
+                        app:tint="@color/white" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvPendingName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="Вложение"
+                        android:textColor="@color/prime_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvPendingSize"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="Готово к отправке"
+                        android:textColor="@color/prime_text_secondary"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <ImageButton
+                    android:id="@+id/btnCancelPending"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Отменить вложение"
+                    android:src="@drawable/ic_cancel"
+                    app:tint="@color/prime_danger" />
+            </LinearLayout>
+
+            <!-- Плавающая панель режима ответа -->
+            <LinearLayout
+                android:id="@+id/layoutReplyBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_undo"
+                    app:tint="@color/prime_brand" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvReplyBarTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Ответ пользователю"
+                        android:textColor="@color/prime_brand"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvReplyBarText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="Текст сообщения..."
+                        android:textColor="@color/prime_text_secondary"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <ImageButton
+                    android:id="@+id/btnCloseReplyBar"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Отменить ответ"
+                    android:src="@drawable/ic_cancel"
+                    app:tint="@color/prime_danger" />
+            </LinearLayout>
+
             <!-- Плавающая панель режима редактирования -->
             <LinearLayout
                 android:id="@+id/layoutEditBar"
@@ -205,6 +370,7 @@
                 android:visibility="gone">
 
                 <ImageView
+                    android:id="@+id/ivEditIcon"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
                     android:src="@drawable/ic_edit"
@@ -283,6 +449,13 @@
                     app:tint="@color/prime_text_primary" />
             </LinearLayout>
         </LinearLayout>
-    </FrameLayout>
+
+        <!-- Встроенная панель вложений -->
+        <include
+            layout="@layout/layout_attachment_panel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

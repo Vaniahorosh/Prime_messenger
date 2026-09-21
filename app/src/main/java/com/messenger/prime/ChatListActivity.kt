@@ -16,12 +16,12 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.Uri
-import com.journeyapps.barcodescanner.CaptureActivity
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
+
 import java.io.File
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -102,6 +102,7 @@ import android.bluetooth.BluetoothSocket
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.os.ParcelUuid
 import android.provider.Settings
 import android.util.Log
 import android.widget.ImageView
@@ -128,6 +129,8 @@ class ChatListActivity : AppCompatActivity() {
     private val isIslandVisibleState = mutableStateOf(true)
     private val isContactDialogVisible = mutableStateOf(false)
     private val chatListState = mutableStateListOf<ChatModel>()
+    private val typingExpireHandler = Handler(Looper.getMainLooper())
+    private val typingExpireRunnable = Runnable { reloadChatsFromDb() }
     private val hazeState = HazeState()
 
     private var startY = 0f
@@ -150,6 +153,28 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
+    private val enableDiscoverableLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        performDiscovery()
+    }
+
+    private fun getRequiredBluetoothPermissions(): Array<String> {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_ADVERTISE,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+        } else {
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.BLUETOOTH,
+                Manifest.permission.BLUETOOTH_ADMIN
+            )
+        }
+    }
+
     private fun showSettingsDialog() {
         AlertDialog.Builder(this, R.style.Theme_Prime_AlertDialog)
             .setTitle("Требуется доступ к Bluetooth")
@@ -165,27 +190,23 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private val requestBluetoothPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-        val requiredPerms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
-        } else {
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN)
-        }
+        val requiredPerms = getRequiredBluetoothPermissions()
         
-        val allGranted = requiredPerms.all { 
-            permissions[it] == true || ActivityCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED 
+        val allGranted = requiredPerms.all { perms ->
+            permissions[perms] == true || ActivityCompat.checkSelfPermission(this, perms) == PackageManager.PERMISSION_GRANTED 
         }
         
         if (allGranted) {
             isContactDialogVisible.value = true
         } else {
-            val permanentlyDenied = requiredPerms.any { 
-                ActivityCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED && 
-                !ActivityCompat.shouldShowRequestPermissionRationale(this, it)
+            val permanentlyDenied = requiredPerms.any { perms ->
+                ActivityCompat.checkSelfPermission(this, perms) != PackageManager.PERMISSION_GRANTED && 
+                !ActivityCompat.shouldShowRequestPermissionRationale(this, perms)
             }
             if (permanentlyDenied) {
                 showSettingsDialog()
             } else {
-                PrimeNotification.show(this, "Необходимы разрешения для поиска")
+                PrimeNotification.show(this, "Необходимы разрешения для поиска устройств")
             }
         }
     }
@@ -205,12 +226,7 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private fun checkAndRequestPermissions() {
-        val requiredPerms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
-        } else {
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN)
-        }
-        
+        val requiredPerms = getRequiredBluetoothPermissions()
         val missingPerms = requiredPerms.filter { ActivityCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
         if (missingPerms.isNotEmpty()) {
             requestBluetoothPermissionLauncher.launch(requiredPerms)
@@ -221,70 +237,6 @@ class ChatListActivity : AppCompatActivity() {
 
     private val PRIME_UUID = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66")
     private val primeDevices = mutableStateSetOf<String>()
-
-    private val isShowingMyQrState = mutableStateOf(false)
-
-    private val qrScannerLauncher = registerForActivityResult(ScanContract()) { result ->
-        if (result.contents != null) {
-            val scannedData = result.contents
-            if (scannedData.startsWith("PRIME_CONNECT:")) {
-                var devMac = ""
-                var devName = "Prime Собеседник"
-                val data = scannedData.substring(14)
-                val parts = data.split(";")
-                for (p in parts) {
-                    if (p.startsWith("address=")) devMac = p.substring(8)
-                    else if (p.startsWith("name=")) devName = p.substring(5)
-                }
-
-                if (devMac.isNotEmpty()) {
-                    triggerPrimeFoundVibration()
-                    isContactDialogVisible.value = false
-                    PrimeNotification.show(this, "⚡ QR-код принят! Подключение к $devName...")
-
-                    val intent = Intent(this, ChatPersonActivity::class.java).apply {
-                        putExtra("EXTRA_CHAT_NAME", devName)
-                        putExtra("EXTRA_DEVICE_ADDRESS", devMac)
-                        putExtra("EXTRA_USE_EXISTING_SOCKET", true)
-                    }
-                    startActivity(intent)
-                }
-            } else {
-                PrimeNotification.show(this, "Недействительный QR-код Prime")
-            }
-        }
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun getMyQrPayload(): String {
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-        val currentUser = sharedPrefs.getString("current_user", "") ?: "user"
-        val name = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
-        var myAddress = ""
-        try {
-            @Suppress("DEPRECATION")
-            myAddress = bluetoothAdapter?.address ?: ""
-        } catch (e: Exception) {}
-        if (myAddress.isEmpty() || "02:00:00:00:00:00" == myAddress) {
-            val bonded = try { bluetoothAdapter?.bondedDevices } catch(e: Exception) { null }
-            myAddress = bonded?.firstOrNull()?.address ?: sharedPrefs.getString("device_mac_fallback", "") ?: ""
-        }
-        if (myAddress.isEmpty()) {
-            myAddress = "00:11:22:33:44:55"
-        }
-        val randomToken = (100000..999999).random()
-        return "PRIME_CONNECT:address=$myAddress;name=$name;login=$currentUser;token=$randomToken"
-    }
-
-    private fun launchQrScanner() {
-        val options = ScanOptions().apply {
-            setPrompt("Наведите камеру на QR-код Prime для мгновенного подключения")
-            setBeepEnabled(true)
-            setOrientationLocked(true)
-            setCaptureActivity(CaptureActivity::class.java)
-        }
-        qrScannerLauncher.launch(options)
-    }
 
     @SuppressLint("MissingPermission")
     private fun triggerPrimeFoundVibration() {
@@ -332,6 +284,21 @@ class ChatListActivity : AppCompatActivity() {
                                 PrimeNotification.show(this@ChatListActivity, "⚡ Найден Prime-пользователь: ${devName ?: "Собеседник"}!")
                             }
                         }
+
+                        val cachedUuids = try { device.uuids } catch (e: Exception) { null }
+                        if (cachedUuids != null) {
+                            for (uuid in cachedUuids) {
+                                if (uuid.uuid.toString().equals(PRIME_UUID.toString(), ignoreCase = true)) {
+                                    if (primeDevices.add(device.address)) {
+                                        val nameToShow = devName ?: "Prime Собеседник"
+                                        triggerPrimeFoundVibration()
+                                        PrimeNotification.show(this@ChatListActivity, "⚡ Найден Prime-пользователь: $nameToShow!")
+                                    }
+                                    break
+                                }
+                            }
+                        }
+
                         try {
                             device.fetchUuidsWithSdp()
                         } catch (e: Exception) {
@@ -346,16 +313,27 @@ class ChatListActivity : AppCompatActivity() {
                         @Suppress("DEPRECATION")
                         intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                     }
-                    val extraUuids = intent.getParcelableArrayExtra(BluetoothDevice.EXTRA_UUID)
-                    if (device != null && extraUuids != null) {
-                        for (rawUuid in extraUuids) {
-                            if (rawUuid != null && rawUuid.toString().equals(PRIME_UUID.toString(), ignoreCase = true)) {
-                                if (primeDevices.add(device.address)) {
-                                    val devName = try { device.name ?: "Собеседник" } catch(e: Exception) { "Собеседник" }
-                                    triggerPrimeFoundVibration()
-                                    PrimeNotification.show(this@ChatListActivity, "⚡ Найден Prime-пользователь: $devName!")
-                                }
-                                break
+                    val extraUuids = try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            intent.getParcelableArrayExtra(BluetoothDevice.EXTRA_UUID, ParcelUuid::class.java)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            intent.getParcelableArrayExtra(BluetoothDevice.EXTRA_UUID)
+                        }
+                    } catch (e: Exception) { null }
+
+                    if (device != null) {
+                        val uuidList = mutableListOf<String>()
+                        extraUuids?.forEach { uuidList.add(it.toString()) }
+                        try {
+                            device.uuids?.forEach { uuidList.add(it.uuid.toString()) }
+                        } catch (e: Exception) {}
+
+                        if (uuidList.any { it.equals(PRIME_UUID.toString(), ignoreCase = true) }) {
+                            if (primeDevices.add(device.address)) {
+                                val devName = try { device.name ?: "Prime Собеседник" } catch(e: Exception) { "Prime Собеседник" }
+                                triggerPrimeFoundVibration()
+                                PrimeNotification.show(this@ChatListActivity, "⚡ Найден Prime-пользователь: $devName!")
                             }
                         }
                     }
@@ -562,7 +540,10 @@ class ChatListActivity : AppCompatActivity() {
                         }
                     }
                 } else {
-                    try { bluetoothAdapter?.cancelDiscovery() } catch (e: Exception) {}
+                    try { 
+                        @Suppress("MissingPermission")
+                        bluetoothAdapter?.cancelDiscovery() 
+                    } catch (e: Exception) {}
                     val intent = Intent(this, ChatPersonActivity::class.java)
                     intent.putExtra("EXTRA_CHAT_NAME", chat.name)
                     intent.putExtra("EXTRA_DEVICE_ADDRESS", chat.id)
@@ -672,12 +653,19 @@ class ChatListActivity : AppCompatActivity() {
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            val topPrimeDevice = (pairedDevices + discoveredDevices).firstOrNull { 
-                                primeDevices.contains(it.address) || (try { it.name?.contains("Prime", ignoreCase = true) == true } catch(e: Exception) { false })
+                            val topPrimeDevice = (pairedDevices + discoveredDevices).firstOrNull { device ->
+                                val name = try {
+                                    @Suppress("MissingPermission")
+                                    device.name
+                                } catch (e: Exception) { null }
+                                primeDevices.contains(device.address) || (name?.contains("Prime", ignoreCase = true) == true)
                             }
 
                             if (topPrimeDevice != null) {
-                                val devName = try { topPrimeDevice.name ?: "Prime Собеседник" } catch(e: Exception) { "Prime Собеседник" }
+                                val devName = try {
+                                    @Suppress("MissingPermission")
+                                    topPrimeDevice.name ?: "Prime Собеседник"
+                                } catch (e: Exception) { "Prime Собеседник" }
                                 val devMac = topPrimeDevice.address
 
                                 Card(
@@ -779,58 +767,7 @@ class ChatListActivity : AppCompatActivity() {
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Button(
-                                    onClick = { launchQrScanner() },
-                                    shape = RoundedCornerShape(16.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFF00E676),
-                                        contentColor = Color.Black
-                                    ),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("📷 Сканировать QR", fontWeight = FontWeight.ExtraBold, fontSize = 11.sp)
-                                }
 
-                                Button(
-                                    onClick = { isShowingMyQrState.value = !isShowingMyQrState.value },
-                                    shape = RoundedCornerShape(16.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0x33FFFFFF),
-                                        contentColor = Color.White
-                                    ),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(if (isShowingMyQrState.value) "📱 Скрыть QR" else "📱 Мой QR-код", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                }
-                            }
-
-                            if (isShowingMyQrState.value) {
-                                val qrBitmap = remember { QRCodeGenerator.generateQRCode(getMyQrPayload(), 450) }
-                                if (qrBitmap != null) {
-                                    Card(
-                                        shape = RoundedCornerShape(20.dp),
-                                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                                        modifier = Modifier.padding(vertical = 8.dp).size(200.dp)
-                                    ) {
-                                        Image(
-                                            bitmap = qrBitmap.asImageBitmap(),
-                                            contentDescription = "Мой QR-код Prime",
-                                            modifier = Modifier.fillMaxSize().padding(12.dp)
-                                        )
-                                    }
-                                    Text(
-                                        text = "Покажите этот QR-код собеседнику для мгновенной связи",
-                                        color = Color.White.copy(alpha = 0.7f),
-                                        fontSize = 11.sp,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.padding(bottom = 8.dp)
-                                    )
-                                }
-                            }
 
                             LazyColumn(
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 300.dp)
@@ -838,11 +775,18 @@ class ChatListActivity : AppCompatActivity() {
                                 val allDevices = (pairedDevices.map { it to true } + discoveredDevices.map { it to false })
                                     .distinctBy { it.first.address }
                                     .sortedByDescending { (device, _) ->
-                                        primeDevices.contains(device.address) || (try { device.name?.contains("Prime", ignoreCase = true) == true } catch(e: Exception) { false })
+                                        val name = try {
+                                            @Suppress("MissingPermission")
+                                            device.name
+                                        } catch (e: Exception) { null }
+                                        primeDevices.contains(device.address) || (name?.contains("Prime", ignoreCase = true) == true)
                                     }
-                                
+
                                 items(allDevices) { (device, isPaired) ->
-                                    val devName = try { device.name ?: "Неизвестное устройство" } catch (e: SecurityException) { "Неизвестное устройство" }
+                                    val devName = try {
+                                        @Suppress("MissingPermission")
+                                        device.name ?: "Неизвестное устройство"
+                                    } catch (e: Exception) { "Неизвестное устройство" }
                                     val devMac = device.address
                                     val isPrimeDevice = primeDevices.contains(devMac) || devName.contains("Prime", ignoreCase = true)
 
@@ -883,9 +827,9 @@ class ChatListActivity : AppCompatActivity() {
                                                 modifier = Modifier.fillMaxSize().padding(if (isPrimeDevice) 8.dp else 12.dp)
                                             )
                                         }
-                                        
+
                                         Spacer(modifier = Modifier.width(12.dp))
-                                        
+
                                         Column(modifier = Modifier.weight(1f)) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Text(text = devName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
@@ -1448,6 +1392,7 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        typingExpireHandler.removeCallbacks(typingExpireRunnable)
         ChatListNotifier.unsubscribe(onChatListChanged)
     }
 
@@ -1462,6 +1407,18 @@ class ChatListActivity : AppCompatActivity() {
         refreshUserUi()
         reloadChatsFromDb()
         isPulling = false; isThresholdCrossed = false
+    }
+
+    private fun scheduleTypingExpiration() {
+        typingExpireHandler.removeCallbacks(typingExpireRunnable)
+        val now = System.currentTimeMillis()
+        val nextExpiry = chatListState
+            .filter { it.typingUntil > now }
+            .minOfOrNull { it.typingUntil }
+        if (nextExpiry != null) {
+            val delay = (nextExpiry - now + 100L).coerceAtLeast(100L)
+            typingExpireHandler.postDelayed(typingExpireRunnable, delay)
+        }
     }
 
     private fun reloadChatsFromDb() {
@@ -1481,6 +1438,7 @@ class ChatListActivity : AppCompatActivity() {
             }
         }
         updateEmptyState()
+        scheduleTypingExpiration()
     }
 
     private fun refreshUserUi() {
@@ -1556,6 +1514,7 @@ class ChatListActivity : AppCompatActivity() {
         if (index == -1) return
         
         val targetName = chatListState[index].name
+        val targetId = chatListState[index].id
         chatListState.removeAt(index)
         allChats = ArrayList(chatListState)
         
@@ -1566,7 +1525,8 @@ class ChatListActivity : AppCompatActivity() {
                     val method = thread.javaClass.getMethod("sendPacket", Byte::class.java, ByteArray::class.java)
                     val currentUser = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("current_user", "") ?: ""
                     val myDisplayName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${currentUser}_name", currentUser) ?: currentUser
-                    method.invoke(thread, 10.toByte(), myDisplayName.toByteArray(Charsets.UTF_8)) // TYPE_CHAT_DELETED = 10
+                    val payload = "DELETE_CHAT:login=$myDisplayName;name=$myDisplayName".toByteArray(Charsets.UTF_8)
+                    method.invoke(thread, 8.toByte(), payload) // TYPE_CHAT_DELETED = 0x08
                     Thread.sleep(100)
                 }
             } catch (e: Exception) {
@@ -1576,7 +1536,7 @@ class ChatListActivity : AppCompatActivity() {
             PrimeBluetoothService.stopService(this)
         }
         
-        ChatHistoryManager.deleteHistory(this, targetName)
+        ChatHistoryManager.deleteHistoryCompletely(this, targetName, targetId)
         saveContacts()
         
         if (::adapter.isInitialized) {
@@ -1675,6 +1635,8 @@ class ChatListActivity : AppCompatActivity() {
                 put("messageStatus", chat.messageStatus.name)
                 put("unreadCount", chat.unreadCount)
                 put("isMuted", chat.isMuted)
+                put("typingUntil", chat.typingUntil)
+                put("activityState", chat.activityState)
             }
             array.put(obj)
         }
@@ -1696,7 +1658,8 @@ class ChatListActivity : AppCompatActivity() {
                             val rawAvatar = if (obj.isNull("avatarUri")) null else obj.optString("avatarUri")
                             val typingUntil = obj.optLong("typingUntil", 0L)
                             val isTyping = typingUntil > now
-                            val actState = obj.optString("activityState", "IDLE")
+                            val rawActState = obj.optString("activityState", "IDLE")
+                            val actState = if ("TYPING".equals(rawActState, ignoreCase = true) && !isTyping) "IDLE" else rawActState
                             val chat = ChatModel(
                                 obj.optString("id", System.currentTimeMillis().toString() + i),
                                 obj.optString("name", "Контакт"),
@@ -1763,14 +1726,47 @@ class ChatListActivity : AppCompatActivity() {
     private fun startBluetoothScan() {
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
         if (bluetoothAdapter == null || !bluetoothAdapter!!.isEnabled) return
-        
-        // Сразу загружаем сопряженные устройства
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            val locationManager = getSystemService(LOCATION_SERVICE) as? LocationManager
+            val isGpsEnabled = locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true ||
+                               locationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true
+            if (!isGpsEnabled) {
+                PrimeNotification.show(this, "Включите геолокацию в шторке для поиска устройств поблизости")
+            }
+        }
+
+        val currentScanMode = try { bluetoothAdapter?.scanMode } catch (e: Exception) { -1 }
+        if (currentScanMode != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
+            try {
+                val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120)
+                }
+                enableDiscoverableLauncher.launch(discoverableIntent)
+                return
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        performDiscovery()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun performDiscovery() {
+        val btAdapter = bluetoothAdapter ?: return
+        if (!btAdapter.isEnabled) return
+
         pairedDevices.clear()
-        bluetoothAdapter?.bondedDevices?.let { pairedDevices.addAll(it) }
+        try {
+            btAdapter.bondedDevices?.let { pairedDevices.addAll(it) }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         discoveredDevices.clear()
         isScanningState.value = true
-        
+
         if (!isReceiverRegistered) {
             val filter = IntentFilter().apply {
                 addAction(BluetoothDevice.ACTION_FOUND)
@@ -1781,30 +1777,99 @@ class ChatListActivity : AppCompatActivity() {
             ContextCompat.registerReceiver(this, bluetoothReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
             isReceiverRegistered = true
         }
-        
-        if (bluetoothAdapter?.isDiscovering == true) {
-            bluetoothAdapter?.cancelDiscovery()
+
+        try {
+            if (btAdapter.isDiscovering) {
+                btAdapter.cancelDiscovery()
+            }
+            btAdapter.startDiscovery()
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
-            if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                PrimeNotification.show(this, "Включите геолокацию в шторке для поиска устройств поблизости")
+        startAcceptThread()
+    }
+
+    private var acceptThread: AcceptThread? = null
+
+    @SuppressLint("MissingPermission")
+    private fun startAcceptThread() {
+        stopAcceptThread()
+        acceptThread = AcceptThread().apply { start() }
+    }
+
+    private fun stopAcceptThread() {
+        try {
+            acceptThread?.cancel()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        acceptThread = null
+    }
+
+    @SuppressLint("MissingPermission")
+    private inner class AcceptThread : Thread() {
+        private var mmServerSocket: BluetoothServerSocket? = null
+
+        init {
+            try {
+                mmServerSocket = bluetoothAdapter?.listenUsingInsecureRfcommWithServiceRecord("PrimeChat", PRIME_UUID)
+            } catch (e: Exception) {
+                Log.e("ChatListActivity", "AcceptThread listen failed", e)
             }
         }
-        
-        bluetoothAdapter?.startDiscovery()
+
+        override fun run() {
+            val serverSocket = mmServerSocket ?: return
+            while (isScanningState.value || isContactDialogVisible.value) {
+                val socket: BluetoothSocket = try {
+                    serverSocket.accept()
+                } catch (e: Exception) {
+                    break
+                }
+
+                if (socket.isConnected) {
+                    val device = try { socket.remoteDevice } catch (e: Exception) { null }
+                    val devMac = device?.address ?: ""
+                    val devName = try { device?.name ?: "Prime Собеседник" } catch (e: Exception) { "Prime Собеседник" }
+
+                    BluetoothSocketHolder.setSocket(socket)
+                    BluetoothSocketHolder.setActiveDeviceAddress(devMac)
+                    BluetoothSocketHolder.setActiveTargetUsername(devName)
+
+                    try { mmServerSocket?.close() } catch (e: Exception) {}
+
+                    runOnUiThread {
+                        stopBluetoothScan()
+                        isContactDialogVisible.value = false
+                        val intent = Intent(this@ChatListActivity, ChatPersonActivity::class.java).apply {
+                            putExtra("EXTRA_CHAT_NAME", devName)
+                            putExtra("EXTRA_DEVICE_ADDRESS", devMac)
+                            putExtra("EXTRA_USE_EXISTING_SOCKET", true)
+                        }
+                        startActivity(intent)
+                    }
+                    break
+                }
+            }
+        }
+
+        fun cancel() {
+            try { mmServerSocket?.close() } catch (e: Exception) {}
+        }
     }
 
     @SuppressLint("MissingPermission")
     private fun stopBluetoothScan() {
         isScanningState.value = false
         try { bluetoothAdapter?.cancelDiscovery() } catch (e: Exception) {}
-        
+
         if (isReceiverRegistered) {
             try { unregisterReceiver(bluetoothReceiver) } catch (e: Exception) {}
             isReceiverRegistered = false
         }
+
+        stopAcceptThread()
     }
 
     override fun onDestroy() {

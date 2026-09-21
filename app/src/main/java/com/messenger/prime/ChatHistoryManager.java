@@ -12,7 +12,9 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -172,23 +174,52 @@ public class ChatHistoryManager {
                     String messageId = obj.optString("messageId", null);
                     boolean isEdited = obj.optBoolean("isEdited", false);
                     String msgStatusStr = obj.optString("messageStatus", MessageStatus.SENT.name());
+                    String msgTypeStr = obj.optString("messageType", ChatMessage.MessageType.TEXT.name());
+                    String fileName = obj.optString("fileName", null);
+                    long fileSize = obj.optLong("fileSize", 0L);
+                    String videoDuration = obj.optString("videoDuration", null);
 
                     Bitmap bmp = null;
                     if (imagePath != null && !imagePath.isEmpty() && new File(imagePath).exists()) {
                         bmp = BitmapFactory.decodeFile(imagePath);
                     }
 
-                    String reactionStr = obj.optString("reaction", "");
-                    String reactionAuthor = obj.optString("reactionSenderLogin", "");
-
                     ChatMessage msg = new ChatMessage(text, time, senderLogin, isOutgoing, bmp, timestamp, imagePath, messageId);
                     msg.setEdited(isEdited);
-                    if (!reactionStr.isEmpty()) {
-                        msg.setReaction(reactionStr);
-                        if (!reactionAuthor.isEmpty()) {
-                            msg.setReactionSenderLogin(reactionAuthor);
+                    msg.setFileName(fileName);
+                    msg.setFileSize(fileSize);
+                    msg.setVideoDuration(videoDuration);
+                    try {
+                        msg.setMessageType(ChatMessage.MessageType.valueOf(msgTypeStr));
+                    } catch (Exception ignored) {}
+
+                    JSONObject reactionsObj = obj.optJSONObject("reactions");
+                    if (reactionsObj != null) {
+                        Iterator<String> keys = reactionsObj.keys();
+                        while (keys.hasNext()) {
+                            String rxAuthor = keys.next();
+                            String emoji = reactionsObj.optString(rxAuthor, "");
+                            if (!emoji.isEmpty()) {
+                                msg.setReactionForUser(rxAuthor, emoji);
+                            }
+                        }
+                    } else {
+                        String reactionStr = obj.optString("reaction", "");
+                        String reactionAuthor = obj.optString("reactionSenderLogin", "");
+                        if (!reactionStr.isEmpty()) {
+                            msg.setReactionForUser(!reactionAuthor.isEmpty() ? reactionAuthor : senderLogin, reactionStr);
                         }
                     }
+
+                    String replyToMessageId = obj.optString("replyToMessageId", null);
+                    String replyToSender = obj.optString("replyToSender", null);
+                    String replyToText = obj.optString("replyToText", null);
+                    if (replyToMessageId != null && !replyToMessageId.isEmpty()) {
+                        msg.setReplyToMessageId(replyToMessageId);
+                        msg.setReplyToSender(replyToSender);
+                        msg.setReplyToText(replyToText);
+                    }
+
                     try {
                         msg.setMessageStatus(MessageStatus.valueOf(msgStatusStr));
                     } catch (Exception ignored) {}
@@ -216,6 +247,19 @@ public class ChatHistoryManager {
                 obj.put("imagePath", msg.getImagePath() != null ? msg.getImagePath() : "");
                 obj.put("isEdited", msg.isEdited());
                 obj.put("messageStatus", msg.getMessageStatus() != null ? msg.getMessageStatus().name() : MessageStatus.SENT.name());
+                obj.put("messageType", msg.getMessageType() != null ? msg.getMessageType().name() : ChatMessage.MessageType.TEXT.name());
+                obj.put("fileName", msg.getFileName() != null ? msg.getFileName() : "");
+                obj.put("fileSize", msg.getFileSize());
+                obj.put("videoDuration", msg.getVideoDuration() != null ? msg.getVideoDuration() : "");
+                obj.put("replyToMessageId", msg.getReplyToMessageId() != null ? msg.getReplyToMessageId() : "");
+                obj.put("replyToSender", msg.getReplyToSender() != null ? msg.getReplyToSender() : "");
+                obj.put("replyToText", msg.getReplyToText() != null ? msg.getReplyToText() : "");
+                
+                JSONObject reactionsObj = new JSONObject();
+                for (Map.Entry<String, String> entry : msg.getReactionsMap().entrySet()) {
+                    reactionsObj.put(entry.getKey(), entry.getValue());
+                }
+                obj.put("reactions", reactionsObj);
                 obj.put("reaction", msg.getReaction() != null ? msg.getReaction() : "");
                 obj.put("reactionSenderLogin", msg.getReactionSenderLogin() != null ? msg.getReactionSenderLogin() : "");
                 array.put(obj);

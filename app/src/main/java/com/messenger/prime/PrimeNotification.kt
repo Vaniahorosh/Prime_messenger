@@ -52,8 +52,27 @@ object PrimeNotification {
 
                 // Настройка параметров отображения
                 val density = activity.resources.displayMetrics.density
+                val bottomContainer = activity.findViewById<View>(R.id.bottomContainer)
+                val layoutConnectAction = activity.findViewById<View>(R.id.layoutConnectAction)
                 val inputView = activity.findViewById<View>(R.id.layoutInput)
-                val inputBottomOffset = if (inputView != null && inputView.visibility == View.VISIBLE) {
+
+                val inputBottomOffset = if (bottomContainer != null && bottomContainer.visibility == View.VISIBLE) {
+                    val containerParams = bottomContainer.layoutParams as? ViewGroup.MarginLayoutParams
+                    val bottomMargin = containerParams?.bottomMargin ?: 0
+                    val containerHeight = if (bottomContainer.height > 0) {
+                        bottomContainer.height
+                    } else if (layoutConnectAction != null && layoutConnectAction.visibility == View.VISIBLE) {
+                        if (layoutConnectAction.height > 0) layoutConnectAction.height else (68 * density).toInt()
+                    } else if (inputView != null && inputView.visibility == View.VISIBLE) {
+                        if (inputView.height > 0) inputView.height else (64 * density).toInt()
+                    } else {
+                        (68 * density).toInt()
+                    }
+                    containerHeight + bottomMargin + (12 * density).toInt()
+                } else if (layoutConnectAction != null && layoutConnectAction.visibility == View.VISIBLE) {
+                    val connectHeight = if (layoutConnectAction.height > 0) layoutConnectAction.height else (68 * density).toInt()
+                    connectHeight + (24 * density).toInt()
+                } else if (inputView != null && inputView.visibility == View.VISIBLE) {
                     val inputHeight = if (inputView.height > 0) inputView.height else (64 * density).toInt()
                     inputHeight + (16 * density).toInt()
                 } else {

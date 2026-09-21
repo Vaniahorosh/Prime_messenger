@@ -51,6 +51,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.messenger.prime.databinding.ActivitySettingsContentBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
@@ -1049,7 +1050,33 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun showLogoutDialog() {
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog).setTitle("Выход").setMessage("Сделать выход из аккаунта?").setPositiveButton("Да") { _, _ -> getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).edit().putBoolean("is_logged_in", false).apply(); startActivity(Intent(this, LoginActivity::class.java)); finishAffinity() }.setNegativeButton("Нет", null).show()
+        MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
+            .setTitle("Выход")
+            .setMessage("Сделать выход из аккаунта?")
+            .setPositiveButton("Да") { _, _ ->
+                if (BluetoothSocketHolder.getSocket() != null && BluetoothSocketHolder.getSocket().isConnected) {
+                    try {
+                        val thread = BluetoothSocketHolder.getConnectedThreadInstance()
+                        if (thread != null) {
+                            val method = thread.javaClass.getMethod("sendPacket", Byte::class.java, ByteArray::class.java)
+                            val currentUser = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("current_user", "") ?: ""
+                            val myDisplayName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${currentUser}_name", currentUser) ?: currentUser
+                            val payload = "DELETE_CHAT:login=$myDisplayName;name=$myDisplayName".toByteArray(Charsets.UTF_8)
+                            method.invoke(thread, 8.toByte(), payload) // TYPE_CHAT_DELETED = 0x08
+                            Thread.sleep(100)
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    BluetoothSocketHolder.clearSocket()
+                    PrimeBluetoothService.stopService(this)
+                }
+                getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).edit().putBoolean("is_logged_in", false).apply()
+                startActivity(Intent(this, LoginActivity::class.java))
+                finishAffinity()
+            }
+            .setNegativeButton("Нет", null)
+            .show()
     }
 
     private fun showThemeDialog(b: ActivitySettingsContentBinding) {
