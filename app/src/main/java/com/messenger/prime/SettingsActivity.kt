@@ -423,10 +423,6 @@ class SettingsActivity : AppCompatActivity() {
         setupAccountCollapsible(b)
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        b.switchAnimations.isChecked = sharedPrefs.getBoolean("settings_animations", true)
-        b.switchLavaBg.isChecked = sharedPrefs.getBoolean("settings_lava_bg", true)
-        b.switchBlocked.isChecked = sharedPrefs.getBoolean("settings_show_blocked", false)
-        b.switchSearch.isChecked = sharedPrefs.getBoolean("settings_hide_search", false)
 
         val theme = sharedPrefs.getString("app_theme", "system")
         b.tvThemeSummary.text = when(theme) {
@@ -435,30 +431,32 @@ class SettingsActivity : AppCompatActivity() {
             else -> "Системная"
         }
         b.cardTheme.setOnClickListener { showThemeDialog(b) }
+        b.switchAnimations.setOnCheckedChangeListener(null)
+        b.switchAnimations.isChecked = sharedPrefs.getBoolean("settings_animations", true)
+        b.switchAnimations.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("settings_animations", isChecked).apply()
+            restartApp()
+        }
 
-        b.switchAnimations.setOnCheckedChangeListener { buttonView, isChecked ->
-            if (buttonView.isPressed) {
-                sharedPrefs.edit().putBoolean("settings_animations", isChecked).apply()
-                restartApp()
-            }
+        b.switchLavaBg.setOnCheckedChangeListener(null)
+        b.switchLavaBg.isChecked = sharedPrefs.getBoolean("settings_lava_bg", true)
+        b.switchLavaBg.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("settings_lava_bg", isChecked).apply()
+            restartApp()
         }
-        b.switchLavaBg.setOnCheckedChangeListener { buttonView, isChecked ->
-            if (buttonView.isPressed) {
-                sharedPrefs.edit().putBoolean("settings_lava_bg", isChecked).apply()
-                restartApp()
-            }
+
+        b.switchBlocked.setOnCheckedChangeListener(null)
+        b.switchBlocked.isChecked = sharedPrefs.getBoolean("settings_show_blocked", false)
+        b.switchBlocked.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("settings_show_blocked", isChecked).apply()
+            restartApp()
         }
-        b.switchBlocked.setOnCheckedChangeListener { buttonView, isChecked ->
-            if (buttonView.isPressed) {
-                sharedPrefs.edit().putBoolean("settings_show_blocked", isChecked).apply()
-                restartApp()
-            }
-        }
-        b.switchSearch.setOnCheckedChangeListener { buttonView, isChecked ->
-            if (buttonView.isPressed) {
-                sharedPrefs.edit().putBoolean("settings_hide_search", isChecked).apply()
-                restartApp()
-            }
+
+        b.switchSearch.setOnCheckedChangeListener(null)
+        b.switchSearch.isChecked = sharedPrefs.getBoolean("settings_hide_search", false)
+        b.switchSearch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("settings_hide_search", isChecked).apply()
+            restartApp()
         }
 
         setupHeaderExpansion(b)
@@ -616,6 +614,9 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupHeaderExpansion(b: ActivitySettingsContentBinding) {
         b.nestedScrollView.setOnTouchListener { v, event ->
             if (isAnimating) return@setOnTouchListener true
+            if (event.action == MotionEvent.ACTION_UP) {
+                v.performClick()
+            }
             
             val isKeyboardVisible = ViewCompat.getRootWindowInsets(b.root)?.isVisible(WindowInsetsCompat.Type.ime()) == true
             val isAccountExpanded = b.layoutAccountCollapsible.visibility == View.VISIBLE

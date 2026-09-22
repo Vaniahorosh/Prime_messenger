@@ -3,12 +3,19 @@ package com.messenger.prime
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
+import android.view.GestureDetector
+import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
@@ -19,6 +26,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
+import android.widget.Toast
 import android.widget.VideoView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -75,6 +83,7 @@ class MediaPlayerActivity : AppCompatActivity() {
     private lateinit var ivPhotoMedia: ImageView
     private lateinit var topOverlay: View
     private lateinit var btnBack: ImageButton
+    private lateinit var btnDownload: ImageButton
     private lateinit var tvSenderName: TextView
     private lateinit var tvTimestamp: TextView
     private lateinit var btnPlayPause: ImageButton
@@ -93,9 +102,16 @@ class MediaPlayerActivity : AppCompatActivity() {
     private val autoHideControlsRunnable = Runnable { hideControls() }
 
     private val backgroundBlurExecutor = Executors.newSingleThreadExecutor()
-    private var lastBlurExtractTime = 0L
     private val blurRetriever = MediaMetadataRetriever()
     private var isRetrieverPrepared = false
+
+    private var audioManager: AudioManager? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
+
+    // Pinch-to-zoom for Photo Media
+    private var scaleFactor = 1.0f
+    private lateinit var scaleGestureDetector: ScaleGestureDetector
+    private lateinit var gestureDetector: GestureDetector
 
     private val updateProgressRunnable = object : Runnable {
         override fun run() {
@@ -106,28 +122,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                 seekBar.progress = progress
                 navBarProgressBar.progress = progress
                 updateDurationText(current, total)
-
-                // Dynamic background blur frame extraction in real-time (~every 500ms)
-                val now = System.currentTimeMillis()
-                if (now - lastBlurExtractTime > 500 && isRetrieverPrepared) {
-                    lastBlurExtractTime = now
-                    val targetUs = current * 1000L
-                    backgroundBlurExecutor.execute {
-                        try {
-                            val bmp = blurRetriever.getFrameAtTime(targetUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                            if (bmp != null) {
-                                runOnUiThread {
-                                    if (!isFinishing && isVideo) {
-                                        ivBlurredBackground.setImageBitmap(bmp)
-                                        ivBlurredBackground.applyGlassBlur(50f)
-                                    }
-                                }
-                            }
-                        } catch (ignored: Exception) {}
-                    }
-                }
-
-                handler.postDelayed(this, 200)
+                handler.postDelayed(this, 250)
             }
         }
     }
@@ -136,9 +131,12 @@ class MediaPlayerActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_media_player)
 
+        audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager
+
         initViews()
         setupInsets()
         parseIntentData()
+        setupGestureDetectors()
         setupMedia()
         setupListeners()
 
@@ -156,6 +154,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         ivPhotoMedia = findViewById(R.id.ivPhotoMedia)
         topOverlay = findViewById(R.id.topOverlay)
         btnBack = findViewById(R.id.btnBack)
+        btnDownload = findViewById(R.id.btnDownload)
         tvSenderName = findViewById(R.id.tvSenderName)
         tvTimestamp = findViewById(R.id.tvTimestamp)
         btnPlayPause = findViewById(R.id.btnPlayPause)
@@ -189,10 +188,15 @@ class MediaPlayerActivity : AppCompatActivity() {
         val uriStr = intent.getStringExtra("EXTRA_URI")
         val pathStr = intent.getStringExtra("EXTRA_PATH")
         if (!uriStr.isNullOrEmpty()) {
-            mediaUri = Uri.parse(uriStr)
+            mediaUri = if (uriStr.startsWith("content://") || uriStr.startsWith("file://")) {
+                Uri.parse(uriStr)
+            } else {
+                val file = File(uriStr)
+                if (file.exists()) Uri.fromFile(file) else Uri.parse(uriStr)
+            }
         } else if (!pathStr.isNullOrEmpty()) {
             val file = File(pathStr)
-            if (file.exists()) mediaUri = Uri.fromFile(file)
+            mediaUri = if (file.exists()) Uri.fromFile(file) else Uri.parse(pathStr)
         }
 
         val senderName = intent.getStringExtra("EXTRA_SENDER_NAME") ?: "Отправитель"
@@ -208,6 +212,53 @@ class MediaPlayerActivity : AppCompatActivity() {
         } else {
             tvCaption.visibility = View.GONE
         }
+    }
+
+    private fun setupGestureDetectors() {
+        scaleGestureDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                if (!isVideo) {
+                    scaleFactor *= detector.scaleFactor
+                    scaleFactor = scaleFactor.coerceIn(1.0f, 4.0f)
+                    ivPhotoMedia.scaleX = scaleFactor
+                    ivPhotoMedia.scaleY = scaleFactor
+                    return true
+                }
+                return false
+            }
+        })
+
+        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                toggleControls()
+                return true
+            }
+
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                if (isVideo) {
+                    val width = mediaContainer.width
+                    if (width > 0) {
+                        val touchX = e.x
+                        if (touchX < width / 3f) {
+                            seekByOffset(-10000L)
+                        } else if (touchX > (width * 2 / 3f)) {
+                            seekByOffset(10000L)
+                        } else {
+                            togglePlayPause()
+                        }
+                    }
+                    return true
+                } else {
+                    scaleFactor = if (scaleFactor > 1.2f) 1.0f else 2.2f
+                    ivPhotoMedia.animate()
+                        .scaleX(scaleFactor)
+                        .scaleY(scaleFactor)
+                        .setDuration(200)
+                        .start()
+                    return true
+                }
+            }
+        })
     }
 
     private fun setupMedia() {
@@ -226,6 +277,14 @@ class MediaPlayerActivity : AppCompatActivity() {
             initRetriever(mediaUri)
             loadInitialVideoThumbnail(mediaUri)
 
+            videoView.setOnErrorListener { _, _, _ ->
+                Toast.makeText(this, "Ошибка воспроизведения видео", Toast.LENGTH_SHORT).show()
+                videoView.visibility = View.GONE
+                ivPhotoMedia.visibility = View.VISIBLE
+                ivPhotoMedia.setImageResource(R.drawable.ic_video)
+                true
+            }
+
             videoView.setOnPreparedListener { mp ->
                 mp.isLooping = true
                 val vWidth = mp.videoWidth
@@ -235,6 +294,9 @@ class MediaPlayerActivity : AppCompatActivity() {
                 }
                 val duration = videoView.duration.toLong().coerceAtLeast(0L)
                 updateDurationText(0L, duration)
+
+                requestAudioFocus()
+                videoView.keepScreenOn = true
                 videoView.start()
                 btnPlayPause.setImageResource(R.drawable.ic_media_pause)
                 handler.post(updateProgressRunnable)
@@ -270,7 +332,6 @@ class MediaPlayerActivity : AppCompatActivity() {
                 }
                 isRetrieverPrepared = true
             } catch (e: Exception) {
-                e.printStackTrace()
                 isRetrieverPrepared = false
             }
         }
@@ -298,25 +359,34 @@ class MediaPlayerActivity : AppCompatActivity() {
     private fun setupListeners() {
         btnBack.setOnClickListener { finish() }
 
-        mediaContainer.setOnClickListener {
-            toggleControls()
+        btnDownload.setOnClickListener {
+            if (mediaUri != null) {
+                Executors.newSingleThreadExecutor().execute {
+                    val success = MediaSaveUtils.saveToGallery(this, mediaUri, isVideo)
+                    runOnUiThread {
+                        if (success) {
+                            Toast.makeText(this, "Сохранено в галерею", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this, "Не удалось сохранить файл", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            } else {
+                Toast.makeText(this, "Файл недоступен для сохранения", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        mediaContainer.setOnTouchListener { view, event ->
+            scaleGestureDetector.onTouchEvent(event)
+            if (event.action == MotionEvent.ACTION_UP) {
+                view.performClick()
+            }
+            gestureDetector.onTouchEvent(event)
+            true
         }
 
         btnPlayPause.setOnClickListener {
-            if (isVideo) {
-                if (videoView.isPlaying) {
-                    videoView.pause()
-                    btnPlayPause.setImageResource(R.drawable.ic_media_play)
-                    handler.removeCallbacks(updateProgressRunnable)
-                } else {
-                    videoView.start()
-                    btnPlayPause.setImageResource(R.drawable.ic_media_pause)
-                    handler.post(updateProgressRunnable)
-                }
-            } else {
-                btnPlayPause.setImageResource(R.drawable.ic_media_play)
-            }
-            showControls()
+            togglePlayPause()
         }
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -328,7 +398,6 @@ class MediaPlayerActivity : AppCompatActivity() {
                     updateDurationText(targetMs, total)
                     navBarProgressBar.progress = progress
 
-                    // Instantly update background blur on manual scrub
                     if (isRetrieverPrepared) {
                         val targetUs = targetMs * 1000L
                         backgroundBlurExecutor.execute {
@@ -356,6 +425,95 @@ class MediaPlayerActivity : AppCompatActivity() {
                 showControls()
             }
         })
+    }
+
+    private fun togglePlayPause() {
+        if (isVideo) {
+            if (videoView.isPlaying) {
+                videoView.pause()
+                videoView.keepScreenOn = false
+                btnPlayPause.setImageResource(R.drawable.ic_media_play)
+                handler.removeCallbacks(updateProgressRunnable)
+                abandonAudioFocus()
+            } else {
+                requestAudioFocus()
+                videoView.keepScreenOn = true
+                videoView.start()
+                btnPlayPause.setImageResource(R.drawable.ic_media_pause)
+                handler.post(updateProgressRunnable)
+            }
+        } else {
+            btnPlayPause.setImageResource(R.drawable.ic_media_play)
+        }
+        showControls()
+    }
+
+    private fun seekByOffset(offsetMs: Long) {
+        if (!isVideo) return
+        val total = videoView.duration.toLong().coerceAtLeast(1L)
+        val current = videoView.currentPosition.toLong()
+        val targetMs = (current + offsetMs).coerceIn(0L, total)
+        videoView.seekTo(targetMs.toInt())
+        val progress = ((targetMs * 1000) / total).toInt().coerceIn(0, 1000)
+        seekBar.progress = progress
+        navBarProgressBar.progress = progress
+        updateDurationText(targetMs, total)
+
+        val text = if (offsetMs > 0) "+10 сек" else "-10 сек"
+        Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+        showControls()
+    }
+
+    private fun requestAudioFocus() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
+                            .build()
+                    )
+                    .setOnAudioFocusChangeListener { focusChange ->
+                        if (focusChange == AudioManager.AUDIOFOCUS_LOSS || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                            if (isVideo && videoView.isPlaying) {
+                                togglePlayPause()
+                            }
+                        }
+                    }
+                    .build()
+                audioFocusRequest = focusRequest
+                audioManager?.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager?.requestAudioFocus(
+                    { focusChange ->
+                        if (focusChange == AudioManager.AUDIOFOCUS_LOSS || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                            if (isVideo && videoView.isPlaying) {
+                                togglePlayPause()
+                            }
+                        }
+                    },
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                audioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager?.abandonAudioFocus(null)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun showControls() {
@@ -472,14 +630,27 @@ class MediaPlayerActivity : AppCompatActivity() {
         return String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
     }
 
+    override fun onPause() {
+        super.onPause()
+        if (isVideo && videoView.isPlaying) {
+            videoView.pause()
+            videoView.keepScreenOn = false
+            btnPlayPause.setImageResource(R.drawable.ic_media_play)
+            handler.removeCallbacks(updateProgressRunnable)
+            abandonAudioFocus()
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
         backgroundBlurExecutor.shutdownNow()
+        abandonAudioFocus()
         try {
             blurRetriever.release()
         } catch (ignored: Exception) {}
         if (isVideo) {
+            videoView.keepScreenOn = false
             videoView.stopPlayback()
         }
     }

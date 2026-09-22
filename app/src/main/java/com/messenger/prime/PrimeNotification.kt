@@ -29,7 +29,6 @@ import kotlin.math.abs
  */
 object PrimeNotification {
 
-    private val handler = Handler(Looper.getMainLooper())
     private const val DURATION = 3000L // 3 секунды
 
     @JvmStatic
@@ -114,6 +113,7 @@ object PrimeNotification {
                 }
                 
                 var lastSecond = -1
+                var isCancelled = false
                 val timerAnimator = ValueAnimator.ofInt(1000, 0).apply {
                     duration = DURATION
                     interpolator = LinearInterpolator()
@@ -130,13 +130,15 @@ object PrimeNotification {
                     }
                 }
 
-                val dismissRunnable = Runnable {
-                    dismiss(notificationView, 0f, 1f)
-                }
-
                 timerAnimator.addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationCancel(animation: Animator) {
+                        isCancelled = true
+                    }
+
                     override fun onAnimationEnd(animation: Animator) {
-                        dismissRunnable.run()
+                        if (!isCancelled) {
+                            dismiss(notificationView, 0f, 1f)
+                        }
                     }
                 })
                 timerAnimator.start()
@@ -146,9 +148,13 @@ object PrimeNotification {
                     layoutTimer.visibility = View.VISIBLE
                     btnUndo.visibility = View.VISIBLE
                     btnUndo.setOnClickListener {
+                        isCancelled = true
                         timerAnimator.cancel()
-                        handler.removeCallbacks(dismissRunnable)
-                        onUndo.invoke()
+                        try {
+                            onUndo.invoke()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
                         dismiss(notificationView, 1f, 0f) // улетает вправо
                     }
                 } else {

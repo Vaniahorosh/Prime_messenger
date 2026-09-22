@@ -12,12 +12,14 @@ import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.messenger.prime.databinding.ActivityPhotoViewBinding
+import java.util.concurrent.Executors
 
 class PhotoViewActivity : AppCompatActivity() {
 
@@ -82,6 +84,24 @@ class PhotoViewActivity : AppCompatActivity() {
 
     private fun setupListeners() {
         binding.btnBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
+
+        binding.btnDownload.setOnClickListener {
+            val uri = currentUri
+            if (uri != null) {
+                Executors.newSingleThreadExecutor().execute {
+                    val success = MediaSaveUtils.saveToGallery(this, uri, false)
+                    runOnUiThread {
+                        if (success) {
+                            Toast.makeText(this, "Сохранено в галерею", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this, "Не удалось сохранить фото", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            } else {
+                Toast.makeText(this, "Фото недоступно для сохранения", Toast.LENGTH_SHORT).show()
+            }
+        }
         
         binding.ivFullPhoto.setOnTouchListener { _, event ->
             if (isClosing) return@setOnTouchListener true

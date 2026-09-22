@@ -1,50 +1,82 @@
 package com.messenger.prime
 
+import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.annotation.SuppressLint
+import android.app.AlertDialog
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothServerSocket
+import android.bluetooth.BluetoothSocket
+import android.content.BroadcastReceiver
 import android.content.Context
-import android.location.LocationManager
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.graphics.RectF
+import android.location.LocationManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.Uri
-
-import java.io.File
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelUuid
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.InputMethodManager
+import android.widget.ImageView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.core.app.ActivityCompat
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.util.UUID
+import kotlinx.coroutines.*
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -57,11 +89,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.ComposeView
@@ -90,28 +126,52 @@ import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.hazeEffect
 import androidx.core.content.ContextCompat
-import org.json.JSONArray
-import org.json.JSONObject
-import android.Manifest
-import android.annotation.SuppressLint
-import android.app.AlertDialog
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothServerSocket
-import android.bluetooth.BluetoothSocket
-import android.content.BroadcastReceiver
-import android.content.IntentFilter
-import android.content.pm.PackageManager
-import android.os.ParcelUuid
-import android.provider.Settings
-import android.util.Log
-import android.widget.ImageView
-import androidx.core.app.ActivityCompat
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
-import kotlinx.coroutines.*
-import java.util.UUID
+
+@Composable
+fun RadarAnimation() {
+    val infiniteTransition = rememberInfiniteTransition()
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        )
+    )
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        )
+    )
+
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(100.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .scale(scale)
+                .alpha(alpha)
+                .border(2.dp, Color(0xFF00E676), CircleShape)
+        )
+        Icon(
+            painter = painterResource(id = R.drawable.ic_prime_statusbar),
+            contentDescription = null,
+            tint = Color(0xFF00E676),
+            modifier = Modifier.size(36.dp)
+        )
+    }
+}
+
+data class MatchedPartner(
+    val name: String,
+    val address: String,
+    val topic: String,
+    val mood: String,
+    val bio: String,
+    val initialMessage: String
+)
 
 class ChatListActivity : AppCompatActivity() {
 
@@ -187,6 +247,20 @@ class ChatListActivity : AppCompatActivity() {
             }
             .setNegativeButton("Отмена", null)
             .show()
+    }
+
+    private val requestNotificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (!isGranted) {
+            Log.w("ChatListActivity", "POST_NOTIFICATIONS permission denied")
+        }
+    }
+
+    private fun checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
     }
 
     private val requestBluetoothPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -496,11 +570,11 @@ class ChatListActivity : AppCompatActivity() {
                 R.anim.slide_out_right
             )
         }
-        
-        setContentView(R.layout.activity_chat_list)
 
         val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
         setupEdgeToEdge(isDarkIcons = !isDark)
+
+        checkNotificationPermission()
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         sharedPrefs.registerOnSharedPreferenceChangeListener(prefListener)
@@ -577,7 +651,7 @@ class ChatListActivity : AppCompatActivity() {
             }
         )
 
-        findViewById<ComposeView>(R.id.composeRoot).setContent {
+        setContent {
             val isIslandVisible by isIslandVisibleState
             val isDialogVisible by isContactDialogVisible
             val isEditVisible by isEditDialogVisible
@@ -630,6 +704,37 @@ class ChatListActivity : AppCompatActivity() {
                     }
                 }
 
+                val autoTargetDevice = (pairedDevices + discoveredDevices).firstOrNull { device ->
+                    val name = try {
+                        @Suppress("MissingPermission")
+                        device.name
+                    } catch (e: Exception) { null }
+                    val hasPrimeUuid = try {
+                        @Suppress("MissingPermission")
+                        device.uuids?.any { it.uuid.toString().equals(PRIME_UUID.toString(), ignoreCase = true) } == true
+                    } catch (e: Exception) { false }
+                    primeDevices.contains(device.address) || (name?.contains("Prime", ignoreCase = true) == true) || hasPrimeUuid
+                }
+
+                LaunchedEffect(autoTargetDevice, isDialogVisible) {
+                    if (isDialogVisible && autoTargetDevice != null) {
+                        val devName = try {
+                            @Suppress("MissingPermission")
+                            autoTargetDevice.name ?: "Prime Собеседник"
+                        } catch (e: Exception) { "Prime Собеседник" }
+                        val devMac = autoTargetDevice.address
+
+                        stopBluetoothScan()
+                        isContactDialogVisible.value = false
+                        val intent = Intent(this@ChatListActivity, ChatPersonActivity::class.java).apply {
+                            putExtra("EXTRA_CHAT_NAME", devName)
+                            putExtra("EXTRA_DEVICE_ADDRESS", devMac)
+                            putExtra("EXTRA_USE_EXISTING_SOCKET", true)
+                        }
+                        startActivity(intent)
+                    }
+                }
+
                 AnimatedVisibility(
                     visible = isDialogVisible,
                     enter = fadeIn(),
@@ -670,122 +775,36 @@ class ChatListActivity : AppCompatActivity() {
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
-
-                            val topPrimeDevice = (pairedDevices + discoveredDevices).firstOrNull { device ->
-                                val name = try {
-                                    @Suppress("MissingPermission")
-                                    device.name
-                                } catch (e: Exception) { null }
-                                primeDevices.contains(device.address) || (name?.contains("Prime", ignoreCase = true) == true)
-                            }
-
-                            if (topPrimeDevice != null) {
-                                val devName = try {
-                                    @Suppress("MissingPermission")
-                                    topPrimeDevice.name ?: "Prime Собеседник"
-                                } catch (e: Exception) { "Prime Собеседник" }
-                                val devMac = topPrimeDevice.address
-
-                                Card(
-                                    shape = RoundedCornerShape(20.dp),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0x3300E676)),
-                                    border = BorderStroke(1.5.dp, Color(0xFF00E676)),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            stopBluetoothScan()
-                                            isContactDialogVisible.value = false
-                                            val intent = Intent(this@ChatListActivity, ChatPersonActivity::class.java).apply {
-                                                putExtra("EXTRA_CHAT_NAME", devName)
-                                                putExtra("EXTRA_DEVICE_ADDRESS", devMac)
-                                                putExtra("EXTRA_USE_EXISTING_SOCKET", true)
-                                            }
-                                            startActivity(intent)
-                                        }
-                                        .padding(vertical = 4.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(14.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                painter = painterResource(id = R.drawable.ic_prime_statusbar),
-                                                contentDescription = null,
-                                                tint = Color(0xFF00E676),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = "⚡ Найден Prime-собеседник!",
-                                                color = Color(0xFF00E676),
-                                                fontWeight = FontWeight.ExtraBold,
-                                                fontSize = 14.sp
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Text(
-                                            text = devName,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 17.sp
-                                        )
-                                        Text(
-                                            text = "$devMac • Нажмите для подключения",
-                                            color = Color.White.copy(alpha = 0.7f),
-                                            fontSize = 11.sp,
-                                            textAlign = TextAlign.Center
-                                        )
-                                        Spacer(modifier = Modifier.height(10.dp))
-                                        Button(
-                                            onClick = {
-                                                stopBluetoothScan()
-                                                isContactDialogVisible.value = false
-                                                val intent = Intent(this@ChatListActivity, ChatPersonActivity::class.java).apply {
-                                                    putExtra("EXTRA_CHAT_NAME", devName)
-                                                    putExtra("EXTRA_DEVICE_ADDRESS", devMac)
-                                                    putExtra("EXTRA_USE_EXISTING_SOCKET", true)
-                                                }
-                                                startActivity(intent)
-                                            },
-                                            shape = RoundedCornerShape(14.dp),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = Color(0xFF00E676),
-                                                contentColor = Color.Black
-                                            ),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Text("⚡ Подключиться по Prime Direct", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
-                                        }
-                                    }
-                                }
-                            } else if (isScanningState.value) {
-                                M3ExpressiveLoadingIndicator(
-                                    color = Color.White,
-                                    size = 56.dp
-                                )
-                                Text(
-                                    text = "Ищем пользователей Prime...",
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.padding(top = 12.dp)
-                                )
-                            } else {
+                            
+                            var filterPrimeOnly by remember { mutableStateOf(true) }
+                            
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                                 Button(
-                                    onClick = { startBluetoothScan() },
-                                    shape = RoundedCornerShape(16.dp),
+                                    onClick = { filterPrimeOnly = true },
+                                    shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.White,
-                                        contentColor = Color(0xFF154B87)
-                                    )
+                                        containerColor = if (filterPrimeOnly) Color(0xFF00E676) else Color(0x33FFFFFF),
+                                        contentColor = if (filterPrimeOnly) Color.Black else Color.White
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
-                                    Text("Повторить поиск", fontWeight = FontWeight.Bold)
+                                    Text("Только Prime", fontWeight = FontWeight.Bold)
+                                }
+                                
+                                Button(
+                                    onClick = { filterPrimeOnly = false },
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (!filterPrimeOnly) Color(0xFF00E676) else Color(0x33FFFFFF),
+                                        contentColor = if (!filterPrimeOnly) Color.Black else Color.White
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text("Все устройства", fontWeight = FontWeight.Bold)
                                 }
                             }
-
+                            
                             Spacer(modifier = Modifier.height(16.dp))
-
-
 
                             val allDevices = (pairedDevices.map { it to true } + discoveredDevices.map { it to false })
                                 .distinctBy { it.first.address }
@@ -794,8 +813,72 @@ class ChatListActivity : AppCompatActivity() {
                                         @Suppress("MissingPermission")
                                         device.name
                                     } catch (e: Exception) { null }
-                                    primeDevices.contains(device.address) || (name?.contains("Prime", ignoreCase = true) == true)
+                                    val isPrime = primeDevices.contains(device.address) || (name?.contains("Prime", ignoreCase = true) == true)
+                                    if (filterPrimeOnly) isPrime else true
                                 }
+                                
+                            val topPrimeDevice = allDevices.firstOrNull { 
+                                val name = try { @Suppress("MissingPermission") it.first.name } catch (e: Exception) { null }
+                                primeDevices.contains(it.first.address) || (name?.contains("Prime", ignoreCase = true) == true)
+                            }?.first
+
+                            if (isScanningState.value) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().height(140.dp)) {
+                                    RadarAnimation()
+                                    Text(
+                                        text = "Поиск устройств...",
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)
+                                    )
+                                }
+                            } else {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                    Button(
+                                        onClick = { startBluetoothScan() },
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF154B87))
+                                    ) { Text("Искать снова", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                                    
+                                    Button(
+                                        onClick = {
+                                            val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                                                putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120)
+                                            }
+                                            enableDiscoverableLauncher.launch(discoverableIntent)
+                                        },
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676), contentColor = Color.Black)
+                                    ) { Text("Стать видимым", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            if (topPrimeDevice != null && filterPrimeOnly) {
+                                Button(
+                                    onClick = {
+                                        val devName = try { 
+                                            @Suppress("MissingPermission") 
+                                            val name = topPrimeDevice.name 
+                                            name ?: "Prime Собеседник" 
+                                        } catch (e: Exception) { "Prime Собеседник" }
+                                        stopBluetoothScan()
+                                        isContactDialogVisible.value = false
+                                        val intent = Intent(this@ChatListActivity, ChatPersonActivity::class.java).apply {
+                                            putExtra("EXTRA_CHAT_NAME", devName)
+                                            putExtra("EXTRA_DEVICE_ADDRESS", topPrimeDevice.address)
+                                            putExtra("EXTRA_USE_EXISTING_SOCKET", true)
+                                        }
+                                        startActivity(intent)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676), contentColor = Color.Black)
+                                ) {
+                                    Text("⚡ Подключиться к случайному", fontWeight = FontWeight.ExtraBold)
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
 
                             LazyColumn(
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 300.dp)
@@ -894,7 +977,7 @@ class ChatListActivity : AppCompatActivity() {
                                             modifier = Modifier.height(32.dp)
                                         ) {
                                             Text(
-                                                text = if (isPrimeDevice) "⚡ Prime Direct" else "Соединить",
+                                                text = if (isPrimeDevice) "⚡ Prime" else "Связать",
                                                 fontWeight = FontWeight.ExtraBold,
                                                 fontSize = 10.sp
                                             )

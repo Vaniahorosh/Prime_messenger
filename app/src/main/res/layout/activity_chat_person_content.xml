@@ -71,6 +71,7 @@
                 android:layout_width="44dp"
                 android:layout_height="44dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
+                tools:ignore="HardcodedText"
                 android:contentDescription="Назад"
                 android:src="@drawable/ic_arrow_back"
                 app:layout_constraintBottom_toBottomOf="parent"
@@ -107,7 +108,7 @@
                 android:layout_marginEnd="12dp"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text="Имя контакта"
+                tools:text="Имя контакта"
                 android:textColor="@color/prime_text_primary"
                 android:textSize="18sp"
                 android:textStyle="bold"
@@ -125,7 +126,7 @@
                 android:layout_marginEnd="12dp"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text="Ожидание подключения..."
+                tools:text="Ожидание подключения..."
                 android:textColor="@color/prime_text_secondary"
                 android:textSize="13sp"
                 app:layout_constraintBottom_toBottomOf="parent"
@@ -150,12 +151,33 @@
         android:paddingTop="6dp"
         android:paddingEnd="14dp"
         android:paddingBottom="6dp"
+        tools:text="12 марта"
         android:textColor="@color/chat_date_bubble_text"
         android:textSize="12sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Кнопка прокрутки вниз -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabScrollToBottom"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="12dp"
+        android:alpha="0"
+        tools:ignore="HardcodedText"
+        android:contentDescription="Прокрутить вниз"
+        android:elevation="10dp"
+        android:rotation="-90"
+        android:src="@drawable/ic_arrow_back"
+        android:visibility="gone"
+        app:backgroundTint="@color/prime_brand"
+        app:fabCustomSize="44dp"
+        app:layout_constraintBottom_toTopOf="@+id/bottomContainer"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:tint="@color/white" />
 
     <!-- 3. Нижний парящий контейнер (Floating Glass Footer) -->
     <LinearLayout
@@ -235,6 +257,17 @@
                     android:textSize="12sp"
                     android:textStyle="bold"
                     tools:text="Доставка... 45%" />
+
+                <ImageButton
+                    android:id="@+id/btnCancelSendingProgress"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="8dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    tools:ignore="HardcodedText"
+                    android:contentDescription="Отменить отправку"
+                    android:src="@drawable/ic_cancel"
+                    app:tint="@color/prime_danger" />
             </LinearLayout>
 
             <!-- Плавающая панель ожидающего вложения -->
@@ -284,7 +317,7 @@
                         android:layout_height="wrap_content"
                         android:ellipsize="end"
                         android:maxLines="1"
-                        android:text="Вложение"
+                        tools:text="Вложение"
                         android:textColor="@color/prime_text_primary"
                         android:textSize="13sp"
                         android:textStyle="bold" />
@@ -295,7 +328,7 @@
                         android:layout_height="wrap_content"
                         android:ellipsize="end"
                         android:maxLines="1"
-                        android:text="Готово к отправке"
+                        tools:text="Готово к отправке"
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="11sp" />
                 </LinearLayout>
@@ -305,6 +338,7 @@
                     android:layout_width="28dp"
                     android:layout_height="28dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
+                    tools:ignore="HardcodedText"
                     android:contentDescription="Отменить вложение"
                     android:src="@drawable/ic_cancel"
                     app:tint="@color/prime_danger" />
@@ -340,7 +374,7 @@
                         android:id="@+id/tvReplyBarTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Ответ пользователю"
+                        tools:text="Ответ пользователю"
                         android:textColor="@color/prime_brand"
                         android:textSize="12sp"
                         android:textStyle="bold" />
@@ -351,7 +385,7 @@
                         android:layout_height="wrap_content"
                         android:ellipsize="end"
                         android:maxLines="1"
-                        android:text="Текст сообщения..."
+                        tools:text="Текст сообщения..."
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="11sp" />
                 </LinearLayout>
@@ -361,6 +395,7 @@
                     android:layout_width="26dp"
                     android:layout_height="26dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
+                    tools:ignore="HardcodedText"
                     android:contentDescription="Отменить ответ"
                     android:src="@drawable/ic_cancel"
                     app:tint="@color/prime_danger" />
@@ -392,7 +427,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginStart="8dp"
-                    android:text="Редактирование сообщения"
+                    tools:text="Редактирование сообщения"
                     android:textColor="@color/prime_brand"
                     android:textSize="12sp"
                     android:textStyle="bold" />
@@ -402,6 +437,7 @@
                     android:layout_width="26dp"
                     android:layout_height="26dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
+                    tools:ignore="HardcodedText"
                     android:contentDescription="Отменить редактирование"
                     android:src="@drawable/ic_cancel"
                     app:tint="@color/prime_danger" />
@@ -418,6 +454,7 @@
                     android:layout_width="42dp"
                     android:layout_height="42dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
+                    tools:ignore="HardcodedText"
                     android:contentDescription="Прикрепить"
                     android:src="@android:drawable/ic_menu_gallery"
                     app:tint="@color/prime_text_secondary" />
@@ -427,6 +464,7 @@
                     android:layout_width="42dp"
                     android:layout_height="42dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
+                    tools:ignore="HardcodedText"
                     android:contentDescription="Отменить"
                     android:src="@drawable/ic_cancel"
                     android:visibility="gone"
@@ -438,6 +476,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:background="@null"
+                    tools:ignore="HardcodedText"
                     android:hint="Сообщение..."
                     android:inputType="textMultiLine|textCapSentences"
                     android:maxLines="4"
@@ -454,6 +493,7 @@
                     android:layout_width="42dp"
                     android:layout_height="42dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
+                    tools:ignore="HardcodedText"
                     android:contentDescription="Отправить"
                     android:src="@android:drawable/ic_menu_send"
                     app:tint="@color/prime_text_primary" />

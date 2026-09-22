@@ -31,6 +31,8 @@ public class ChatHistoryManager {
         if (context == null) return;
         executor.execute(() -> {
             Context appContext = context.getApplicationContext();
+            
+            // 1. Удаление всей истории и прикрепленных файлов (фото/видео/документы)
             SharedPreferences historyPrefs = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
             SharedPreferences.Editor historyEdit = historyPrefs.edit();
 
@@ -50,25 +52,55 @@ public class ChatHistoryManager {
                 }
                 historyEdit.remove("history_" + key);
             }
-            historyEdit.apply();
 
-            if (targetUsername != null && !targetUsername.isEmpty()) {
-                try {
-                    File f = new File(appContext.getFilesDir(), "avatar_" + targetUsername + ".jpg");
-                    if (f.exists()) f.delete();
-                } catch (Exception ignored) {}
+            Map<String, ?> allHistoryKeys = historyPrefs.getAll();
+            for (String key : allHistoryKeys.keySet()) {
+                for (String tKey : keysToDelete) {
+                    if (key.equalsIgnoreCase("history_" + tKey) || key.toLowerCase().endsWith(tKey.toLowerCase())) {
+                        historyEdit.remove(key);
+                    }
+                }
             }
-            if (deviceAddress != null && !deviceAddress.isEmpty()) {
-                try {
-                    File f = new File(appContext.getFilesDir(), "avatar_" + deviceAddress + ".jpg");
-                    if (f.exists()) f.delete();
-                } catch (Exception ignored) {}
-            }
+            historyEdit.commit();
 
+            // 2. Полное физическое удаление всех файлов аватарок, медиа и кэша, связанных с контактом
+            try {
+                File[] files = appContext.getFilesDir().listFiles();
+                if (files != null) {
+                    for (File f : files) {
+                        String name = f.getName().toLowerCase();
+                        for (String tKey : keysToDelete) {
+                            String lowerKey = tKey.toLowerCase();
+                            if (name.contains(lowerKey) || name.equals("avatar_" + lowerKey + ".jpg")) {
+                                f.delete();
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            try {
+                File[] cacheFiles = appContext.getCacheDir().listFiles();
+                if (cacheFiles != null) {
+                    for (File f : cacheFiles) {
+                        String name = f.getName().toLowerCase();
+                        for (String tKey : keysToDelete) {
+                            if (name.contains(tKey.toLowerCase())) {
+                                f.delete();
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            // 3. Полное удаление метрик последнего визита, статусов набора текста и записи из списка чатов
             SharedPreferences localDb = appContext.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
             SharedPreferences.Editor dbEdit = localDb.edit();
-            if (targetUsername != null) dbEdit.remove("last_seen_" + targetUsername);
-            if (deviceAddress != null) dbEdit.remove("last_seen_" + deviceAddress);
+            for (String tKey : keysToDelete) {
+                dbEdit.remove("last_seen_" + tKey);
+                dbEdit.remove("typing_until_" + tKey);
+                dbEdit.remove("activity_state_" + tKey);
+            }
 
             try {
                 String json = localDb.getString("persisted_chats", "[]");
@@ -92,7 +124,7 @@ public class ChatHistoryManager {
                 e.printStackTrace();
             }
 
-            dbEdit.apply();
+            dbEdit.commit();
             ChatListNotifier.INSTANCE.notifyChanged();
         });
     }

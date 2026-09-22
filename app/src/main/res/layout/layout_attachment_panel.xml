@@ -135,6 +135,7 @@
 
     <!-- Content Sections Container -->
     <FrameLayout
+        android:id="@+id/layoutSectionsContainer"
         android:layout_width="match_parent"
         android:layout_height="230dp">
 

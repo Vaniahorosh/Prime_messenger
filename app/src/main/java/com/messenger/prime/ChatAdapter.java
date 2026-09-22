@@ -112,38 +112,33 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public void deleteMessageAnimated(View itemView, int position, Runnable onComplete) {
-        if (itemView == null) {
-            if (position >= 0 && position < messages.size()) {
-                messages.remove(position);
-                notifyItemRemoved(position);
-            }
-            if (onComplete != null) onComplete.run();
-            return;
+        if (position >= 0 && position < messages.size()) {
+            messages.remove(position);
+            notifyItemRemoved(position);
         }
-
-        itemView.animate()
-                .alpha(0f)
-                .scaleX(0.1f)
-                .scaleY(0.1f)
-                .translationY(-40f)
-                .setDuration(260)
-                .setInterpolator(new AccelerateInterpolator())
-                .withEndAction(() -> {
-                    itemView.setAlpha(1f);
-                    itemView.setScaleX(1f);
-                    itemView.setScaleY(1f);
-                    itemView.setTranslationY(0f);
-                    if (position >= 0 && position < messages.size()) {
-                        messages.remove(position);
-                        notifyItemRemoved(position);
-                    }
-                    if (onComplete != null) onComplete.run();
-                })
-                .start();
+        if (itemView != null) {
+            itemView.animate()
+                    .alpha(0f)
+                    .scaleX(0.1f)
+                    .scaleY(0.1f)
+                    .translationY(-40f)
+                    .setDuration(220)
+                    .setInterpolator(new AccelerateInterpolator())
+                    .withEndAction(() -> {
+                        itemView.setAlpha(1f);
+                        itemView.setScaleX(1f);
+                        itemView.setScaleY(1f);
+                        itemView.setTranslationY(0f);
+                        if (onComplete != null) onComplete.run();
+                    })
+                    .start();
+        } else {
+            if (onComplete != null) onComplete.run();
+        }
     }
 
     public void deleteMessageByIdAnimated(RecyclerView recyclerView, String messageId, Runnable onComplete) {
-        if (messageId == null || messages.isEmpty()) {
+        if (messageId == null || messages == null || messages.isEmpty()) {
             if (onComplete != null) onComplete.run();
             return;
         }
@@ -162,14 +157,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 if (tsPart != null && m.getMessageId() != null && m.getMessageId().contains(tsPart)) {
                     foundPos = i;
                     break;
-                } else if (m.getImagePath() != null || m.getImageBitmap() != null) {
-                    foundPos = i;
-                    break;
                 }
             }
         }
 
-        if (foundPos != -1) {
+        if (foundPos != -1 && foundPos < messages.size()) {
             final int pos = foundPos;
             RecyclerView.ViewHolder holder = recyclerView != null ? recyclerView.findViewHolderForAdapterPosition(pos) : null;
             View viewToAnimate = holder != null ? holder.itemView : null;
@@ -284,7 +276,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         } else {
             ((IncomingViewHolder) holder).bind(message, showDateHeader, longClickListener, position);
         }
-        holder.itemView.animate().cancel();
         holder.itemView.setAlpha(1f);
         holder.itemView.setTranslationY(0f);
         holder.itemView.setTranslationX(0f);
@@ -323,7 +314,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     @Override
     public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
         super.onViewRecycled(holder);
-        holder.itemView.animate().cancel();
         holder.itemView.setAlpha(1f);
         holder.itemView.setTranslationY(0f);
         holder.itemView.setTranslationX(0f);
@@ -641,7 +631,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     if (ivMessageImage != null) ivMessageImage.setVisibility(View.GONE);
                     if (videoMessagePreview != null && message.getImagePath() != null && new File(message.getImagePath()).exists()) {
                         videoMessagePreview.setVisibility(View.VISIBLE);
-                        videoMessagePreview.setVideoPath(message.getImagePath());
+                        String vPath = message.getImagePath();
+                        if (vPath.startsWith("content://") || vPath.startsWith("file://")) {
+                            videoMessagePreview.setVideoURI(Uri.parse(vPath));
+                        } else {
+                            videoMessagePreview.setVideoURI(Uri.fromFile(new File(vPath)));
+                        }
                         videoMessagePreview.setOnPreparedListener(mp -> {
                             mp.setVolume(0f, 0f);
                             mp.setLooping(true);

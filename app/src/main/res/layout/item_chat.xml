@@ -39,6 +39,8 @@
                         android:layout_height="match_parent"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@drawable/user_edit"
+                        tools:ignore="HardcodedText"
+                        android:contentDescription="Редактировать контакт"
                         android:padding="20dp"
                         android:scaleType="fitCenter"
                         app:tint="@color/white" />
@@ -54,6 +56,8 @@
                         android:layout_height="match_parent"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@drawable/ic_cancel"
+                        tools:ignore="HardcodedText"
+                        android:contentDescription="Удалить контакт"
                         android:padding="20dp"
                         android:scaleType="fitCenter"
                         app:tint="@color/white" />
@@ -177,6 +181,8 @@
                 android:layout_width="16dp"
                 android:layout_height="16dp"
                 android:layout_marginEnd="6dp"
+                tools:ignore="HardcodedText"
+                android:contentDescription="Без уведомлений"
                 android:src="@drawable/ic_notifications_off"
                 android:visibility="gone"
                 app:tint="@color/prime_text_secondary" />
@@ -186,6 +192,8 @@
                 android:layout_width="18dp"
                 android:layout_height="18dp"
                 android:layout_marginEnd="6dp"
+                tools:ignore="HardcodedText"
+                android:contentDescription="Статус сообщения"
                 android:visibility="gone"
                 tools:src="@drawable/ic_done_all" />
 

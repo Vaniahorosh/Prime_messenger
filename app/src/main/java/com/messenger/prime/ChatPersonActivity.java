@@ -32,11 +32,16 @@ import android.os.Message;
 import java.util.Set;
 
 import android.util.Log;
+import android.util.LruCache;
+import android.util.Size;
+import android.media.ThumbnailUtils;
+import android.view.GestureDetector;
 
 import android.view.HapticFeedbackConstants;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.InputMethodManager;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -143,6 +148,7 @@ public class ChatPersonActivity extends AppCompatActivity {
     private static final int MESSAGE_REACTION_RECEIVED = 14;
     private static final int MESSAGE_READ_FILE = 15;
     private static final int MESSAGE_SEND_PROGRESS = 16;
+    private static final int MESSAGE_SEND_CANCELLED = 17;
 
     private static final byte TYPE_TEXT = 0x01;
     private static final byte TYPE_PHOTO = 0x02;
@@ -211,11 +217,14 @@ public class ChatPersonActivity extends AppCompatActivity {
     private LinearLayout layoutSendingProgress;
     private ProgressBar pbSendingProgress;
     private TextView tvSendingProgressPercent;
+    private ImageButton btnCancelSendingProgress;
+    private FloatingActionButton fabScrollToBottom;
     private ShapeableImageView ivPendingThumbnail;
     private ImageView ivPendingVideoBadge;
     private TextView tvPendingName;
     private TextView tvPendingSize;
     private ImageButton btnCancelPending;
+    private String currentSendingMessageId = null;
 
     // Attachment Panel Modes UI
     private LinearLayout layoutModeCamera, layoutModePhoto, layoutModeFiles;
@@ -224,6 +233,7 @@ public class ChatPersonActivity extends AppCompatActivity {
     private TextView tvModeCameraLabel, tvModePhotoLabel, tvModeFilesLabel;
 
     // Attachment Panel Content Sections UI
+    private FrameLayout layoutSectionsContainer;
     private View layoutSectionCamera, layoutSectionPhoto, layoutSectionFiles;
     private MaterialCardView btnCameraPhoto, btnCameraVideo;
     private RecyclerView rvGalleryGrid, rvFilesGrid;
@@ -266,6 +276,7 @@ public class ChatPersonActivity extends AppCompatActivity {
 
     private boolean isHandshakeDone = false;
     private boolean isChatDeleted = false;
+    private boolean isManuallyDisconnected = false;
     private boolean isRemoteUserOnline = false;
     private boolean isOpeningSubActivity = false;
     private String currentActivityState = "IDLE";
@@ -302,7 +313,6 @@ public class ChatPersonActivity extends AppCompatActivity {
     };
 
     private int connectionRetryCount = 0;
-    private static final int MAX_AUTO_RETRIES = 3;
     private final Handler autoRetryHandler = new Handler(Looper.getMainLooper());
     private final Runnable autoRetryRunnable = new Runnable() {
         @Override
@@ -319,11 +329,10 @@ public class ChatPersonActivity extends AppCompatActivity {
         @Override
         public void run() {
             if (connectedThread == null || !connectedThread.isAlive()) {
-                if (btnPrimeConnect != null) {
-                    btnPrimeConnect.setEnabled(true);
-                    btnPrimeConnect.setText("⚡ Соединиться");
-                }
                 updateOfflineLastSeenStatus();
+                long jitter = (long) (Math.random() * 1200);
+                autoRetryHandler.removeCallbacks(autoRetryRunnable);
+                autoRetryHandler.postDelayed(autoRetryRunnable, 2500L + jitter);
             }
         }
     };
@@ -512,8 +521,6 @@ public class ChatPersonActivity extends AppCompatActivity {
             controller.setAppearanceLightNavigationBars(!isDarkTheme);
         }
 
-        setContentView(R.layout.activity_chat_person_content);
-
         if (Build.VERSION.SDK_INT >= 34) {
             overrideActivityTransition(
                 OVERRIDE_TRANSITION_OPEN,
@@ -526,6 +533,8 @@ public class ChatPersonActivity extends AppCompatActivity {
                 R.anim.slide_out_right
             );
         }
+
+        setContentView(R.layout.activity_chat_person_content);
 
         SlidrConfig slidrConfig = new SlidrConfig.Builder()
                 .position(SlidrPosition.LEFT)
@@ -633,6 +642,19 @@ public class ChatPersonActivity extends AppCompatActivity {
         layoutSendingProgress = findViewById(R.id.layoutSendingProgress);
         pbSendingProgress = findViewById(R.id.pbSendingProgress);
         tvSendingProgressPercent = findViewById(R.id.tvSendingProgressPercent);
+        btnCancelSendingProgress = findViewById(R.id.btnCancelSendingProgress);
+        if (btnCancelSendingProgress != null) {
+            btnCancelSendingProgress.setOnClickListener(v -> cancelCurrentFileSending());
+        }
+        fabScrollToBottom = findViewById(R.id.fabScrollToBottom);
+
+        if (fabScrollToBottom != null) {
+            fabScrollToBottom.setOnClickListener(v -> {
+                if (rvMessages != null && chatAdapter != null && chatAdapter.getItemCount() > 0) {
+                    rvMessages.smoothScrollToPosition(chatAdapter.getItemCount() - 1);
+                }
+            });
+        }
 
         initAttachmentPanel();
 
@@ -797,18 +819,38 @@ public class ChatPersonActivity extends AppCompatActivity {
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
                 LinearLayoutManager lm = (LinearLayoutManager) recyclerView.getLayoutManager();
-                if (lm != null && tvFloatingDate != null) {
-                    int firstPos = lm.findFirstVisibleItemPosition();
-                    if (firstPos != RecyclerView.NO_POSITION && firstPos < chatAdapter.getItemCount()) {
-                        long ts = chatAdapter.getMessageTimestamp(firstPos);
-                        if (ts > 0) {
-                            String dateStr = ChatAdapter.getDateHeaderString(ts);
-                            tvFloatingDate.setText(dateStr);
-                            if (tvFloatingDate.getAlpha() < 1f) {
-                                tvFloatingDate.animate().alpha(1f).setDuration(150).start();
+                if (lm != null) {
+                    int totalCount = chatAdapter != null ? chatAdapter.getItemCount() : 0;
+                    int lastVisible = lm.findLastVisibleItemPosition();
+                    boolean isNearBottom = (totalCount - 1 - lastVisible) <= 3;
+
+                    if (fabScrollToBottom != null) {
+                        if (!isNearBottom && totalCount > 5) {
+                            if (fabScrollToBottom.getVisibility() != View.VISIBLE) {
+                                fabScrollToBottom.setVisibility(View.VISIBLE);
+                                fabScrollToBottom.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(200).start();
                             }
-                            dateHideHandler.removeCallbacks(hideDateRunnable);
-                            dateHideHandler.postDelayed(hideDateRunnable, 1800);
+                        } else {
+                            if (fabScrollToBottom.getVisibility() == View.VISIBLE) {
+                                fabScrollToBottom.animate().alpha(0f).scaleX(0.5f).scaleY(0.5f).setDuration(200)
+                                        .withEndAction(() -> fabScrollToBottom.setVisibility(View.GONE)).start();
+                            }
+                        }
+                    }
+
+                    if (tvFloatingDate != null && chatAdapter != null) {
+                        int firstPos = lm.findFirstVisibleItemPosition();
+                        if (firstPos != RecyclerView.NO_POSITION && firstPos < chatAdapter.getItemCount()) {
+                            long ts = chatAdapter.getMessageTimestamp(firstPos);
+                            if (ts > 0) {
+                                String dateStr = ChatAdapter.getDateHeaderString(ts);
+                                tvFloatingDate.setText(dateStr);
+                                if (tvFloatingDate.getAlpha() < 1f) {
+                                    tvFloatingDate.animate().alpha(1f).setDuration(150).start();
+                                }
+                                dateHideHandler.removeCallbacks(hideDateRunnable);
+                                dateHideHandler.postDelayed(hideDateRunnable, 1800);
+                            }
                         }
                     }
                 }
@@ -948,6 +990,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                         byte[] fullPayload = (byte[]) msg.obj;
                         if (fullPayload != null && fullPayload.length > 0) {
                             String photoMsgId = null;
+                            String captionText = null;
                             byte[] photoBytes = fullPayload;
                             
                             int sepIdx = -1;
@@ -963,10 +1006,33 @@ public class ChatPersonActivity extends AppCompatActivity {
                                 System.arraycopy(fullPayload, sepIdx + 3, photoBytes, 0, photoBytes.length);
                             }
 
+                            if (photoBytes.length > 9) {
+                                byte[] magic = "|PRM|".getBytes(StandardCharsets.UTF_8);
+                                boolean hasMagic = true;
+                                for (int i = 0; i < 5; i++) {
+                                    if (photoBytes[photoBytes.length - 5 + i] != magic[i]) {
+                                        hasMagic = false;
+                                        break;
+                                    }
+                                }
+                                if (hasMagic) {
+                                    int capLen = ((photoBytes[photoBytes.length - 9] & 0xFF) << 24) |
+                                                 ((photoBytes[photoBytes.length - 8] & 0xFF) << 16) |
+                                                 ((photoBytes[photoBytes.length - 7] & 0xFF) << 8) |
+                                                 (photoBytes[photoBytes.length - 6] & 0xFF);
+                                    if (capLen > 0 && capLen < photoBytes.length - 9) {
+                                        captionText = new String(photoBytes, photoBytes.length - 9 - capLen, capLen, StandardCharsets.UTF_8);
+                                        byte[] cleanPhoto = new byte[photoBytes.length - 9 - capLen];
+                                        System.arraycopy(photoBytes, 0, cleanPhoto, 0, cleanPhoto.length);
+                                        photoBytes = cleanPhoto;
+                                    }
+                                }
+                            }
+
                             Bitmap photoBitmap = BitmapFactory.decodeByteArray(photoBytes, 0, photoBytes.length);
                             long photoTs = System.currentTimeMillis();
                             String photoTime = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(photoTs));
-                            ChatMessage photoMsg = new ChatMessage(null, photoTime, targetUsername, false, photoBitmap, photoTs, null, photoMsgId);
+                            ChatMessage photoMsg = new ChatMessage(captionText, photoTime, targetUsername, false, photoBitmap, photoTs, null, photoMsgId);
                             addMessageToUI(photoMsg);
                             typingResetHandler.removeCallbacks(resetTypingRunnable);
                             resetTypingRunnable.run();
@@ -1004,6 +1070,9 @@ public class ChatPersonActivity extends AppCompatActivity {
                             if (layoutSendingProgress != null) layoutSendingProgress.setVisibility(View.GONE);
                             PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Ошибка передачи получателю", null);
                         }
+                        break;
+                    case MESSAGE_SEND_CANCELLED:
+                        cancelCurrentFileSending();
                         break;
                     case MESSAGE_WRITE:
                         break;
@@ -1152,20 +1221,16 @@ public class ChatPersonActivity extends AppCompatActivity {
                     case MESSAGE_DISCONNECTED:
                         isRemoteUserOnline = false;
                         saveLastMessageToChatList(null, MessageStatus.NONE, false, "OFFLINE");
-                        setStatusWithAnimation("Отключено", R.color.prime_danger);
+                        stopAnimatingStatus();
+                        updateOfflineLastSeenStatus();
                         setOnlineStatusIndicator(false);
-                        PrimeNotification.INSTANCE.show(ChatPersonActivity.this, targetUsername + " отключил(а) соединение", null);
                         if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.VISIBLE);
                         if (layoutInput != null) layoutInput.setVisibility(View.GONE);
-                        if (btnPrimeConnect != null) {
-                            btnPrimeConnect.setEnabled(true);
-                            btnPrimeConnect.setText("⚡ Соединиться");
+                        if (!isChatDeleted) {
+                            long disconnectJitter = (long) (Math.random() * 1200);
+                            autoRetryHandler.removeCallbacks(autoRetryRunnable);
+                            autoRetryHandler.postDelayed(autoRetryRunnable, 2500L + disconnectJitter);
                         }
-                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                            if (!isFinishing()) {
-                                finish();
-                            }
-                        }, 1200L);
                         break;
                     case MESSAGE_PRESENCE_UPDATED:
                         String pData = (String) msg.obj;
@@ -1319,6 +1384,7 @@ public class ChatPersonActivity extends AppCompatActivity {
 
         if (btnPrimeConnect != null) {
             btnPrimeConnect.setOnClickListener(v -> {
+                isManuallyDisconnected = false;
                 checkPermissionsAndStartRole(false);
             });
         }
@@ -1424,6 +1490,8 @@ public class ChatPersonActivity extends AppCompatActivity {
             String newTarget = intent.getStringExtra("EXTRA_CHAT_NAME");
             String newAddress = intent.getStringExtra("EXTRA_DEVICE_ADDRESS");
             if (newTarget != null && !newTarget.isEmpty()) {
+                isChatDeleted = false;
+                isManuallyDisconnected = false;
                 this.targetUsername = newTarget;
                 if (newAddress != null) this.deviceAddress = newAddress;
                 if (tvChatName != null) tvChatName.setText(targetUsername);
@@ -1435,6 +1503,8 @@ public class ChatPersonActivity extends AppCompatActivity {
                         rvMessages.scrollToPosition(chatAdapter.getItemCount() - 1);
                     }
                 }
+                autoRetryHandler.removeCallbacks(autoRetryRunnable);
+                startPrimeConnection();
             }
         }
     }
@@ -1467,7 +1537,7 @@ public class ChatPersonActivity extends AppCompatActivity {
             this.connectedThread.setUiHandler(handler);
         }
 
-        if (connectedThread == null || !connectedThread.isAlive()) {
+        if ((connectedThread == null || !connectedThread.isAlive()) && (acceptThread == null || !acceptThread.isAlive()) && (connectThread == null || !connectThread.isAlive())) {
             connectionRetryCount = 0;
             autoRetryHandler.removeCallbacks(autoRetryRunnable);
             autoRetryHandler.postDelayed(this::startPrimeConnection, 500L);
@@ -1658,6 +1728,9 @@ public class ChatPersonActivity extends AppCompatActivity {
     }
 
     private void disconnectCurrentChat() {
+        isManuallyDisconnected = true;
+        autoRetryHandler.removeCallbacks(autoRetryRunnable);
+        connectTimeoutHandler.removeCallbacks(connectTimeoutRunnable);
         if (connectedThread != null && connectedThread.isAlive()) {
             try {
                 connectedThread.sendPacket(TYPE_DISCONNECT, "DISCONNECT".getBytes(StandardCharsets.UTF_8));
@@ -1670,12 +1743,21 @@ public class ChatPersonActivity extends AppCompatActivity {
             connectedThread.cancel();
             connectedThread = null;
         }
+        if (connectThread != null) {
+            connectThread.cancel();
+            connectThread = null;
+        }
+        if (acceptThread != null) {
+            acceptThread.cancel();
+            acceptThread = null;
+        }
         try {
             PrimeBluetoothService.stopService(this);
         } catch (Exception ignored) {}
 
         saveLastMessageToChatList(null, MessageStatus.NONE, false, "OFFLINE");
-        setStatusWithAnimation("Отключено", R.color.prime_danger);
+        stopAnimatingStatus();
+        updateOfflineLastSeenStatus();
         setOnlineStatusIndicator(false);
         updateConnectionStateInAdapter();
 
@@ -1935,19 +2017,22 @@ public class ChatPersonActivity extends AppCompatActivity {
         }
     }
 
+    private int resolveColor(int colorResOrValue) {
+        if ((colorResOrValue >>> 24) == 0x7f || (colorResOrValue >>> 24) == 0x01) {
+            try {
+                return ContextCompat.getColor(this, colorResOrValue);
+            } catch (Exception ignored) {}
+        }
+        return colorResOrValue;
+    }
+
     private void setStatusWithAnimation(String newText, int colorResOrValue) {
+        stopAnimatingStatus();
         if (tvChatStatus == null) return;
         CharSequence currentText = tvChatStatus.getText();
         if (currentText != null && currentText.toString().equals(newText)) return;
 
-        int finalColor;
-        try {
-            finalColor = ContextCompat.getColor(this, colorResOrValue);
-        } catch (Exception e) {
-            finalColor = colorResOrValue;
-        }
-
-        int textColor = finalColor;
+        int textColor = resolveColor(colorResOrValue);
         tvChatStatus.animate()
                 .translationY(25f)
                 .alpha(0f)
@@ -2001,12 +2086,7 @@ public class ChatPersonActivity extends AppCompatActivity {
 
     private void setStatusTextDirect(String newText, int colorResOrValue) {
         if (tvChatStatus == null) return;
-        int finalColor;
-        try {
-            finalColor = ContextCompat.getColor(this, colorResOrValue);
-        } catch (Exception e) {
-            finalColor = colorResOrValue;
-        }
+        int finalColor = resolveColor(colorResOrValue);
         tvChatStatus.setText(newText);
         tvChatStatus.setTextColor(finalColor);
     }
@@ -2014,11 +2094,7 @@ public class ChatPersonActivity extends AppCompatActivity {
     private void startAnimatingStatus(String baseStatus, int colorResOrValue) {
         statusAnimHandler.removeCallbacks(statusAnimRunnable);
         currentBaseStatus = baseStatus;
-        try {
-            currentStatusColor = ContextCompat.getColor(this, colorResOrValue);
-        } catch (Exception e) {
-            currentStatusColor = colorResOrValue;
-        }
+        currentStatusColor = resolveColor(colorResOrValue);
         statusDotCount = 0;
         setStatusWithAnimation(baseStatus, currentStatusColor);
         statusAnimHandler.postDelayed(statusAnimRunnable, 500);
@@ -2173,10 +2249,34 @@ public class ChatPersonActivity extends AppCompatActivity {
 
     private void deleteChatFromChatListEx(String nameOrId) {
         isChatDeleted = true;
+        autoRetryHandler.removeCallbacks(autoRetryRunnable);
+        connectTimeoutHandler.removeCallbacks(connectTimeoutRunnable);
         BluetoothSocketHolder.clearSocket();
         ChatHistoryManager.deleteHistoryCompletely(this, targetUsername, deviceAddress);
         if (nameOrId != null && !nameOrId.equalsIgnoreCase(targetUsername)) {
             ChatHistoryManager.deleteHistoryCompletely(this, nameOrId, deviceAddress);
+        }
+
+        try {
+            SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+            String json = sharedPrefs.getString("persisted_chats", "[]");
+            JSONArray array = new JSONArray(json);
+            JSONArray newArray = new JSONArray();
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject obj = array.getJSONObject(i);
+                String name = obj.optString("name");
+                String id = obj.optString("id");
+                boolean matches = (targetUsername != null && (targetUsername.equalsIgnoreCase(name) || targetUsername.equalsIgnoreCase(id)))
+                        || (deviceAddress != null && (deviceAddress.equalsIgnoreCase(id) || deviceAddress.equalsIgnoreCase(name)))
+                        || (nameOrId != null && (nameOrId.equalsIgnoreCase(name) || nameOrId.equalsIgnoreCase(id)));
+                if (!matches) {
+                    newArray.put(obj);
+                }
+            }
+            sharedPrefs.edit().putString("persisted_chats", newArray.toString()).commit();
+            ChatListNotifier.INSTANCE.notifyChanged();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to remove deleted chat from persisted_chats", e);
         }
     }
 
@@ -2408,11 +2508,35 @@ public class ChatPersonActivity extends AppCompatActivity {
                 String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(timestamp));
                 String messageId = localUsername + "_" + timestamp + "_" + UUID.randomUUID().toString();
                 
+                byte[] captionBytes = null;
+                if (captionText != null && !captionText.trim().isEmpty()) {
+                    captionBytes = captionText.trim().getBytes(StandardCharsets.UTF_8);
+                }
+                
+                byte[] finalPhotoBytes;
+                if (captionBytes != null && captionBytes.length > 0) {
+                    byte[] magic = "|PRM|".getBytes(StandardCharsets.UTF_8);
+                    int capLen = captionBytes.length;
+                    finalPhotoBytes = new byte[photoBytes.length + capLen + 4 + magic.length];
+                    System.arraycopy(photoBytes, 0, finalPhotoBytes, 0, photoBytes.length);
+                    System.arraycopy(captionBytes, 0, finalPhotoBytes, photoBytes.length, capLen);
+                    
+                    finalPhotoBytes[finalPhotoBytes.length - 9] = (byte) (capLen >> 24);
+                    finalPhotoBytes[finalPhotoBytes.length - 8] = (byte) (capLen >> 16);
+                    finalPhotoBytes[finalPhotoBytes.length - 7] = (byte) (capLen >> 8);
+                    finalPhotoBytes[finalPhotoBytes.length - 6] = (byte) capLen;
+                    
+                    System.arraycopy(magic, 0, finalPhotoBytes, finalPhotoBytes.length - 5, magic.length);
+                } else {
+                    finalPhotoBytes = photoBytes;
+                }
+                
                 byte[] headerBytes = (messageId + ":::").getBytes(StandardCharsets.UTF_8);
-                byte[] fullPayload = new byte[headerBytes.length + photoBytes.length];
+                byte[] fullPayload = new byte[headerBytes.length + finalPhotoBytes.length];
                 System.arraycopy(headerBytes, 0, fullPayload, 0, headerBytes.length);
-                System.arraycopy(photoBytes, 0, fullPayload, headerBytes.length, photoBytes.length);
+                System.arraycopy(finalPhotoBytes, 0, fullPayload, headerBytes.length, finalPhotoBytes.length);
 
+                currentSendingMessageId = messageId;
                 if (connectedThread != null && connectedThread.isAlive()) {
                     connectedThread.sendPacket(TYPE_PHOTO, fullPayload);
                 } else {
@@ -2483,6 +2607,23 @@ public class ChatPersonActivity extends AppCompatActivity {
     }
 
     private String findMacForTargetUsername(String targetName) {
+        if (targetName == null || targetName.isEmpty()) return null;
+        try {
+            SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+            String jsonChats = sharedPrefs.getString("persisted_chats", "[]");
+            JSONArray chatArray = new JSONArray(jsonChats);
+            for (int i = 0; i < chatArray.length(); i++) {
+                JSONObject obj = chatArray.getJSONObject(i);
+                String name = obj.optString("name");
+                String id = obj.optString("id");
+                if (targetName.equalsIgnoreCase(name) && isValidMacAddress(id)) {
+                    return id;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to read MAC from persisted_chats", e);
+        }
+
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) return null;
         try {
             @SuppressLint("MissingPermission")
@@ -2504,33 +2645,40 @@ public class ChatPersonActivity extends AppCompatActivity {
 
     @SuppressLint("MissingPermission")
     private void startPrimeConnection() {
+        if (isChatDeleted || isManuallyDisconnected) return;
+        if (connectedThread != null && connectedThread.isAlive()) return;
+        if (connectThread != null && connectThread.isAlive()) {
+            Log.d(TAG, "ConnectThread is already running, waiting for result...");
+            return;
+        }
+
         Log.d(TAG, "Starting Fast Direct Connection...");
         
+        if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.VISIBLE);
+        if (layoutInput != null) layoutInput.setVisibility(View.GONE);
         if (btnPrimeConnect != null) {
             btnPrimeConnect.setEnabled(false);
             btnPrimeConnect.setText("Подключение...");
         }
-        setStatusWithAnimation("Установка связи...", R.color.prime_accent);
+        startAnimatingStatus("Установка связи", R.color.prime_accent);
 
         connectTimeoutHandler.removeCallbacks(connectTimeoutRunnable);
         connectTimeoutHandler.postDelayed(connectTimeoutRunnable, 30000L);
 
-        // 1. Немедленно отменяем любое фоновое сканирование ОС (критично для скорости RFCOMM)
+        // 1. Немедленно отменяем любое фоновое сканирование ОС
         if (bluetoothAdapter != null) {
             try {
                 bluetoothAdapter.cancelDiscovery();
             } catch (Exception ignored) {}
         }
 
-        // 2. Очищаем старые потоки
-        if (acceptThread != null) { acceptThread.cancel(); acceptThread = null; }
-        if (connectThread != null) { connectThread.cancel(); connectThread = null; }
+        // 2. Серверный сокет запускается/поддерживается постоянно без пересоздания
+        if (acceptThread == null || !acceptThread.isAlive()) {
+            acceptThread = new AcceptThread();
+            acceptThread.start();
+        }
 
-        // 3. Всегда поднимаем серверный сокет для приема входящих подключений
-        acceptThread = new AcceptThread();
-        acceptThread.start();
-
-        // 4. Мгновенный сокетный коннект по известному MAC-адресу
+        // 3. Мгновенный сокетный коннект по известному MAC-адресу
         String addressToConnect = deviceAddress;
         if (!isValidMacAddress(addressToConnect)) {
             addressToConnect = findMacForTargetUsername(targetUsername);
@@ -2538,16 +2686,19 @@ public class ChatPersonActivity extends AppCompatActivity {
 
         if (isValidMacAddress(addressToConnect)) {
             final String targetMac = addressToConnect;
-            String myAddress = "";
-            try {
-                myAddress = bluetoothAdapter.getAddress();
-            } catch (SecurityException ignored) {}
 
-            boolean isPrimaryInitiator = myAddress != null && myAddress.compareToIgnoreCase(targetMac) > 0;
-            long delayMs = isPrimaryInitiator ? 200 : 1000;
+            String currentUser = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).getString("current_user", "");
+            if (currentUser.isEmpty()) currentUser = "UserA";
+            String myIdentifier = currentUser.toLowerCase(Locale.ROOT);
+            String targetIdentifier = (targetUsername != null ? targetUsername : "").toLowerCase(Locale.ROOT);
+
+            // Асимметричное определение роли для исключения коллизий (Race condition)
+            boolean isPrimaryInitiator = myIdentifier.compareTo(targetIdentifier) > 0;
+            long jitter = (long) (Math.random() * 800);
+            long delayMs = isPrimaryInitiator ? 100L : (2200L + jitter);
 
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                if ((connectedThread == null || !connectedThread.isAlive()) && bluetoothAdapter != null && bluetoothAdapter.isEnabled()) {
+                if ((connectedThread == null || !connectedThread.isAlive()) && (connectThread == null || !connectThread.isAlive()) && bluetoothAdapter != null && bluetoothAdapter.isEnabled()) {
                     try {
                         bluetoothAdapter.cancelDiscovery();
                         BluetoothDevice device = bluetoothAdapter.getRemoteDevice(targetMac);
@@ -2611,7 +2762,12 @@ public class ChatPersonActivity extends AppCompatActivity {
         }
 
         runOnUiThread(() -> {
-            setStatusWithAnimation("В сети", R.color.prime_success);
+            stopAnimatingStatus();
+            if (remoteVersionCode != -1 && remoteVersionCode != getAppVersionCode(this)) {
+                setStatusWithAnimation("В сети (Другая версия)", Color.parseColor("#FFC107"));
+            } else {
+                setStatusWithAnimation("В сети", R.color.prime_success);
+            }
             setOnlineStatusIndicator(true);
             if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.GONE);
             if (layoutInput != null) layoutInput.setVisibility(View.VISIBLE);
@@ -2619,26 +2775,21 @@ public class ChatPersonActivity extends AppCompatActivity {
     }
 
     private void connectionFailed() {
+        if (isChatDeleted) return;
+        connectThread = null;
         runOnUiThread(() -> {
-            if (btnPrimeConnect != null) {
-                btnPrimeConnect.setEnabled(true);
-                btnPrimeConnect.setText("⚡ Соединиться");
-            }
+            stopAnimatingStatus();
+            if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.VISIBLE);
+            if (layoutInput != null) layoutInput.setVisibility(View.GONE);
             updateOfflineLastSeenStatus();
             setOnlineStatusIndicator(false);
         });
 
-        if (connectionRetryCount < MAX_AUTO_RETRIES) {
+        if (!isChatDeleted) {
             connectionRetryCount++;
+            long failJitter = (long) (Math.random() * 1500);
             autoRetryHandler.removeCallbacks(autoRetryRunnable);
-            autoRetryHandler.postDelayed(autoRetryRunnable, 3000L);
-        } else {
-            PrimeNotification.INSTANCE.show(this, "Не удалось подключиться", null);
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                if (!isFinishing()) {
-                    finish();
-                }
-            }, 1000L);
+            autoRetryHandler.postDelayed(autoRetryRunnable, 5000L + failJitter);
         }
     }
 
@@ -2646,17 +2797,15 @@ public class ChatPersonActivity extends AppCompatActivity {
         BluetoothSocketHolder.clearSocket();
         isHandshakeDone = false;
         isRemoteUserOnline = false;
+        connectThread = null;
 
         runOnUiThread(() -> {
+            stopAnimatingStatus();
             saveLastMessageToChatList(null, MessageStatus.NONE, false, "OFFLINE");
-            setStatusWithAnimation("Отключено", R.color.prime_danger);
+            updateOfflineLastSeenStatus();
             setOnlineStatusIndicator(false);
             if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.VISIBLE);
             if (layoutInput != null) layoutInput.setVisibility(View.GONE);
-            if (btnPrimeConnect != null) {
-                btnPrimeConnect.setEnabled(true);
-                btnPrimeConnect.setText("⚡ Соединиться");
-            }
         });
 
         if (!isOpeningSubActivity && !isChatDeleted) {
@@ -2669,16 +2818,11 @@ public class ChatPersonActivity extends AppCompatActivity {
             Log.e(TAG, "Failed to stop bluetooth service", e);
         }
 
-        if (connectionRetryCount < MAX_AUTO_RETRIES) {
+        if (!isChatDeleted) {
             connectionRetryCount++;
+            long lostJitter = (long) (Math.random() * 1500);
             autoRetryHandler.removeCallbacks(autoRetryRunnable);
-            autoRetryHandler.postDelayed(autoRetryRunnable, 3000L);
-        } else {
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                if (!isFinishing()) {
-                    finish();
-                }
-            }, 1200L);
+            autoRetryHandler.postDelayed(autoRetryRunnable, 5000L + lostJitter);
         }
     }
 
@@ -2692,14 +2836,24 @@ public class ChatPersonActivity extends AppCompatActivity {
 
     private void showBackgroundNotification(String title, String message) {
         try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    Log.w(TAG, "Cannot show notification: POST_NOTIFICATIONS permission not granted");
+                    return;
+                }
+            }
+
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm != null) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     NotificationChannel channel = new NotificationChannel(
-                            "prime_messages",
+                            PrimeApplication.CHANNEL_MESSAGES_ID,
                             "Сообщения Prime",
                             NotificationManager.IMPORTANCE_HIGH
                     );
+                    channel.enableVibration(true);
+                    channel.setVibrationPattern(new long[]{0, 250, 250, 250});
+                    channel.enableLights(true);
                     nm.createNotificationChannel(channel);
                 }
                 
@@ -2708,9 +2862,11 @@ public class ChatPersonActivity extends AppCompatActivity {
                 intent.putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress);
                 intent.putExtra("EXTRA_USE_EXISTING_SOCKET", true);
                 intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                
+                int requestCode = targetUsername != null ? Math.abs(targetUsername.hashCode()) : 0;
                 PendingIntent pi = PendingIntent.getActivity(
                         this,
-                        0,
+                        requestCode,
                         intent,
                         PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
                 );
@@ -2727,14 +2883,17 @@ public class ChatPersonActivity extends AppCompatActivity {
                 NotificationCompat.MessagingStyle style = new NotificationCompat.MessagingStyle(me)
                         .addMessage(message, System.currentTimeMillis(), sender);
 
-                NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "prime_messages")
+                NotificationCompat.Builder builder = new NotificationCompat.Builder(this, PrimeApplication.CHANNEL_MESSAGES_ID)
                         .setSmallIcon(R.drawable.ic_prime_statusbar)
                         .setStyle(style)
                         .setAutoCancel(true)
+                        .setDefaults(NotificationCompat.DEFAULT_ALL)
+                        .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setContentIntent(pi);
 
-                nm.notify((int) System.currentTimeMillis(), builder.build());
+                int notificationId = targetUsername != null ? Math.abs(targetUsername.hashCode()) : (int) System.currentTimeMillis();
+                nm.notify(notificationId, builder.build());
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to show background notification", e);
@@ -2855,7 +3014,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                 } catch (Exception ignored) {}
             }
             try {
-                Thread.sleep(300);
+                Thread.sleep(50);
             } catch (InterruptedException ignored) {}
 
             // 3-Stage Robust RFCOMM Connection Strategy
@@ -2921,7 +3080,14 @@ public class ChatPersonActivity extends AppCompatActivity {
         private Handler keepAliveHandler;
         private Runnable keepAliveRunnable;
         private volatile Handler activeUiHandler;
-        private final ExecutorService writeExecutor = Executors.newSingleThreadExecutor();
+        private final Object writeLock = new Object();
+        private final ExecutorService controlWriteExecutor = Executors.newSingleThreadExecutor();
+        private final ExecutorService mediaWriteExecutor = Executors.newSingleThreadExecutor();
+        private volatile boolean isMediaSendingCancelled = false;
+
+        public void cancelCurrentMediaSend() {
+            isMediaSendingCancelled = true;
+        }
 
         public ConnectedThread(BluetoothSocket socket, boolean handshakeDone) {
             mmSocket = socket;
@@ -2982,10 +3148,10 @@ public class ChatPersonActivity extends AppCompatActivity {
                         return;
                     }
                     sendPacket(TYPE_PING, new byte[0]);
-                    keepAliveHandler.postDelayed(this, 10000); // 10s ping is less aggressive
+                    keepAliveHandler.postDelayed(this, 8000); // 8s ping keeps Bluetooth ACL link active
                 }
             };
-            keepAliveHandler.postDelayed(keepAliveRunnable, 10000);
+            keepAliveHandler.postDelayed(keepAliveRunnable, 8000);
 
             while (true) {
                 try {
@@ -3315,7 +3481,8 @@ public class ChatPersonActivity extends AppCompatActivity {
             if (keepAliveHandler != null && keepAliveRunnable != null) {
                 keepAliveHandler.removeCallbacks(keepAliveRunnable);
             }
-            writeExecutor.shutdownNow();
+            controlWriteExecutor.shutdownNow();
+            mediaWriteExecutor.shutdownNow();
         }
 
         private String extractMsgId(String data) {
@@ -3356,6 +3523,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         private void processBackgroundPhotoMessage(byte[] fullPayload) {
             try {
                 String photoMsgId = null;
+                String captionText = null;
                 byte[] photoBytes = fullPayload;
                 int sepIdx = -1;
                 for (int i = 0; i < Math.min(fullPayload.length, 120); i++) {
@@ -3370,19 +3538,42 @@ public class ChatPersonActivity extends AppCompatActivity {
                     System.arraycopy(fullPayload, sepIdx + 3, photoBytes, 0, photoBytes.length);
                 }
 
+                if (photoBytes.length > 9) {
+                    byte[] magic = "|PRM|".getBytes(StandardCharsets.UTF_8);
+                    boolean hasMagic = true;
+                    for (int i = 0; i < 5; i++) {
+                        if (photoBytes[photoBytes.length - 5 + i] != magic[i]) {
+                            hasMagic = false;
+                            break;
+                        }
+                    }
+                    if (hasMagic) {
+                        int capLen = ((photoBytes[photoBytes.length - 9] & 0xFF) << 24) |
+                                     ((photoBytes[photoBytes.length - 8] & 0xFF) << 16) |
+                                     ((photoBytes[photoBytes.length - 7] & 0xFF) << 8) |
+                                     (photoBytes[photoBytes.length - 6] & 0xFF);
+                        if (capLen > 0 && capLen < photoBytes.length - 9) {
+                            captionText = new String(photoBytes, photoBytes.length - 9 - capLen, capLen, StandardCharsets.UTF_8);
+                            byte[] cleanPhoto = new byte[photoBytes.length - 9 - capLen];
+                            System.arraycopy(photoBytes, 0, cleanPhoto, 0, cleanPhoto.length);
+                            photoBytes = cleanPhoto;
+                        }
+                    }
+                }
+
                 Bitmap photoBitmap = BitmapFactory.decodeByteArray(photoBytes, 0, photoBytes.length);
                 long photoTs = System.currentTimeMillis();
                 String photoTime = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(photoTs));
-                ChatMessage photoMsg = new ChatMessage(null, photoTime, targetUsername, false, photoBitmap, photoTs, null, photoMsgId);
+                ChatMessage photoMsg = new ChatMessage(captionText, photoTime, targetUsername, false, photoBitmap, photoTs, null, photoMsgId);
                 
                 ChatHistoryManager.saveMessage(getApplicationContext(), targetUsername, photoMsg);
-                saveLastMessageToChatList("Фотография", MessageStatus.NONE, true, "ONLINE");
+                saveLastMessageToChatList(captionText != null ? captionText : "Фотография", MessageStatus.NONE, true, "ONLINE");
 
                 Handler uiH = activeUiHandler;
                 if (uiH != null) {
                     uiH.post(() -> addMessageToUI(photoMsg));
                 } else {
-                    showBackgroundNotification(targetUsername, "Фотография");
+                    showBackgroundNotification(targetUsername, captionText != null ? captionText : "Фотография");
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Failed to process background photo", e);
@@ -3408,32 +3599,54 @@ public class ChatPersonActivity extends AppCompatActivity {
 
         public void sendPacket(byte type, byte[] payload) {
             if (mmOutStream == null) return;
-            writeExecutor.execute(() -> {
-                try {
-                    mmOutStream.writeByte(type);
-                    int length = payload != null ? payload.length : 0;
-                    mmOutStream.writeInt(length);
-                    if (length > 0 && payload != null) {
-                        int offset = 0;
-                        int chunkSize = 8192;
-                        while (offset < length) {
-                            int bytesToWrite = Math.min(chunkSize, length - offset);
-                            mmOutStream.write(payload, offset, bytesToWrite);
-                            offset += bytesToWrite;
-                            if ((type == TYPE_PHOTO || type == TYPE_FILE) && length > 1024) {
-                                int progress = (int) ((offset * 100L) / length);
-                                postToUi(MESSAGE_SEND_PROGRESS, progress, -1, null);
+            boolean isChunkedMedia = (type == TYPE_PHOTO || type == TYPE_FILE || type == TYPE_AVATAR);
+            boolean showProgressUi = (type == TYPE_PHOTO || type == TYPE_FILE);
+            ExecutorService executor = isChunkedMedia ? mediaWriteExecutor : controlWriteExecutor;
+
+            if (isChunkedMedia) {
+                isMediaSendingCancelled = false;
+            }
+
+            executor.execute(() -> {
+                synchronized (writeLock) {
+                    try {
+                        mmOutStream.writeByte(type);
+                        int length = payload != null ? payload.length : 0;
+                        mmOutStream.writeInt(length);
+                        if (length > 0 && payload != null) {
+                            int offset = 0;
+                            int chunkSize = isChunkedMedia ? 16384 : length;
+                            while (offset < length) {
+                                if (isMediaSendingCancelled) {
+                                    Log.d(TAG, "Media send cancelled by user");
+                                    isMediaSendingCancelled = false;
+                                    postToUi(MESSAGE_SEND_CANCELLED, -1, -1, null);
+                                    return;
+                                }
+                                int bytesToWrite = Math.min(chunkSize, length - offset);
+                                mmOutStream.write(payload, offset, bytesToWrite);
+                                offset += bytesToWrite;
+                                mmOutStream.flush();
+
+                                if (isChunkedMedia) {
+                                    if (showProgressUi && length > 1024) {
+                                        int progress = (int) ((offset * 100L) / length);
+                                        postToUi(MESSAGE_SEND_PROGRESS, progress, -1, null);
+                                    }
+                                    try { Thread.sleep(2); } catch (InterruptedException ignored) {}
+                                }
                             }
+                        } else {
+                            mmOutStream.flush();
                         }
-                    }
-                    mmOutStream.flush();
-                    if (type == TYPE_PHOTO || type == TYPE_FILE) {
-                        postToUi(MESSAGE_SEND_PROGRESS, 100, -1, null);
-                    }
-                } catch (IOException e) {
-                    Log.e(TAG, "Exception during write", e);
-                    if (type == TYPE_PHOTO || type == TYPE_FILE) {
-                        postToUi(MESSAGE_SEND_PROGRESS, -1, -1, null);
+                        if (showProgressUi && !isMediaSendingCancelled) {
+                            postToUi(MESSAGE_SEND_PROGRESS, 100, -1, null);
+                        }
+                    } catch (IOException e) {
+                        Log.e(TAG, "Exception during write", e);
+                        if (showProgressUi) {
+                            postToUi(MESSAGE_SEND_PROGRESS, -1, -1, null);
+                        }
                     }
                 }
             });
@@ -3444,7 +3657,8 @@ public class ChatPersonActivity extends AppCompatActivity {
                 if (keepAliveHandler != null && keepAliveRunnable != null) {
                     keepAliveHandler.removeCallbacks(keepAliveRunnable);
                 }
-                writeExecutor.shutdownNow();
+                controlWriteExecutor.shutdownNow();
+                mediaWriteExecutor.shutdownNow();
                 mmSocket.close();
             } catch (IOException e) {
                 Log.e(TAG, "close() of connect socket failed", e);
@@ -3646,6 +3860,7 @@ public class ChatPersonActivity extends AppCompatActivity {
             System.arraycopy(fileBytes, 0, fullPayload, headerBytes.length, fileBytes.length);
         }
 
+        currentSendingMessageId = messageId;
         if (connectedThread != null && connectedThread.isAlive()) {
             connectedThread.sendPacket(TYPE_FILE, fullPayload);
         } else {
@@ -3738,9 +3953,40 @@ public class ChatPersonActivity extends AppCompatActivity {
         tvModePhotoLabel = findViewById(R.id.tvModePhotoLabel);
         tvModeFilesLabel = findViewById(R.id.tvModeFilesLabel);
 
+        layoutSectionsContainer = findViewById(R.id.layoutSectionsContainer);
         layoutSectionCamera = findViewById(R.id.layoutSectionCamera);
         layoutSectionPhoto = findViewById(R.id.layoutSectionPhoto);
         layoutSectionFiles = findViewById(R.id.layoutSectionFiles);
+
+        if (layoutSectionsContainer != null) {
+            GestureDetector swipeDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+                @Override
+                public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                    if (e1 == null || e2 == null) return false;
+                    float diffX = e2.getX() - e1.getX();
+                    float diffY = e2.getY() - e1.getY();
+                    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 80 && Math.abs(velocityX) > 150) {
+                        if (diffX < 0) {
+                            if (currentAttachmentMode < 2) {
+                                switchAttachmentMode(currentAttachmentMode + 1);
+                                return true;
+                            }
+                        } else {
+                            if (currentAttachmentMode > 0) {
+                                switchAttachmentMode(currentAttachmentMode - 1);
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                }
+            });
+
+            layoutSectionsContainer.setOnTouchListener((v, event) -> {
+                swipeDetector.onTouchEvent(event);
+                return false;
+            });
+        }
 
         btnCameraPhoto = findViewById(R.id.btnCameraPhoto);
         btnCameraVideo = findViewById(R.id.btnCameraVideo);
@@ -3753,12 +3999,16 @@ public class ChatPersonActivity extends AppCompatActivity {
 
         if (rvGalleryGrid != null) {
             rvGalleryGrid.setLayoutManager(new GridLayoutManager(this, 3));
+            rvGalleryGrid.setHasFixedSize(true);
+            rvGalleryGrid.setItemViewCacheSize(20);
             galleryAdapter = new GalleryGridAdapter();
             rvGalleryGrid.setAdapter(galleryAdapter);
         }
 
         if (rvFilesGrid != null) {
             rvFilesGrid.setLayoutManager(new GridLayoutManager(this, 3));
+            rvFilesGrid.setHasFixedSize(true);
+            rvFilesGrid.setItemViewCacheSize(20);
             filesAdapter = new FileGridAdapter();
             rvFilesGrid.setAdapter(filesAdapter);
         }
@@ -3868,8 +4118,19 @@ public class ChatPersonActivity extends AppCompatActivity {
                 .start();
     }
 
-    private void switchAttachmentMode(int mode) {
-        currentAttachmentMode = mode;
+    private View getSectionViewForMode(int mode) {
+        if (mode == 0) return layoutSectionCamera;
+        if (mode == 1) return layoutSectionPhoto;
+        if (mode == 2) return layoutSectionFiles;
+        return null;
+    }
+
+    private void switchAttachmentMode(int newMode) {
+        int oldMode = currentAttachmentMode;
+        View oldView = getSectionViewForMode(oldMode);
+        View newView = getSectionViewForMode(newMode);
+
+        currentAttachmentMode = newMode;
 
         int activeBrand = ContextCompat.getColor(this, R.color.prime_brand);
         int idleSecondary = ContextCompat.getColor(this, R.color.prime_text_secondary);
@@ -3886,28 +4147,63 @@ public class ChatPersonActivity extends AppCompatActivity {
         if (tvModePhotoLabel != null) tvModePhotoLabel.setTextColor(idleSecondary);
         if (tvModeFilesLabel != null) tvModeFilesLabel.setTextColor(idleSecondary);
 
-        if (layoutSectionCamera != null) layoutSectionCamera.setVisibility(View.GONE);
-        if (layoutSectionPhoto != null) layoutSectionPhoto.setVisibility(View.GONE);
-        if (layoutSectionFiles != null) layoutSectionFiles.setVisibility(View.GONE);
-
-        if (mode == 0) { // Camera
+        if (newMode == 0) { // Camera
             if (vModeCameraBg != null) vModeCameraBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
             if (ivModeCameraIcon != null) ImageViewCompat.setImageTintList(ivModeCameraIcon, ColorStateList.valueOf(activeBrand));
             if (tvModeCameraLabel != null) tvModeCameraLabel.setTextColor(activeBrand);
-            if (layoutSectionCamera != null) layoutSectionCamera.setVisibility(View.VISIBLE);
-        } else if (mode == 1) { // Photo & Video Gallery
+        } else if (newMode == 1) { // Photo & Video Gallery
             if (vModePhotoBg != null) vModePhotoBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
             if (ivModePhotoIcon != null) ImageViewCompat.setImageTintList(ivModePhotoIcon, ColorStateList.valueOf(activeBrand));
             if (tvModePhotoLabel != null) tvModePhotoLabel.setTextColor(activeBrand);
-            if (layoutSectionPhoto != null) layoutSectionPhoto.setVisibility(View.VISIBLE);
             loadGalleryMediaAsync();
-        } else if (mode == 2) { // Files
+        } else if (newMode == 2) { // Files
             if (vModeFilesBg != null) vModeFilesBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
             if (ivModeFilesIcon != null) ImageViewCompat.setImageTintList(ivModeFilesIcon, ColorStateList.valueOf(activeBrand));
             if (tvModeFilesLabel != null) tvModeFilesLabel.setTextColor(activeBrand);
-            if (layoutSectionFiles != null) layoutSectionFiles.setVisibility(View.VISIBLE);
             loadFilesAsync();
         }
+
+        if (oldView == null || newView == null || oldView == newView) {
+            if (layoutSectionCamera != null) layoutSectionCamera.setVisibility(newMode == 0 ? View.VISIBLE : View.GONE);
+            if (layoutSectionPhoto != null) layoutSectionPhoto.setVisibility(newMode == 1 ? View.VISIBLE : View.GONE);
+            if (layoutSectionFiles != null) layoutSectionFiles.setVisibility(newMode == 2 ? View.VISIBLE : View.GONE);
+            return;
+        }
+
+        float containerWidth = (layoutSectionsContainer != null && layoutSectionsContainer.getWidth() > 0)
+                ? layoutSectionsContainer.getWidth()
+                : getResources().getDisplayMetrics().widthPixels;
+
+        boolean movingRight = newMode > oldMode;
+        float oldTargetX = movingRight ? -containerWidth : containerWidth;
+        float newStartX = movingRight ? containerWidth : -containerWidth;
+
+        oldView.animate().cancel();
+        newView.animate().cancel();
+
+        newView.setTranslationX(newStartX);
+        newView.setAlpha(0.2f);
+        newView.setVisibility(View.VISIBLE);
+
+        final View animOldView = oldView;
+        oldView.animate()
+                .translationX(oldTargetX)
+                .alpha(0.2f)
+                .setDuration(240)
+                .setInterpolator(new DecelerateInterpolator())
+                .withEndAction(() -> {
+                    animOldView.setVisibility(View.GONE);
+                    animOldView.setTranslationX(0f);
+                    animOldView.setAlpha(1f);
+                })
+                .start();
+
+        newView.animate()
+                .translationX(0f)
+                .alpha(1f)
+                .setDuration(240)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
     }
 
     private void launchCameraPhoto() {
@@ -4041,6 +4337,30 @@ public class ChatPersonActivity extends AppCompatActivity {
         if (layoutPendingAttachment != null) {
             layoutPendingAttachment.setVisibility(View.GONE);
         }
+    }
+
+    private void cancelCurrentFileSending() {
+        if (connectedThread != null) {
+            connectedThread.cancelCurrentMediaSend();
+        }
+        if (currentSendingMessageId != null) {
+            final String msgIdToDelete = currentSendingMessageId;
+            currentSendingMessageId = null;
+            int pos = chatAdapter != null ? chatAdapter.findPositionByMessageId(msgIdToDelete) : -1;
+            if (pos != -1) {
+                chatAdapter.deleteMessageAnimated(null, pos, () -> {
+                    ChatHistoryManager.deleteSingleMessage(ChatPersonActivity.this, targetUsername, msgIdToDelete);
+                    ChatMessage newLast = chatAdapter.getLastMessage();
+                    saveLastMessageToChatList(newLast != null ? newLast.getText() : "");
+                });
+            } else {
+                ChatHistoryManager.deleteSingleMessage(ChatPersonActivity.this, targetUsername, msgIdToDelete);
+            }
+        }
+        if (layoutSendingProgress != null) {
+            layoutSendingProgress.setVisibility(View.GONE);
+        }
+        PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Отправка файла отменена", null);
     }
 
     private boolean isPhotoMimeOrPath(Uri uri, String path) {
@@ -4285,6 +4605,90 @@ public class ChatPersonActivity extends AppCompatActivity {
         });
     }
 
+    private static final int MEM_CACHE_SIZE = (int) (Runtime.getRuntime().maxMemory() / 1024 / 8);
+    private final LruCache<String, Bitmap> galleryThumbnailCache = new LruCache<String, Bitmap>(MEM_CACHE_SIZE) {
+        @Override
+        protected int sizeOf(String key, Bitmap bitmap) {
+            return bitmap.getByteCount() / 1024;
+        }
+    };
+
+    private final ExecutorService galleryThumbnailExecutor = Executors.newFixedThreadPool(4);
+
+    @SuppressWarnings("deprecation")
+    private void loadGalleryThumbnailAsync(ImageView imageView, MediaItem item) {
+        if (item == null || item.uri == null) return;
+        String cacheKey = item.uri.toString();
+        Bitmap cached = galleryThumbnailCache.get(cacheKey);
+        if (cached != null) {
+            imageView.setImageBitmap(cached);
+            return;
+        }
+
+        imageView.setImageResource(R.drawable.ic_photo);
+        imageView.setTag(cacheKey);
+
+        galleryThumbnailExecutor.execute(() -> {
+            Bitmap thumb = null;
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    thumb = getContentResolver().loadThumbnail(item.uri, new Size(220, 220), null);
+                } else {
+                    if (item.isVideo && item.path != null) {
+                        thumb = ThumbnailUtils.createVideoThumbnail(item.path, MediaStore.Images.Thumbnails.MINI_KIND);
+                    } else if (item.path != null) {
+                        BitmapFactory.Options options = new BitmapFactory.Options();
+                        options.inJustDecodeBounds = true;
+                        BitmapFactory.decodeFile(item.path, options);
+                        options.inSampleSize = calculateInSampleSize(options, 220, 220);
+                        options.inJustDecodeBounds = false;
+                        thumb = BitmapFactory.decodeFile(item.path, options);
+                    }
+                }
+                if (thumb == null && item.uri != null) {
+                    InputStream is = getContentResolver().openInputStream(item.uri);
+                    if (is != null) {
+                        BitmapFactory.Options options = new BitmapFactory.Options();
+                        options.inJustDecodeBounds = true;
+                        BitmapFactory.decodeStream(is, null, options);
+                        is.close();
+                        options.inSampleSize = calculateInSampleSize(options, 220, 220);
+                        options.inJustDecodeBounds = false;
+                        InputStream is2 = getContentResolver().openInputStream(item.uri);
+                        if (is2 != null) {
+                            thumb = BitmapFactory.decodeStream(is2, null, options);
+                            is2.close();
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            if (thumb != null) {
+                galleryThumbnailCache.put(cacheKey, thumb);
+                final Bitmap finalThumb = thumb;
+                runOnUiThread(() -> {
+                    if (cacheKey.equals(imageView.getTag())) {
+                        imageView.setImageBitmap(finalThumb);
+                    }
+                });
+            }
+        });
+    }
+
+    private static int calculateInSampleSize(BitmapFactory.Options options, int reqWidth, int reqHeight) {
+        final int height = options.outHeight;
+        final int width = options.outWidth;
+        int inSampleSize = 1;
+        if (height > reqHeight || width > reqWidth) {
+            final int halfHeight = height / 2;
+            final int halfWidth = width / 2;
+            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2;
+            }
+        }
+        return inSampleSize;
+    }
+
     private class GalleryGridAdapter extends RecyclerView.Adapter<GalleryGridAdapter.ViewHolder> {
         private List<MediaItem> items = new ArrayList<>();
 
@@ -4310,9 +4714,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                 holder.layoutVideoBadge.setVisibility(View.GONE);
             }
 
-            if (item.uri != null) {
-                holder.ivGalleryThumbnail.setImageURI(item.uri);
-            }
+            loadGalleryThumbnailAsync(holder.ivGalleryThumbnail, item);
 
             holder.itemView.setOnClickListener(v -> setPendingAttachmentFromMediaItem(item));
         }
