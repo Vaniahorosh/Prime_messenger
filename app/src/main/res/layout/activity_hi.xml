@@ -83,6 +83,25 @@
 
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Кнопка заправки разрешений -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPermissions"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_marginTop="16dp"
+            android:paddingHorizontal="16dp"
+            tools:ignore="HardcodedText"
+            android:text="Разрешения приложения"
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            app:cornerRadius="12dp"
+            app:icon="@drawable/ic_settings"
+            app:iconSize="16dp"
+            app:iconTint="@color/white"
+            app:strokeColor="#80FFFFFF"
+            app:strokeWidth="1dp" />
+
     </LinearLayout>
 
     <!-- Лицензионное соглашение -->

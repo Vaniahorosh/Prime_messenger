@@ -1,11 +1,14 @@
 package com.messenger.prime
 
+import android.Manifest
 import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -15,12 +18,14 @@ import android.view.animation.AnimationUtils
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class HiActivity : AppCompatActivity() {
 
@@ -44,8 +49,32 @@ class HiActivity : AppCompatActivity() {
             binding.ivLogo,
             binding.textSwitcherSlogan,
             binding.btnPrime,
+            binding.btnPermissions,
             binding.tvLicense
         )
+    }
+
+    private var isPendingNavigationAfterPermissions = false
+
+    private val requestAllPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        updatePermissionsButtonUi()
+        val missing = getMissingPermissions()
+        if (missing.isEmpty()) {
+            PrimeNotification.show(this, "Разрешения приняты! Переходим...")
+            if (isPendingNavigationAfterPermissions) {
+                isPendingNavigationAfterPermissions = false
+                binding.btnPrime.isEnabled = false
+                binding.btnExit.isEnabled = false
+                binding.btnPermissions.isEnabled = false
+                handler.removeCallbacksAndMessages(null)
+                fadeOutAndNavigateToLogin()
+            }
+        } else {
+            isPendingNavigationAfterPermissions = false
+            PrimeNotification.show(this, "Для перехода в приложение требуются разрешения")
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -122,17 +151,95 @@ class HiActivity : AppCompatActivity() {
         binding.ivLogo.startAnimation(fadeIn)
         binding.textSwitcherSlogan.startAnimation(fadeIn)
         binding.btnPrime.startAnimation(fadeIn)
+        binding.btnPermissions.startAnimation(fadeIn)
+
+        updatePermissionsButtonUi()
+
+        binding.btnPermissions.setOnClickListener {
+            isPendingNavigationAfterPermissions = false
+            showPermissionsDialog()
+        }
 
         binding.btnPrime.setOnClickListener {
-            binding.btnPrime.isEnabled = false
-            binding.btnExit.isEnabled = false
-            handler.removeCallbacksAndMessages(null)
-            fadeOutAndNavigateToLogin()
+            val missing = getMissingPermissions()
+            if (missing.isNotEmpty()) {
+                isPendingNavigationAfterPermissions = true
+                showPermissionsDialog()
+            } else {
+                binding.btnPrime.isEnabled = false
+                binding.btnExit.isEnabled = false
+                binding.btnPermissions.isEnabled = false
+                handler.removeCallbacksAndMessages(null)
+                fadeOutAndNavigateToLogin()
+            }
         }
 
         binding.btnExit.setOnClickListener {
             finishAffinity()
         }
+    }
+
+    private fun getAllRequiredPermissions(): Array<String> {
+        val perms = mutableListOf<String>()
+        perms.add(Manifest.permission.CAMERA)
+        perms.add(Manifest.permission.READ_CONTACTS)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            perms.add(Manifest.permission.POST_NOTIFICATIONS)
+            perms.add(Manifest.permission.READ_MEDIA_IMAGES)
+            perms.add(Manifest.permission.READ_MEDIA_VIDEO)
+            perms.add(Manifest.permission.READ_MEDIA_AUDIO)
+        } else {
+            perms.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            perms.add(Manifest.permission.BLUETOOTH_CONNECT)
+            perms.add(Manifest.permission.BLUETOOTH_SCAN)
+            perms.add(Manifest.permission.BLUETOOTH_ADVERTISE)
+        } else {
+            perms.add(Manifest.permission.ACCESS_FINE_LOCATION)
+            perms.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+
+        return perms.toTypedArray()
+    }
+
+    private fun getMissingPermissions(): List<String> {
+        return getAllRequiredPermissions().filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun updatePermissionsButtonUi() {
+        val missing = getMissingPermissions()
+        if (missing.isEmpty()) {
+            binding.btnPermissions.text = "Все разрешения приняты ✓"
+            binding.btnPermissions.strokeColor = ColorStateList.valueOf(Color.parseColor("#4CAF50"))
+            binding.btnPermissions.setTextColor(Color.parseColor("#4CAF50"))
+            binding.btnPermissions.setIconTintResource(R.color.prime_success)
+        } else {
+            binding.btnPermissions.text = "Разрешения приложения (${missing.size})"
+            binding.btnPermissions.strokeColor = ColorStateList.valueOf(Color.parseColor("#80FFFFFF"))
+            binding.btnPermissions.setTextColor(Color.WHITE)
+            binding.btnPermissions.setIconTintResource(R.color.white)
+        }
+    }
+
+    private fun showPermissionsDialog() {
+        val missing = getMissingPermissions()
+        if (missing.isEmpty()) return
+
+        MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
+            .setTitle("Проверка готовности к переходу")
+            .setMessage("Для перехода в Prime Messenger необходимо предоставить разрешительные доступы (Bluetooth, уведомления, камера, галерея, контакты).")
+            .setPositiveButton("Предоставить все") { _, _ ->
+                requestAllPermissionsLauncher.launch(missing.toTypedArray())
+            }
+            .setNegativeButton("Отмена") { _, _ ->
+                isPendingNavigationAfterPermissions = false
+            }
+            .show()
     }
 
     private fun setupTextSwitcher() {
@@ -205,6 +312,8 @@ class HiActivity : AppCompatActivity() {
             }
             binding.btnPrime.isEnabled = true
             binding.btnExit.isEnabled = true
+            binding.btnPermissions.isEnabled = true
+            updatePermissionsButtonUi()
         }
     }
 
