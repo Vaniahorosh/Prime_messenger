@@ -29,6 +29,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+
+import java.lang.reflect.Method;
 import java.util.Set;
 
 import android.util.Log;
@@ -1196,12 +1198,30 @@ public class ChatPersonActivity extends AppCompatActivity {
                         Intent chatDeletedIntent = new Intent("com.messenger.prime.CHAT_DELETED");
                         sendBroadcast(chatDeletedIntent);
 
+                        try {
+                            if (connectedThread != null) {
+                                connectedThread.cancel();
+                            }
+                        } catch (Exception ignored) {}
+
                         BluetoothSocketHolder.clearSocket();
                         PrimeBluetoothService.stopService(ChatPersonActivity.this);
                         ChatHistoryManager.deleteHistoryCompletely(ChatPersonActivity.this, deletedByName, deviceAddress);
                         ChatHistoryManager.deleteHistoryCompletely(ChatPersonActivity.this, targetUsername, deviceAddress);
                         deleteChatFromChatListEx(deletedByName);
                         deleteChatFromChatListEx(targetUsername);
+
+                        try {
+                            BluetoothAdapter bAdapter = BluetoothAdapter.getDefaultAdapter();
+                            if (bAdapter != null && bAdapter.isEnabled() && deviceAddress != null) {
+                                BluetoothDevice device = bAdapter.getRemoteDevice(deviceAddress);
+                                Method removeBondMethod = device.getClass().getMethod("removeBond");
+                                removeBondMethod.invoke(device);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+
                         new Handler(Looper.getMainLooper()).postDelayed(ChatPersonActivity.this::finish, 500L);
                         break;
                     case MESSAGE_READ_RECEIPT:
@@ -2245,6 +2265,18 @@ public class ChatPersonActivity extends AppCompatActivity {
                     }
                     BluetoothSocketHolder.clearSocket();
                     PrimeBluetoothService.stopService(this);
+                    
+                    try {
+                        BluetoothAdapter bAdapter = BluetoothAdapter.getDefaultAdapter();
+                        if (bAdapter != null && bAdapter.isEnabled() && deviceAddress != null) {
+                            BluetoothDevice device = bAdapter.getRemoteDevice(deviceAddress);
+                            Method removeBondMethod = device.getClass().getMethod("removeBond");
+                            removeBondMethod.invoke(device);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
                     ChatHistoryManager.deleteHistoryCompletely(this, targetUsername, deviceAddress);
                     if (chatAdapter != null) chatAdapter.setMessages(new ArrayList<>());
                     disconnectCurrentChat();

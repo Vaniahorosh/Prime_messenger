@@ -645,16 +645,12 @@ class ChatListActivity : AppCompatActivity() {
             },
             onDeleteClick = { chat, _ ->
                 deleteContact(chat)
-            },
-            onEditClick = { chat, _ ->
-                showEditContactDialog(chat)
             }
         )
 
         setContent {
             val isIslandVisible by isIslandVisibleState
             val isDialogVisible by isContactDialogVisible
-            val isEditVisible by isEditDialogVisible
             val isNameEditVisible by isNameEditDialogVisible
             
             Box(modifier = Modifier.fillMaxSize()) {
@@ -992,151 +988,6 @@ class ChatListActivity : AppCompatActivity() {
                                     color = Color.White.copy(alpha = 0.5f),
                                     modifier = Modifier.padding(16.dp)
                                 )
-                            }
-                        }
-                    }
-                }
-
-                // Диалоговое окно РЕДАКТИРОВАНИЯ контакта
-                AnimatedVisibility(
-                    visible = isEditVisible,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.4f))
-                            .clickable(enabled = true, onClick = { 
-                                isEditDialogVisible.value = false 
-                            }),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val currentContact = contactToEdit ?: return@Box
-                        
-                        var contactName by remember(currentContact.id) { mutableStateOf(currentContact.name) }
-                        var selectedAvatarUri by remember(currentContact.id) { 
-                            mutableStateOf(currentContact.avatarUri?.let { Uri.parse(it) }) 
-                        }
-                        
-                        val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
-                        val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-                            selectedAvatarUri = uri
-                        }
-
-                        Column(
-                            modifier = Modifier
-                                .padding(24.dp)
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(32.dp))
-                                .hazeEffect(
-                                    state = hazeState,
-                                    style = HazeStyle(
-                                        blurRadius = 24.dp,
-                                        noiseFactor = 0.05f,
-                                        tint = dev.chrisbanes.haze.HazeTint(Color(0xFF154B87).copy(alpha = 0.6f))
-                                    )
-                                )
-                                .clickable(enabled = true) { 
-                                    focusManager.clearFocus() 
-                                }
-                                .padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            androidx.compose.material3.Text(
-                                text = "Редактировать",
-                                color = Color.White,
-                                style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
-                            )
-
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            Box(
-                                modifier = Modifier
-                                    .size(80.dp)
-                                    .clip(RoundedCornerShape(24.dp))
-                                    .background(Color.White.copy(alpha = 0.2f))
-                                    .clickable { launcher.launch("image/*") },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (selectedAvatarUri != null) {
-                                    androidx.compose.ui.viewinterop.AndroidView(
-                                        factory = { ctx ->
-                                            android.widget.ImageView(ctx).apply {
-                                                scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-                                            }
-                                        },
-                                        update = { it.setImageURI(selectedAvatarUri) },
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                } else {
-                                    androidx.compose.material3.Icon(
-                                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_person),
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.fillMaxSize().padding(12.dp)
-                                    )
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            androidx.compose.material3.OutlinedTextField(
-                                value = contactName,
-                                onValueChange = { if (it.length <= 16) contactName = it },
-                                label = { androidx.compose.material3.Text("Имя", color = Color.White.copy(alpha = 0.7f)) },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                singleLine = true,
-                                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color.White,
-                                    unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    cursorColor = Color.White,
-                                    focusedLabelColor = Color.White,
-                                    unfocusedLabelColor = Color.White.copy(alpha = 0.7f)
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(32.dp))
-
-                            androidx.compose.material3.Button(
-                                onClick = {
-                                    if (contactName.isNotBlank()) {
-                                        isEditDialogVisible.value = false
-                                        
-                                        // Находим контакт в списке и обновляем его
-                                        val index = chatListState.indexOfFirst { it.id == currentContact.id }
-                                        if (index != -1) {
-                                            val updated = chatListState[index].copy(
-                                                name = contactName,
-                                                avatarUri = selectedAvatarUri?.toString()
-                                            )
-                                            chatListState[index] = updated
-                                            allChats = ArrayList(chatListState)
-                                            
-                                            if (adapter.isSearchActive) {
-                                                val query = islandBinding.etSearch.text.toString().trim().lowercase()
-                                                val filtered = allChats.filter { it.name.lowercase().contains(query) || it.lastMessage.lowercase().contains(query) }
-                                                adapter.updateList(filtered)
-                                            } else {
-                                                adapter.updateList(allChats)
-                                            }
-                                            saveContacts()
-                                        }
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                    containerColor = Color.White,
-                                    contentColor = Color(0xFF154B87)
-                                )
-                            ) {
-                                androidx.compose.material3.Text("Сохранить", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                             }
                         }
                     }
@@ -1637,6 +1488,18 @@ class ChatListActivity : AppCompatActivity() {
             PrimeBluetoothService.stopService(this)
         }
         
+        // Completely forget the device (unpair/removeBond) if it's a Bluetooth MAC address
+        try {
+            val bAdapter = BluetoothAdapter.getDefaultAdapter()
+            if (bAdapter != null && bAdapter.isEnabled) {
+                val device = bAdapter.getRemoteDevice(contact.id)
+                val removeBondMethod = device.javaClass.getMethod("removeBond")
+                removeBondMethod.invoke(device)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace() // Ignore if invalid MAC or reflection fails
+        }
+        
         ChatHistoryManager.deleteHistoryCompletely(this, targetName, targetId)
         saveContacts()
         
@@ -1653,14 +1516,7 @@ class ChatListActivity : AppCompatActivity() {
         binding.recyclerViewChats.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
     }
 
-    private val isEditDialogVisible = mutableStateOf(false)
     private val isNameEditDialogVisible = mutableStateOf(false)
-    private var contactToEdit: ChatModel? = null
-
-    private fun showEditContactDialog(chat: ChatModel) {
-        contactToEdit = chat
-        isEditDialogVisible.value = true
-    }
 
     private fun setupSwipeToDelete() {
         val swipeHandler = object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(0, androidx.recyclerview.widget.ItemTouchHelper.LEFT) {

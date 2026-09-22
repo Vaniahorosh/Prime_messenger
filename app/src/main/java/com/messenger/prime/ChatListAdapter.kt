@@ -31,8 +31,7 @@ class ChatListAdapter(
     private val onHeaderSearchClick: () -> Unit,
     private val onNameClick: () -> Unit,
     private val onChatClick: (ChatModel) -> Unit,
-    private val onDeleteClick: (ChatModel, Int) -> Unit,
-    private val onEditClick: (ChatModel, Int) -> Unit
+    private val onDeleteClick: (ChatModel, Int) -> Unit
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -340,11 +339,6 @@ class ChatListAdapter(
                 binding.btnDeleteContact.setOnClickListener {
                     onDeleteClick(chat, position)
                     holder.resetReveal()
-                }
-
-                binding.btnEditContact.setOnClickListener {
-                    onEditClick(chat, position)
-                    animateHideDelete(holder)
                 }
 
                 val onlineBadge = GradientDrawable().apply { shape = GradientDrawable.OVAL }
