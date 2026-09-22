@@ -912,6 +912,10 @@ public class ChatPersonActivity extends AppCompatActivity {
                 if (connectedThread != null && connectedThread.isAlive()) {
                     connectedThread.sendPacket(TYPE_DELETE_MSG, message.getMessageId().getBytes(StandardCharsets.UTF_8));
                 }
+                
+                Intent deleteMsgIntent = new Intent("com.messenger.prime.MSG_DELETED");
+                deleteMsgIntent.putExtra("messageId", message.getMessageId());
+                sendBroadcast(deleteMsgIntent);
 
                 RecyclerView.ViewHolder holder = rvMessages.findViewHolderForAdapterPosition(position);
                 View viewToAnimate = holder != null ? holder.itemView : null;
@@ -1190,7 +1194,6 @@ public class ChatPersonActivity extends AppCompatActivity {
                         PrimeNotification.INSTANCE.show(ChatPersonActivity.this, deletedByName + " полностью удалил(а) переписку!", null);
                         
                         Intent chatDeletedIntent = new Intent("com.messenger.prime.CHAT_DELETED");
-                        chatDeletedIntent.setPackage(getPackageName());
                         sendBroadcast(chatDeletedIntent);
 
                         BluetoothSocketHolder.clearSocket();
@@ -1267,7 +1270,6 @@ public class ChatPersonActivity extends AppCompatActivity {
                         if (deletedMsgId != null && chatAdapter != null) {
                             Intent deleteMsgIntent = new Intent("com.messenger.prime.MSG_DELETED");
                             deleteMsgIntent.putExtra("messageId", deletedMsgId);
-                            deleteMsgIntent.setPackage(getPackageName());
                             sendBroadcast(deleteMsgIntent);
 
                             chatAdapter.deleteMessageByIdAnimated(rvMessages, deletedMsgId, () -> {
@@ -4358,6 +4360,10 @@ public class ChatPersonActivity extends AppCompatActivity {
             currentSendingMessageId = null;
             int pos = chatAdapter != null ? chatAdapter.findPositionByMessageId(msgIdToDelete) : -1;
             if (pos != -1) {
+                Intent deleteMsgIntent = new Intent("com.messenger.prime.MSG_DELETED");
+                deleteMsgIntent.putExtra("messageId", msgIdToDelete);
+                sendBroadcast(deleteMsgIntent);
+
                 chatAdapter.deleteMessageAnimated(null, pos, () -> {
                     ChatHistoryManager.deleteSingleMessage(ChatPersonActivity.this, targetUsername, msgIdToDelete);
                     ChatMessage newLast = chatAdapter.getLastMessage();
