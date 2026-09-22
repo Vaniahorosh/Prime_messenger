@@ -182,26 +182,12 @@ class MediaPlayerActivity : AppCompatActivity() {
                 toggleControls()
                 return true
             }
-            override fun onLongPress(e: MotionEvent) {
-                if (isCurrentVideo && currentPlayer != null) {
-                    isSpeedingUp = true
-                    currentPlayer?.setPlaybackParameters(PlaybackParameters(2.0f))
-                    Toast.makeText(this@MediaPlayerActivity, "Ускорение 2x", Toast.LENGTH_SHORT).show()
-                }
-            }
         })
-
         val recyclerView = viewPager.getChildAt(0) as RecyclerView
         recyclerView.setOnTouchListener { v, event ->
             gestureDetector.onTouchEvent(event)
-            if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
-                if (isSpeedingUp) {
-                    isSpeedingUp = false
-                    currentPlayer?.setPlaybackParameters(PlaybackParameters(1.0f))
-                }
-                if (event.action == MotionEvent.ACTION_UP && !isSpeedingUp) {
-                    v.performClick()
-                }
+            if (event.action == MotionEvent.ACTION_UP) {
+                v.performClick()
             }
             false
         }
@@ -276,7 +262,6 @@ class MediaPlayerActivity : AppCompatActivity() {
                 holder?.playerView?.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                 Toast.makeText(this@MediaPlayerActivity, "Вместить в экран", Toast.LENGTH_SHORT).show()
             }
-            adapter?.notifyDataSetChanged() // Optional, but helps sync other pages if needed
         }
 
         btnDownload.setOnClickListener {
@@ -545,20 +530,63 @@ class MediaPlayerActivity : AppCompatActivity() {
         if (areControlsVisible) hideControls() else showControls()
     }
 
+    override fun onPause() {
+        super.onPause()
+        currentPlayer?.pause()
+        btnPlayPause.setImageResource(R.drawable.ic_media_play)
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(deletionReceiver)
         handler.removeCallbacksAndMessages(null)
         sharedMediaList = null
+        
+        val recyclerView = viewPager.getChildAt(0) as? RecyclerView
+        if (recyclerView != null) {
+            for (i in 0 until recyclerView.childCount) {
+                val child = recyclerView.getChildAt(i)
+                val holder = recyclerView.getChildViewHolder(child) as? MediaViewHolder
+                holder?.releasePlayer()
+            }
+        }
+        
         currentPlayer?.release()
         currentPlayer = null
     }
 
+    interface MediaPageInteractionListener {
+        fun onSingleTap()
+        fun onLongPressStart()
+        fun onLongPressEnd()
+    }
+
     inner class MediaPagerAdapter(private val items: List<ChatMessage>) : RecyclerView.Adapter<MediaViewHolder>() {
+
+        private val interactionListener = object : MediaPageInteractionListener {
+            override fun onSingleTap() {
+                toggleControls()
+            }
+
+            override fun onLongPressStart() {
+                if (isCurrentVideo && currentPlayer != null) {
+                    isSpeedingUp = true
+                    currentPlayer?.playbackParameters = PlaybackParameters(2.0f)
+                    Toast.makeText(this@MediaPlayerActivity, "Ускорение 2x", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onLongPressEnd() {
+                if (isSpeedingUp) {
+                    isSpeedingUp = false
+                    currentPlayer?.playbackParameters = PlaybackParameters(1.0f)
+                }
+            }
+        }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MediaViewHolder {
             val view = layoutInflater.inflate(R.layout.item_media_page, parent, false)
-            return MediaViewHolder(view)
+            return MediaViewHolder(view, interactionListener)
         }
 
         override fun onBindViewHolder(holder: MediaViewHolder, position: Int) {
@@ -573,10 +601,33 @@ class MediaPlayerActivity : AppCompatActivity() {
         }
     }
 
-    inner class MediaViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    inner class MediaViewHolder(itemView: View, listener: MediaPageInteractionListener) : RecyclerView.ViewHolder(itemView) {
         val playerView: PlayerView = itemView.findViewById(R.id.playerView)
         val imageView: ImageView = itemView.findViewById(R.id.imageView)
         var player: ExoPlayer? = null
+
+        init {
+            val gestureDetector = GestureDetector(itemView.context, object : GestureDetector.SimpleOnGestureListener() {
+                override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                    listener.onSingleTap()
+                    return true
+                }
+                override fun onLongPress(e: MotionEvent) {
+                    listener.onLongPressStart()
+                }
+            })
+
+            itemView.setOnTouchListener { v, event ->
+                gestureDetector.onTouchEvent(event)
+                if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+                    listener.onLongPressEnd()
+                }
+                if (event.action == MotionEvent.ACTION_UP) {
+                    v.performClick()
+                }
+                false
+            }
+        }
 
         fun bind(item: ChatMessage, isActive: Boolean) {
             releasePlayer()
