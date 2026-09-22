@@ -2,24 +2,22 @@ package com.messenger.prime
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.content.BroadcastReceiver
 import android.content.Context
-import android.media.AudioAttributes
-import android.media.AudioFocusRequest
-import android.media.AudioManager
-import android.media.MediaMetadataRetriever
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.AttributeSet
 import android.view.GestureDetector
 import android.view.MotionEvent
-import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
-import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -27,66 +25,50 @@ import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
-import android.widget.VideoView
 import androidx.activity.OnBackPressedCallback
+import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.SeekParameters
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
+import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
 
-class AspectRatioVideoView @JvmOverloads constructor(
-    context: Context,
-    attrs: AttributeSet? = null,
-    defStyleAttr: Int = 0
-) : VideoView(context, attrs, defStyleAttr) {
-
-    private var videoWidth = 0
-    private var videoHeight = 0
-
-    fun setVideoSize(width: Int, height: Int) {
-        if (videoWidth != width || videoHeight != height) {
-            videoWidth = width
-            videoHeight = height
-            requestLayout()
-        }
-    }
-
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        var width = getDefaultSize(videoWidth, widthMeasureSpec)
-        var height = getDefaultSize(videoHeight, heightMeasureSpec)
-        if (videoWidth > 0 && videoHeight > 0) {
-            val widthSpecSize = MeasureSpec.getSize(widthMeasureSpec)
-            val heightSpecSize = MeasureSpec.getSize(heightMeasureSpec)
-
-            val viewRatio = widthSpecSize.toFloat() / heightSpecSize.toFloat()
-            val videoRatio = videoWidth.toFloat() / videoHeight.toFloat()
-
-            if (videoRatio > viewRatio) {
-                width = widthSpecSize
-                height = (width / videoRatio).toInt()
-            } else {
-                height = heightSpecSize
-                width = (height * videoRatio).toInt()
-            }
-        }
-        setMeasuredDimension(width, height)
-    }
-}
-
+@OptIn(UnstableApi::class)
 class MediaPlayerActivity : AppCompatActivity() {
 
+    companion object {
+        var sharedMediaList: List<ChatMessage>? = null
+        var sharedStartIndex: Int = 0
+
+        @JvmStatic
+        fun setSharedMediaList(list: List<ChatMessage>, startIndex: Int) {
+            sharedMediaList = list
+            sharedStartIndex = startIndex
+        }
+    }
+
     private lateinit var ivBlurredBackground: ImageView
-    private lateinit var mediaContainer: FrameLayout
-    private lateinit var videoView: AspectRatioVideoView
-    private lateinit var ivPhotoMedia: ImageView
+    private lateinit var viewPager: ViewPager2
     private lateinit var topOverlay: View
     private lateinit var btnBack: ImageButton
     private lateinit var btnDownload: ImageButton
     private lateinit var tvSenderName: TextView
     private lateinit var tvTimestamp: TextView
     private lateinit var btnPlayPause: ImageButton
+    private lateinit var btnFullscreen: ImageButton
     private lateinit var bottomOverlay: View
     private lateinit var tvCaption: TextView
     private lateinit var layoutSeekBarRow: View
@@ -94,34 +76,72 @@ class MediaPlayerActivity : AppCompatActivity() {
     private lateinit var seekBar: SeekBar
     private lateinit var navBarProgressBar: ProgressBar
 
-    private var mediaUri: Uri? = null
-    private var isVideo = false
-
-    private val handler = Handler(Looper.getMainLooper())
+    private var adapter: MediaPagerAdapter? = null
     private var areControlsVisible = false
+    private val handler = Handler(Looper.getMainLooper())
     private val autoHideControlsRunnable = Runnable { hideControls() }
 
-    private val backgroundBlurExecutor = Executors.newSingleThreadExecutor()
-    private val blurRetriever = MediaMetadataRetriever()
-    private var isRetrieverPrepared = false
+    private var currentPlayer: ExoPlayer? = null
+    private var isCurrentVideo = false
 
-    private var audioManager: AudioManager? = null
-    private var audioFocusRequest: AudioFocusRequest? = null
-
-    // Pinch-to-zoom for Photo Media
-    private var scaleFactor = 1.0f
-    private lateinit var scaleGestureDetector: ScaleGestureDetector
-    private lateinit var gestureDetector: GestureDetector
+    private var isScrubbing = false
+    private var scrubTargetMs: Long = -1L
+    private var isZoomed = false
+    private var isSpeedingUp = false
+    
+    private val deletionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                "com.messenger.prime.CHAT_DELETED" -> {
+                    Toast.makeText(this@MediaPlayerActivity, "Чат был удален", Toast.LENGTH_SHORT).show()
+                    finish()
+                }
+                "com.messenger.prime.MSG_DELETED" -> {
+                    val deletedId = intent.getStringExtra("messageId") ?: return
+                    val list = sharedMediaList?.toMutableList() ?: return
+                    val iter = list.iterator()
+                    var removedAny = false
+                    while (iter.hasNext()) {
+                        if (iter.next().messageId == deletedId) {
+                            iter.remove()
+                            removedAny = true
+                        }
+                    }
+                    if (removedAny) {
+                        if (list.isEmpty()) {
+                            Toast.makeText(this@MediaPlayerActivity, "Медиафайл удален", Toast.LENGTH_SHORT).show()
+                            finish()
+                        } else {
+                            sharedMediaList = list
+                            adapter?.notifyDataSetChanged()
+                            if (viewPager.currentItem >= list.size) {
+                                viewPager.setCurrentItem(list.size - 1, false)
+                            } else {
+                                updateUIForPage(viewPager.currentItem)
+                            }
+                            Toast.makeText(this@MediaPlayerActivity, "Медиафайл удален", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     private val updateProgressRunnable = object : Runnable {
         override fun run() {
-            if (isVideo && videoView.isPlaying) {
-                val current = videoView.currentPosition.toLong()
-                val total = videoView.duration.toLong().coerceAtLeast(1L)
-                val progress = ((current * 1000) / total).toInt().coerceIn(0, 1000)
-                seekBar.progress = progress
-                navBarProgressBar.progress = progress
-                updateDurationText(current, total)
+            if (!isScrubbing) {
+                currentPlayer?.let { player ->
+                    if (player.isPlaying) {
+                        val current = player.currentPosition
+                        val total = player.duration.coerceAtLeast(1L)
+                        val progress = ((current * 1000) / total).toInt().coerceIn(0, 1000)
+                        seekBar.progress = progress
+                        navBarProgressBar.progress = progress
+                        updateDurationText(current, total)
+                    }
+                }
+            }
+            if (isCurrentVideo) {
                 handler.postDelayed(this, 250)
             }
         }
@@ -129,16 +149,71 @@ class MediaPlayerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_media_player)
 
-        audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager
+        val filter = IntentFilter().apply {
+            addAction("com.messenger.prime.CHAT_DELETED")
+            addAction("com.messenger.prime.MSG_DELETED")
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(deletionReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(deletionReceiver, filter)
+        }
 
         initViews()
         setupInsets()
-        parseIntentData()
-        setupGestureDetectors()
-        setupMedia()
+
+        val list = sharedMediaList ?: emptyList()
+        if (list.isEmpty()) {
+            Toast.makeText(this, "Нет медиафайлов", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
+        adapter = MediaPagerAdapter(list)
+        viewPager.adapter = adapter
+        viewPager.setCurrentItem(sharedStartIndex, false)
+
+        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                toggleControls()
+                return true
+            }
+            override fun onLongPress(e: MotionEvent) {
+                if (isCurrentVideo && currentPlayer != null) {
+                    isSpeedingUp = true
+                    currentPlayer?.setPlaybackParameters(PlaybackParameters(2.0f))
+                    Toast.makeText(this@MediaPlayerActivity, "Ускорение 2x", Toast.LENGTH_SHORT).show()
+                }
+            }
+        })
+
+        val recyclerView = viewPager.getChildAt(0) as RecyclerView
+        recyclerView.setOnTouchListener { v, event ->
+            gestureDetector.onTouchEvent(event)
+            if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+                if (isSpeedingUp) {
+                    isSpeedingUp = false
+                    currentPlayer?.setPlaybackParameters(PlaybackParameters(1.0f))
+                }
+                if (event.action == MotionEvent.ACTION_UP && !isSpeedingUp) {
+                    v.performClick()
+                }
+            }
+            false
+        }
+
+        viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                updateUIForPage(position)
+            }
+        })
+
         setupListeners()
+        updateUIForPage(sharedStartIndex)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -149,15 +224,14 @@ class MediaPlayerActivity : AppCompatActivity() {
 
     private fun initViews() {
         ivBlurredBackground = findViewById(R.id.ivBlurredBackground)
-        mediaContainer = findViewById(R.id.mediaContainer)
-        videoView = findViewById(R.id.videoView)
-        ivPhotoMedia = findViewById(R.id.ivPhotoMedia)
+        viewPager = findViewById(R.id.viewPager)
         topOverlay = findViewById(R.id.topOverlay)
         btnBack = findViewById(R.id.btnBack)
         btnDownload = findViewById(R.id.btnDownload)
         tvSenderName = findViewById(R.id.tvSenderName)
         tvTimestamp = findViewById(R.id.tvTimestamp)
         btnPlayPause = findViewById(R.id.btnPlayPause)
+        btnFullscreen = findViewById(R.id.btnFullscreen)
         bottomOverlay = findViewById(R.id.bottomOverlay)
         tvCaption = findViewById(R.id.tvCaption)
         layoutSeekBarRow = findViewById(R.id.layoutSeekBarRow)
@@ -184,336 +258,228 @@ class MediaPlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun parseIntentData() {
-        val uriStr = intent.getStringExtra("EXTRA_URI")
-        val pathStr = intent.getStringExtra("EXTRA_PATH")
-        if (!uriStr.isNullOrEmpty()) {
-            mediaUri = if (uriStr.startsWith("content://") || uriStr.startsWith("file://")) {
-                Uri.parse(uriStr)
-            } else {
-                val file = File(uriStr)
-                if (file.exists()) Uri.fromFile(file) else Uri.parse(uriStr)
-            }
-        } else if (!pathStr.isNullOrEmpty()) {
-            val file = File(pathStr)
-            mediaUri = if (file.exists()) Uri.fromFile(file) else Uri.parse(pathStr)
-        }
-
-        val senderName = intent.getStringExtra("EXTRA_SENDER_NAME") ?: "Отправитель"
-        val timestamp = intent.getStringExtra("EXTRA_TIMESTAMP") ?: "сейчас"
-        val caption = intent.getStringExtra("EXTRA_CAPTION")
-
-        tvSenderName.text = senderName
-        tvTimestamp.text = timestamp
-
-        if (!caption.isNullOrEmpty()) {
-            tvCaption.visibility = View.VISIBLE
-            tvCaption.text = caption
-        } else {
-            tvCaption.visibility = View.GONE
-        }
-    }
-
-    private fun setupGestureDetectors() {
-        scaleGestureDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-            override fun onScale(detector: ScaleGestureDetector): Boolean {
-                if (!isVideo) {
-                    scaleFactor *= detector.scaleFactor
-                    scaleFactor = scaleFactor.coerceIn(1.0f, 4.0f)
-                    ivPhotoMedia.scaleX = scaleFactor
-                    ivPhotoMedia.scaleY = scaleFactor
-                    return true
-                }
-                return false
-            }
-        })
-
-        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                toggleControls()
-                return true
-            }
-
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                if (isVideo) {
-                    val width = mediaContainer.width
-                    if (width > 0) {
-                        val touchX = e.x
-                        if (touchX < width / 3f) {
-                            seekByOffset(-10000L)
-                        } else if (touchX > (width * 2 / 3f)) {
-                            seekByOffset(10000L)
-                        } else {
-                            togglePlayPause()
-                        }
-                    }
-                    return true
-                } else {
-                    scaleFactor = if (scaleFactor > 1.2f) 1.0f else 2.2f
-                    ivPhotoMedia.animate()
-                        .scaleX(scaleFactor)
-                        .scaleY(scaleFactor)
-                        .setDuration(200)
-                        .start()
-                    return true
-                }
-            }
-        })
-    }
-
-    private fun setupMedia() {
-        var path = mediaUri?.path?.lowercase(Locale.getDefault()) ?: ""
-        if (path.isEmpty() && mediaUri != null) {
-            path = mediaUri.toString().lowercase(Locale.getDefault())
-        }
-
-        isVideo = path.endsWith(".mp4") || path.endsWith(".mkv") || path.endsWith(".3gp") || path.endsWith(".webm") || path.contains("video")
-
-        if (isVideo && mediaUri != null) {
-            videoView.visibility = View.VISIBLE
-            ivPhotoMedia.visibility = View.GONE
-            videoView.setVideoURI(mediaUri)
-
-            initRetriever(mediaUri)
-            loadInitialVideoThumbnail(mediaUri)
-
-            videoView.setOnErrorListener { _, _, _ ->
-                Toast.makeText(this, "Ошибка воспроизведения видео", Toast.LENGTH_SHORT).show()
-                videoView.visibility = View.GONE
-                ivPhotoMedia.visibility = View.VISIBLE
-                ivPhotoMedia.setImageResource(R.drawable.ic_video)
-                true
-            }
-
-            videoView.setOnPreparedListener { mp ->
-                mp.isLooping = true
-                val vWidth = mp.videoWidth
-                val vHeight = mp.videoHeight
-                if (vWidth > 0 && vHeight > 0) {
-                    videoView.setVideoSize(vWidth, vHeight)
-                }
-                val duration = videoView.duration.toLong().coerceAtLeast(0L)
-                updateDurationText(0L, duration)
-
-                requestAudioFocus()
-                videoView.keepScreenOn = true
-                videoView.start()
-                btnPlayPause.setImageResource(R.drawable.ic_media_pause)
-                handler.post(updateProgressRunnable)
-                showControls()
-            }
-        } else {
-            videoView.visibility = View.GONE
-            videoView.stopPlayback()
-            ivPhotoMedia.visibility = View.VISIBLE
-            layoutSeekBarRow.visibility = View.GONE
-
-            if (mediaUri != null) {
-                ivPhotoMedia.setImageURI(mediaUri)
-                ivBlurredBackground.setImageURI(mediaUri)
-                ivBlurredBackground.applyGlassBlur(50f)
-            } else {
-                ivPhotoMedia.setImageResource(R.drawable.ic_person)
-                ivBlurredBackground.setImageResource(R.drawable.ic_person)
-                ivBlurredBackground.applyGlassBlur(50f)
-            }
-            updateDurationText(0L, 0L)
-        }
-    }
-
-    private fun initRetriever(uri: Uri?) {
-        if (uri == null) return
-        backgroundBlurExecutor.execute {
-            try {
-                if ("file".equals(uri.scheme, ignoreCase = true) && uri.path != null) {
-                    blurRetriever.setDataSource(uri.path)
-                } else {
-                    blurRetriever.setDataSource(this, uri)
-                }
-                isRetrieverPrepared = true
-            } catch (e: Exception) {
-                isRetrieverPrepared = false
-            }
-        }
-    }
-
-    private fun loadInitialVideoThumbnail(uri: Uri?) {
-        if (uri == null) return
-        backgroundBlurExecutor.execute {
-            try {
-                val bmp = blurRetriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                if (bmp != null) {
-                    runOnUiThread {
-                        if (!isFinishing) {
-                            ivBlurredBackground.setImageBitmap(bmp)
-                            ivBlurredBackground.applyGlassBlur(50f)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
     private fun setupListeners() {
         btnBack.setOnClickListener { finish() }
-
-        btnDownload.setOnClickListener {
-            if (mediaUri != null) {
-                Executors.newSingleThreadExecutor().execute {
-                    val success = MediaSaveUtils.saveToGallery(this, mediaUri, isVideo)
-                    runOnUiThread {
-                        if (success) {
-                            Toast.makeText(this, "Сохранено в галерею", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(this, "Не удалось сохранить файл", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            } else {
-                Toast.makeText(this, "Файл недоступен для сохранения", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        mediaContainer.setOnTouchListener { view, event ->
-            scaleGestureDetector.onTouchEvent(event)
-            if (event.action == MotionEvent.ACTION_UP) {
-                view.performClick()
-            }
-            gestureDetector.onTouchEvent(event)
-            true
-        }
 
         btnPlayPause.setOnClickListener {
             togglePlayPause()
         }
 
-        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser && isVideo) {
-                    val total = videoView.duration.toLong().coerceAtLeast(1L)
-                    val targetMs = (progress * total) / 1000
-                    videoView.seekTo(targetMs.toInt())
-                    updateDurationText(targetMs, total)
-                    navBarProgressBar.progress = progress
+        btnFullscreen.setOnClickListener {
+            isZoomed = !isZoomed
+            val recyclerView = viewPager.getChildAt(0) as RecyclerView
+            val holder = recyclerView.findViewHolderForAdapterPosition(viewPager.currentItem) as? MediaViewHolder
+            if (isZoomed) {
+                holder?.playerView?.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                Toast.makeText(this@MediaPlayerActivity, "Заполнение экрана", Toast.LENGTH_SHORT).show()
+            } else {
+                holder?.playerView?.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                Toast.makeText(this@MediaPlayerActivity, "Вместить в экран", Toast.LENGTH_SHORT).show()
+            }
+            adapter?.notifyDataSetChanged() // Optional, but helps sync other pages if needed
+        }
 
-                    if (isRetrieverPrepared) {
-                        val targetUs = targetMs * 1000L
-                        backgroundBlurExecutor.execute {
-                            try {
-                                val bmp = blurRetriever.getFrameAtTime(targetUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                                if (bmp != null) {
-                                    runOnUiThread {
-                                        if (!isFinishing) {
-                                            ivBlurredBackground.setImageBitmap(bmp)
-                                            ivBlurredBackground.applyGlassBlur(50f)
-                                        }
-                                    }
-                                }
-                            } catch (ignored: Exception) {}
+        btnDownload.setOnClickListener {
+            val list = sharedMediaList ?: return@setOnClickListener
+            val pos = viewPager.currentItem
+            if (pos in list.indices) {
+                val item = list[pos]
+                val uriStr = item.imagePath
+                var mediaUri: Uri? = null
+                if (!uriStr.isNullOrEmpty()) {
+                    mediaUri = if (uriStr.startsWith("content://") || uriStr.startsWith("file://")) {
+                        Uri.parse(uriStr)
+                    } else {
+                        val file = File(uriStr)
+                        if (file.exists()) Uri.fromFile(file) else Uri.parse(uriStr)
+                    }
+                }
+                if (mediaUri != null) {
+                    Executors.newSingleThreadExecutor().execute {
+                        val success = MediaSaveUtils.saveToGallery(this, mediaUri, item.isVideo || item.messageType == ChatMessage.MessageType.VIDEO)
+                        runOnUiThread {
+                            if (success) {
+                                Toast.makeText(this, "Сохранено в галерею", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(this, "Не удалось сохранить файл", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
+                } else {
+                    Toast.makeText(this, "Файл недоступен для сохранения", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser && isCurrentVideo && currentPlayer != null) {
+                    val total = currentPlayer!!.duration.coerceAtLeast(1L)
+                    val targetMs = (progress * total) / 1000
+                    scrubTargetMs = targetMs
+                    
+                    // Быстрое и плавное перемещение во время скролла
+                    currentPlayer!!.setSeekParameters(SeekParameters.CLOSEST_SYNC)
+                    currentPlayer!!.seekTo(targetMs)
+                    
+                    updateDurationText(targetMs, total)
+                    navBarProgressBar.progress = progress
                 }
             }
 
             override fun onStartTrackingTouch(sb: SeekBar?) {
+                isScrubbing = true
                 handler.removeCallbacks(autoHideControlsRunnable)
+                handler.removeCallbacks(updateProgressRunnable)
             }
 
             override fun onStopTrackingTouch(sb: SeekBar?) {
+                isScrubbing = false
+                if (isCurrentVideo && currentPlayer != null && scrubTargetMs != -1L) {
+                    // Точное позиционирование после отпускания ползунка
+                    currentPlayer!!.setSeekParameters(SeekParameters.EXACT)
+                    currentPlayer!!.seekTo(scrubTargetMs)
+                }
                 showControls()
+                handler.post(updateProgressRunnable)
             }
         })
     }
 
-    private fun togglePlayPause() {
-        if (isVideo) {
-            if (videoView.isPlaying) {
-                videoView.pause()
-                videoView.keepScreenOn = false
-                btnPlayPause.setImageResource(R.drawable.ic_media_play)
-                handler.removeCallbacks(updateProgressRunnable)
-                abandonAudioFocus()
-            } else {
-                requestAudioFocus()
-                videoView.keepScreenOn = true
-                videoView.start()
-                btnPlayPause.setImageResource(R.drawable.ic_media_pause)
-                handler.post(updateProgressRunnable)
-            }
+    private fun updateUIForPage(position: Int) {
+        val list = sharedMediaList ?: return
+        if (position !in list.indices) return
+
+        val item = list[position]
+        
+        val newSenderName = item.senderLogin ?: "Отправитель"
+        val currentName = tvSenderName.text.toString()
+
+        if (currentName != newSenderName && currentName.isNotEmpty()) {
+            tvSenderName.animate()
+                .translationY(50f)
+                .alpha(0f)
+                .setDuration(150)
+                .withEndAction {
+                    tvSenderName.text = newSenderName
+                    tvSenderName.translationY = -50f
+                    tvSenderName.animate()
+                        .translationY(0f)
+                        .alpha(1f)
+                        .setDuration(150)
+                        .start()
+                }
+                .start()
         } else {
+            tvSenderName.text = newSenderName
+            tvSenderName.translationY = 0f
+            tvSenderName.alpha = 1f
+        }
+
+        val ts = item.timestamp
+        val timeStr = if (ts > 0) SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ts)) else item.time ?: "сейчас"
+        
+        val currentTimeStr = tvTimestamp.text.toString()
+        if (currentTimeStr != timeStr && currentTimeStr.isNotEmpty()) {
+            tvTimestamp.animate()
+                .translationY(50f)
+                .alpha(0f)
+                .setDuration(150)
+                .withEndAction {
+                    tvTimestamp.text = timeStr
+                    tvTimestamp.translationY = -50f
+                    tvTimestamp.animate()
+                        .translationY(0f)
+                        .alpha(1f)
+                        .setDuration(150)
+                        .start()
+                }
+                .start()
+        } else {
+            tvTimestamp.text = timeStr
+            tvTimestamp.translationY = 0f
+            tvTimestamp.alpha = 1f
+        }
+
+        val caption = item.text
+        if (!caption.isNullOrEmpty() && caption != "Фото" && caption != "Фотография") {
+            tvCaption.visibility = View.VISIBLE
+            tvCaption.text = caption
+        } else {
+            tvCaption.visibility = View.GONE
+        }
+
+        isCurrentVideo = item.isVideo || item.messageType == ChatMessage.MessageType.VIDEO
+
+        if (isCurrentVideo) {
+            layoutSeekBarRow.visibility = View.VISIBLE
+            btnPlayPause.visibility = if (areControlsVisible) View.VISIBLE else View.GONE
             btnPlayPause.setImageResource(R.drawable.ic_media_play)
+            btnFullscreen.visibility = View.VISIBLE
+        } else {
+            layoutSeekBarRow.visibility = View.GONE
+            btnPlayPause.visibility = View.GONE
+            btnFullscreen.visibility = View.GONE
+        }
+
+        handler.postDelayed({
+            if (isFinishing || isDestroyed) return@postDelayed
+            val recyclerView = viewPager.getChildAt(0) as RecyclerView
+            
+            // Pause all other players
+            for (i in 0 until recyclerView.childCount) {
+                val child = recyclerView.getChildAt(i)
+                val holder = recyclerView.getChildViewHolder(child) as? MediaViewHolder
+                if (holder?.bindingAdapterPosition != position) {
+                    holder?.player?.pause()
+                }
+            }
+
+            val holder = recyclerView.findViewHolderForAdapterPosition(position) as? MediaViewHolder
+
+            if (holder != null && holder.player != null) {
+                currentPlayer = holder.player
+                if (isCurrentVideo) {
+                    updateDurationText(currentPlayer!!.currentPosition, currentPlayer!!.duration.coerceAtLeast(0L))
+                    handler.post(updateProgressRunnable)
+                    currentPlayer!!.playWhenReady = true
+                    currentPlayer!!.play()
+                    btnPlayPause.setImageResource(R.drawable.ic_media_pause)
+                }
+            } else {
+                currentPlayer = null
+            }
+        }, 150)
+
+        showControls()
+    }
+
+    private fun togglePlayPause() {
+        if (isCurrentVideo && currentPlayer != null) {
+            if (currentPlayer!!.isPlaying) {
+                currentPlayer!!.pause()
+                btnPlayPause.setImageResource(R.drawable.ic_media_play)
+            } else {
+                currentPlayer!!.play()
+                btnPlayPause.setImageResource(R.drawable.ic_media_pause)
+            }
         }
         showControls()
     }
 
-    private fun seekByOffset(offsetMs: Long) {
-        if (!isVideo) return
-        val total = videoView.duration.toLong().coerceAtLeast(1L)
-        val current = videoView.currentPosition.toLong()
-        val targetMs = (current + offsetMs).coerceIn(0L, total)
-        videoView.seekTo(targetMs.toInt())
-        val progress = ((targetMs * 1000) / total).toInt().coerceIn(0, 1000)
-        seekBar.progress = progress
-        navBarProgressBar.progress = progress
-        updateDurationText(targetMs, total)
-
-        val text = if (offsetMs > 0) "+10 сек" else "-10 сек"
-        Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
-        showControls()
+    private fun updateDurationText(currentMs: Long, totalMs: Long) {
+        val curStr = formatMs(currentMs)
+        val totalStr = formatMs(totalMs)
+        val res = "$curStr/$totalStr"
+        tvDuration.text = res
     }
 
-    private fun requestAudioFocus() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-                    .setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
-                            .build()
-                    )
-                    .setOnAudioFocusChangeListener { focusChange ->
-                        if (focusChange == AudioManager.AUDIOFOCUS_LOSS || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-                            if (isVideo && videoView.isPlaying) {
-                                togglePlayPause()
-                            }
-                        }
-                    }
-                    .build()
-                audioFocusRequest = focusRequest
-                audioManager?.requestAudioFocus(focusRequest)
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager?.requestAudioFocus(
-                    { focusChange ->
-                        if (focusChange == AudioManager.AUDIOFOCUS_LOSS || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-                            if (isVideo && videoView.isPlaying) {
-                                togglePlayPause()
-                            }
-                        }
-                    },
-                    AudioManager.STREAM_MUSIC,
-                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
-                )
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun abandonAudioFocus() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                audioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager?.abandonAudioFocus(null)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+    private fun formatMs(ms: Long): String {
+        if (ms < 0) return "00:00"
+        val totalSec = ms / 1000
+        val mins = totalSec / 60
+        val secs = totalSec % 60
+        return String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
     }
 
     private fun showControls() {
@@ -522,41 +488,23 @@ class MediaPlayerActivity : AppCompatActivity() {
             areControlsVisible = true
 
             topOverlay.visibility = View.VISIBLE
-            topOverlay.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(220)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
+            topOverlay.animate().alpha(1f).translationY(0f).setDuration(220).setInterpolator(DecelerateInterpolator()).start()
 
-            btnPlayPause.visibility = View.VISIBLE
-            btnPlayPause.animate()
-                .alpha(1f)
-                .scaleX(1f)
-                .scaleY(1f)
-                .setDuration(220)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
+            if (isCurrentVideo) {
+                btnPlayPause.visibility = View.VISIBLE
+                btnPlayPause.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(DecelerateInterpolator()).start()
+            }
 
             bottomOverlay.visibility = View.VISIBLE
-            bottomOverlay.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(220)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
+            bottomOverlay.animate().alpha(1f).translationY(0f).setDuration(220).setInterpolator(DecelerateInterpolator()).start()
 
-            navBarProgressBar.animate()
-                .alpha(0f)
-                .setDuration(180)
+            navBarProgressBar.animate().alpha(0f).setDuration(180)
                 .setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
                         if (areControlsVisible) navBarProgressBar.visibility = View.GONE
                     }
-                })
-                .start()
+                }).start()
         }
-
         handler.postDelayed(autoHideControlsRunnable, 2500L)
     }
 
@@ -565,93 +513,136 @@ class MediaPlayerActivity : AppCompatActivity() {
         if (areControlsVisible) {
             areControlsVisible = false
 
-            topOverlay.animate()
-                .alpha(0f)
-                .translationY(-30f)
-                .setDuration(220)
+            topOverlay.animate().alpha(0f).translationY(-30f).setDuration(220)
                 .setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
                         if (!areControlsVisible) topOverlay.visibility = View.GONE
                     }
-                })
-                .start()
+                }).start()
 
-            btnPlayPause.animate()
-                .alpha(0f)
-                .scaleX(0.7f)
-                .scaleY(0.7f)
-                .setDuration(220)
+            btnPlayPause.animate().alpha(0f).scaleX(0.7f).scaleY(0.7f).setDuration(220)
                 .setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
                         if (!areControlsVisible) btnPlayPause.visibility = View.GONE
                     }
-                })
-                .start()
+                }).start()
 
-            bottomOverlay.animate()
-                .alpha(0f)
-                .translationY(30f)
-                .setDuration(220)
+            bottomOverlay.animate().alpha(0f).translationY(30f).setDuration(220)
                 .setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
                         if (!areControlsVisible) bottomOverlay.visibility = View.GONE
                     }
-                })
-                .start()
+                }).start()
 
-            if (isVideo) {
+            if (isCurrentVideo) {
                 navBarProgressBar.visibility = View.VISIBLE
-                navBarProgressBar.animate()
-                    .alpha(0.4f)
-                    .setDuration(220)
-                    .start()
+                navBarProgressBar.animate().alpha(0.4f).setDuration(220).start()
             }
         }
     }
 
     private fun toggleControls() {
-        if (areControlsVisible) {
-            hideControls()
-        } else {
-            showControls()
-        }
-    }
-
-    private fun updateDurationText(currentMs: Long, totalMs: Long) {
-        val curStr = formatMs(currentMs)
-        val totalStr = formatMs(totalMs)
-        tvDuration.text = "$curStr/$totalStr"
-    }
-
-    private fun formatMs(ms: Long): String {
-        val totalSec = (ms / 1000).coerceAtLeast(0)
-        val mins = totalSec / 60
-        val secs = totalSec % 60
-        return String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
-    }
-
-    override fun onPause() {
-        super.onPause()
-        if (isVideo && videoView.isPlaying) {
-            videoView.pause()
-            videoView.keepScreenOn = false
-            btnPlayPause.setImageResource(R.drawable.ic_media_play)
-            handler.removeCallbacks(updateProgressRunnable)
-            abandonAudioFocus()
-        }
+        if (areControlsVisible) hideControls() else showControls()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        unregisterReceiver(deletionReceiver)
         handler.removeCallbacksAndMessages(null)
-        backgroundBlurExecutor.shutdownNow()
-        abandonAudioFocus()
-        try {
-            blurRetriever.release()
-        } catch (ignored: Exception) {}
-        if (isVideo) {
-            videoView.keepScreenOn = false
-            videoView.stopPlayback()
+        sharedMediaList = null
+        currentPlayer?.release()
+        currentPlayer = null
+    }
+
+    inner class MediaPagerAdapter(private val items: List<ChatMessage>) : RecyclerView.Adapter<MediaViewHolder>() {
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MediaViewHolder {
+            val view = layoutInflater.inflate(R.layout.item_media_page, parent, false)
+            return MediaViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: MediaViewHolder, position: Int) {
+            holder.bind(items[position], position == viewPager.currentItem)
+        }
+
+        override fun getItemCount(): Int = items.size
+
+        override fun onViewRecycled(holder: MediaViewHolder) {
+            holder.releasePlayer()
+            super.onViewRecycled(holder)
+        }
+    }
+
+    inner class MediaViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val playerView: PlayerView = itemView.findViewById(R.id.playerView)
+        val imageView: ImageView = itemView.findViewById(R.id.imageView)
+        var player: ExoPlayer? = null
+
+        fun bind(item: ChatMessage, isActive: Boolean) {
+            releasePlayer()
+
+            val isVid = item.isVideo || item.messageType == ChatMessage.MessageType.VIDEO
+
+            if (isVid) {
+                playerView.visibility = View.VISIBLE
+                imageView.visibility = View.GONE
+                
+                playerView.resizeMode = if (isZoomed) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
+
+                val uriStr = item.imagePath
+                if (!uriStr.isNullOrEmpty()) {
+                    val uri = if (uriStr.startsWith("content://") || uriStr.startsWith("file://")) {
+                        Uri.parse(uriStr)
+                    } else {
+                        val file = File(uriStr)
+                        if (file.exists()) Uri.fromFile(file) else Uri.parse(uriStr)
+                    }
+
+                    player = ExoPlayer.Builder(itemView.context).build()
+                    playerView.player = player
+                    player!!.setMediaItem(MediaItem.fromUri(uri))
+                    player!!.repeatMode = Player.REPEAT_MODE_ONE
+                    player!!.prepare()
+                    
+                    if (isActive) {
+                        player!!.playWhenReady = true
+                    } else {
+                        player!!.playWhenReady = false
+                        player!!.pause()
+                    }
+
+                    player!!.addListener(object : Player.Listener {
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            if (playbackState == Player.STATE_READY && bindingAdapterPosition == viewPager.currentItem) {
+                                updateDurationText(player!!.currentPosition, player!!.duration)
+                            }
+                        }
+                    })
+                }
+            } else {
+                playerView.visibility = View.GONE
+                imageView.visibility = View.VISIBLE
+
+                if (item.imageBitmap != null) {
+                    imageView.setImageBitmap(item.imageBitmap)
+                } else if (!item.imagePath.isNullOrEmpty()) {
+                    val uri = if (item.imagePath.startsWith("content://") || item.imagePath.startsWith("file://")) {
+                        Uri.parse(item.imagePath)
+                    } else {
+                        val file = File(item.imagePath)
+                        if (file.exists()) Uri.fromFile(file) else Uri.parse(item.imagePath)
+                    }
+                    imageView.setImageURI(uri)
+                } else {
+                    imageView.setImageResource(R.drawable.ic_person)
+                }
+            }
+        }
+
+        fun releasePlayer() {
+            player?.release()
+            player = null
+            playerView.player = null
         }
     }
 }

@@ -9,6 +9,8 @@ import android.content.SharedPreferences;
 import android.media.MediaMetadataRetriever;
 import android.text.method.LinkMovementMethod;
 import android.util.Log;
+
+import androidx.activity.ComponentActivity;
 import androidx.core.content.FileProvider;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -435,51 +437,59 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return isEdited ? "ред. " + baseTime : baseTime;
     }
 
-    public static void showFullScreenMedia(Context context, View view, Bitmap bitmap, String path, String senderName, String timeStr, String caption) {
+    public static void showFullScreenMedia(Context context, View view, ChatMessage clickedMessage, List<ChatMessage> allMessages) {
         if (context == null) return;
         if (context instanceof ChatPersonActivity) {
             ((ChatPersonActivity) context).setOpeningSubActivity(true);
         }
 
-        Uri imageUri = null;
-        if (path != null && !path.isEmpty()) {
-            File file = new File(path);
-            if (file.exists()) {
-                imageUri = Uri.fromFile(file);
-            } else {
-                imageUri = Uri.parse(path);
+        List<ChatMessage> mediaMessages = new ArrayList<>();
+        int startIndex = 0;
+        if (allMessages != null) {
+            for (ChatMessage msg : allMessages) {
+                if (msg.getMessageType() == ChatMessage.MessageType.IMAGE || msg.getMessageType() == ChatMessage.MessageType.VIDEO || msg.isVideo() || msg.getImageBitmap() != null || (msg.getImagePath() != null && !msg.getImagePath().isEmpty())) {
+                    if (msg.getMessageType() != ChatMessage.MessageType.FILE && msg.getMessageType() != ChatMessage.MessageType.TEXT) {
+                       mediaMessages.add(msg);
+                       if (clickedMessage != null && msg.getMessageId() != null && msg.getMessageId().equals(clickedMessage.getMessageId())) {
+                           startIndex = mediaMessages.size() - 1;
+                       }
+                    }
+                }
             }
-        } else if (bitmap != null) {
-            String savedPath = ChatHistoryManager.saveBitmapToFile(context, bitmap, System.currentTimeMillis());
-            if (savedPath != null) {
-                imageUri = Uri.fromFile(new File(savedPath));
-            }
+        }
+        
+        // If clickedMessage is not in the list (e.g. standalone call), just add it
+        if (mediaMessages.isEmpty() && clickedMessage != null) {
+            mediaMessages.add(clickedMessage);
+            startIndex = 0;
         }
 
-        if (imageUri != null) {
-            Intent intent = new Intent(context, MediaPlayerActivity.class);
-            intent.putExtra("EXTRA_URI", imageUri.toString());
-            intent.putExtra("EXTRA_SENDER_NAME", senderName != null ? senderName : "Отправитель");
-            intent.putExtra("EXTRA_TIMESTAMP", timeStr != null ? timeStr : "сейчас");
-            if (caption != null && !caption.isEmpty() && !"Фото".equals(caption) && !"Фотография".equals(caption)) {
-                intent.putExtra("EXTRA_CAPTION", caption);
-            }
-            if (view != null) {
-                int[] location = new int[2];
-                view.getLocationOnScreen(location);
-                Rect rect = new Rect(location[0], location[1], location[0] + view.getWidth(), location[1] + view.getHeight());
-                intent.putExtra("EXTRA_RECT", rect);
-            }
-            context.startActivity(intent);
+        MediaPlayerActivity.setSharedMediaList(mediaMessages, startIndex);
+
+        Intent intent = new Intent(context, MediaPlayerActivity.class);
+        if (view != null) {
+            int[] location = new int[2];
+            view.getLocationOnScreen(location);
+            Rect rect = new Rect(location[0], location[1], location[0] + view.getWidth(), location[1] + view.getHeight());
+            intent.putExtra("EXTRA_RECT", rect);
         }
+        context.startActivity(intent);
     }
 
     public static void showFullScreenPhoto(Context context, View view, Bitmap bitmap, String path) {
-        showFullScreenMedia(context, view, bitmap, path, "Отправитель", "сейчас", null);
+        ChatMessage dummy = new ChatMessage("", "", "", false);
+        dummy.setImageBitmap(bitmap);
+        dummy.setImagePath(path);
+        dummy.setMessageType(ChatMessage.MessageType.IMAGE);
+        showFullScreenMedia(context, view, dummy, null);
     }
 
     public static void showFullScreenPhoto(Context context, Bitmap bitmap, String path) {
-        showFullScreenMedia(context, null, bitmap, path, "Отправитель", "сейчас", null);
+        ChatMessage dummy = new ChatMessage("", "", "", false);
+        dummy.setImageBitmap(bitmap);
+        dummy.setImagePath(path);
+        dummy.setMessageType(ChatMessage.MessageType.IMAGE);
+        showFullScreenMedia(context, null, dummy, null);
     }
 
     public static String formatFileSize(long bytes) {
@@ -707,11 +717,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 View.OnClickListener openMedia = v -> showFullScreenMedia(
                         v.getContext(),
                         v,
-                        finalBmp,
-                        message.getImagePath(),
-                        message.getSenderLogin(),
-                        formatTime(message.getTimestamp(), message.getTime(), false),
-                        message.getText()
+                        message,
+                        messages
                 );
 
                 if (layoutMediaContainer != null) layoutMediaContainer.setOnClickListener(openMedia);

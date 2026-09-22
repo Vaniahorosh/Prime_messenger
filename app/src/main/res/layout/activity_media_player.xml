@@ -17,32 +17,15 @@
         android:alpha="0.6"
         tools:src="@drawable/ic_person" />
 
-    <!-- Медиа контейнер (VideoView + ImageView) -->
-    <FrameLayout
-        android:id="@+id/mediaContainer"
+    <!-- Медиа контейнер - ViewPager2 для свайпа -->
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/viewPager"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <com.messenger.prime.AspectRatioVideoView
-            android:id="@+id/videoView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_gravity="center"
-            android:visibility="gone" />
-
-        <ImageView
-            android:id="@+id/ivPhotoMedia"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="fitCenter"
-            android:clickable="true"
-            android:focusable="true"
-            tools:src="@drawable/ic_person" />
-    </FrameLayout>
+        app:layout_constraintTop_toTopOf="parent" />
 
     <!-- 1. Верхний полупрозрачный оверлей (Top Overlay) -->
     <LinearLayout
@@ -127,7 +110,7 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
     </LinearLayout>
 
-    <!-- 2. Кнопка Play/Pause в самом центре (скрыта по умолчанию, появляется на 2.5с при тапе) -->
+    <!-- 2. Кнопка Play/Pause в самом центре -->
     <ImageButton
         android:id="@+id/btnPlayPause"
         android:layout_width="64dp"
@@ -146,7 +129,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:tint="@color/prime_text_primary" />
 
-    <!-- 3. Нижний оверлей управления (Подписи, Seek bar и Длительность) -->
+    <!-- 3. Нижний оверлей управления -->
     <LinearLayout
         android:id="@+id/bottomOverlay"
         android:layout_width="match_parent"
@@ -164,7 +147,6 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <!-- В самом низу экрана - Подписи к видео -->
         <TextView
             android:id="@+id/tvCaption"
             android:layout_width="match_parent"
@@ -178,7 +160,6 @@
             tools:text="Подпись к медиа файлу"
             tools:visibility="visible" />
 
-        <!-- Ползунок воспроизведения прямо под подписями -->
         <LinearLayout
             android:id="@+id/layoutSeekBarRow"
             android:layout_width="match_parent"
@@ -186,7 +167,6 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <!-- Длительность с левой стороны, сфокусирована как 00:00/00:00 -->
             <TextView
                 android:id="@+id/tvDuration"
                 android:layout_width="wrap_content"
@@ -203,10 +183,19 @@
                 android:layout_weight="1"
                 android:layout_marginStart="8dp"
                 android:max="1000" />
+
+            <ImageButton
+                android:id="@+id/btnFullscreen"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_fullscreen"
+                app:tint="@color/prime_text_primary"
+                android:layout_marginStart="8dp"
+                android:contentDescription="На весь экран" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Тонкий индикатор прогресса в области навигационной панели при скрытых контроллерах -->
     <ProgressBar
         android:id="@+id/navBarProgressBar"
         style="?android:attr/progressBarStyleHorizontal"

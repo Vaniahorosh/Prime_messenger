@@ -51,7 +51,9 @@ dependencies {
     implementation("dev.chrisbanes.haze:haze:1.7.2")
     implementation("androidx.graphics:graphics-shapes:1.1.0")
 
-
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+    implementation("androidx.viewpager2:viewpager2:1.1.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)

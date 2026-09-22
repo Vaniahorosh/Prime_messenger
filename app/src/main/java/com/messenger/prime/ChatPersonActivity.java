@@ -1188,6 +1188,11 @@ public class ChatPersonActivity extends AppCompatActivity {
                         isChatDeleted = true;
                         String deletedByName = (msg.obj instanceof String) ? (String) msg.obj : targetUsername;
                         PrimeNotification.INSTANCE.show(ChatPersonActivity.this, deletedByName + " полностью удалил(а) переписку!", null);
+                        
+                        Intent chatDeletedIntent = new Intent("com.messenger.prime.CHAT_DELETED");
+                        chatDeletedIntent.setPackage(getPackageName());
+                        sendBroadcast(chatDeletedIntent);
+
                         BluetoothSocketHolder.clearSocket();
                         PrimeBluetoothService.stopService(ChatPersonActivity.this);
                         ChatHistoryManager.deleteHistoryCompletely(ChatPersonActivity.this, deletedByName, deviceAddress);
@@ -1260,6 +1265,11 @@ public class ChatPersonActivity extends AppCompatActivity {
                     case MESSAGE_DELETE_SINGLE:
                         String deletedMsgId = (String) msg.obj;
                         if (deletedMsgId != null && chatAdapter != null) {
+                            Intent deleteMsgIntent = new Intent("com.messenger.prime.MSG_DELETED");
+                            deleteMsgIntent.putExtra("messageId", deletedMsgId);
+                            deleteMsgIntent.setPackage(getPackageName());
+                            sendBroadcast(deleteMsgIntent);
+
                             chatAdapter.deleteMessageByIdAnimated(rvMessages, deletedMsgId, () -> {
                                 ChatMessage newLast = chatAdapter.getLastMessage();
                                 if (newLast != null) {
