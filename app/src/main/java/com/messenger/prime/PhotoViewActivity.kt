@@ -15,10 +15,12 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.messenger.prime.databinding.ActivityPhotoViewBinding
+import java.io.File
 import java.util.concurrent.Executors
 
 class PhotoViewActivity : AppCompatActivity() {
@@ -52,7 +54,26 @@ class PhotoViewActivity : AppCompatActivity() {
         }
 
         val uriString = intent.getStringExtra("EXTRA_URI")
-        currentUri = uriString?.let { Uri.parse(it) }
+            ?: intent.getStringExtra("EXTRA_PHOTO_URI")
+            ?: intent.getStringExtra("EXTRA_PHOTO_PATH")
+            ?: intent.getStringExtra("EXTRA_MEDIA_URL")
+
+        currentUri = uriString?.let { str ->
+            if (str.startsWith("content://") || str.startsWith("file://")) {
+                Uri.parse(str)
+            } else {
+                val f = File(str)
+                if (f.exists()) {
+                    try {
+                        FileProvider.getUriForFile(this, "$packageName.fileprovider", f)
+                    } catch (e: Exception) {
+                        Uri.fromFile(f)
+                    }
+                } else {
+                    Uri.parse(str)
+                }
+            }
+        }
         sourceRect = intent.getParcelableExtra("EXTRA_RECT")
 
         currentUri?.let { 

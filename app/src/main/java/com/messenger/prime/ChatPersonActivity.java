@@ -1,6 +1,8 @@
 package com.messenger.prime;
 
 import android.Manifest;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -216,16 +218,14 @@ public class ChatPersonActivity extends AppCompatActivity {
     // Attachment Panel & Pending Attachment Views
     private LinearLayout layoutAttachmentPanel;
     private LinearLayout layoutPendingAttachment;
+    private RecyclerView rvPendingCards;
+    private PendingCardsAdapter pendingCardsAdapter;
     private LinearLayout layoutSendingProgress;
     private ProgressBar pbSendingProgress;
     private TextView tvSendingProgressPercent;
     private ImageButton btnCancelSendingProgress;
     private FloatingActionButton fabScrollToBottom;
-    private ShapeableImageView ivPendingThumbnail;
-    private ImageView ivPendingVideoBadge;
-    private TextView tvPendingName;
-    private TextView tvPendingSize;
-    private ImageButton btnCancelPending;
+    private View btnCancelPending;
     private String currentSendingMessageId = null;
 
     // Attachment Panel Modes UI
@@ -449,9 +449,13 @@ public class ChatPersonActivity extends AppCompatActivity {
     }
 
     private final ActivityResultLauncher<String> pickSystemGalleryLauncher =
-            registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
-                if (uri != null) {
-                    setPendingAttachmentFromUri(uri, isVideoMimeOrPath(uri, getPathFromUri(uri)), "Медиа из галереи");
+            registerForActivityResult(new ActivityResultContracts.GetMultipleContents(), uris -> {
+                if (uris != null && !uris.isEmpty()) {
+                    List<Uri> limited = uris.size() > 5 ? uris.subList(0, 5) : uris;
+                    if (uris.size() > 5) {
+                        PrimeNotification.INSTANCE.show(this, "Выбрано не более 5 файлов", null);
+                    }
+                    setPendingAttachmentFromUris(limited);
                 }
             });
 
@@ -955,6 +959,11 @@ public class ChatPersonActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onCancelSending(ChatMessage message, int position) {
+                cancelCurrentFileSending();
+            }
+
+            @Override
             public void onJumpToMessage(String messageId) {
                 if (messageId == null || chatAdapter == null) return;
                 int pos = chatAdapter.findPositionByMessageId(messageId);
@@ -995,6 +1004,78 @@ public class ChatPersonActivity extends AppCompatActivity {
                     case MESSAGE_READ_PHOTO:
                         byte[] fullPayload = (byte[]) msg.obj;
                         if (fullPayload != null && fullPayload.length > 0) {
+                            String metaCheck = new String(fullPayload, 0, Math.min(fullPayload.length, 300), StandardCharsets.UTF_8);
+                            if (metaCheck.contains(":::MULTI:")) {
+                                int headerEndIdx = -1;
+                                String headerEndTag = ":::HEADER_END:::";
+                                byte[] tagBytes = headerEndTag.getBytes(StandardCharsets.UTF_8);
+                                for (int i = 0; i <= fullPayload.length - tagBytes.length; i++) {
+                                    boolean match = true;
+                                    for (int j = 0; j < tagBytes.length; j++) {
+                                        if (fullPayload[i + j] != tagBytes[j]) { match = false; break; }
+                                    }
+                                    if (match) { headerEndIdx = i; break; }
+                                }
+
+                                if (headerEndIdx != -1) {
+                                    String headerStr = new String(fullPayload, 0, headerEndIdx, StandardCharsets.UTF_8);
+                                    int bodyStart = headerEndIdx + tagBytes.length;
+
+                                    String photoMsgId = ChatPersonActivity.this.extractMsgId(headerStr);
+                                    String sizesPart = "";
+                                    int sizesIdx = headerStr.indexOf(":::SIZES:");
+                                    if (sizesIdx != -1) {
+                                        sizesPart = headerStr.substring(sizesIdx + 9);
+                                        int endSizes = sizesPart.indexOf(":::");
+                                        if (endSizes != -1) sizesPart = sizesPart.substring(0, endSizes);
+                                    }
+
+                                    String[] itemMetas = sizesPart.split(",");
+                                    List<ChatMessage.MediaItem> recMediaItems = new ArrayList<>();
+                                    int currentOffset = bodyStart;
+
+                                    long photoTs = System.currentTimeMillis();
+                                    String photoTime = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(photoTs));
+
+                                    for (int idx = 0; idx < itemMetas.length; idx++) {
+                                        try {
+                                            String metaStr = itemMetas[idx].trim();
+                                            String[] parts = metaStr.split("\\|");
+                                            boolean isVideo = parts.length >= 1 && "1".equals(parts[0]);
+                                            int pSize = parts.length >= 2 ? Integer.parseInt(parts[1]) : Integer.parseInt(parts[0]);
+                                            String durStr = parts.length >= 3 ? parts[2] : "00:00";
+                                            String ext = parts.length >= 4 ? parts[3] : (isVideo ? "mp4" : "jpg");
+
+                                            if (currentOffset + pSize <= fullPayload.length) {
+                                                byte[] itemBytes = new byte[pSize];
+                                                System.arraycopy(fullPayload, currentOffset, itemBytes, 0, pSize);
+                                                currentOffset += pSize;
+
+                                                File mediaFile = new File(getFilesDir(), "rec_media_" + (photoMsgId != null ? photoMsgId : photoTs) + "_" + idx + "." + ext);
+                                                FileOutputStream fos = new FileOutputStream(mediaFile);
+                                                fos.write(itemBytes);
+                                                fos.flush();
+                                                fos.close();
+
+                                                recMediaItems.add(new ChatMessage.MediaItem(mediaFile.getAbsolutePath(), isVideo, durStr));
+                                            }
+                                        } catch (Exception e) {
+                                            Log.e(TAG, "Failed to parse multi-media item " + idx, e);
+                                        }
+                                    }
+
+                                    if (!recMediaItems.isEmpty()) {
+                                        ChatMessage multiMsg = new ChatMessage("", photoTime, targetUsername, false, null, photoTs, null, photoMsgId);
+                                        multiMsg.setMediaItems(recMediaItems);
+                                        addMessageToUI(multiMsg);
+                                        ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, multiMsg);
+                                        typingResetHandler.removeCallbacks(resetTypingRunnable);
+                                        resetTypingRunnable.run();
+                                        break;
+                                    }
+                                }
+                            }
+
                             String photoMsgId = null;
                             String captionText = null;
                             byte[] photoBytes = fullPayload;
@@ -1035,21 +1116,39 @@ public class ChatPersonActivity extends AppCompatActivity {
                                 }
                             }
 
+                            String savedPhotoPath = null;
+                            if (photoBytes.length > 0) {
+                                try {
+                                    File photoFile = new File(getFilesDir(), "rec_photo_" + (photoMsgId != null ? photoMsgId : System.currentTimeMillis()) + ".jpg");
+                                    FileOutputStream fos = new FileOutputStream(photoFile);
+                                    fos.write(photoBytes);
+                                    fos.flush();
+                                    fos.close();
+                                    savedPhotoPath = photoFile.getAbsolutePath();
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Failed to save received photo to disk", e);
+                                }
+                            }
+
                             Bitmap photoBitmap = BitmapFactory.decodeByteArray(photoBytes, 0, photoBytes.length);
                             long photoTs = System.currentTimeMillis();
                             String photoTime = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(photoTs));
-                            ChatMessage photoMsg = new ChatMessage(captionText, photoTime, targetUsername, false, photoBitmap, photoTs, null, photoMsgId);
+                            ChatMessage photoMsg = new ChatMessage(captionText, photoTime, targetUsername, false, photoBitmap, photoTs, savedPhotoPath, photoMsgId);
+                            photoMsg.setMessageType(ChatMessage.MessageType.IMAGE);
+                            
                             addMessageToUI(photoMsg);
+                            ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, photoMsg);
                             typingResetHandler.removeCallbacks(resetTypingRunnable);
                             resetTypingRunnable.run();
                         }
                         break;
                     case MESSAGE_READ_FILE:
                         byte[] fileBuf = (byte[]) msg.obj;
-                        if (fileBuf != null && msg.arg1 > 0) {
+                        if (fileBuf != null && fileBuf.length > 0) {
                             ChatMessage fileMsg = parseFileMessageBytes(fileBuf, targetUsername);
                             if (fileMsg != null) {
                                 addMessageToUI(fileMsg);
+                                ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, fileMsg);
                                 typingResetHandler.removeCallbacks(resetTypingRunnable);
                                 resetTypingRunnable.run();
                             }
@@ -1057,24 +1156,8 @@ public class ChatPersonActivity extends AppCompatActivity {
                         break;
                     case MESSAGE_SEND_PROGRESS:
                         int sendProg = msg.arg1;
-                        if (sendProg >= 0 && sendProg < 100) {
-                            if (layoutSendingProgress != null) layoutSendingProgress.setVisibility(View.VISIBLE);
-                            if (pbSendingProgress != null) pbSendingProgress.setProgress(sendProg);
-                            if (tvSendingProgressPercent != null) {
-                                tvSendingProgressPercent.setText("Передача получателю... " + sendProg + "%");
-                            }
-                        } else if (sendProg >= 100) {
-                            if (layoutSendingProgress != null) layoutSendingProgress.setVisibility(View.VISIBLE);
-                            if (pbSendingProgress != null) pbSendingProgress.setProgress(100);
-                            if (tvSendingProgressPercent != null) {
-                                tvSendingProgressPercent.setText("Доставлено получателю ✓");
-                            }
-                            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                                if (layoutSendingProgress != null) layoutSendingProgress.setVisibility(View.GONE);
-                            }, 1800);
-                        } else {
-                            if (layoutSendingProgress != null) layoutSendingProgress.setVisibility(View.GONE);
-                            PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Ошибка передачи получателю", null);
+                        if (chatAdapter != null && currentSendingMessageId != null) {
+                            chatAdapter.updateMessageSendingProgress(currentSendingMessageId, sendProg);
                         }
                         break;
                     case MESSAGE_SEND_CANCELLED:
@@ -1336,22 +1419,30 @@ public class ChatPersonActivity extends AppCompatActivity {
         btnSend.setOnClickListener(v -> {
             String text = etMessage.getText().toString().trim();
 
-            if (currentPendingAttachment != null) {
-                PendingAttachment pending = currentPendingAttachment;
+            if (currentPendingAttachment != null && currentPendingAttachment.items != null && !currentPendingAttachment.items.isEmpty()) {
+                List<PendingAttachmentItem> sendItems = new ArrayList<>(currentPendingAttachment.items);
                 clearPendingAttachment();
                 etMessage.setText("");
 
-                long timestamp = System.currentTimeMillis();
-                String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(timestamp));
+                boolean allMedia = true;
+                for (PendingAttachmentItem item : sendItems) {
+                    if (item.isFile) { allMedia = false; break; }
+                }
 
-                if (pending.isVideo || pending.isFile) {
-                    if (pending.size > 2 * 1024 * 1024 * 1024L) {
-                        PrimeNotification.INSTANCE.show(this, "Превышен лимит размера файла (до 2 ГБ)", null);
-                        return;
+                if (sendItems.size() > 1 && allMedia) {
+                    sendMultiMedia(sendItems, text);
+                } else {
+                    for (PendingAttachmentItem item : sendItems) {
+                        if (item.isVideo || item.isFile) {
+                            if (item.size > 2 * 1024 * 1024 * 1024L) {
+                                PrimeNotification.INSTANCE.show(this, "Превышен лимит размера файла (до 2 ГБ)", null);
+                                continue;
+                            }
+                            sendVideoOrFile(item, text);
+                        } else { // Photo
+                            sendPhoto(item.uri != null ? item.uri : Uri.parse(item.path), text);
+                        }
                     }
-                    sendVideoOrFile(pending, text);
-                } else { // Photo
-                    sendPhoto(pending.uri, text);
                 }
                 closeAttachmentPanel();
                 return;
@@ -2413,6 +2504,12 @@ public class ChatPersonActivity extends AppCompatActivity {
         }
     }
 
+    public static String extractMsgId(String data) {
+        if (data == null) return null;
+        int sep = data.indexOf(":::");
+        return sep != -1 ? data.substring(0, sep) : null;
+    }
+
     private final Runnable clearChatListTypingRunnable = () -> {
         saveActivityStateToChatList(targetUsername, "IDLE");
     };
@@ -2522,6 +2619,73 @@ public class ChatPersonActivity extends AppCompatActivity {
         sendPhoto(uri, null);
     }
 
+    private void sendMultiMedia(List<PendingAttachmentItem> items, String captionText) {
+        if (items == null || items.isEmpty()) return;
+        senderTypingHandler.removeCallbacks(stopSenderTypingRunnable);
+        sendActivityState("IDLE");
+
+        long timestamp = System.currentTimeMillis();
+        String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(timestamp));
+        String messageId = localUsername + "_" + timestamp + "_" + UUID.randomUUID().toString();
+
+        List<ChatMessage.MediaItem> chatMediaList = new ArrayList<>();
+        List<byte[]> photoByteList = new ArrayList<>();
+        StringBuilder sizesSb = new StringBuilder();
+
+        for (int i = 0; i < items.size(); i++) {
+            PendingAttachmentItem item = items.get(i);
+            byte[] b = getBytesFromPending(item);
+            photoByteList.add(b);
+            if (i > 0) sizesSb.append(",");
+            
+            String isVidStr = item.isVideo ? "1" : "0";
+            String durStr = item.durationStr != null ? item.durationStr : "00:00";
+            String extStr = item.isVideo ? "mp4" : "jpg";
+            sizesSb.append(isVidStr).append("|").append(b.length).append("|").append(durStr).append("|").append(extStr);
+
+            String p = item.path != null ? item.path : (item.uri != null ? item.uri.toString() : "");
+            chatMediaList.add(new ChatMessage.MediaItem(p, item.isVideo, item.durationStr));
+        }
+
+        ChatMessage multiMsg = new ChatMessage(captionText, time, localUsername, true, null, timestamp, null, messageId);
+        multiMsg.setMediaItems(chatMediaList);
+        multiMsg.setMessageStatus(MessageStatus.SENT);
+
+        if (replyingToMessage != null) {
+            multiMsg.setReplyToMessageId(replyingToMessage.getMessageId());
+            multiMsg.setReplyToSender(replyingToMessage.getSenderLogin());
+            String qText = replyingToMessage.getText();
+            multiMsg.setReplyToText(qText != null && !qText.isEmpty() ? qText : "Медиафайлы (" + items.size() + ")");
+            cancelReplyMode();
+        }
+
+        String header = messageId + ":::MULTI:" + items.size() + ":::" + (captionText != null ? captionText : "") + ":::SIZES:" + sizesSb.toString() + ":::HEADER_END:::";
+        byte[] headerBytes = header.getBytes(StandardCharsets.UTF_8);
+
+        int totalLen = headerBytes.length;
+        for (byte[] b : photoByteList) totalLen += b.length;
+
+        byte[] fullPayload = new byte[totalLen];
+        System.arraycopy(headerBytes, 0, fullPayload, 0, headerBytes.length);
+        int pos = headerBytes.length;
+        for (byte[] b : photoByteList) {
+            System.arraycopy(b, 0, fullPayload, pos, b.length);
+            pos += b.length;
+        }
+
+        currentSendingMessageId = messageId;
+        if (connectedThread != null && connectedThread.isAlive()) {
+            connectedThread.sendPacket(TYPE_PHOTO, fullPayload);
+        } else {
+            pendingMessageQueue.add(new PendingMessage(TYPE_PHOTO, fullPayload));
+            startPrimeConnection();
+        }
+
+        addMessageToUI(multiMsg);
+        ChatHistoryManager.saveMessage(this, targetUsername, multiMsg);
+        saveLastMessageToChatList("Медиафайлы (" + items.size() + ")", MessageStatus.SENT, false, "ONLINE");
+    }
+
     private void sendPhoto(Uri uri, String captionText) {
         if (uri == null) return;
         senderTypingHandler.removeCallbacks(stopSenderTypingRunnable);
@@ -2614,6 +2778,9 @@ public class ChatPersonActivity extends AppCompatActivity {
             SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
             String currentUser = sharedPrefs.getString("current_user", "");
             String localAvatarUri = sharedPrefs.getString(currentUser + "_avatar", "");
+            if (localAvatarUri == null || localAvatarUri.isEmpty()) {
+                localAvatarUri = sharedPrefs.getString(currentUser + "_avatarUri", "");
+            }
 
             if (localAvatarUri == null || localAvatarUri.isEmpty()) {
                 File f = new File(getFilesDir(), "avatar_" + currentUser + ".jpg");
@@ -2628,13 +2795,15 @@ public class ChatPersonActivity extends AppCompatActivity {
                     Bitmap bitmap = BitmapFactory.decodeStream(is);
                     is.close();
                     if (bitmap != null) {
-                        Bitmap scaled = Bitmap.createScaledBitmap(bitmap, 96, 96, false);
+                        Bitmap scaled = Bitmap.createScaledBitmap(bitmap, 128, 128, false);
                         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                        scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos);
+                        scaled.compress(Bitmap.CompressFormat.JPEG, 80, baos);
                         byte[] avatarBytes = baos.toByteArray();
                         connectedThread.sendPacket(TYPE_AVATAR, avatarBytes);
                     }
                 }
+            } else {
+                connectedThread.sendPacket(TYPE_AVATAR, new byte[0]);
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to send local avatar", e);
@@ -2733,11 +2902,15 @@ public class ChatPersonActivity extends AppCompatActivity {
 
             String currentUser = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).getString("current_user", "");
             if (currentUser.isEmpty()) currentUser = "UserA";
-            String myIdentifier = currentUser.toLowerCase(Locale.ROOT);
-            String targetIdentifier = (targetUsername != null ? targetUsername : "").toLowerCase(Locale.ROOT);
 
-            // Асимметричное определение роли для исключения коллизий (Race condition)
-            boolean isPrimaryInitiator = myIdentifier.compareTo(targetIdentifier) > 0;
+            // Асимметричное определение роли по уникальному ID/MAC для полного исключения коллизий (Race condition)
+            String myMacOrId = BluetoothSocketHolder.getLocalDeviceId(this);
+            if (myMacOrId == null || myMacOrId.isEmpty()) {
+                myMacOrId = currentUser.toLowerCase(Locale.ROOT);
+            }
+            
+            String targetId = targetMac.toUpperCase(Locale.ROOT);
+            boolean isPrimaryInitiator = myMacOrId.toUpperCase(Locale.ROOT).compareTo(targetId) > 0;
             long jitter = (long) (Math.random() * 800);
             long delayMs = isPrimaryInitiator ? 100L : (2200L + jitter);
 
@@ -2981,6 +3154,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         if (connectTimeoutHandler != null) connectTimeoutHandler.removeCallbacksAndMessages(null);
         if (deletionHandler != null) deletionHandler.removeCallbacksAndMessages(null);
         if (statusAnimHandler != null) statusAnimHandler.removeCallbacksAndMessages(null);
+        if (autoRetryHandler != null) autoRetryHandler.removeCallbacksAndMessages(null);
 
         if (bluetoothAdapter != null) {
             try {
@@ -3001,10 +3175,16 @@ public class ChatPersonActivity extends AppCompatActivity {
 
         public AcceptThread() {
             BluetoothServerSocket tmp = null;
-            try {
-                tmp = bluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord("PrimeChat", UUID_CHAT);
-            } catch (IOException e) {
-                Log.e(TAG, "Socket listen() failed", e);
+            if (bluetoothAdapter != null && bluetoothAdapter.isEnabled()) {
+                for (int i = 0; i < 3; i++) {
+                    try {
+                        tmp = bluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord("PrimeChat", UUID_CHAT);
+                        if (tmp != null) break;
+                    } catch (IOException e) {
+                        Log.w(TAG, "Socket listen() attempt " + (i + 1) + " failed, retrying...", e);
+                        try { Thread.sleep(300); } catch (InterruptedException ignored) {}
+                    }
+                }
             }
             mmServerSocket = tmp;
         }
@@ -3172,13 +3352,14 @@ public class ChatPersonActivity extends AppCompatActivity {
 
         public void run() {
             if (mmInStream == null || mmOutStream == null) return;
-            // Отправляем рукопожатие при старте
+            // Отправляем рукопожатие и аватар сразу при старте
             try {
                 SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
                 String currentUser = sharedPrefs.getString("current_user", "");
                 String myDisplayName = sharedPrefs.getString(currentUser + "_name", currentUser);
                 String handshake = "HANDSHAKE:login=" + currentUser + ";name=" + (myDisplayName != null ? myDisplayName : localUsername) + ";version=" + getAppVersionCode(getApplicationContext());
                 sendPacket(TYPE_TEXT, handshake.getBytes(StandardCharsets.UTF_8));
+                sendLocalAvatar();
             } catch (Exception e) {
                 Log.e(TAG, "Exception during handshake write", e);
             }
@@ -3217,6 +3398,8 @@ public class ChatPersonActivity extends AppCompatActivity {
                     }
 
                     if (type == TYPE_PING) {
+                        isRemoteUserOnline = true;
+                        saveLastMessageToChatList(null, null, false, "ONLINE");
                         postToUi(HANDSHAKE_SUCCESS, -1, -1, null);
                         continue;
                     }
@@ -3436,7 +3619,11 @@ public class ChatPersonActivity extends AppCompatActivity {
                                 if (payload == null || payload.length == 0) {
                                     File avatarFile = new File(getFilesDir(), "avatar_" + targetUsername + ".jpg");
                                     if (avatarFile.exists()) {
-                                        boolean ignoredDel = avatarFile.delete();
+                                        avatarFile.delete();
+                                    }
+                                    if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                                        File devFile = new File(getFilesDir(), "avatar_" + deviceAddress + ".jpg");
+                                        if (devFile.exists()) devFile.delete();
                                     }
                                     remoteAvatarUri = null;
                                     saveLastMessageToChatList(null);
@@ -3451,15 +3638,26 @@ public class ChatPersonActivity extends AppCompatActivity {
                                     if (avatarBmp != null) {
                                         File avatarFile = new File(getFilesDir(), "avatar_" + targetUsername + ".jpg");
                                         FileOutputStream fos = new FileOutputStream(avatarFile);
-                                        avatarBmp.compress(Bitmap.CompressFormat.JPEG, 80, fos);
+                                        avatarBmp.compress(Bitmap.CompressFormat.JPEG, 85, fos);
                                         fos.flush();
                                         fos.close();
                                         
+                                        if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                                            try {
+                                                File devFile = new File(getFilesDir(), "avatar_" + deviceAddress + ".jpg");
+                                                FileOutputStream devFos = new FileOutputStream(devFile);
+                                                avatarBmp.compress(Bitmap.CompressFormat.JPEG, 85, devFos);
+                                                devFos.flush();
+                                                devFos.close();
+                                            } catch (Exception ignored) {}
+                                        }
+
                                         remoteAvatarUri = Uri.fromFile(avatarFile).toString();
                                         saveLastMessageToChatList(null);
                                         
                                         if (activeUiHandler != null) {
                                             activeUiHandler.post(() -> {
+                                                updateAvatarUi(remoteAvatarUri, targetUsername);
                                                 ImageView ivAvatar = findViewById(R.id.ivChatAvatar);
                                                 if (ivAvatar != null) {
                                                     ivAvatar.setImageBitmap(avatarBmp);
@@ -3530,9 +3728,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         }
 
         private String extractMsgId(String data) {
-            if (data == null) return null;
-            int sep = data.indexOf(":::");
-            return sep != -1 ? data.substring(0, sep) : null;
+            return ChatPersonActivity.extractMsgId(data);
         }
 
         private String extractRealText(String data) {
@@ -3566,6 +3762,86 @@ public class ChatPersonActivity extends AppCompatActivity {
 
         private void processBackgroundPhotoMessage(byte[] fullPayload) {
             try {
+                if (fullPayload == null || fullPayload.length == 0) return;
+
+                String metaCheck = new String(fullPayload, 0, Math.min(fullPayload.length, 300), StandardCharsets.UTF_8);
+                if (metaCheck.contains(":::MULTI:")) {
+                    int headerEndIdx = -1;
+                    String headerEndTag = ":::HEADER_END:::";
+                    byte[] tagBytes = headerEndTag.getBytes(StandardCharsets.UTF_8);
+                    for (int i = 0; i <= fullPayload.length - tagBytes.length; i++) {
+                        boolean match = true;
+                        for (int j = 0; j < tagBytes.length; j++) {
+                            if (fullPayload[i + j] != tagBytes[j]) { match = false; break; }
+                        }
+                        if (match) { headerEndIdx = i; break; }
+                    }
+
+                    if (headerEndIdx != -1) {
+                        String headerStr = new String(fullPayload, 0, headerEndIdx, StandardCharsets.UTF_8);
+                        int bodyStart = headerEndIdx + tagBytes.length;
+
+                        String photoMsgId = ChatPersonActivity.extractMsgId(headerStr);
+                        String sizesPart = "";
+                        int sizesIdx = headerStr.indexOf(":::SIZES:");
+                        if (sizesIdx != -1) {
+                            sizesPart = headerStr.substring(sizesIdx + 9);
+                            int endSizes = sizesPart.indexOf(":::");
+                            if (endSizes != -1) sizesPart = sizesPart.substring(0, endSizes);
+                        }
+
+                        String[] itemMetas = sizesPart.split(",");
+                        List<ChatMessage.MediaItem> recMediaItems = new ArrayList<>();
+                        int currentOffset = bodyStart;
+
+                        long photoTs = System.currentTimeMillis();
+                        String photoTime = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(photoTs));
+
+                        for (int idx = 0; idx < itemMetas.length; idx++) {
+                            try {
+                                String metaStr = itemMetas[idx].trim();
+                                String[] parts = metaStr.split("\\|");
+                                boolean isVideo = parts.length >= 1 && "1".equals(parts[0]);
+                                int pSize = parts.length >= 2 ? Integer.parseInt(parts[1]) : Integer.parseInt(parts[0]);
+                                String durStr = parts.length >= 3 ? parts[2] : "00:00";
+                                String ext = parts.length >= 4 ? parts[3] : (isVideo ? "mp4" : "jpg");
+
+                                if (currentOffset + pSize <= fullPayload.length) {
+                                    byte[] itemBytes = new byte[pSize];
+                                    System.arraycopy(fullPayload, currentOffset, itemBytes, 0, pSize);
+                                    currentOffset += pSize;
+
+                                    File mediaFile = new File(getFilesDir(), "rec_media_" + (photoMsgId != null ? photoMsgId : photoTs) + "_" + idx + "." + ext);
+                                    FileOutputStream fos = new FileOutputStream(mediaFile);
+                                    fos.write(itemBytes);
+                                    fos.flush();
+                                    fos.close();
+
+                                    recMediaItems.add(new ChatMessage.MediaItem(mediaFile.getAbsolutePath(), isVideo, durStr));
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Failed to parse multi-media item " + idx, e);
+                            }
+                        }
+
+                        if (!recMediaItems.isEmpty()) {
+                            ChatMessage multiMsg = new ChatMessage("", photoTime, targetUsername, false, null, photoTs, null, photoMsgId);
+                            multiMsg.setMediaItems(recMediaItems);
+                            
+                            ChatHistoryManager.saveMessage(getApplicationContext(), targetUsername, multiMsg);
+                            saveLastMessageToChatList("Медиафайлы (" + recMediaItems.size() + ")", MessageStatus.NONE, true, "ONLINE");
+
+                            Handler uiH = activeUiHandler;
+                            if (uiH != null) {
+                                uiH.post(() -> addMessageToUI(multiMsg));
+                            } else {
+                                showBackgroundNotification(targetUsername, "Медиафайлы (" + recMediaItems.size() + ")");
+                            }
+                            return;
+                        }
+                    }
+                }
+
                 String photoMsgId = null;
                 String captionText = null;
                 byte[] photoBytes = fullPayload;
@@ -3605,10 +3881,25 @@ public class ChatPersonActivity extends AppCompatActivity {
                     }
                 }
 
+                String savedPhotoPath = null;
+                if (photoBytes.length > 0) {
+                    try {
+                        File photoFile = new File(getFilesDir(), "rec_photo_" + (photoMsgId != null ? photoMsgId : System.currentTimeMillis()) + ".jpg");
+                        FileOutputStream fos = new FileOutputStream(photoFile);
+                        fos.write(photoBytes);
+                        fos.flush();
+                        fos.close();
+                        savedPhotoPath = photoFile.getAbsolutePath();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to save background photo to disk", e);
+                    }
+                }
+
                 Bitmap photoBitmap = BitmapFactory.decodeByteArray(photoBytes, 0, photoBytes.length);
                 long photoTs = System.currentTimeMillis();
                 String photoTime = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(photoTs));
-                ChatMessage photoMsg = new ChatMessage(captionText, photoTime, targetUsername, false, photoBitmap, photoTs, null, photoMsgId);
+                ChatMessage photoMsg = new ChatMessage(captionText, photoTime, targetUsername, false, photoBitmap, photoTs, savedPhotoPath, photoMsgId);
+                photoMsg.setMessageType(ChatMessage.MessageType.IMAGE);
                 
                 ChatHistoryManager.saveMessage(getApplicationContext(), targetUsername, photoMsg);
                 saveLastMessageToChatList(captionText != null ? captionText : "Фотография", MessageStatus.NONE, true, "ONLINE");
@@ -3710,37 +4001,26 @@ public class ChatPersonActivity extends AppCompatActivity {
         }
     }
 
-    private byte[] getBytesFromPending(PendingAttachment pending) {
+    private byte[] getBytesFromPending(PendingAttachmentItem pending) {
         if (pending == null) return new byte[0];
         try {
+            InputStream is = null;
             if (pending.path != null && new File(pending.path).exists()) {
-                File f = new File(pending.path);
-                FileInputStream fis = new FileInputStream(f);
-                byte[] data = new byte[(int) Math.min(f.length(), 100 * 1024 * 1024L)];
-                int read = fis.read(data);
-                fis.close();
-                if (read > 0) {
-                    if (read < data.length) {
-                        byte[] trimmed = new byte[read];
-                        System.arraycopy(data, 0, trimmed, 0, read);
-                        return trimmed;
-                    }
-                    return data;
-                }
+                is = new FileInputStream(new File(pending.path));
             } else if (pending.uri != null) {
-                InputStream is = getContentResolver().openInputStream(pending.uri);
-                if (is != null) {
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    byte[] buf = new byte[8192];
-                    int len;
-                    long totalRead = 0;
-                    while ((len = is.read(buf)) != -1 && totalRead < 100 * 1024 * 1024L) {
-                        baos.write(buf, 0, len);
-                        totalRead += len;
-                    }
-                    is.close();
-                    return baos.toByteArray();
+                is = getContentResolver().openInputStream(pending.uri);
+            }
+            if (is != null) {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                byte[] buf = new byte[16384];
+                int len;
+                long totalRead = 0;
+                while ((len = is.read(buf)) != -1 && totalRead < 100 * 1024 * 1024L) {
+                    baos.write(buf, 0, len);
+                    totalRead += len;
                 }
+                is.close();
+                return baos.toByteArray();
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to read pending file bytes", e);
@@ -3860,7 +4140,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         return msg;
     }
 
-    private void sendVideoOrFile(PendingAttachment pending, String text) {
+    private void sendVideoOrFile(PendingAttachmentItem pending, String text) {
         if (pending == null) return;
         senderTypingHandler.removeCallbacks(stopSenderTypingRunnable);
         sendActivityState("IDLE");
@@ -3877,7 +4157,31 @@ public class ChatPersonActivity extends AppCompatActivity {
 
         ChatMessage.MessageType type = pending.isVideo ? ChatMessage.MessageType.VIDEO : ChatMessage.MessageType.FILE;
 
-        ChatMessage msg = new ChatMessage(text, time, localUsername, true, pending.thumbnail, timestamp, pending.path, messageId);
+        String localSavedPath = pending.path;
+        if (pending.isVideo && pending.uri != null) {
+            if (localSavedPath == null || localSavedPath.startsWith("content://") || !new File(localSavedPath).exists()) {
+                try {
+                    File videoFile = new File(getFilesDir(), "sent_video_" + timestamp + "_" + fileName);
+                    InputStream is = getContentResolver().openInputStream(pending.uri);
+                    if (is != null) {
+                        FileOutputStream fos = new FileOutputStream(videoFile);
+                        byte[] buf = new byte[8192];
+                        int len;
+                        while ((len = is.read(buf)) > 0) {
+                            fos.write(buf, 0, len);
+                        }
+                        fos.flush();
+                        fos.close();
+                        is.close();
+                        localSavedPath = videoFile.getAbsolutePath();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to save sent video locally", e);
+                }
+            }
+        }
+
+        ChatMessage msg = new ChatMessage(text, time, localUsername, true, pending.thumbnail, timestamp, localSavedPath, messageId);
         msg.setMessageType(type);
         msg.setFileName(fileName);
         msg.setFileSize(fileSize > 0 ? fileSize : fileBytes.length);
@@ -3925,7 +4229,7 @@ public class ChatPersonActivity extends AppCompatActivity {
     // Attachment Panel & Media/File System
     // =========================================================================
 
-    private static class PendingAttachment {
+    private static class PendingAttachmentItem {
         Uri uri;
         String path;
         String name;
@@ -3934,6 +4238,115 @@ public class ChatPersonActivity extends AppCompatActivity {
         boolean isFile;
         Bitmap thumbnail;
         String durationStr;
+
+        PendingAttachmentItem(Uri uri, String path, String name, long size, boolean isVideo, boolean isFile, Bitmap thumbnail, String durationStr) {
+            this.uri = uri;
+            this.path = path;
+            this.name = name;
+            this.size = size;
+            this.isVideo = isVideo;
+            this.isFile = isFile;
+            this.thumbnail = thumbnail;
+            this.durationStr = durationStr;
+        }
+
+        String getFormatLabel() {
+            if (isVideo) return "MP4";
+            if (!isFile) return "IMG";
+            if (name != null && name.contains(".")) {
+                String ext = name.substring(name.lastIndexOf(".") + 1).toUpperCase(Locale.ROOT);
+                if (ext.length() <= 5) return ext;
+            }
+            return "FILE";
+        }
+    }
+
+    private static class PendingAttachment {
+        List<PendingAttachmentItem> items = new ArrayList<>();
+
+        long getTotalSize() {
+            long sum = 0;
+            for (PendingAttachmentItem item : items) sum += item.size;
+            return sum;
+        }
+    }
+
+    private class PendingCardsAdapter extends RecyclerView.Adapter<PendingCardsAdapter.ViewHolder> {
+        private List<PendingAttachmentItem> items = new ArrayList<>();
+
+        void setItems(List<PendingAttachmentItem> newItems) {
+            this.items = new ArrayList<>(newItems != null ? newItems : new ArrayList<>());
+            notifyDataSetChanged();
+        }
+
+        @NonNull
+        @Override
+        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_pending_card, parent, false);
+            return new ViewHolder(v);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+            PendingAttachmentItem item = items.get(position);
+            holder.tvFormat.setText(item.getFormatLabel());
+            holder.tvSize.setText(ChatAdapter.formatFileSize(item.size));
+
+            if (item.isVideo) {
+                holder.ivVideoBadge.setVisibility(View.VISIBLE);
+                if (item.thumbnail != null) {
+                    holder.ivThumbnail.setImageBitmap(item.thumbnail);
+                } else {
+                    holder.ivThumbnail.setImageResource(R.drawable.ic_video);
+                }
+            } else if (item.isFile) {
+                holder.ivVideoBadge.setVisibility(View.GONE);
+                holder.ivThumbnail.setImageResource(R.drawable.ic_file);
+            } else { // Photo
+                holder.ivVideoBadge.setVisibility(View.GONE);
+                if (item.thumbnail != null) {
+                    holder.ivThumbnail.setImageBitmap(item.thumbnail);
+                } else if (item.uri != null) {
+                    holder.ivThumbnail.setImageURI(item.uri);
+                } else {
+                    holder.ivThumbnail.setImageResource(R.drawable.ic_photo);
+                }
+            }
+
+            holder.btnRemove.setOnClickListener(v -> {
+                items.remove(item);
+                if (currentPendingAttachment != null) {
+                    currentPendingAttachment.items.remove(item);
+                }
+                if (items.isEmpty()) {
+                    clearPendingAttachment();
+                } else {
+                    notifyDataSetChanged();
+                }
+            });
+        }
+
+        @Override
+        public int getItemCount() {
+            return items.size();
+        }
+
+        class ViewHolder extends RecyclerView.ViewHolder {
+            ImageView ivThumbnail;
+            ImageView ivVideoBadge;
+            TextView tvFormat;
+            TextView tvSize;
+            View btnRemove;
+
+            ViewHolder(@NonNull View itemView) {
+                super(itemView);
+                ivThumbnail = itemView.findViewById(R.id.ivCardThumbnail);
+                ivVideoBadge = itemView.findViewById(R.id.ivCardVideoBadge);
+                tvFormat = itemView.findViewById(R.id.tvCardFormat);
+                tvSize = itemView.findViewById(R.id.tvCardSize);
+                btnRemove = itemView.findViewById(R.id.btnRemoveCard);
+            }
+        }
     }
 
     private static class MediaItem {
@@ -3975,11 +4388,18 @@ public class ChatPersonActivity extends AppCompatActivity {
     private void initAttachmentPanel() {
         layoutAttachmentPanel = findViewById(R.id.layoutAttachmentPanel);
         layoutPendingAttachment = findViewById(R.id.layoutPendingAttachment);
-        ivPendingThumbnail = findViewById(R.id.ivPendingThumbnail);
-        ivPendingVideoBadge = findViewById(R.id.ivPendingVideoBadge);
-        tvPendingName = findViewById(R.id.tvPendingName);
-        tvPendingSize = findViewById(R.id.tvPendingSize);
+        rvPendingCards = findViewById(R.id.rvPendingCards);
         btnCancelPending = findViewById(R.id.btnCancelPending);
+
+        if (rvPendingCards != null) {
+            rvPendingCards.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+            pendingCardsAdapter = new PendingCardsAdapter();
+            rvPendingCards.setAdapter(pendingCardsAdapter);
+        }
+
+        if (btnCancelPending != null) {
+            btnCancelPending.setOnClickListener(v -> clearPendingAttachment());
+        }
 
         layoutModeCamera = findViewById(R.id.layoutModeCamera);
         layoutModePhoto = findViewById(R.id.layoutModePhoto);
@@ -4300,86 +4720,172 @@ public class ChatPersonActivity extends AppCompatActivity {
             thumbnail = getPhotoThumbnail(uri, path);
         }
 
+        boolean isFile = !isVideo && !isPhotoMimeOrPath(uri, path);
+        PendingAttachmentItem item = new PendingAttachmentItem(uri, path != null ? path : uri.toString(), name, size, isVideo, isFile, thumbnail, durationStr);
+
         PendingAttachment pending = new PendingAttachment();
-        pending.uri = uri;
-        pending.path = path != null ? path : uri.toString();
-        pending.name = name;
-        pending.size = size;
-        pending.isVideo = isVideo;
-        pending.isFile = !isVideo && !isPhotoMimeOrPath(uri, path);
-        pending.thumbnail = thumbnail;
-        pending.durationStr = durationStr;
+        pending.items.add(item);
 
         this.currentPendingAttachment = pending;
         showPendingAttachmentBar(pending);
         closeAttachmentPanel();
     }
 
-    private void setPendingAttachmentFromMediaItem(MediaItem item) {
-        PendingAttachment pending = new PendingAttachment();
-        pending.uri = item.uri;
-        pending.path = item.path != null ? item.path : item.uri.toString();
-        pending.name = item.name != null ? item.name : (item.isVideo ? "Видео" : "Фотография");
-        pending.size = item.size;
-        pending.isVideo = item.isVideo;
-        pending.isFile = false;
-        pending.durationStr = item.durationStr;
+    private void setPendingAttachmentFromUris(List<Uri> uris) {
+        if (uris == null || uris.isEmpty()) return;
+        List<MediaItem> mediaItems = new ArrayList<>();
+        for (Uri uri : uris) {
+            String path = getPathFromUri(uri);
+            boolean isVid = isVideoMimeOrPath(uri, path);
+            String duration = isVid ? getVideoDurationFromUri(uri, path) : "00:00";
+            MediaItem item = new MediaItem(uri, path != null ? path : uri.toString(), isVid, duration, System.currentTimeMillis(), getFileSizeFromUri(uri), getFileNameFromUri(uri));
+            mediaItems.add(item);
+        }
+        setPendingAttachmentFromMediaItems(mediaItems, true);
+    }
 
-        if (item.isVideo) {
-            pending.thumbnail = getVideoThumbnail(pending.path);
-        } else if (item.path != null && new File(item.path).exists()) {
-            pending.thumbnail = BitmapFactory.decodeFile(item.path);
+    private void setPendingAttachmentFromMediaItems(List<MediaItem> items, boolean closePanel) {
+        if (items == null || items.isEmpty()) return;
+        PendingAttachment pending = new PendingAttachment();
+        for (MediaItem mi : items) {
+            Bitmap thumb = null;
+            if (mi.isVideo) {
+                thumb = getVideoThumbnail(mi.path);
+            } else if (mi.path != null && new File(mi.path).exists()) {
+                thumb = BitmapFactory.decodeFile(mi.path);
+            }
+            PendingAttachmentItem item = new PendingAttachmentItem(
+                mi.uri,
+                mi.path != null ? mi.path : (mi.uri != null ? mi.uri.toString() : ""),
+                mi.name != null ? mi.name : (mi.isVideo ? "Видео" : "Фотография"),
+                mi.size,
+                mi.isVideo,
+                false,
+                thumb,
+                mi.durationStr
+            );
+            pending.items.add(item);
         }
 
         this.currentPendingAttachment = pending;
         showPendingAttachmentBar(pending);
-        closeAttachmentPanel();
+        if (closePanel) closeAttachmentPanel();
     }
 
-    private void setPendingAttachmentFromFileItem(FileItem item) {
+    private void setPendingAttachmentFromFileItems(List<FileItem> items, boolean closePanel) {
+        if (items == null || items.isEmpty()) return;
         PendingAttachment pending = new PendingAttachment();
-        pending.uri = item.uri;
-        pending.path = item.path != null ? item.path : item.uri.toString();
-        pending.name = item.name != null ? item.name : "Файл";
-        pending.size = item.size;
-        pending.isVideo = false;
-        pending.isFile = true;
+        for (FileItem fi : items) {
+            PendingAttachmentItem item = new PendingAttachmentItem(
+                fi.uri,
+                fi.path != null ? fi.path : (fi.uri != null ? fi.uri.toString() : ""),
+                fi.name != null ? fi.name : "Файл",
+                fi.size,
+                false,
+                true,
+                null,
+                "00:00"
+            );
+            pending.items.add(item);
+        }
 
         this.currentPendingAttachment = pending;
         showPendingAttachmentBar(pending);
-        closeAttachmentPanel();
+        if (closePanel) closeAttachmentPanel();
     }
 
     private void showPendingAttachmentBar(PendingAttachment pending) {
-        if (layoutPendingAttachment == null) return;
-        layoutPendingAttachment.setVisibility(View.VISIBLE);
+        if (layoutPendingAttachment == null || pending == null || pending.items == null || pending.items.isEmpty()) return;
 
-        if (tvPendingName != null) tvPendingName.setText(pending.name);
-        if (tvPendingSize != null) tvPendingSize.setText(ChatAdapter.formatFileSize(pending.size));
+        if (pendingCardsAdapter != null) {
+            pendingCardsAdapter.setItems(pending.items);
+        }
 
-        if (pending.isVideo) {
-            if (ivPendingVideoBadge != null) ivPendingVideoBadge.setVisibility(View.VISIBLE);
-            if (ivPendingThumbnail != null) {
-                if (pending.thumbnail != null) ivPendingThumbnail.setImageBitmap(pending.thumbnail);
-                else ivPendingThumbnail.setImageResource(R.drawable.ic_video);
-            }
-        } else if (pending.isFile) {
-            if (ivPendingVideoBadge != null) ivPendingVideoBadge.setVisibility(View.GONE);
-            if (ivPendingThumbnail != null) ivPendingThumbnail.setImageResource(R.drawable.ic_file);
-        } else { // Photo
-            if (ivPendingVideoBadge != null) ivPendingVideoBadge.setVisibility(View.GONE);
-            if (ivPendingThumbnail != null) {
-                if (pending.thumbnail != null) ivPendingThumbnail.setImageBitmap(pending.thumbnail);
-                else if (pending.uri != null) ivPendingThumbnail.setImageURI(pending.uri);
-                else ivPendingThumbnail.setImageResource(R.drawable.ic_photo);
-            }
+        if (layoutPendingAttachment.getVisibility() != View.VISIBLE) {
+            layoutPendingAttachment.setVisibility(View.VISIBLE);
+            layoutPendingAttachment.setAlpha(0f);
+            layoutPendingAttachment.setTranslationY(120f * getResources().getDisplayMetrics().density);
+            layoutPendingAttachment.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(250)
+                .setInterpolator(new DecelerateInterpolator(1.5f))
+                .setListener(null)
+                .start();
         }
     }
 
     private void clearPendingAttachment() {
+        if (currentPendingAttachment == null && (layoutPendingAttachment == null || layoutPendingAttachment.getVisibility() != View.VISIBLE)) return;
         currentPendingAttachment = null;
-        if (layoutPendingAttachment != null) {
-            layoutPendingAttachment.setVisibility(View.GONE);
+        if (galleryAdapter != null) galleryAdapter.clearSelection();
+        if (filesAdapter != null) filesAdapter.clearSelection();
+
+        if (layoutPendingAttachment != null && layoutPendingAttachment.getVisibility() == View.VISIBLE) {
+            layoutPendingAttachment.animate()
+                .translationY(120f * getResources().getDisplayMetrics().density)
+                .alpha(0f)
+                .setDuration(200)
+                .setInterpolator(new AccelerateInterpolator(1.5f))
+                .setListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        layoutPendingAttachment.setVisibility(View.GONE);
+                        layoutPendingAttachment.setTranslationY(0f);
+                        layoutPendingAttachment.setAlpha(1f);
+                    }
+                })
+                .start();
+        }
+    }
+
+    private void showSendingProgressUi(int progress) {
+        if (layoutSendingProgress == null) return;
+
+        if (progress >= 0 && progress < 100) {
+            if (pbSendingProgress != null) pbSendingProgress.setProgress(progress);
+            if (tvSendingProgressPercent != null) {
+                tvSendingProgressPercent.setText("Передача... " + progress + "%");
+            }
+            if (layoutSendingProgress.getVisibility() != View.VISIBLE) {
+                layoutSendingProgress.setVisibility(View.VISIBLE);
+                layoutSendingProgress.setAlpha(0f);
+                layoutSendingProgress.setTranslationY(120f * getResources().getDisplayMetrics().density);
+                layoutSendingProgress.animate()
+                    .translationY(0f)
+                    .alpha(1f)
+                    .setDuration(220)
+                    .setInterpolator(new DecelerateInterpolator(1.5f))
+                    .setListener(null)
+                    .start();
+            }
+        } else if (progress >= 100) {
+            if (pbSendingProgress != null) pbSendingProgress.setProgress(100);
+            if (tvSendingProgressPercent != null) {
+                tvSendingProgressPercent.setText("Доставлено ✓");
+            }
+            new Handler(Looper.getMainLooper()).postDelayed(this::hideSendingProgressUi, 1200);
+        } else {
+            hideSendingProgressUi();
+        }
+    }
+
+    private void hideSendingProgressUi() {
+        if (layoutSendingProgress != null && layoutSendingProgress.getVisibility() == View.VISIBLE) {
+            layoutSendingProgress.animate()
+                .translationY(120f * getResources().getDisplayMetrics().density)
+                .alpha(0f)
+                .setDuration(200)
+                .setInterpolator(new AccelerateInterpolator(1.5f))
+                .setListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        layoutSendingProgress.setVisibility(View.GONE);
+                        layoutSendingProgress.setTranslationY(0f);
+                        layoutSendingProgress.setAlpha(1f);
+                    }
+                })
+                .start();
         }
     }
 
@@ -4739,9 +5245,11 @@ public class ChatPersonActivity extends AppCompatActivity {
 
     private class GalleryGridAdapter extends RecyclerView.Adapter<GalleryGridAdapter.ViewHolder> {
         private List<MediaItem> items = new ArrayList<>();
+        private final List<MediaItem> selectedItems = new ArrayList<>();
 
         void setItems(List<MediaItem> newItems) {
             this.items = new ArrayList<>(newItems);
+            selectedItems.clear();
             notifyDataSetChanged();
         }
 
@@ -4764,7 +5272,43 @@ public class ChatPersonActivity extends AppCompatActivity {
 
             loadGalleryThumbnailAsync(holder.ivGalleryThumbnail, item);
 
-            holder.itemView.setOnClickListener(v -> setPendingAttachmentFromMediaItem(item));
+            boolean isSel = selectedItems.contains(item);
+            if (holder.layoutSelectionBadge != null) {
+                if (isSel) {
+                    holder.layoutSelectionBadge.setVisibility(View.VISIBLE);
+                    if (holder.tvSelectionIndex != null) {
+                        holder.tvSelectionIndex.setText(String.valueOf(selectedItems.indexOf(item) + 1));
+                    }
+                } else {
+                    holder.layoutSelectionBadge.setVisibility(View.GONE);
+                }
+            }
+
+            holder.itemView.setOnClickListener(v -> {
+                if (selectedItems.contains(item)) {
+                    selectedItems.remove(item);
+                    notifyDataSetChanged();
+                } else {
+                    if (selectedItems.size() < 5) {
+                        selectedItems.add(item);
+                        notifyDataSetChanged();
+                    } else {
+                        PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Максимум 5 медиафайлов", null);
+                    }
+                }
+
+                if (!selectedItems.isEmpty()) {
+                    setPendingAttachmentFromMediaItems(selectedItems, false);
+                } else {
+                    currentPendingAttachment = null;
+                    if (layoutPendingAttachment != null) layoutPendingAttachment.setVisibility(View.GONE);
+                }
+            });
+        }
+
+        void clearSelection() {
+            selectedItems.clear();
+            notifyDataSetChanged();
         }
 
         @Override
@@ -4776,21 +5320,32 @@ public class ChatPersonActivity extends AppCompatActivity {
             ImageView ivGalleryThumbnail;
             View layoutVideoBadge;
             TextView tvVideoDuration;
+            View layoutSelectionBadge;
+            TextView tvSelectionIndex;
 
             ViewHolder(@NonNull View itemView) {
                 super(itemView);
                 ivGalleryThumbnail = itemView.findViewById(R.id.ivGalleryThumbnail);
                 layoutVideoBadge = itemView.findViewById(R.id.layoutVideoBadge);
                 tvVideoDuration = itemView.findViewById(R.id.tvVideoDuration);
+                layoutSelectionBadge = itemView.findViewById(R.id.layoutSelectionBadge);
+                tvSelectionIndex = itemView.findViewById(R.id.tvSelectionIndex);
             }
         }
     }
 
     private class FileGridAdapter extends RecyclerView.Adapter<FileGridAdapter.ViewHolder> {
         private List<FileItem> items = new ArrayList<>();
+        private final List<FileItem> selectedFileItems = new ArrayList<>();
 
         void setItems(List<FileItem> newItems) {
             this.items = new ArrayList<>(newItems);
+            selectedFileItems.clear();
+            notifyDataSetChanged();
+        }
+
+        void clearSelection() {
+            selectedFileItems.clear();
             notifyDataSetChanged();
         }
 
@@ -4807,12 +5362,42 @@ public class ChatPersonActivity extends AppCompatActivity {
             holder.tvFileName.setText(item.name);
             holder.tvFileSize.setText(ChatAdapter.formatFileSize(item.size));
 
+            boolean isSel = selectedFileItems.contains(item);
+            if (holder.layoutSelectionBadge != null) {
+                if (isSel) {
+                    holder.layoutSelectionBadge.setVisibility(View.VISIBLE);
+                    if (holder.tvSelectionIndex != null) {
+                        holder.tvSelectionIndex.setText(String.valueOf(selectedFileItems.indexOf(item) + 1));
+                    }
+                } else {
+                    holder.layoutSelectionBadge.setVisibility(View.GONE);
+                }
+            }
+
             holder.itemView.setOnClickListener(v -> {
                 if (item.size > 2 * 1024 * 1024 * 1024L) {
                     PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Превышен лимит размера файла (до 2 ГБ)", null);
                     return;
                 }
-                setPendingAttachmentFromFileItem(item);
+
+                if (selectedFileItems.contains(item)) {
+                    selectedFileItems.remove(item);
+                    notifyDataSetChanged();
+                } else {
+                    if (selectedFileItems.size() < 5) {
+                        selectedFileItems.add(item);
+                        notifyDataSetChanged();
+                    } else {
+                        PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Максимум 5 файлов", null);
+                    }
+                }
+
+                if (!selectedFileItems.isEmpty()) {
+                    setPendingAttachmentFromFileItems(selectedFileItems, false);
+                } else {
+                    currentPendingAttachment = null;
+                    if (layoutPendingAttachment != null) layoutPendingAttachment.setVisibility(View.GONE);
+                }
             });
         }
 
@@ -4825,12 +5410,16 @@ public class ChatPersonActivity extends AppCompatActivity {
             ImageView ivFileIcon;
             TextView tvFileName;
             TextView tvFileSize;
+            View layoutSelectionBadge;
+            TextView tvSelectionIndex;
 
             ViewHolder(@NonNull View itemView) {
                 super(itemView);
                 ivFileIcon = itemView.findViewById(R.id.ivFileIcon);
                 tvFileName = itemView.findViewById(R.id.tvFileName);
                 tvFileSize = itemView.findViewById(R.id.tvFileSize);
+                layoutSelectionBadge = itemView.findViewById(R.id.layoutSelectionBadge);
+                tvSelectionIndex = itemView.findViewById(R.id.tvSelectionIndex);
             }
         }
     }

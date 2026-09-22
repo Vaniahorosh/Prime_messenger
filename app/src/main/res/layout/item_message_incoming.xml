@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -33,61 +34,162 @@
         android:orientation="vertical"
         android:padding="10dp">
 
-        <!-- Медиа (Фото / Видео) -->
+        <!-- Медиа Контейнер (1 элемент, 2 элемента сетка, 3-5 слайдер) -->
         <FrameLayout
             android:id="@+id/layoutMediaContainer"
-            android:layout_width="220dp"
+            android:layout_width="240dp"
             android:layout_height="wrap_content"
             android:layout_marginBottom="6dp"
             android:visibility="gone">
 
-            <com.google.android.material.imageview.ShapeableImageView
-                android:id="@+id/ivMessageImage"
+            <!-- Вариант 1: Одиночный медиа файл (1 элемент) -->
+            <FrameLayout
+                android:id="@+id/layoutSingleMedia"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:adjustViewBounds="true"
-                android:scaleType="centerCrop"
-                app:shapeAppearanceOverlay="@style/Rounded16dpImageView" />
+                android:visibility="gone">
 
-            <VideoView
-                android:id="@+id/videoMessagePreview"
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/ivMessageImage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:scaleType="centerCrop"
+                    app:shapeAppearanceOverlay="@style/Rounded16dpImageView" />
+
+                <VideoView
+                    android:id="@+id/videoMessagePreview"
+                    android:layout_width="match_parent"
+                    android:layout_height="160dp"
+                    android:layout_gravity="center"
+                    android:clickable="false"
+                    android:focusable="false"
+                    android:focusableInTouchMode="false"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/ivVideoPlayBadge"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_circular_mode_active"
+                    android:contentDescription="Воспроизвести"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_media_play"
+                    android:visibility="gone"
+                    app:tint="@color/white" />
+
+                <TextView
+                    android:id="@+id/tvVideoDuration"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|start"
+                    android:layout_margin="6dp"
+                    android:background="#99000000"
+                    android:paddingStart="6dp"
+                    android:paddingTop="2dp"
+                    android:paddingEnd="6dp"
+                    android:paddingBottom="2dp"
+                    android:textColor="@color/white"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <!-- Вариант 2: Сетка для 2 элементов -->
+            <LinearLayout
+                android:id="@+id/layoutGridMedia"
                 android:layout_width="match_parent"
-                android:layout_height="160dp"
-                android:layout_gravity="center"
-                android:clickable="false"
-                android:focusable="false"
-                android:focusableInTouchMode="false"
-                android:visibility="gone" />
+                android:layout_height="120dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
 
-            <ImageView
-                android:id="@+id/ivVideoPlayBadge"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:layout_gravity="center"
-                android:background="@drawable/bg_circular_mode_active"
-                android:padding="10dp"
-                android:src="@drawable/ic_media_play"
-                android:visibility="gone"
-                app:tint="@color/white" />
+                <FrameLayout
+                    android:id="@+id/layoutGridTile1"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="2dp">
 
-            <TextView
-                android:id="@+id/tvVideoDuration"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="bottom|start"
-                android:layout_margin="6dp"
-                android:background="#99000000"
-                android:paddingStart="6dp"
-                android:paddingTop="2dp"
-                android:paddingEnd="6dp"
-                android:paddingBottom="2dp"
-                android:textColor="@color/white"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/ivGridTile1"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        app:shapeAppearanceOverlay="@style/Rounded16dpImageView" />
+
+                    <ImageView
+                        android:id="@+id/ivGridPlay1"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/bg_circular_mode_active"
+                        android:contentDescription="Видео"
+                        android:padding="6dp"
+                        android:src="@drawable/ic_media_play"
+                        android:visibility="gone"
+                        app:tint="@color/white" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:id="@+id/layoutGridTile2"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginStart="2dp">
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/ivGridTile2"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        app:shapeAppearanceOverlay="@style/Rounded16dpImageView" />
+
+                    <ImageView
+                        android:id="@+id/ivGridPlay2"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/bg_circular_mode_active"
+                        android:contentDescription="Видео"
+                        android:padding="6dp"
+                        android:src="@drawable/ic_media_play"
+                        android:visibility="gone"
+                        app:tint="@color/white" />
+                </FrameLayout>
+            </LinearLayout>
+
+            <!-- Вариант 3: Слайдер (ViewPager2) для 3, 4, 5 элементов -->
+            <FrameLayout
+                android:id="@+id/layoutSliderMedia"
+                android:layout_width="match_parent"
+                android:layout_height="180dp"
+                android:visibility="gone">
+
+                <androidx.viewpager2.widget.ViewPager2
+                    android:id="@+id/vpMediaSlider"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+                <TextView
+                    android:id="@+id/tvSliderIndicator"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|end"
+                    android:layout_margin="8dp"
+                    android:background="@drawable/bg_date_bubble"
+                    android:paddingStart="8dp"
+                    android:paddingTop="3dp"
+                    android:paddingEnd="8dp"
+                    android:paddingBottom="3dp"
+                    android:textColor="@color/white"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    tools:text="1 из 3" />
+            </FrameLayout>
         </FrameLayout>
 
-        <!-- Контейнер для обычных файлов (Документы, архивы) -->
+        <!-- Контейнер для обычных файлов -->
         <LinearLayout
             android:id="@+id/layoutFileContainer"
             android:layout_width="220dp"
@@ -103,6 +205,7 @@
                 android:id="@+id/ivFileIcon"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
+                android:contentDescription="Файл"
                 android:src="@drawable/ic_file"
                 app:tint="@color/prime_brand" />
 
@@ -256,6 +359,7 @@
                 android:layout_height="24dp"
                 android:layout_gravity="center_vertical"
                 android:layout_marginEnd="8dp"
+                android:contentDescription="Ссылка"
                 android:src="@drawable/ic_search"
                 app:tint="@color/prime_brand" />
 
@@ -284,6 +388,47 @@
                     android:textColor="@color/prime_text_secondary"
                     android:textSize="11sp" />
             </LinearLayout>
+        </LinearLayout>
+
+        <!-- Прогресс отправки/получения -->
+        <LinearLayout
+            android:id="@+id/layoutMessageProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:id="@+id/pbMessageProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="0dp"
+                android:layout_height="6dp"
+                android:layout_weight="1"
+                android:max="100" />
+
+            <TextView
+                android:id="@+id/tvMessageProgressPercent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:textColor="@color/prime_brand"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                tools:text="45%" />
+
+            <ImageButton
+                android:id="@+id/btnCancelMessageSending"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_marginStart="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Отменить"
+                android:src="@drawable/ic_cancel"
+                app:tint="@color/prime_danger" />
         </LinearLayout>
 
         <TextView

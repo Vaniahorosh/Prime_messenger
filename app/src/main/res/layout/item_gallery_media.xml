@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="110dp"
     android:layout_margin="3dp"
@@ -17,7 +18,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:scaleType="centerCrop"
-            android:contentDescription="Gallery Image" />
+            android:contentDescription="Медиа в галерее" />
 
         <LinearLayout
             android:id="@+id/layoutVideoBadge"
@@ -37,6 +38,7 @@
             <ImageView
                 android:layout_width="12dp"
                 android:layout_height="12dp"
+                android:contentDescription="Видео"
                 android:src="@drawable/ic_video"
                 app:tint="@color/white" />
 
@@ -49,5 +51,25 @@
                 android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/layoutSelectionBadge"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="4dp"
+            android:background="@drawable/bg_circular_mode_active"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tvSelectionIndex"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:textColor="@color/white"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                tools:text="1" />
+        </FrameLayout>
     </FrameLayout>
 </com.google.android.material.card.MaterialCardView>

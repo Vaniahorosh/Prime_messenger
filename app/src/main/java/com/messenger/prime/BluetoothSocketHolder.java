@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BluetoothSocketHolder {
@@ -23,6 +24,17 @@ public class BluetoothSocketHolder {
     // Multi-session support for non-disruptive reconnection across different contacts
     private static final Map<String, BluetoothSocket> socketMap = new ConcurrentHashMap<>();
     private static final Map<String, Object> threadMap = new ConcurrentHashMap<>();
+
+    public static synchronized String getLocalDeviceId(Context context) {
+        if (context == null) return "User_Device";
+        SharedPreferences prefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        String id = prefs.getString("local_device_guid", null);
+        if (id == null) {
+            id = UUID.randomUUID().toString();
+            prefs.edit().putString("local_device_guid", id).apply();
+        }
+        return id;
+    }
 
     public static synchronized void registerConnection(String address, String username, BluetoothSocket s, Object thread) {
         if (s != null) {
@@ -49,6 +61,24 @@ public class BluetoothSocketHolder {
             try { socket.close(); } catch (Exception ignored) {}
         }
         socket = s;
+        if (s != null) {
+            try {
+                if (s.getRemoteDevice() != null) {
+                    String addr = s.getRemoteDevice().getAddress();
+                    if (addr != null && !addr.isEmpty()) {
+                        socketMap.put(addr.toUpperCase(), s);
+                        activeDeviceAddress = addr;
+                    }
+                    try {
+                        String name = s.getRemoteDevice().getName();
+                        if (name != null && !name.isEmpty()) {
+                            socketMap.put(name.toLowerCase(), s);
+                            activeTargetUsername = name;
+                        }
+                    } catch (SecurityException ignored) {}
+                }
+            } catch (Exception ignored) {}
+        }
     }
 
     public static synchronized BluetoothSocket getSocket() {

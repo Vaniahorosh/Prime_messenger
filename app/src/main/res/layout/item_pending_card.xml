@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="66dp"
+    android:layout_height="76dp"
+    android:layout_marginEnd="6dp">
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="4dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="1dp"
+        app:cardBackgroundColor="#1A2232"
+        app:strokeColor="#33FFFFFF"
+        app:strokeWidth="1dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="3dp">
+
+            <FrameLayout
+                android:layout_width="36dp"
+                android:layout_height="36dp">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/ivCardThumbnail"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_file"
+                    app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
+
+                <ImageView
+                    android:id="@+id/ivCardVideoBadge"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_video"
+                    android:visibility="gone"
+                    app:tint="@color/white" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvCardFormat"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:gravity="center"
+                android:maxLines="1"
+                android:textColor="@color/white"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                tools:text="PNG 16" />
+
+            <TextView
+                android:id="@+id/tvCardSize"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:gravity="center"
+                android:maxLines="1"
+                android:textColor="#B0BEC5"
+                android:textSize="9sp"
+                tools:text="1.2М" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <FrameLayout
+        android:id="@+id/btnRemoveCard"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_gravity="top|end"
+        android:background="@drawable/bg_circular_mode_active"
+        android:backgroundTint="@color/prime_danger"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_cancel"
+            app:tint="@color/white" />
+    </FrameLayout>
+</FrameLayout>

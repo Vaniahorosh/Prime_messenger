@@ -44,6 +44,7 @@ import java.util.Map;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager2.widget.ViewPager2;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -68,6 +69,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         void onQuickReaction(ChatMessage message, String reaction, int position);
         void onReplyMessage(ChatMessage message, int position);
         void onJumpToMessage(String messageId);
+        void onCancelSending(ChatMessage message, int position);
     }
 
     private List<ChatMessage> messages = new ArrayList<>();
@@ -99,6 +101,21 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public void addMessage(ChatMessage message) {
         messages.add(message);
         notifyItemInserted(messages.size() - 1);
+    }
+
+    public void updateMessageSendingProgress(String messageId, int progress) {
+        if (messageId == null) return;
+        for (int i = 0; i < messages.size(); i++) {
+            ChatMessage msg = messages.get(i);
+            if (messageId.equals(msg.getMessageId())) {
+                msg.setSendingProgress(progress);
+                if (progress >= 100) {
+                    msg.setMessageStatus(MessageStatus.SENT);
+                }
+                notifyItemChanged(i);
+                break;
+            }
+        }
     }
 
     public void setMessages(List<ChatMessage> newMessages) {
@@ -438,6 +455,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public static void showFullScreenMedia(Context context, View view, ChatMessage clickedMessage, List<ChatMessage> allMessages) {
+        showFullScreenMedia(context, view, clickedMessage, allMessages, 0);
+    }
+
+    public static void showFullScreenMedia(Context context, View view, ChatMessage clickedMessage, List<ChatMessage> allMessages, int selectedMediaIndex) {
         if (context == null) return;
         if (context instanceof ChatPersonActivity) {
             ((ChatPersonActivity) context).setOpeningSubActivity(true);
@@ -445,14 +466,35 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         List<ChatMessage> mediaMessages = new ArrayList<>();
         int startIndex = 0;
+        
         if (allMessages != null) {
             for (ChatMessage msg : allMessages) {
-                if (msg.getMessageType() == ChatMessage.MessageType.IMAGE || msg.getMessageType() == ChatMessage.MessageType.VIDEO || msg.isVideo() || msg.getImageBitmap() != null || (msg.getImagePath() != null && !msg.getImagePath().isEmpty())) {
-                    if (msg.getMessageType() != ChatMessage.MessageType.FILE && msg.getMessageType() != ChatMessage.MessageType.TEXT) {
-                       mediaMessages.add(msg);
-                       if (clickedMessage != null && msg.getMessageId() != null && msg.getMessageId().equals(clickedMessage.getMessageId())) {
-                           startIndex = mediaMessages.size() - 1;
-                       }
+                if (msg.isMultiMedia() || (msg.getImagePath() != null && msg.getImagePath().startsWith("MULTI:"))) {
+                    List<ChatMessage.MediaItem> items = msg.getMediaItems();
+                    int baseIndex = mediaMessages.size();
+                    for (int i = 0; i < items.size(); i++) {
+                        ChatMessage.MediaItem item = items.get(i);
+                        ChatMessage subMsg = new ChatMessage(msg.getText(), msg.getTime(), msg.getSenderLogin(), msg.isOutgoing(), null, msg.getTimestamp(), item.path, msg.getMessageId() + "_item_" + i);
+                        subMsg.setMessageType(item.isVideo ? ChatMessage.MessageType.VIDEO : ChatMessage.MessageType.IMAGE);
+                        subMsg.setVideoDuration(item.durationStr);
+                        mediaMessages.add(subMsg);
+                    }
+                    if (clickedMessage != null && msg.getMessageId() != null && msg.getMessageId().equals(clickedMessage.getMessageId())) {
+                        int offset = (selectedMediaIndex >= 0 && selectedMediaIndex < items.size()) ? selectedMediaIndex : 0;
+                        startIndex = baseIndex + offset;
+                    }
+                } else if (msg.getMessageType() == ChatMessage.MessageType.IMAGE || 
+                           msg.getMessageType() == ChatMessage.MessageType.VIDEO || 
+                           msg.isVideo() || 
+                           msg.getImageBitmap() != null || 
+                           (msg.getImagePath() != null && !msg.getImagePath().isEmpty())) {
+                    
+                    if (msg.getMessageType() == ChatMessage.MessageType.TEXT || msg.getMessageType() == ChatMessage.MessageType.FILE) {
+                        msg.setMessageType(msg.isVideo() ? ChatMessage.MessageType.VIDEO : ChatMessage.MessageType.IMAGE);
+                    }
+                    mediaMessages.add(msg);
+                    if (clickedMessage != null && msg.getMessageId() != null && msg.getMessageId().equals(clickedMessage.getMessageId())) {
+                        startIndex = mediaMessages.size() - 1;
                     }
                 }
             }
@@ -460,8 +502,24 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         
         // If clickedMessage is not in the list (e.g. standalone call), just add it
         if (mediaMessages.isEmpty() && clickedMessage != null) {
-            mediaMessages.add(clickedMessage);
-            startIndex = 0;
+            if (clickedMessage.isMultiMedia() || (clickedMessage.getImagePath() != null && clickedMessage.getImagePath().startsWith("MULTI:"))) {
+                List<ChatMessage.MediaItem> items = clickedMessage.getMediaItems();
+                for (int i = 0; i < items.size(); i++) {
+                    ChatMessage.MediaItem item = items.get(i);
+                    ChatMessage subMsg = new ChatMessage(clickedMessage.getText(), clickedMessage.getTime(), clickedMessage.getSenderLogin(), clickedMessage.isOutgoing(), null, clickedMessage.getTimestamp(), item.path, clickedMessage.getMessageId() + "_item_" + i);
+                    subMsg.setMessageType(item.isVideo ? ChatMessage.MessageType.VIDEO : ChatMessage.MessageType.IMAGE);
+                    subMsg.setVideoDuration(item.durationStr);
+                    mediaMessages.add(subMsg);
+                }
+                int offset = (selectedMediaIndex >= 0 && selectedMediaIndex < items.size()) ? selectedMediaIndex : 0;
+                startIndex = offset;
+            } else {
+                if (clickedMessage.getMessageType() == ChatMessage.MessageType.TEXT || clickedMessage.getMessageType() == ChatMessage.MessageType.FILE) {
+                    clickedMessage.setMessageType(clickedMessage.isVideo() ? ChatMessage.MessageType.VIDEO : ChatMessage.MessageType.IMAGE);
+                }
+                mediaMessages.add(clickedMessage);
+                startIndex = 0;
+            }
         }
 
         MediaPlayerActivity.setSharedMediaList(mediaMessages, startIndex);
@@ -617,117 +675,273 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         } else {
             if (layoutFileContainer != null) layoutFileContainer.setVisibility(View.GONE);
 
-            Bitmap bmp = message.getImageBitmap();
-            if (bmp == null && message.getImagePath() != null && !message.getImagePath().isEmpty()) {
-                try {
-                    if (message.isVideo()) {
-                        bmp = getVideoThumbnail(message.getImagePath());
-                        if (bmp != null) {
-                            message.setImageBitmap(bmp);
+            List<ChatMessage.MediaItem> mediaItems = message.getMediaItems();
+            if (mediaItems != null && !mediaItems.isEmpty()) {
+                if (layoutMediaContainer != null) layoutMediaContainer.setVisibility(View.VISIBLE);
+
+                View layoutSingleMedia = layoutMediaContainer != null ? layoutMediaContainer.findViewById(R.id.layoutSingleMedia) : null;
+                View layoutGridMedia = layoutMediaContainer != null ? layoutMediaContainer.findViewById(R.id.layoutGridMedia) : null;
+                View layoutSliderMedia = layoutMediaContainer != null ? layoutMediaContainer.findViewById(R.id.layoutSliderMedia) : null;
+
+                int count = mediaItems.size();
+
+                if (count == 1) {
+                    if (layoutSingleMedia != null) layoutSingleMedia.setVisibility(View.VISIBLE);
+                    if (layoutGridMedia != null) layoutGridMedia.setVisibility(View.GONE);
+                    if (layoutSliderMedia != null) layoutSliderMedia.setVisibility(View.GONE);
+
+                    ChatMessage.MediaItem single = mediaItems.get(0);
+                    bindSingleMediaItem(single, layoutSingleMedia != null ? layoutSingleMedia : layoutMediaContainer, message, ivMessageImage, videoMessagePreview, ivVideoPlayBadge, tvVideoDuration);
+                } else if (count == 2) {
+                    if (layoutSingleMedia != null) layoutSingleMedia.setVisibility(View.GONE);
+                    if (layoutGridMedia != null) layoutGridMedia.setVisibility(View.VISIBLE);
+                    if (layoutSliderMedia != null) layoutSliderMedia.setVisibility(View.GONE);
+
+                    bindGridMediaItems(mediaItems, layoutGridMedia, message);
+                } else { // 3, 4, 5 items
+                    if (layoutSingleMedia != null) layoutSingleMedia.setVisibility(View.GONE);
+                    if (layoutGridMedia != null) layoutGridMedia.setVisibility(View.GONE);
+                    if (layoutSliderMedia != null) layoutSliderMedia.setVisibility(View.VISIBLE);
+
+                    bindSliderMediaItems(mediaItems, layoutSliderMedia, message);
+                }
+            } else {
+                if (layoutMediaContainer != null) layoutMediaContainer.setVisibility(View.GONE);
+            }
+        }
+    }
+
+    private void bindSingleMediaItem(ChatMessage.MediaItem item, View container, ChatMessage message, ImageView ivImage, VideoView vvPreview, ImageView ivPlay, TextView tvDur) {
+        if (container == null) return;
+        ImageView img = ivImage != null ? ivImage : container.findViewById(R.id.ivMessageImage);
+        VideoView vv = vvPreview != null ? vvPreview : container.findViewById(R.id.videoMessagePreview);
+        ImageView play = ivPlay != null ? ivPlay : container.findViewById(R.id.ivVideoPlayBadge);
+        TextView dur = tvDur != null ? tvDur : container.findViewById(R.id.tvVideoDuration);
+
+        if (item.isVideo) {
+            if (img != null) img.setVisibility(View.GONE);
+            if (vv != null && item.path != null && new File(item.path).exists()) {
+                vv.setVisibility(View.VISIBLE);
+                vv.setVideoURI(Uri.fromFile(new File(item.path)));
+                vv.setOnPreparedListener(mp -> {
+                    mp.setVolume(0f, 0f);
+                    mp.setLooping(true);
+                    vv.start();
+                });
+                vv.setOnErrorListener((mp, what, extra) -> true);
+            } else if (img != null) {
+                img.setVisibility(View.VISIBLE);
+                Bitmap thumb = getVideoThumbnail(item.path);
+                if (thumb != null) img.setImageBitmap(thumb);
+                else img.setImageResource(R.drawable.ic_video);
+            }
+            if (play != null) play.setVisibility(View.GONE);
+            if (dur != null) {
+                dur.setVisibility(View.VISIBLE);
+                dur.setText(item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "00:00");
+            }
+        } else {
+            if (vv != null) vv.setVisibility(View.GONE);
+            if (img != null) {
+                img.setVisibility(View.VISIBLE);
+                if (item.path != null && new File(item.path).exists()) {
+                    img.setImageBitmap(BitmapFactory.decodeFile(item.path));
+                } else {
+                    img.setImageResource(R.drawable.ic_photo);
+                }
+            }
+            if (play != null) play.setVisibility(View.GONE);
+            if (dur != null) dur.setVisibility(View.GONE);
+        }
+
+        View.OnClickListener clickListener = v -> showFullScreenMedia(v.getContext(), v, message, messages);
+        if (img != null) img.setOnClickListener(clickListener);
+        if (vv != null) vv.setOnClickListener(clickListener);
+        if (container != null) container.setOnClickListener(clickListener);
+    }
+
+    private void bindGridMediaItems(List<ChatMessage.MediaItem> items, View container, ChatMessage message) {
+        if (container == null || items.size() < 2) return;
+        ImageView iv1 = container.findViewById(R.id.ivGridTile1);
+        ImageView play1 = container.findViewById(R.id.ivGridPlay1);
+        ImageView iv2 = container.findViewById(R.id.ivGridTile2);
+        ImageView play2 = container.findViewById(R.id.ivGridPlay2);
+        View tile1 = container.findViewById(R.id.layoutGridTile1);
+        View tile2 = container.findViewById(R.id.layoutGridTile2);
+
+        bindTile(items.get(0), iv1, play1, tile1, message, 0);
+        bindTile(items.get(1), iv2, play2, tile2, message, 1);
+    }
+
+    private void bindTile(ChatMessage.MediaItem item, ImageView iv, ImageView play, View tile, ChatMessage message, int itemIndex) {
+        if (item.isVideo) {
+            if (play != null) play.setVisibility(View.VISIBLE);
+            Bitmap thumb = getVideoThumbnail(item.path);
+            if (thumb != null && iv != null) iv.setImageBitmap(thumb);
+            else if (iv != null) iv.setImageResource(R.drawable.ic_video);
+        } else {
+            if (play != null) play.setVisibility(View.GONE);
+            if (iv != null) {
+                if (item.path != null && new File(item.path).exists()) {
+                    iv.setImageBitmap(BitmapFactory.decodeFile(item.path));
+                } else {
+                    iv.setImageResource(R.drawable.ic_photo);
+                }
+            }
+        }
+        View.OnClickListener clickListener = v -> showFullScreenMedia(v.getContext(), v, message, messages, itemIndex);
+        if (tile != null) tile.setOnClickListener(clickListener);
+        if (iv != null) iv.setOnClickListener(clickListener);
+    }
+
+    private void bindSliderMediaItems(List<ChatMessage.MediaItem> items, View container, ChatMessage message) {
+        if (container == null) return;
+        ViewPager2 vp = container.findViewById(R.id.vpMediaSlider);
+        TextView tvIndicator = container.findViewById(R.id.tvSliderIndicator);
+
+        if (vp != null) {
+            MediaSliderAdapter sliderAdapter = new MediaSliderAdapter(items, (item, pos) -> showFullScreenMedia(container.getContext(), vp, message, messages, pos));
+            vp.setAdapter(sliderAdapter);
+
+            if (tvIndicator != null) {
+                tvIndicator.setText("1 из " + items.size());
+            }
+
+            vp.setOnTouchListener((v, event) -> {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                    case MotionEvent.ACTION_MOVE:
+                        v.getParent().requestDisallowInterceptTouchEvent(true);
+                        break;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        v.getParent().requestDisallowInterceptTouchEvent(false);
+                        break;
+                }
+                return false;
+            });
+
+            try {
+                View child = vp.getChildAt(0);
+                if (child != null) {
+                    child.setOnTouchListener((v, event) -> {
+                        switch (event.getAction()) {
+                            case MotionEvent.ACTION_DOWN:
+                            case MotionEvent.ACTION_MOVE:
+                                v.getParent().requestDisallowInterceptTouchEvent(true);
+                                break;
+                            case MotionEvent.ACTION_UP:
+                            case MotionEvent.ACTION_CANCEL:
+                                v.getParent().requestDisallowInterceptTouchEvent(false);
+                                break;
                         }
-                    } else {
-                        bmp = BitmapFactory.decodeFile(message.getImagePath());
-                        message.setImageBitmap(bmp);
+                        return false;
+                    });
+                }
+            } catch (Exception ignored) {}
+
+            vp.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+                @Override
+                public void onPageSelected(int position) {
+                    super.onPageSelected(position);
+                    if (tvIndicator != null) {
+                        tvIndicator.setText((position + 1) + " из " + items.size());
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
+                }
+            });
+        }
+    }
+
+    private void showMediaItemFull(Context context, ChatMessage.MediaItem item, ChatMessage message) {
+        if (context == null || item == null) return;
+        String path = item.path != null ? item.path : (message != null ? message.getImagePath() : null);
+        boolean isVid = item.isVideo;
+
+        ChatMessage dummy = new ChatMessage("", "", message != null ? message.getSenderLogin() : "", false);
+        if (path != null) dummy.setImagePath(path);
+        dummy.setMessageType(isVid ? ChatMessage.MessageType.VIDEO : ChatMessage.MessageType.IMAGE);
+        if (message != null) {
+            dummy.setText(message.getText());
+            dummy.setTimestamp(message.getTimestamp());
+        }
+
+        List<ChatMessage> list = new ArrayList<>();
+        list.add(dummy);
+        MediaPlayerActivity.setSharedMediaList(list, 0);
+
+        Intent intent = new Intent(context, MediaPlayerActivity.class);
+        if (!(context instanceof Activity)) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        }
+        context.startActivity(intent);
+    }
+
+    public static class MediaSliderAdapter extends RecyclerView.Adapter<MediaSliderAdapter.SliderViewHolder> {
+        private final List<ChatMessage.MediaItem> items;
+        private final OnMediaItemClickListener clickListener;
+
+        public interface OnMediaItemClickListener {
+            void onItemClick(ChatMessage.MediaItem item, int position);
+        }
+
+        public MediaSliderAdapter(List<ChatMessage.MediaItem> items, OnMediaItemClickListener clickListener) {
+            this.items = items != null ? items : new ArrayList<>();
+            this.clickListener = clickListener;
+        }
+
+        @NonNull
+        @Override
+        public SliderViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_slider_media_page, parent, false);
+            return new SliderViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull SliderViewHolder holder, int position) {
+            ChatMessage.MediaItem item = items.get(position);
+            if (item.isVideo) {
+                holder.ivSliderPlayBadge.setVisibility(View.VISIBLE);
+                holder.tvSliderVideoDuration.setVisibility(View.VISIBLE);
+                holder.tvSliderVideoDuration.setText(item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "00:00");
+                Bitmap thumb = getVideoThumbnail(item.path);
+                if (thumb != null) {
+                    holder.ivSliderImage.setImageBitmap(thumb);
+                } else {
+                    holder.ivSliderImage.setImageResource(R.drawable.ic_video);
+                }
+            } else {
+                holder.ivSliderPlayBadge.setVisibility(View.GONE);
+                holder.tvSliderVideoDuration.setVisibility(View.GONE);
+                if (item.path != null && new File(item.path).exists()) {
+                    Bitmap bmp = BitmapFactory.decodeFile(item.path);
+                    holder.ivSliderImage.setImageBitmap(bmp);
+                } else {
+                    holder.ivSliderImage.setImageResource(R.drawable.ic_photo);
                 }
             }
 
-            if (bmp != null || message.isVideo() || (message.getImagePath() != null && !message.getImagePath().isEmpty())) {
-                if (layoutMediaContainer != null) layoutMediaContainer.setVisibility(View.VISIBLE);
-
-                if (message.isVideo()) {
-                    if (ivMessageImage != null) ivMessageImage.setVisibility(View.GONE);
-                    if (videoMessagePreview != null && message.getImagePath() != null && new File(message.getImagePath()).exists()) {
-                        videoMessagePreview.setVisibility(View.VISIBLE);
-                        String vPath = message.getImagePath();
-                        if (vPath.startsWith("content://") || vPath.startsWith("file://")) {
-                            videoMessagePreview.setVideoURI(Uri.parse(vPath));
-                        } else {
-                            videoMessagePreview.setVideoURI(Uri.fromFile(new File(vPath)));
-                        }
-                        videoMessagePreview.setOnPreparedListener(mp -> {
-                            mp.setVolume(0f, 0f);
-                            mp.setLooping(true);
-                            videoMessagePreview.start();
-
-                            int vWidth = mp.getVideoWidth();
-                            int vHeight = mp.getVideoHeight();
-                            if (vWidth > 0 && vHeight > 0) {
-                                Context ctx = videoMessagePreview.getContext();
-                                float density = ctx.getResources().getDisplayMetrics().density;
-                                float aspect = (float) vWidth / vHeight;
-                                int maxWidth = (int) (220 * density);
-                                int maxHeight = (int) (200 * density);
-                                int minHeight = (int) (120 * density);
-
-                                int w = maxWidth;
-                                int h = (int) (w / aspect);
-                                if (h > maxHeight) {
-                                    h = maxHeight;
-                                    w = (int) (h * aspect);
-                                } else if (h < minHeight) {
-                                    h = minHeight;
-                                    w = (int) (h * aspect);
-                                }
-
-                                ViewGroup.LayoutParams lp = videoMessagePreview.getLayoutParams();
-                                lp.width = w;
-                                lp.height = h;
-                                videoMessagePreview.setLayoutParams(lp);
-
-                                if (layoutMediaContainer != null) {
-                                    ViewGroup.LayoutParams cp = layoutMediaContainer.getLayoutParams();
-                                    cp.width = w;
-                                    cp.height = h;
-                                    layoutMediaContainer.setLayoutParams(cp);
-                                }
-                            }
-                        });
-                        videoMessagePreview.setOnErrorListener((mp, what, extra) -> true);
-                        videoMessagePreview.setClickable(false);
-                        videoMessagePreview.setFocusable(false);
-                    } else if (ivMessageImage != null) {
-                        ivMessageImage.setVisibility(View.VISIBLE);
-                        if (bmp != null) ivMessageImage.setImageBitmap(bmp);
-                        else ivMessageImage.setImageResource(R.drawable.ic_video);
-                    }
-
-                    if (ivVideoPlayBadge != null) ivVideoPlayBadge.setVisibility(View.GONE);
-                    if (tvVideoDuration != null) {
-                        tvVideoDuration.setVisibility(View.VISIBLE);
-                        tvVideoDuration.setText(message.getVideoDuration() != null && !message.getVideoDuration().isEmpty() ? message.getVideoDuration() : "00:00");
-                    }
-                } else {
-                    if (videoMessagePreview != null) videoMessagePreview.setVisibility(View.GONE);
-                    if (ivMessageImage != null) {
-                        ivMessageImage.setVisibility(View.VISIBLE);
-                        if (bmp != null) {
-                            ivMessageImage.setImageBitmap(bmp);
-                        } else {
-                            ivMessageImage.setImageResource(R.drawable.ic_photo);
-                        }
-                    }
-                    if (ivVideoPlayBadge != null) ivVideoPlayBadge.setVisibility(View.GONE);
-                    if (tvVideoDuration != null) tvVideoDuration.setVisibility(View.GONE);
+            holder.itemView.setOnClickListener(v -> {
+                if (clickListener != null) {
+                    clickListener.onItemClick(item, position);
                 }
+            });
+        }
 
-                final Bitmap finalBmp = bmp != null ? bmp : message.getImageBitmap();
-                View.OnClickListener openMedia = v -> showFullScreenMedia(
-                        v.getContext(),
-                        v,
-                        message,
-                        messages
-                );
+        @Override
+        public int getItemCount() {
+            return items.size();
+        }
 
-                if (layoutMediaContainer != null) layoutMediaContainer.setOnClickListener(openMedia);
-                if (ivMessageImage != null) ivMessageImage.setOnClickListener(openMedia);
-                if (videoMessagePreview != null) videoMessagePreview.setOnClickListener(openMedia);
-            } else {
-                if (layoutMediaContainer != null) layoutMediaContainer.setVisibility(View.GONE);
-                if (ivMessageImage != null) ivMessageImage.setVisibility(View.GONE);
-                if (videoMessagePreview != null) videoMessagePreview.setVisibility(View.GONE);
+        static class SliderViewHolder extends RecyclerView.ViewHolder {
+            ImageView ivSliderImage;
+            ImageView ivSliderPlayBadge;
+            TextView tvSliderVideoDuration;
+
+            SliderViewHolder(@NonNull View itemView) {
+                super(itemView);
+                ivSliderImage = itemView.findViewById(R.id.ivSliderImage);
+                ivSliderPlayBadge = itemView.findViewById(R.id.ivSliderPlayBadge);
+                tvSliderVideoDuration = itemView.findViewById(R.id.tvSliderVideoDuration);
             }
         }
     }
@@ -794,18 +1008,24 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public static void openFile(Context context, String filePath) {
-        if (context == null || filePath == null) return;
+        if (context == null || filePath == null || filePath.isEmpty()) return;
         try {
-            File file = new File(filePath);
-            if (!file.exists()) {
-                if (context instanceof Activity) {
-                    PrimeNotification.INSTANCE.show((Activity) context, "Файл не найден на устройстве", null);
+            Uri uri;
+            if (filePath.startsWith("content://")) {
+                uri = Uri.parse(filePath);
+            } else {
+                File file = new File(filePath);
+                if (!file.exists()) {
+                    if (context instanceof Activity) {
+                        PrimeNotification.INSTANCE.show((Activity) context, "Файл не найден на устройстве", null);
+                    }
+                    return;
                 }
-                return;
+                uri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", file);
             }
-            Uri uri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", file);
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(uri, getMimeType(filePath));
+            String mime = getMimeType(filePath);
+            intent.setDataAndType(uri, mime != null ? mime : "*/*");
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(intent);
@@ -1146,6 +1366,28 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     ivMessageStatus.setImageResource(R.drawable.ic_error);
                 } else {
                     ivMessageStatus.setVisibility(View.GONE);
+                }
+            }
+
+            View layoutMessageProgress = itemView.findViewById(R.id.layoutMessageProgress);
+            ProgressBar pbMessageProgress = itemView.findViewById(R.id.pbMessageProgress);
+            TextView tvMessageProgressPercent = itemView.findViewById(R.id.tvMessageProgressPercent);
+            ImageButton btnCancelMessageSending = itemView.findViewById(R.id.btnCancelMessageSending);
+
+            if (layoutMessageProgress != null) {
+                if (message.getMessageStatus() == MessageStatus.SENDING || (message.getSendingProgress() > 0 && message.getSendingProgress() < 100)) {
+                    layoutMessageProgress.setVisibility(View.VISIBLE);
+                    if (pbMessageProgress != null) pbMessageProgress.setProgress(message.getSendingProgress());
+                    if (tvMessageProgressPercent != null) tvMessageProgressPercent.setText(message.getSendingProgress() + "%");
+                    if (btnCancelMessageSending != null) {
+                        btnCancelMessageSending.setOnClickListener(v -> {
+                            if (actionListener != null) {
+                                actionListener.onCancelSending(message, position);
+                            }
+                        });
+                    }
+                } else {
+                    layoutMessageProgress.setVisibility(View.GONE);
                 }
             }
 

@@ -1,7 +1,9 @@
 package com.messenger.prime;
 
 import android.graphics.Bitmap;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -10,6 +12,20 @@ public class ChatMessage {
     public enum MessageType {
         TEXT, IMAGE, VIDEO, FILE
     }
+
+    public static class MediaItem {
+        public String path;
+        public boolean isVideo;
+        public String durationStr;
+
+        public MediaItem(String path, boolean isVideo, String durationStr) {
+            this.path = path;
+            this.isVideo = isVideo;
+            this.durationStr = durationStr != null ? durationStr : "00:00";
+        }
+    }
+
+    private List<MediaItem> mediaItems = null;
 
     private String messageId;
     private String text;
@@ -63,6 +79,8 @@ public class ChatMessage {
             } else {
                 this.messageType = MessageType.IMAGE;
             }
+        } else if (imageBitmap != null) {
+            this.messageType = MessageType.IMAGE;
         }
     }
 
@@ -122,9 +140,80 @@ public class ChatMessage {
         isDownloading = downloading;
     }
 
+    public List<MediaItem> getMediaItems() {
+        if (mediaItems != null && !mediaItems.isEmpty()) {
+            return mediaItems;
+        }
+        List<MediaItem> list = new ArrayList<>();
+        if (imagePath != null && !imagePath.isEmpty()) {
+            if (imagePath.startsWith("MULTI:")) {
+                list.addAll(parseMultiMediaString(imagePath));
+            } else {
+                list.add(new MediaItem(imagePath, isVideo(), videoDuration));
+            }
+        }
+        this.mediaItems = list;
+        return list;
+    }
+
+    public void setMediaItems(List<MediaItem> items) {
+        this.mediaItems = items != null ? items : new ArrayList<>();
+        if (this.mediaItems.size() == 1) {
+            MediaItem first = this.mediaItems.get(0);
+            this.imagePath = first.path;
+            this.videoDuration = first.durationStr;
+            this.messageType = first.isVideo ? MessageType.VIDEO : MessageType.IMAGE;
+        } else if (this.mediaItems.size() > 1) {
+            this.imagePath = buildMultiMediaString(this.mediaItems);
+            this.messageType = MessageType.IMAGE;
+        }
+    }
+
+    public boolean isMultiMedia() {
+        return getMediaItems().size() > 1;
+    }
+
+    public int getMediaCount() {
+        return getMediaItems().size();
+    }
+
+    public static String buildMultiMediaString(List<MediaItem> items) {
+        if (items == null || items.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder("MULTI:");
+        for (int i = 0; i < items.size(); i++) {
+            if (i > 0) sb.append(";");
+            MediaItem item = items.get(i);
+            sb.append(item.path != null ? item.path : "")
+              .append("|")
+              .append(item.isVideo ? "1" : "0")
+              .append("|")
+              .append(item.durationStr != null ? item.durationStr : "");
+        }
+        return sb.toString();
+    }
+
+    public static List<MediaItem> parseMultiMediaString(String multiStr) {
+        List<MediaItem> list = new ArrayList<>();
+        if (multiStr == null || !multiStr.startsWith("MULTI:")) return list;
+        String data = multiStr.substring(6);
+        String[] parts = data.split(";");
+        for (String part : parts) {
+            String[] fields = part.split("\\|", -1);
+            if (fields.length >= 2) {
+                String path = fields[0];
+                boolean isVideo = "1".equals(fields[1]);
+                String duration = fields.length >= 3 ? fields[2] : "";
+                if (!path.isEmpty()) {
+                    list.add(new MediaItem(path, isVideo, duration));
+                }
+            }
+        }
+        return list;
+    }
+
     public boolean isVideo() {
         if (messageType == MessageType.VIDEO) return true;
-        if (imagePath != null) {
+        if (imagePath != null && !imagePath.startsWith("MULTI:")) {
             String lower = imagePath.toLowerCase();
             return lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".3gp") || lower.endsWith(".webm");
         }
@@ -170,6 +259,9 @@ public class ChatMessage {
 
     public void setImageBitmap(Bitmap imageBitmap) {
         this.imageBitmap = imageBitmap;
+        if (imageBitmap != null && (this.messageType == MessageType.TEXT || this.messageType == MessageType.FILE)) {
+            this.messageType = MessageType.IMAGE;
+        }
     }
 
     public long getTimestamp() {
@@ -190,6 +282,8 @@ public class ChatMessage {
             String lower = imagePath.toLowerCase();
             if (lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".3gp") || lower.endsWith(".webm") || lower.contains("video")) {
                 this.messageType = MessageType.VIDEO;
+            } else if (this.messageType == MessageType.TEXT || this.messageType == MessageType.FILE) {
+                this.messageType = MessageType.IMAGE;
             }
         }
     }

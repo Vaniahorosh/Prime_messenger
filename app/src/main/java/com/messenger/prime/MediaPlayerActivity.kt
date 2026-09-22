@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -31,6 +32,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -409,6 +411,7 @@ class MediaPlayerActivity : AppCompatActivity() {
             btnFullscreen.visibility = View.GONE
         }
 
+        handler.removeCallbacks(updateProgressRunnable)
         handler.postDelayed({
             if (isFinishing || isDestroyed) return@postDelayed
             val recyclerView = viewPager.getChildAt(0) as RecyclerView
@@ -425,20 +428,27 @@ class MediaPlayerActivity : AppCompatActivity() {
             val holder = recyclerView.findViewHolderForAdapterPosition(position) as? MediaViewHolder
 
             if (holder != null && holder.player != null) {
-                currentPlayer = holder.player
-                if (isCurrentVideo) {
-                    updateDurationText(currentPlayer!!.currentPosition, currentPlayer!!.duration.coerceAtLeast(0L))
-                    handler.post(updateProgressRunnable)
-                    currentPlayer!!.playWhenReady = true
-                    currentPlayer!!.play()
-                    btnPlayPause.setImageResource(R.drawable.ic_media_pause)
-                }
-            } else {
+                onPlayerActiveAndReady(holder.player!!, position)
+            } else if (!isCurrentVideo) {
                 currentPlayer = null
             }
-        }, 150)
+        }, 100)
 
         showControls()
+    }
+
+    fun onPlayerActiveAndReady(player: ExoPlayer, position: Int) {
+        if (position == viewPager.currentItem) {
+            currentPlayer = player
+            if (isCurrentVideo) {
+                updateDurationText(player.currentPosition, player.duration.coerceAtLeast(0L))
+                handler.removeCallbacks(updateProgressRunnable)
+                handler.post(updateProgressRunnable)
+                player.playWhenReady = true
+                player.play()
+                btnPlayPause.setImageResource(R.drawable.ic_media_pause)
+            }
+        }
     }
 
     private fun togglePlayPause() {
@@ -713,8 +723,16 @@ class MediaPlayerActivity : AppCompatActivity() {
 
                     player!!.addListener(object : Player.Listener {
                         override fun onPlaybackStateChanged(playbackState: Int) {
-                            if (playbackState == Player.STATE_READY && bindingAdapterPosition == viewPager.currentItem) {
-                                updateDurationText(player!!.currentPosition, player!!.duration)
+                            if (bindingAdapterPosition == viewPager.currentItem) {
+                                if (playbackState == Player.STATE_READY) {
+                                    onPlayerActiveAndReady(player!!, bindingAdapterPosition)
+                                }
+                            }
+                        }
+
+                        override fun onPlayerError(error: PlaybackException) {
+                            if (bindingAdapterPosition == viewPager.currentItem) {
+                                Toast.makeText(this@MediaPlayerActivity, "Ошибка воспроизведения видео", Toast.LENGTH_SHORT).show()
                             }
                         }
                     })
@@ -726,13 +744,22 @@ class MediaPlayerActivity : AppCompatActivity() {
                 if (item.imageBitmap != null) {
                     imageView.setImageBitmap(item.imageBitmap)
                 } else if (!item.imagePath.isNullOrEmpty()) {
-                    val uri = if (item.imagePath.startsWith("content://") || item.imagePath.startsWith("file://")) {
-                        Uri.parse(item.imagePath)
+                    val path = item.imagePath
+                    if (path.startsWith("content://")) {
+                        imageView.setImageURI(Uri.parse(path))
                     } else {
-                        val file = File(item.imagePath)
-                        if (file.exists()) Uri.fromFile(file) else Uri.parse(item.imagePath)
+                        val file = File(path)
+                        if (file.exists()) {
+                            val bmp = BitmapFactory.decodeFile(file.absolutePath)
+                            if (bmp != null) {
+                                imageView.setImageBitmap(bmp)
+                            } else {
+                                imageView.setImageURI(Uri.fromFile(file))
+                            }
+                        } else {
+                            imageView.setImageURI(Uri.parse(path))
+                        }
                     }
-                    imageView.setImageURI(uri)
                 } else {
                     imageView.setImageResource(R.drawable.ic_person)
                 }

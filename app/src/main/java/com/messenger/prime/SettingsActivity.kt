@@ -821,13 +821,14 @@ class SettingsActivity : AppCompatActivity() {
     private fun openFullPhoto() {
         if (currentAvatarUri == null || isClosing) return
         isClosing = true
-        val intent = Intent(this, PhotoViewActivity::class.java)
-        intent.putExtra("EXTRA_URI", currentAvatarUri)
-        val rect = Rect()
-        profileImageView?.getGlobalVisibleRect(rect)
-        intent.putExtra("EXTRA_RECT", rect)
-        photoViewLauncher.launch(intent)
-        overridePendingTransition(0, 0)
+        val dummy = ChatMessage("", "", if (currentNameInDB.isNotEmpty()) currentNameInDB else "Пользователь", false).apply {
+            imagePath = currentAvatarUri
+            messageType = ChatMessage.MessageType.IMAGE
+        }
+        MediaPlayerActivity.setSharedMediaList(listOf(dummy), 0)
+        val intent = Intent(this, MediaPlayerActivity::class.java)
+        startActivity(intent)
+        isClosing = false
     }
 
     private fun toggleAccountCollapsible(b: ActivitySettingsContentBinding) {
