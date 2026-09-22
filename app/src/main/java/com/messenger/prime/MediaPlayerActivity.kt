@@ -75,6 +75,7 @@ class MediaPlayerActivity : AppCompatActivity() {
     private lateinit var tvDuration: TextView
     private lateinit var seekBar: SeekBar
     private lateinit var navBarProgressBar: ProgressBar
+    private lateinit var tvSpeedIndicator: TextView
 
     private var adapter: MediaPagerAdapter? = null
     private var areControlsVisible = false
@@ -224,6 +225,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         tvDuration = findViewById(R.id.tvDuration)
         seekBar = findViewById(R.id.seekBar)
         navBarProgressBar = findViewById(R.id.navBarProgressBar)
+        tvSpeedIndicator = findViewById(R.id.tvSpeedIndicator)
     }
 
     private fun setupInsets() {
@@ -452,6 +454,30 @@ class MediaPlayerActivity : AppCompatActivity() {
         showControls()
     }
 
+    private fun showSpeedIndicator(show: Boolean) {
+        if (show) {
+            tvSpeedIndicator.visibility = View.VISIBLE
+            tvSpeedIndicator.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(200)
+                .setInterpolator(DecelerateInterpolator())
+                .setListener(null)
+                .start()
+        } else {
+            tvSpeedIndicator.animate()
+                .alpha(0f)
+                .translationY(20f)
+                .setDuration(200)
+                .setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        tvSpeedIndicator.visibility = View.GONE
+                    }
+                })
+                .start()
+        }
+    }
+
     private fun updateDurationText(currentMs: Long, totalMs: Long) {
         val curStr = formatMs(currentMs)
         val totalStr = formatMs(totalMs)
@@ -572,7 +598,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                 if (isCurrentVideo && currentPlayer != null) {
                     isSpeedingUp = true
                     currentPlayer?.playbackParameters = PlaybackParameters(2.0f)
-                    Toast.makeText(this@MediaPlayerActivity, "Ускорение 2x", Toast.LENGTH_SHORT).show()
+                    showSpeedIndicator(true)
                 }
             }
 
@@ -580,6 +606,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                 if (isSpeedingUp) {
                     isSpeedingUp = false
                     currentPlayer?.playbackParameters = PlaybackParameters(1.0f)
+                    showSpeedIndicator(false)
                 }
             }
         }
