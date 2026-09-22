@@ -607,25 +607,47 @@ class MediaPlayerActivity : AppCompatActivity() {
         var player: ExoPlayer? = null
 
         init {
-            val gestureDetector = GestureDetector(itemView.context, object : GestureDetector.SimpleOnGestureListener() {
-                override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                    listener.onSingleTap()
-                    return true
-                }
-                override fun onLongPress(e: MotionEvent) {
-                    listener.onLongPressStart()
-                }
-            })
+            var isHolding = false
+            var startX = 0f
+            var startY = 0f
+            val holdRunnable = Runnable {
+                isHolding = true
+                listener.onLongPressStart()
+            }
 
             itemView.setOnTouchListener { v, event ->
-                gestureDetector.onTouchEvent(event)
-                if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
-                    listener.onLongPressEnd()
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        startX = event.x
+                        startY = event.y
+                        isHolding = false
+                        handler.postDelayed(holdRunnable, 350)
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = Math.abs(event.x - startX)
+                        val dy = Math.abs(event.y - startY)
+                        if (dx > 20 || dy > 20) {
+                            if (!isHolding) {
+                                handler.removeCallbacks(holdRunnable)
+                            }
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        handler.removeCallbacks(holdRunnable)
+                        if (isHolding) {
+                            listener.onLongPressEnd()
+                        } else if (event.action == MotionEvent.ACTION_UP) {
+                            val dx = Math.abs(event.x - startX)
+                            val dy = Math.abs(event.y - startY)
+                            if (dx <= 20 && dy <= 20) {
+                                listener.onSingleTap()
+                                v.performClick()
+                            }
+                        }
+                        isHolding = false
+                    }
                 }
-                if (event.action == MotionEvent.ACTION_UP) {
-                    v.performClick()
-                }
-                false
+                true
             }
         }
 
