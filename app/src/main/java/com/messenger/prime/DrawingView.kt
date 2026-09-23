@@ -19,7 +19,11 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
     private var hardness = 1.0f // 0.1 to 1.0
     private var isEraser = false
 
+    private var lastTouchX = 0f
+    private var lastTouchY = 0f
+
     private var onDrawingStateListener: ((Boolean) -> Unit)? = null
+    private var onUndoAvailableListener: ((Boolean) -> Unit)? = null
 
     // История для Undo
     private val paths = mutableListOf<Path>()
@@ -44,11 +48,14 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
             val blurRadius = (brushSize / 2f) * (1.0f - hardness)
             if (blurRadius > 0) {
                 drawPaint.maskFilter = BlurMaskFilter(blurRadius, BlurMaskFilter.Blur.NORMAL)
+                setLayerType(LAYER_TYPE_SOFTWARE, null)
             } else {
                 drawPaint.maskFilter = null
+                setLayerType(LAYER_TYPE_HARDWARE, null)
             }
         } else {
             drawPaint.maskFilter = null
+            setLayerType(LAYER_TYPE_HARDWARE, null)
         }
     }
 
@@ -57,6 +64,7 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
         if (w > 0 && h > 0) {
             canvasBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             drawCanvas = Canvas(canvasBitmap!!)
+            redrawOnBitmap()
         }
     }
 
@@ -73,13 +81,23 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                drawPath.reset()
                 drawPath.moveTo(touchX, touchY)
+                lastTouchX = touchX
+                lastTouchY = touchY
                 onDrawingStateListener?.invoke(true)
             }
             MotionEvent.ACTION_MOVE -> {
-                drawPath.lineTo(touchX, touchY)
+                val dx = Math.abs(touchX - lastTouchX)
+                val dy = Math.abs(touchY - lastTouchY)
+                if (dx >= 4 || dy >= 4) {
+                    drawPath.quadTo(lastTouchX, lastTouchY, (touchX + lastTouchX) / 2f, (touchY + lastTouchY) / 2f)
+                    lastTouchX = touchX
+                    lastTouchY = touchY
+                }
             }
             MotionEvent.ACTION_UP -> {
+                drawPath.lineTo(touchX, touchY)
                 drawCanvas?.drawPath(drawPath, drawPaint)
                 paths.add(Path(drawPath))
                 paints.add(Paint(drawPaint))
@@ -89,6 +107,7 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
                 performClick()
             }
             MotionEvent.ACTION_CANCEL -> {
+                drawPath.reset()
                 onDrawingStateListener?.invoke(false)
             }
             else -> return false
@@ -132,10 +151,11 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
         isEraser = eraser
         if (isEraser) {
             drawPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+            setLayerType(LAYER_TYPE_SOFTWARE, null)
         } else {
             drawPaint.xfermode = null
+            updateHardness()
         }
-        updateHardness()
     }
 
     fun setBrushSize(newSize: Float) {
@@ -149,7 +169,6 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
         updateHardness()
     }
 
-    private var onUndoAvailableListener: ((Boolean) -> Unit)? = null
     fun setOnUndoAvailableListener(listener: (Boolean) -> Unit) {
         onUndoAvailableListener = listener
     }
@@ -169,7 +188,7 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
         }
         return result
     }
-    
+
     fun clear() {
         paths.clear()
         paints.clear()

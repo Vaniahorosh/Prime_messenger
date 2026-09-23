@@ -56,10 +56,7 @@ import com.messenger.prime.databinding.ActivitySettingsContentBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrPosition
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
+
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -197,12 +194,11 @@ class SettingsActivity : AppCompatActivity() {
         avatarUriState.value = savedAvatarUri
 
         findViewById<ComposeView>(R.id.composeRoot).setContent {
-            val hazeState = remember { HazeState() }
             val darkTheme = isSystemInDarkTheme()
             val isThemeVisible = isThemeDialogVisible.value
             
             PrimeTheme(darkTheme = darkTheme) {
-                Box(modifier = Modifier.fillMaxSize().hazeSource(state = hazeState)) {
+                Box(modifier = Modifier.fillMaxSize()) {
                     LavaBackgroundState.onActivityResumed()
 
                     AndroidView(
@@ -254,18 +250,19 @@ class SettingsActivity : AppCompatActivity() {
                             ViewCompat.setOnApplyWindowInsetsListener(b.headerStaticBlock) { _, insets ->
                                 val statusBarInset = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
                                 val density = resources.displayMetrics.density
-                                val extraPadding = (8 * density).toInt()
+                                val extraPadding = (12 * density).toInt()
 
-                                b.layoutWithPhoto.updatePadding(top = statusBarInset + extraPadding)
-                                b.layoutNoPhoto.updatePadding(top = statusBarInset + extraPadding)
+                                b.headerStaticBlock.updatePadding(top = statusBarInset)
+                                b.layoutWithPhoto.updatePadding(top = extraPadding)
+                                b.layoutNoPhoto.updatePadding(top = extraPadding)
                                 insets
                             }
 
                             val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
                             windowInsetsController.isAppearanceLightStatusBars = !darkTheme
 
-                            // Инициализация кнопок с эффектом Haze
-                            setupHazeButtons(b, darkTheme)
+                            // Инициализация кнопок с эффектом BlurView
+                            setupBlurButtons(b, darkTheme)
 
                             b.headerStaticBlock.translationZ = 4f
                             b.photoCard.translationZ = 8f
@@ -275,7 +272,7 @@ class SettingsActivity : AppCompatActivity() {
                         modifier = Modifier.fillMaxSize()
                     )
 
-                    // Кастомное окно выбора темы с эффектом Haze
+                    // Кастомное окно выбора темы с эффектом BlurView
                     if (isThemeVisible) {
                         Box(
                             modifier = Modifier
@@ -285,7 +282,6 @@ class SettingsActivity : AppCompatActivity() {
                             contentAlignment = Alignment.Center
                         ) {
                             GlassCard(
-                                hazeState = hazeState,
                                 modifier = Modifier
                                     .padding(32.dp)
                                     .fillMaxWidth()
@@ -320,20 +316,14 @@ class SettingsActivity : AppCompatActivity() {
                         }
                     }
 
-                    Box(
+                    BlurView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .align(Alignment.BottomCenter)
                             .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp)
-                            .hazeEffect(
-                                state = hazeState,
-                                style = HazeStyle(
-                                    blurRadius = 20.dp,
-                                    noiseFactor = 0f,
-                                    tint = dev.chrisbanes.haze.HazeTint(Color(0x0DFFFFFF))
-                                )
-                            )
+                            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp),
+                        blurRadius = 20.dp,
+                        tint = Color(0x0DFFFFFF)
                     )
                 }
             }
@@ -373,7 +363,7 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupHazeButtons(b: ActivitySettingsContentBinding, darkTheme: Boolean) {
+    private fun setupBlurButtons(b: ActivitySettingsContentBinding, darkTheme: Boolean) {
         b.btnBackWP.setOnClickListener {
             if (isPhotoMenuMode.value) togglePhotoMenuMode(false)
             else onBackPressedDispatcher.onBackPressed()

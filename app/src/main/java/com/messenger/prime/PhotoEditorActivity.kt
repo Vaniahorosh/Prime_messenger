@@ -7,6 +7,7 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.*
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -40,6 +41,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.LinearSnapHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -48,10 +51,7 @@ import com.messenger.prime.databinding.DialogColorPickerBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrPosition
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
+
 import java.io.FileOutputStream
 
 class PhotoEditorActivity : AppCompatActivity() {
@@ -97,7 +97,7 @@ class PhotoEditorActivity : AppCompatActivity() {
         private const val MAX_ZOOM = 5.0f
     }
 
-    private val hazeState = HazeState()
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -165,24 +165,18 @@ class PhotoEditorActivity : AppCompatActivity() {
                         
                         view
                     },
-                    modifier = Modifier.fillMaxSize().hazeSource(state = hazeState)
+                    modifier = Modifier.fillMaxSize()
                 )
 
                 // Размытие для системной панели навигации
-                Box(
+                BlurView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
                         .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                        .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp)
-                        .hazeEffect(
-                            state = hazeState,
-                            style = HazeStyle(
-                                blurRadius = 20.dp,
-                                noiseFactor = 0f,
-                                tint = dev.chrisbanes.haze.HazeTint(androidx.compose.ui.graphics.Color(0x0DFFFFFF))
-                            )
-                        )
+                        .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp),
+                    blurRadius = 20.dp,
+                    tint = Color(0x0DFFFFFF)
                 )
             }
         }
@@ -596,15 +590,22 @@ class PhotoEditorActivity : AppCompatActivity() {
     private fun showColorPicker(b: ActivityPhotoEditorContentBinding) {
         var isInternalChange = false
         val dialogBinding = DialogColorPickerBinding.inflate(layoutInflater)
-        val dialog = AlertDialog.Builder(this, R.style.Theme_Prime_AlertDialog).setView(dialogBinding.root).create()
-        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+        dialogBinding.root.setViewTreeLifecycleOwner(this)
+        dialogBinding.root.setViewTreeSavedStateRegistryOwner(this)
 
-        dialogBinding.hazeView.setContent {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF154B87).copy(alpha = 0.6f))
-            )
+        val dialog = AlertDialog.Builder(this, R.style.Theme_Prime_AlertDialog).setView(dialogBinding.root).create()
+        dialog.window?.let { win ->
+            win.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    win.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                    val params = win.attributes
+                    params.blurBehindRadius = 60
+                    win.attributes = params
+                } catch (e: Throwable) {
+                    e.printStackTrace()
+                }
+            }
         }
 
         fun updateDialogColors(db: DialogColorPickerBinding, color: Int) {
@@ -612,10 +613,14 @@ class PhotoEditorActivity : AppCompatActivity() {
             isInternalChange = true
             try {
                 db.viewColorPreview.backgroundTintList = ColorStateList.valueOf(color)
-                db.etHex.setText(String.format("#%06X", (0xFFFFFF and color)))
-                db.etR.setText(android.graphics.Color.red(color).toString())
-                db.etG.setText(android.graphics.Color.green(color).toString())
-                db.etB.setText(android.graphics.Color.blue(color).toString())
+                val hexStr = String.format("#%06X", (0xFFFFFF and color))
+                if (db.etHex.text?.toString() != hexStr) db.etHex.setText(hexStr)
+                val rStr = android.graphics.Color.red(color).toString()
+                if (db.etR.text?.toString() != rStr) db.etR.setText(rStr)
+                val gStr = android.graphics.Color.green(color).toString()
+                if (db.etG.text?.toString() != gStr) db.etG.setText(gStr)
+                val bStr = android.graphics.Color.blue(color).toString()
+                if (db.etB.text?.toString() != bStr) db.etB.setText(bStr)
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {

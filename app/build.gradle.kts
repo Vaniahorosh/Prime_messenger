@@ -42,13 +42,13 @@ dependencies {
     implementation(libs.material)
     implementation("com.r0adkll:slidableactivity:2.1.0")
     
-    // Compose & Haze
+    // Compose & BlurView
     implementation("androidx.compose.ui:ui:1.6.8")
     implementation("androidx.compose.ui:ui-viewbinding:1.6.8")
     implementation("androidx.compose.foundation:foundation:1.6.8")
     implementation("androidx.compose.material3:material3:1.2.1")
     implementation("androidx.activity:activity-compose:1.9.0")
-    implementation("dev.chrisbanes.haze:haze:1.7.2")
+    implementation("com.github.Dimezis:BlurView:version-2.0.5")
     implementation("androidx.graphics:graphics-shapes:1.1.0")
 
     implementation(libs.media3.exoplayer)

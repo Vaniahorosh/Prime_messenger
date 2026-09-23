@@ -137,7 +137,7 @@ class ChatListAdapter(
                         setTypeface(null, Typeface.BOLD)
                         layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
+                            ViewGroup.LayoutParams.WRAP_CONTENT
                         )
                     }
                 }

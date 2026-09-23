@@ -1,13 +1,13 @@
 package com.messenger.prime
 
 import android.Manifest
-import android.animation.ArgbEvaluator
-import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -17,21 +17,25 @@ import android.view.View
 import android.view.animation.AnimationUtils
 import android.widget.FrameLayout
 import android.widget.TextView
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.messenger.prime.databinding.ActivityHiBinding
 
 class HiActivity : AppCompatActivity() {
 
-    private lateinit var binding: com.messenger.prime.databinding.ActivityHiBinding
+    private lateinit var binding: ActivityHiBinding
     private val handler = Handler(Looper.getMainLooper())
     private var currentDataIndex = -1
+    private var isSequenceRunning = false
 
     private data class DynamicContent(val slogan: String, val button: String)
 
@@ -42,6 +46,24 @@ class HiActivity : AppCompatActivity() {
         DynamicContent("Всегда будь в", "Приватности!"),
         DynamicContent("Всегда мы", "Кастомнее!")
     )
+
+    private val dynamicRunnable = object : Runnable {
+        override fun run() {
+            if (!isSequenceRunning) return
+            var nextIndex: Int
+            do {
+                nextIndex = (contents.indices).random()
+            } while (nextIndex == currentDataIndex)
+
+            currentDataIndex = nextIndex
+            val content = contents[currentDataIndex]
+
+            binding.textSwitcherSlogan.setText(content.slogan)
+            binding.textSwitcherButton.setText(content.button)
+
+            handler.postDelayed(this, 3000)
+        }
+    }
 
     private val allViews: List<View> by lazy {
         listOf(
@@ -68,7 +90,7 @@ class HiActivity : AppCompatActivity() {
                 binding.btnPrime.isEnabled = false
                 binding.btnExit.isEnabled = false
                 binding.btnPermissions.isEnabled = false
-                handler.removeCallbacksAndMessages(null)
+                stopDynamicSequence()
                 fadeOutAndNavigateToLogin()
             }
         } else {
@@ -78,18 +100,17 @@ class HiActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // LavaBackgroundState handled inside compose setContent for better lifecycle integration
         super.onCreate(savedInstanceState)
 
-        if (android.os.Build.VERSION.SDK_INT >= 34) {
+        if (Build.VERSION.SDK_INT >= 34) {
             overrideActivityTransition(
-                android.app.Activity.OVERRIDE_TRANSITION_OPEN,
+                OVERRIDE_TRANSITION_OPEN,
                 R.anim.fade_in_slow,
                 R.anim.stay_slow
             )
         }
 
-        val sharedPreferences = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val sharedPreferences = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val isLoggedIn = sharedPreferences.getBoolean("is_logged_in", false)
 
         if (isLoggedIn) {
@@ -113,7 +134,7 @@ class HiActivity : AppCompatActivity() {
             return
         }
 
-        binding = com.messenger.prime.databinding.ActivityHiBinding.inflate(layoutInflater)
+        binding = ActivityHiBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setupEdgeToEdge()
 
@@ -130,16 +151,15 @@ class HiActivity : AppCompatActivity() {
 
         setupTextSwitcher()
         binding.tvLicense.setTextColor(Color.WHITE)
-        startDynamicSequence()
 
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
-            val systemBarsInsets = windowInsets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
+            val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             
-            val headerParams = binding.topHeader.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            val headerParams = binding.topHeader.layoutParams as ConstraintLayout.LayoutParams
             headerParams.height = systemBarsInsets.top + (64 * resources.displayMetrics.density).toInt()
             binding.topHeader.layoutParams = headerParams
 
-            val backParams = binding.btnExit.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            val backParams = binding.btnExit.layoutParams as ConstraintLayout.LayoutParams
             backParams.topMargin = systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt()
             binding.btnExit.layoutParams = backParams
 
@@ -169,7 +189,7 @@ class HiActivity : AppCompatActivity() {
                 binding.btnPrime.isEnabled = false
                 binding.btnExit.isEnabled = false
                 binding.btnPermissions.isEnabled = false
-                handler.removeCallbacksAndMessages(null)
+                stopDynamicSequence()
                 fadeOutAndNavigateToLogin()
             }
         }
@@ -243,7 +263,7 @@ class HiActivity : AppCompatActivity() {
     }
 
     private fun setupTextSwitcher() {
-        val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val generalTextColor = Color.WHITE
         val buttonTextColor = if (isDark) Color.WHITE else Color.parseColor("#154B87")
 
@@ -252,7 +272,7 @@ class HiActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER
                 textSize = 20f
                 setTextColor(generalTextColor)
-                setTypeface(null, android.graphics.Typeface.BOLD)
+                setTypeface(null, Typeface.BOLD)
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.WRAP_CONTENT
@@ -265,7 +285,7 @@ class HiActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER
                 textSize = 22f
                 setTextColor(buttonTextColor)
-                setTypeface(null, android.graphics.Typeface.BOLD)
+                setTypeface(null, Typeface.BOLD)
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT
@@ -284,23 +304,15 @@ class HiActivity : AppCompatActivity() {
     }
 
     private fun startDynamicSequence() {
-        val runnable = object : Runnable {
-            override fun run() {
-                var nextIndex: Int
-                do {
-                    nextIndex = (contents.indices).random()
-                } while (nextIndex == currentDataIndex)
+        if (isSequenceRunning) return
+        isSequenceRunning = true
+        handler.removeCallbacks(dynamicRunnable)
+        handler.post(dynamicRunnable)
+    }
 
-                currentDataIndex = nextIndex
-                val content = contents[currentDataIndex]
-
-                binding.textSwitcherSlogan.setText(content.slogan)
-                binding.textSwitcherButton.setText(content.button)
-
-                handler.postDelayed(this, 3000)
-            }
-        }
-        handler.post(runnable)
+    private fun stopDynamicSequence() {
+        isSequenceRunning = false
+        handler.removeCallbacks(dynamicRunnable)
     }
 
     override fun onResume() {
@@ -314,7 +326,13 @@ class HiActivity : AppCompatActivity() {
             binding.btnExit.isEnabled = true
             binding.btnPermissions.isEnabled = true
             updatePermissionsButtonUi()
+            startDynamicSequence()
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopDynamicSequence()
     }
 
     private fun fadeOutAndNavigateToLogin() {

@@ -2,8 +2,11 @@ package com.messenger.prime
 
 import android.app.Activity
 import android.graphics.Color
+import android.view.View
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
 // Устанавливает прозрачные системные бары и растягивает контент
@@ -17,12 +20,18 @@ fun Activity.setupEdgeToEdge(isDarkIcons: Boolean = false) {
     controller.isAppearanceLightNavigationBars = isDarkIcons
 }
 
-// Эта функция теперь будет доступна внутри любой твоей Activity
-fun Activity.setDynamicStatusBar(colorResId: Int, isDarkIcons: Boolean) {
-    // 1. Устанавливаем цвет фона статус-бара
-    window.statusBarColor = ContextCompat.getColor(this, colorResId)
+// Автоматически добавляет отступ сверху для статус-бара на любой View/Toolbar/Header
+fun View.applyStatusBarTopPadding() {
+    ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->
+        val statusBarInset = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+        if (statusBarInset > 0) {
+            v.setPadding(v.paddingLeft, statusBarInset + v.paddingTop, v.paddingRight, v.paddingBottom)
+        }
+        insets
+    }
+}
 
-    // 2. Говорим системе, какими должны быть иконки (светлыми или темными)
-    // isAppearanceLightStatusBars = true означает, что фон СВЕТЛЫЙ, поэтому иконки станут ТЕМНЫМИ
+fun Activity.setDynamicStatusBar(colorResId: Int, isDarkIcons: Boolean) {
+    window.statusBarColor = ContextCompat.getColor(this, colorResId)
     WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = isDarkIcons
 }

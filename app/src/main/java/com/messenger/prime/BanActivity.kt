@@ -35,10 +35,7 @@ import com.messenger.prime.databinding.ActivityBanContentBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrPosition
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
+
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -92,7 +89,6 @@ class BanActivity : AppCompatActivity() {
         isPermanent = value <= 0
 
         findViewById<ComposeView>(R.id.composeRoot).setContent {
-            val hazeState = remember { HazeState() }
             Box(modifier = Modifier.fillMaxSize()) {
                 AndroidView(
                     factory = { context ->
@@ -101,24 +97,18 @@ class BanActivity : AppCompatActivity() {
                         setupUI(userName, reason)
                         view
                     },
-                    modifier = Modifier.fillMaxSize().hazeSource(state = hazeState)
+                    modifier = Modifier.fillMaxSize()
                 )
 
                 // Размытие для системной панели навигации
-                Box(
+                BlurView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
                         .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                        .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp)
-                        .hazeEffect(
-                            state = hazeState,
-                            style = HazeStyle(
-                                blurRadius = 20.dp,
-                                noiseFactor = 0f,
-                                tint = dev.chrisbanes.haze.HazeTint(androidx.compose.ui.graphics.Color(0x0DFFFFFF))
-                            )
-                        )
+                        .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp),
+                    blurRadius = 20.dp,
+                    tint = androidx.compose.ui.graphics.Color(0x0DFFFFFF)
                 )
             }
         }

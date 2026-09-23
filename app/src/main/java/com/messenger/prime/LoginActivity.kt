@@ -32,10 +32,7 @@ import com.messenger.prime.databinding.ActivityLoginContentBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrPosition
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
+
 
 class LoginActivity : AppCompatActivity() {
 
@@ -65,10 +62,9 @@ class LoginActivity : AppCompatActivity() {
         val sharedPreferences = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
 
         setContent {
-            val hazeState = remember { HazeState() }
             val darkTheme = isSystemInDarkTheme()
             PrimeTheme(darkTheme = darkTheme) {
-                Box(modifier = Modifier.fillMaxSize().hazeSource(state = hazeState)) {
+                Box(modifier = Modifier.fillMaxSize()) {
                     LavaBackgroundState.onActivityResumed()
                     AnimatedBackground(
                         darkTheme = darkTheme
@@ -170,20 +166,14 @@ class LoginActivity : AppCompatActivity() {
                     )
 
                     // Blur for navigation bar
-                    Box(
+                    BlurView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .align(Alignment.BottomCenter)
                             .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp)
-                            .hazeEffect(
-                                state = hazeState,
-                                style = HazeStyle(
-                                    blurRadius = 20.dp,
-                                    noiseFactor = 0f,
-                                    tint = dev.chrisbanes.haze.HazeTint(Color(0x0DFFFFFF))
-                                )
-                            )
+                            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp),
+                        blurRadius = 20.dp,
+                        tint = Color(0x0DFFFFFF)
                     )
                 }
             }

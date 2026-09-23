@@ -43,6 +43,7 @@ import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.ImageView
 import androidx.activity.OnBackPressedCallback
@@ -53,6 +54,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
@@ -67,6 +69,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -115,6 +119,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.border
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -122,11 +129,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.textfield.TextInputEditText
 import com.messenger.prime.databinding.ActivityChatListContentBinding
 import com.messenger.prime.databinding.LayoutIslandBinding
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.hazeEffect
+
 import androidx.core.content.ContextCompat
 
 @Composable
@@ -193,7 +196,7 @@ class ChatListActivity : AppCompatActivity() {
     private val chatListState = mutableStateListOf<ChatModel>()
     private val typingExpireHandler = Handler(Looper.getMainLooper())
     private val typingExpireRunnable = Runnable { reloadChatsFromDb() }
-    private val hazeState = HazeState()
+
 
     private var startY = 0f
     private var isPulling = false
@@ -691,9 +694,10 @@ class ChatListActivity : AppCompatActivity() {
                         ViewCompat.setOnApplyWindowInsetsListener(view) { _, windowInsets ->
                             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
                             val topInset = if (insets.top > 0) insets.top else (28 * resources.displayMetrics.density).toInt()
+                            view.setPadding(view.paddingLeft, topInset, view.paddingRight, view.paddingBottom)
                             binding.recyclerViewChats.setPadding(
                                 binding.recyclerViewChats.paddingLeft,
-                                topInset + (12 * resources.displayMetrics.density).toInt(),
+                                (16 * resources.displayMetrics.density).toInt(),
                                 binding.recyclerViewChats.paddingRight,
                                 (120 * resources.displayMetrics.density).toInt()
                             )
@@ -714,7 +718,7 @@ class ChatListActivity : AppCompatActivity() {
                             setupLegacyListeners()
                         }
                     },
-                    modifier = Modifier.fillMaxSize().hazeSource(state = hazeState)
+                    modifier = Modifier.fillMaxSize()
                 )
 
                 LaunchedEffect(isDialogVisible) {
@@ -725,38 +729,46 @@ class ChatListActivity : AppCompatActivity() {
                     }
                 }
 
-                AnimatedVisibility(
-                    visible = isDialogVisible,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.4f))
-                            .clickable(enabled = true, onClick = { 
-                                isContactDialogVisible.value = false 
-                            }),
-                        contentAlignment = Alignment.Center
+                if (isDialogVisible) {
+                    Dialog(
+                        onDismissRequest = { isContactDialogVisible.value = false },
+                        properties = DialogProperties(usePlatformDefaultWidth = false)
                     ) {
-                        Column(
+                        val view = LocalView.current
+                        DisposableEffect(Unit) {
+                            val window = (view.parent as? DialogWindowProvider)?.window
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && window != null) {
+                                try {
+                                    window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                                    val params = window.attributes
+                                    params.blurBehindRadius = 60
+                                    window.attributes = params
+                                } catch (e: Throwable) {
+                                    e.printStackTrace()
+                                }
+                            }
+                            onDispose {}
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable { isContactDialogVisible.value = false },
+                            contentAlignment = Alignment.Center
+                        ) {
+                        BlurView(
                             modifier = Modifier
                                 .padding(24.dp)
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(32.dp))
-                                .hazeEffect(
-                                    state = hazeState,
-                                    style = HazeStyle(
-                                        blurRadius = 24.dp,
-                                        noiseFactor = 0.05f,
-                                        tint = dev.chrisbanes.haze.HazeTint(Color(0xFF154B87).copy(alpha = 0.6f))
-                                    )
-                                )
-                                .clickable(enabled = true) {} // prevent closing on inner click
-                                .padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .clickable(enabled = true) {}, // prevent closing on inner click
+                            blurRadius = 20.dp,
+                            tint = Color(0x33154B87),
+                            shape = RoundedCornerShape(32.dp)
                         ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
                             val myVerCode = try { ChatPersonActivity.getAppVersionCode(this@ChatListActivity) } catch (e: Exception) { 1 }
 
                             Text(
@@ -931,22 +943,36 @@ class ChatListActivity : AppCompatActivity() {
                         }
                     }
                 }
+            }
+        }
 
-                AnimatedVisibility(
-                    visible = isNameEditVisible,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.4f))
-                            .clickable(enabled = true, onClick = {
-                                isNameEditDialogVisible.value = false
-                            }),
-                        contentAlignment = Alignment.Center
+                if (isNameEditVisible) {
+                    Dialog(
+                        onDismissRequest = { isNameEditDialogVisible.value = false },
+                        properties = DialogProperties(usePlatformDefaultWidth = false)
                     ) {
+                        val view = LocalView.current
+                        DisposableEffect(Unit) {
+                            val window = (view.parent as? DialogWindowProvider)?.window
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && window != null) {
+                                try {
+                                    window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                                    val params = window.attributes
+                                    params.blurBehindRadius = 60
+                                    window.attributes = params
+                                } catch (e: Throwable) {
+                                    e.printStackTrace()
+                                }
+                            }
+                            onDispose {}
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable { isNameEditDialogVisible.value = false },
+                            contentAlignment = Alignment.Center
+                        ) {
                         val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
                         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
                         val currentName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
@@ -954,26 +980,22 @@ class ChatListActivity : AppCompatActivity() {
                         var nameInput by remember { mutableStateOf(currentName) }
                         val focusManager = LocalFocusManager.current
 
-                        Column(
+                        BlurView(
                             modifier = Modifier
                                 .padding(32.dp)
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(32.dp))
-                                .hazeEffect(
-                                    state = hazeState,
-                                    style = HazeStyle(
-                                        blurRadius = 24.dp,
-                                        noiseFactor = 0.05f,
-                                        tint = HazeTint(Color(0xFF154B87).copy(alpha = 0.6f))
-                                    )
-                                )
                                 .border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(32.dp))
                                 .clickable(enabled = true) {
                                     focusManager.clearFocus()
-                                }
-                                .padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                },
+                            blurRadius = 20.dp,
+                            tint = Color(0x33154B87),
+                            shape = RoundedCornerShape(32.dp)
                         ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
                             Text(
                                 text = "Изменить имя",
                                 color = Color.White,
@@ -1000,10 +1022,12 @@ class ChatListActivity : AppCompatActivity() {
                                 label = { Text("Новое имя") },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = Color.White,
-                                    unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.7f),
                                     cursorColor = Color.White,
                                     focusedLabelColor = Color.White,
-                                    unfocusedLabelColor = Color.White.copy(alpha = 0.7f)
+                                    unfocusedLabelColor = Color.White.copy(alpha = 0.8f),
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White
                                 )
                             )
 
@@ -1057,21 +1081,17 @@ class ChatListActivity : AppCompatActivity() {
                         }
                     }
                 }
+            }
+            }
 
-                Box(
+                BlurView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
                         .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                        .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp)
-                        .hazeEffect(
-                            state = hazeState,
-                            style = HazeStyle(
-                                blurRadius = 20.dp,
-                                noiseFactor = 0f,
-                                tint = dev.chrisbanes.haze.HazeTint(Color(0x0DFFFFFF))
-                            )
-                        )
+                        .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp),
+                    blurRadius = 20.dp,
+                    tint = Color(0x0DFFFFFF)
                 )
 
                 Box(
@@ -1086,36 +1106,31 @@ class ChatListActivity : AppCompatActivity() {
                         enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
                         exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 })
                     ) {
-                        Box(
+                        BlurView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(72.dp)
-                                .clip(RoundedCornerShape(24.dp))
-                                .hazeEffect(
-                                    state = hazeState,
-                                    style = HazeStyle(
-                                        blurRadius = 24.dp,
-                                        noiseFactor = 0.05f,
-                                        tint = dev.chrisbanes.haze.HazeTint(Color(0xFF154B87).copy(alpha = 0.6f))
-                                    )
-                                )
+                                .border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(24.dp)),
+                            blurRadius = 20.dp,
+                            tint = Color(0x33154B87),
+                            shape = RoundedCornerShape(24.dp)
                         ) {
-                        AndroidView(
-                            factory = { context ->
-                                val view = layoutInflater.inflate(R.layout.layout_island, null)
-                                val islandBind = LayoutIslandBinding.bind(view)
-                                islandBinding = islandBind
-                                updateToolbarInitialUi(savedAvatarUri, savedName)
-                                isIslandBindingReady.value = true
-                                view
-                            },
-                            update = {
-                                if (isContentBindingReady.value && isIslandBindingReady.value) {
-                                    setupLegacyListeners()
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
+                            AndroidView(
+                                factory = { context ->
+                                    val view = layoutInflater.inflate(R.layout.layout_island, null)
+                                    val islandBind = LayoutIslandBinding.bind(view)
+                                    islandBinding = islandBind
+                                    updateToolbarInitialUi(savedAvatarUri, savedName)
+                                    isIslandBindingReady.value = true
+                                    view
+                                },
+                                update = {
+                                    if (isContentBindingReady.value && isIslandBindingReady.value) {
+                                        setupLegacyListeners()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
                     }
                 }

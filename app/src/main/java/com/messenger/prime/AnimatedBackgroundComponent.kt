@@ -6,6 +6,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,12 +29,7 @@ import androidx.graphics.shapes.CornerRounding
 import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.graphics.shapes.star
-import dev.chrisbanes.haze.HazeDefaults
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
+
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -220,33 +216,31 @@ fun AnimatedBackground(
 
 @Composable
 fun GlassCard(
-    hazeState: HazeState,
     modifier: Modifier = Modifier,
-    darkTheme: Boolean = androidx.compose.foundation.isSystemInDarkTheme(),
+    blurRadius: Dp = 24.dp,
+    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(32.dp))
-            .hazeEffect(
-                state = hazeState,
-                style = HazeStyle(
-                    tint = HazeTint(if (darkTheme) {
-                        Color(0xFF1E293B).copy(alpha = 0.6f)
-                    } else {
-                        Color(0xFF154B87).copy(alpha = 0.6f)
-                    }),
-                    blurRadius = 24.dp,
-                    noiseFactor = 0.05f
-                )
-            )
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.12f),
-                shape = RoundedCornerShape(32.dp)
-            )
+    BlurView(
+        modifier = modifier,
+        blurRadius = blurRadius,
+        tint = if (darkTheme) {
+            Color(0xFF1E293B).copy(alpha = 0.6f)
+        } else {
+            Color(0xFF154B87).copy(alpha = 0.6f)
+        },
+        shape = RoundedCornerShape(32.dp)
     ) {
-        content()
+        Box(
+            modifier = Modifier
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(32.dp)
+                )
+        ) {
+            content()
+        }
     }
 }
 
