@@ -14,11 +14,18 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import android.annotation.SuppressLint
+import androidx.core.view.isEmpty
+import androidx.core.net.toUri
+import androidx.core.graphics.toColorInt
 import androidx.recyclerview.widget.RecyclerView
 import com.messenger.prime.databinding.ItemChatBinding
 import com.messenger.prime.databinding.ItemChatFooterBinding
 import com.messenger.prime.databinding.ItemChatIslandHeaderBinding
 import android.graphics.BitmapFactory
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListUpdateCallback
+import kotlin.math.abs
 
 class ChatListAdapter(
     private var chatList: List<ChatModel>,
@@ -31,7 +38,7 @@ class ChatListAdapter(
     private val onHeaderSearchClick: () -> Unit,
     private val onNameClick: () -> Unit,
     private val onChatClick: (ChatModel) -> Unit,
-    private val onDeleteClick: (ChatModel, Int) -> Unit
+    private val onDeleteClick: (ChatModel, Int) -> Unit,
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -45,6 +52,36 @@ class ChatListAdapter(
 
     class ChatViewHolder(val binding: ItemChatBinding) : RecyclerView.ViewHolder(binding.root) {
         var isRevealed = false
+        var typingRunnable: Runnable? = null
+        var typingDotsCount = 0
+        var isTypingAnimationRunning = false
+        var currentBaseText = "Печатает"
+        val handler = Handler(Looper.getMainLooper())
+
+        @SuppressLint("SetTextI18n")
+        fun startTypingAnimation(baseText: String = "Печатает") {
+            if ((isTypingAnimationRunning && currentBaseText == baseText)) return
+            stopTypingAnimation()
+            
+            isTypingAnimationRunning = true
+            currentBaseText = baseText
+            typingDotsCount = 0
+            typingRunnable = object : Runnable {
+                override fun run() {
+                    typingDotsCount = (typingDotsCount + 1) % 4
+                    val dots = ".".repeat(typingDotsCount)
+                    binding.tvLastMessage.text = "$currentBaseText$dots"
+                    handler.postDelayed(this, 300)
+                }
+            }
+            handler.post(typingRunnable!!)
+        }
+
+        fun stopTypingAnimation() {
+            isTypingAnimationRunning = false
+            typingRunnable?.let { handler.removeCallbacks(it) }
+            typingRunnable = null
+        }
         
         fun resetReveal() {
             binding.layoutContent.animate().cancel()
@@ -71,6 +108,7 @@ class ChatListAdapter(
 
         private var currentUserName = ""
         private var networkHint = "Прайм"
+        private var currentlyShowingText = ""
 
         fun bind(avatarUri: String?, userName: String, netHint: String, onAvatarClick: () -> Unit, onAvatarLongClick: () -> Unit, onSearchClick: () -> Unit, onNameClick: () -> Unit) {
             currentUserName = userName
@@ -88,7 +126,7 @@ class ChatListAdapter(
                             loaded = true
                         }
                     }
-                } catch (e: Exception) {}
+                } catch (_: Exception) {}
                 
                 if (loaded) {
                     binding.tvHeaderInitials.visibility = View.GONE
@@ -128,7 +166,7 @@ class ChatListAdapter(
 
             binding.btnHeaderSearch.setOnClickListener { onSearchClick() }
             
-            if (binding.tsHeaderTitle.childCount == 0) {
+            if (binding.tsHeaderTitle.isEmpty()) {
                 binding.tsHeaderTitle.setFactory {
                     TextView(binding.root.context).apply {
                         gravity = Gravity.START or Gravity.CENTER_VERTICAL
@@ -143,7 +181,7 @@ class ChatListAdapter(
                 }
             }
             
-            updateTitle()
+            updateTitle(animate = false)
             binding.tsHeaderTitle.setOnClickListener { 
                 if (isShowingName) onNameClick() 
             }
@@ -152,11 +190,20 @@ class ChatListAdapter(
             handler.postDelayed(switchRunnable, 5000)
         }
 
-        private fun updateTitle() {
-            if (networkHint != "Прайм" && networkHint != "ПОИСК") {
-                binding.tsHeaderTitle.setText(networkHint)
+        private fun updateTitle(animate: Boolean = true) {
+            val textToSet = if (networkHint != "Прайм" && networkHint != "ПОИСК") {
+                networkHint
             } else {
-                binding.tsHeaderTitle.setText(if (isShowingName) currentUserName else "Прайм")
+                if (isShowingName) currentUserName else "Прайм"
+            }
+            
+            if (currentlyShowingText != textToSet) {
+                currentlyShowingText = textToSet
+                if (animate) {
+                    binding.tsHeaderTitle.setText(textToSet)
+                } else {
+                    binding.tsHeaderTitle.setCurrentText(textToSet)
+                }
             }
         }
 
@@ -167,8 +214,8 @@ class ChatListAdapter(
         private fun getAvatarColor(name: String): Int {
             val colors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFEB3B", "#FFC107", "#FF9800", "#FF5722")
             val hash = name.hashCode()
-            val index = (if (hash == Int.MIN_VALUE) 0 else Math.abs(hash)) % colors.size
-            return Color.parseColor(colors[index])
+            val index = (if (hash == Int.MIN_VALUE) 0 else abs(hash)) % colors.size
+            return colors[index].toColorInt()
         }
     }
 
@@ -231,30 +278,34 @@ class ChatListAdapter(
 
                 binding.tvContactName.text = chat.name
                 if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
-                    binding.tvLastMessage.text = "Отправка медиа"
+                    holder.startTypingAnimation("Отправка медиа")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("VIEWING_PHOTO".equals(chat.activityState, ignoreCase = true)) {
+                    holder.stopTypingAnimation()
                     binding.tvLastMessage.text = "Смотрит фото"
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("VIEWING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
+                    holder.stopTypingAnimation()
                     binding.tvLastMessage.text = "Смотрит видео"
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
-                    binding.tvLastMessage.text = "Отправка файла"
+                    holder.startTypingAnimation("Отправка файла")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("VIEWING_FILE".equals(chat.activityState, ignoreCase = true)) {
+                    holder.stopTypingAnimation()
                     binding.tvLastMessage.text = "Смотрит файл"
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if (isCurrentlyTyping || (chat.isTyping && chat.typingUntil > now)) {
-                    binding.tvLastMessage.text = "Печатает..."
+                    holder.startTypingAnimation("Печатает")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else {
+                    holder.stopTypingAnimation()
                     binding.tvLastMessage.text = chat.lastMessage
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_text_secondary))
                     binding.tvLastMessage.setTypeface(null, Typeface.NORMAL)
@@ -267,9 +318,9 @@ class ChatListAdapter(
                     binding.tvUserInitials.visibility = View.GONE
                 } else {
                     var avatarLoaded = false
-                    if (chat.avatarUri != null && chat.avatarUri.isNotEmpty()) {
+                    if (!chat.avatarUri.isNullOrEmpty()) {
                         try {
-                            val uri = Uri.parse(chat.avatarUri)
+                            val uri = chat.avatarUri.toUri()
                             val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
                             if (file != null && file.exists()) {
                                 val bmp = BitmapFactory.decodeFile(file.absolutePath)
@@ -397,16 +448,50 @@ class ChatListAdapter(
 
     override fun onViewDetachedFromWindow(holder: RecyclerView.ViewHolder) {
         super.onViewDetachedFromWindow(holder)
-        if (holder is HeaderViewHolder) {
-            holder.stopAnimation()
+        when (holder) {
+            is HeaderViewHolder -> holder.stopAnimation()
+            is ChatViewHolder -> holder.stopTypingAnimation()
+        }
+    }
+
+    override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
+        super.onViewRecycled(holder)
+        if (holder is ChatViewHolder) {
+            holder.stopTypingAnimation()
         }
     }
 
     override fun getItemCount(): Int = if (isSearchActive) chatList.size + 1 else chatList.size + 2
 
     fun updateList(newList: List<ChatModel>, notify: Boolean = true) {
+        if (!notify) {
+            chatList = ArrayList(newList)
+            return
+        }
+        val diffCallback = object : DiffUtil.Callback() {
+            override fun getOldListSize() = chatList.size
+            override fun getNewListSize() = newList.size
+            override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int) = chatList[oldItemPosition].id == newList[newItemPosition].id
+            override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int) = chatList[oldItemPosition] == newList[newItemPosition]
+        }
+        val diffResult = DiffUtil.calculateDiff(diffCallback)
         chatList = ArrayList(newList)
-        if (notify) notifyDataSetChanged()
+        
+        val offset = if (isSearchActive) 0 else 1
+        diffResult.dispatchUpdatesTo(object : ListUpdateCallback {
+            override fun onInserted(position: Int, count: Int) {
+                notifyItemRangeInserted(position + offset, count)
+            }
+            override fun onRemoved(position: Int, count: Int) {
+                notifyItemRangeRemoved(position + offset, count)
+            }
+            override fun onMoved(fromPosition: Int, toPosition: Int) {
+                notifyItemMoved(fromPosition + offset, toPosition + offset)
+            }
+            override fun onChanged(position: Int, count: Int, payload: Any?) {
+                notifyItemRangeChanged(position + offset, count, payload)
+            }
+        })
     }
 
     fun getChatList(): List<ChatModel> = chatList
@@ -457,6 +542,6 @@ class ChatListAdapter(
         val colors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFEB3B", "#FFC107", "#FF9800", "#FF5722")
         val hash = name.hashCode()
         val index = (if (hash == Int.MIN_VALUE) 0 else Math.abs(hash)) % colors.size
-        return Color.parseColor(colors[index])
+        return colors[index].toColorInt()
     }
 }

@@ -1,6 +1,5 @@
 package com.messenger.prime
 
-import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context

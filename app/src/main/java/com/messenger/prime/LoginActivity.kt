@@ -33,6 +33,7 @@ import com.messenger.prime.databinding.ActivityLoginContentBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrPosition
+import kotlin.math.max
 
 
 class LoginActivity : AppCompatActivity() {
@@ -89,11 +90,13 @@ class LoginActivity : AppCompatActivity() {
                                 titleParams.topMargin = systemBarsInsets.top + (80 * resources.displayMetrics.density).toInt()
                                 b.tvTitle.layoutParams = titleParams
 
-                                v.setPadding(0, 0, 0, Math.max(systemBarsInsets.bottom, imeInsets.bottom))
+                                v.setPadding(0, 0, 0,
+                                    max(systemBarsInsets.bottom, imeInsets.bottom)
+                                )
                                 windowInsets
                             }
 
-                            val contentViews = listOf<View>(b.tvTitle, b.tvSubtitle, b.inputLayoutLogin)
+                            val contentViews = listOf(b.tvTitle, b.tvSubtitle, b.inputLayoutLogin)
                             contentViews.forEach { it.alpha = 1f }
 
                             b.btnBack.setOnClickListener {
@@ -118,7 +121,7 @@ class LoginActivity : AppCompatActivity() {
                                     return@setOnClickListener
                                 }
 
-                                val error = ValidationUtils.getValidationError(login, true)
+                                val error = ValidationUtils.getValidationError(login, isLogin = true)
                                 if (error != null) {
                                     b.inputLayoutLogin.error = error
                                     b.inputLayoutLogin.shake()
@@ -238,7 +241,7 @@ class LoginActivity : AppCompatActivity() {
 
     private fun showKeyboard(view: View) {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
+        imm.showSoftInput(view, 0)
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {

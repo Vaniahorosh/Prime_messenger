@@ -71,7 +71,7 @@ public class ChatHistoryManager {
                         String name = f.getName().toLowerCase();
                         for (String tKey : keysToDelete) {
                             String lowerKey = tKey.toLowerCase();
-                            if (name.contains(lowerKey) || name.equals("avatar_" + lowerKey + ".jpg")) {
+                            if (name.equals("avatar_" + lowerKey + ".jpg") || name.startsWith("rec_media_" + lowerKey) || name.startsWith("rec_photo_" + lowerKey)) {
                                 f.delete();
                             }
                         }
@@ -85,7 +85,8 @@ public class ChatHistoryManager {
                     for (File f : cacheFiles) {
                         String name = f.getName().toLowerCase();
                         for (String tKey : keysToDelete) {
-                            if (name.contains(tKey.toLowerCase())) {
+                            String lowerKey = tKey.toLowerCase();
+                            if (name.equals("avatar_" + lowerKey + ".jpg") || name.startsWith("rec_media_" + lowerKey) || name.startsWith("rec_photo_" + lowerKey)) {
                                 f.delete();
                             }
                         }

@@ -4,11 +4,13 @@ import android.Manifest;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
@@ -44,6 +46,11 @@ import android.view.GestureDetector;
 
 import android.view.HapticFeedbackConstants;
 import android.view.animation.AccelerateInterpolator;
+import android.transition.AutoTransition;
+import android.transition.ChangeBounds;
+import android.transition.Fade;
+import android.transition.TransitionManager;
+import android.transition.TransitionSet;
 import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.InputMethodManager;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -109,6 +116,8 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.graphics.Insets;
+import androidx.recyclerview.widget.SimpleItemAnimator;
+
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -123,6 +132,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Queue;
 import java.util.UUID;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -182,6 +194,7 @@ public class ChatPersonActivity extends AppCompatActivity {
     }
 
     private final Queue<PendingMessage> pendingMessageQueue = new ConcurrentLinkedQueue<>();
+    private final ExecutorService ioExecutor = Executors.newCachedThreadPool();
 
     private String targetUsername;
     private String deviceAddress;
@@ -385,7 +398,7 @@ public class ChatPersonActivity extends AppCompatActivity {
     @SuppressLint("InlinedApi")
     private final ActivityResultLauncher<String[]> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
-                boolean connectGranted = Boolean.TRUE.equals(result.getOrDefault(Manifest.permission.BLUETOOTH_CONNECT, false));
+                boolean connectGranted = Objects.equals(result.getOrDefault(Manifest.permission.BLUETOOTH_CONNECT, false), Boolean.TRUE);
                 if (connectGranted || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
                     if (pendingRoleAsServer != null) {
                         isServer = pendingRoleAsServer;
@@ -519,6 +532,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        // Deprecated below 30
         getWindow().setStatusBarColor(Color.TRANSPARENT);
         getWindow().setNavigationBarColor(Color.TRANSPARENT);
 
@@ -634,6 +648,13 @@ public class ChatPersonActivity extends AppCompatActivity {
         tvChatStatus = findViewById(R.id.tvChatStatus);
         tvFloatingDate = findViewById(R.id.tvFloatingDate);
         rvMessages = findViewById(R.id.rvMessages);
+        
+        rvMessages.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (bottom < oldBottom && chatAdapter != null && chatAdapter.getItemCount() > 0) {
+                rvMessages.postDelayed(() -> rvMessages.smoothScrollToPosition(chatAdapter.getItemCount() - 1), 100);
+            }
+        });
+
         etMessage = findViewById(R.id.etMessage);
         ImageButton btnSend = findViewById(R.id.btnSend);
         ImageButton btnBack = findViewById(R.id.btnBack);
@@ -745,7 +766,17 @@ public class ChatPersonActivity extends AppCompatActivity {
         layoutManager.setStackFromEnd(true);
         rvMessages.setLayoutManager(layoutManager);
         rvMessages.setAdapter(chatAdapter);
+        
+        RecyclerView.ItemAnimator animator = rvMessages.getItemAnimator();
+        if (animator instanceof SimpleItemAnimator) {
+            ((SimpleItemAnimator) animator).setSupportsChangeAnimations(false);
+        }
+        if (animator != null) {
+            animator.setAddDuration(150);
+            animator.setRemoveDuration(150);
+        }
 
+        rvMessages.setItemViewCacheSize(20);
         ItemTouchHelper.SimpleCallback swipeToReplyCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
             private boolean hapticTriggered = false;
 
@@ -1282,13 +1313,13 @@ public class ChatPersonActivity extends AppCompatActivity {
                                 String updatedText = editData.substring(editSep + 3);
                                 chatAdapter.updateMessageById(editMsgId, updatedText);
                                 ChatMessage newLast = chatAdapter.getLastMessage();
-                                if (newLast != null && editMsgId.equals(newLast.getMessageId())) {
+                                if (Objects.equals(editMsgId, newLast.getMessageId())) {
                                     saveLastMessageToChatList(updatedText);
                                 }
                                 
                                 List<ChatMessage> history = ChatHistoryManager.loadMessages(ChatPersonActivity.this, targetUsername);
                                 for (ChatMessage m : history) {
-                                    if (editMsgId.equals(m.getMessageId())) {
+                                    if (Objects.equals(editMsgId, m.getMessageId())) {
                                         m.setEdited(true);
                                         m.setText(updatedText);
                                         ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, m);
@@ -1322,7 +1353,8 @@ public class ChatPersonActivity extends AppCompatActivity {
                         deleteChatFromChatListEx(targetUsername);
 
                         try {
-                            BluetoothAdapter bAdapter = BluetoothAdapter.getDefaultAdapter();
+                            BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+            BluetoothAdapter bAdapter = bluetoothManager.getAdapter();
                             if (bAdapter != null && bAdapter.isEnabled() && deviceAddress != null) {
                                 BluetoothDevice device = bAdapter.getRemoteDevice(deviceAddress);
                                 Method removeBondMethod = device.getClass().getMethod("removeBond");
@@ -1347,7 +1379,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                             
                             List<ChatMessage> history = ChatHistoryManager.loadMessages(ChatPersonActivity.this, targetUsername);
                             for (ChatMessage m : history) {
-                                if (readMsgId.equals(m.getMessageId())) {
+                                if (Objects.equals(readMsgId, m.getMessageId())) {
                                     m.setMessageStatus(MessageStatus.READ);
                                     ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, m);
                                     break;
@@ -1491,7 +1523,7 @@ public class ChatPersonActivity extends AppCompatActivity {
 
                 List<ChatMessage> editHistory = ChatHistoryManager.loadMessages(ChatPersonActivity.this, targetUsername);
                 for (ChatMessage m : editHistory) {
-                    if (editingMessageId.equals(m.getMessageId())) {
+                    if (Objects.equals(editingMessageId, m.getMessageId())) {
                         m.setEdited(true);
                         m.setText(text);
                         ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, m);
@@ -1513,7 +1545,7 @@ public class ChatPersonActivity extends AppCompatActivity {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 senderTypingHandler.removeCallbacks(stopSenderTypingRunnable);
-                boolean hasText = s != null && s.toString().trim().length() > 0;
+                boolean hasText = s != null && !s.toString().trim().isEmpty();
                 if (!hasText) {
                     if ("TYPING".equalsIgnoreCase(myLocalActivityState)) {
                         sendActivityState("IDLE");
@@ -1540,7 +1572,8 @@ public class ChatPersonActivity extends AppCompatActivity {
         }
 
         // Настройка Bluetooth
-        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        bluetoothAdapter = bluetoothManager.getAdapter();
         if (bluetoothAdapter == null) {
             Toast.makeText(this, "Bluetooth не поддерживается (Эмулятор)", Toast.LENGTH_SHORT).show();
             setupMockMode();
@@ -1716,7 +1749,7 @@ public class ChatPersonActivity extends AppCompatActivity {
             List<ChatMessage> history = ChatHistoryManager.loadMessages(this, targetUsername);
             if (!history.isEmpty() || oldSize == 0) {
                 chatAdapter.setMessages(history);
-                if (history.size() > oldSize && history.size() > 0) {
+                if (history.size() > oldSize && !history.isEmpty()) {
                     rvMessages.scrollToPosition(history.size() - 1);
                 }
             }
@@ -1920,6 +1953,16 @@ public class ChatPersonActivity extends AppCompatActivity {
         PrimeNotification.INSTANCE.show(this, "Соединение отключено", null);
     }
 
+    private void beginLayoutTransition(ViewGroup parent) {
+        if (parent == null) return;
+        TransitionSet transition = new TransitionSet();
+        transition.addTransition(new Fade());
+        transition.addTransition(new ChangeBounds());
+        transition.setDuration(220);
+        transition.setInterpolator(new DecelerateInterpolator());
+        TransitionManager.beginDelayedTransition(parent, transition);
+    }
+
     private void enterEditMode(ChatMessage message, int position) {
         if (message == null || message.getMessageId() == null) return;
         isEditMode = true;
@@ -1939,16 +1982,8 @@ public class ChatPersonActivity extends AppCompatActivity {
         if (btnCancelEdit != null) btnCancelEdit.setVisibility(View.VISIBLE);
 
         if (layoutEditBar != null) {
+            beginLayoutTransition((ViewGroup) layoutEditBar.getParent());
             layoutEditBar.setVisibility(View.VISIBLE);
-            layoutEditBar.setTranslationY(-30f);
-            layoutEditBar.setAlpha(0f);
-            layoutEditBar.animate()
-                    .translationY(0f)
-                    .alpha(1f)
-                    .setDuration(220)
-                    .setInterpolator(new DecelerateInterpolator())
-                    .withEndAction(this::updateMessageListPadding)
-                    .start();
         }
         updateMessageListPadding();
     }
@@ -1957,18 +1992,9 @@ public class ChatPersonActivity extends AppCompatActivity {
         isEditMode = false;
         editingMessageId = null;
 
-        if (layoutEditBar != null && layoutEditBar.getVisibility() == View.VISIBLE) {
-            layoutEditBar.animate()
-                    .translationY(-30f)
-                    .alpha(0f)
-                    .setDuration(180)
-                    .withEndAction(() -> {
-                        layoutEditBar.setVisibility(View.GONE);
-                        layoutEditBar.setTranslationY(0f);
-                        layoutEditBar.setAlpha(1f);
-                        updateMessageListPadding();
-                    })
-                    .start();
+        if (layoutEditBar != null) {
+            beginLayoutTransition((ViewGroup) layoutEditBar.getParent());
+            layoutEditBar.setVisibility(View.GONE);
         }
 
         if (btnCancelEdit != null) btnCancelEdit.setVisibility(View.GONE);
@@ -2066,21 +2092,11 @@ public class ChatPersonActivity extends AppCompatActivity {
     private void cancelReplyMode() {
         replyingToMessage = null;
         replyingToText = null;
-        if (layoutReplyBar != null && layoutReplyBar.getVisibility() == View.VISIBLE) {
-            layoutReplyBar.animate()
-                    .translationY(-30f)
-                    .alpha(0f)
-                    .setDuration(180)
-                    .withEndAction(() -> {
-                        layoutReplyBar.setVisibility(View.GONE);
-                        layoutReplyBar.setTranslationY(0f);
-                        layoutReplyBar.setAlpha(1f);
-                        updateMessageListPadding();
-                    })
-                    .start();
-        } else {
-            updateMessageListPadding();
+        if (layoutReplyBar != null) {
+            beginLayoutTransition((ViewGroup) layoutReplyBar.getParent());
+            layoutReplyBar.setVisibility(View.GONE);
         }
+        updateMessageListPadding();
     }
 
     private void showForwardDialog(ChatMessage messageToForward) {
@@ -2348,10 +2364,16 @@ public class ChatPersonActivity extends AppCompatActivity {
     }
 
     private void setStatusWithAnimation(String newText, int colorResOrValue) {
-        stopAnimatingStatus();
+        setStatusWithAnimation(newText, colorResOrValue, true);
+    }
+
+    private void setStatusWithAnimation(String newText, int colorResOrValue, boolean stopAnimation) {
+        if (stopAnimation) {
+            stopAnimatingStatus();
+        }
         if (tvChatStatus == null) return;
         CharSequence currentText = tvChatStatus.getText();
-        if (currentText != null && currentText.toString().equals(newText)) return;
+        if (currentText != null && Objects.equals(currentText.toString(), newText)) return;
 
         int textColor = resolveColor(colorResOrValue);
         tvChatStatus.animate()
@@ -2401,7 +2423,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                 sb.append(".");
             }
             setStatusTextDirect(sb.toString(), currentStatusColor);
-            statusAnimHandler.postDelayed(this, 500);
+            statusAnimHandler.postDelayed(this, 300);
         }
     };
 
@@ -2417,8 +2439,8 @@ public class ChatPersonActivity extends AppCompatActivity {
         currentBaseStatus = baseStatus;
         currentStatusColor = resolveColor(colorResOrValue);
         statusDotCount = 0;
-        setStatusWithAnimation(baseStatus, currentStatusColor);
-        statusAnimHandler.postDelayed(statusAnimRunnable, 500);
+        setStatusWithAnimation(baseStatus, currentStatusColor, false);
+        statusAnimHandler.postDelayed(statusAnimRunnable, 300);
     }
 
     private void stopAnimatingStatus() {
@@ -2556,7 +2578,8 @@ public class ChatPersonActivity extends AppCompatActivity {
                     PrimeBluetoothService.stopService(this);
                     
                     try {
-                        BluetoothAdapter bAdapter = BluetoothAdapter.getDefaultAdapter();
+                        BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothAdapter bAdapter = bluetoothManager.getAdapter();
                         if (bAdapter != null && bAdapter.isEnabled() && deviceAddress != null) {
                             BluetoothDevice device = bAdapter.getRemoteDevice(deviceAddress);
                             Method removeBondMethod = device.getClass().getMethod("removeBond");
@@ -2987,7 +3010,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                 }
             }
 
-            if (localAvatarUri != null && !localAvatarUri.isEmpty()) {
+            if (!localAvatarUri.isEmpty()) {
                 InputStream is = getContentResolver().openInputStream(Uri.parse(localAvatarUri));
                 if (is != null) {
                     Bitmap bitmap = BitmapFactory.decodeStream(is);
@@ -3103,7 +3126,7 @@ public class ChatPersonActivity extends AppCompatActivity {
 
             // Асимметричное определение роли по уникальному ID/MAC для полного исключения коллизий (Race condition)
             String myMacOrId = BluetoothSocketHolder.getLocalDeviceId(this);
-            if (myMacOrId == null || myMacOrId.isEmpty()) {
+            if (!myMacOrId.isEmpty()) {
                 myMacOrId = currentUser.toLowerCase(Locale.ROOT);
             }
             
@@ -3244,7 +3267,9 @@ public class ChatPersonActivity extends AppCompatActivity {
     @Override
     public void finish() {
         super.finish();
-        if (Build.VERSION.SDK_INT < 34) {
+        if (Build.VERSION.SDK_INT >= 34) {
+            overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right);
+        } else {
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
         }
     }
@@ -3340,6 +3365,9 @@ public class ChatPersonActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        try {
+            if (ioExecutor != null) ioExecutor.shutdownNow();
+        } catch (Exception ignored) {}
         try {
             getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                     .unregisterOnSharedPreferenceChangeListener(profileChangeListener);
@@ -3637,7 +3665,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                                 remoteName = data;
                             }
                             
-                            if (!remoteName.isEmpty() && !remoteName.equals(targetUsername)) {
+                            if (!remoteName.isEmpty() && !Objects.equals(remoteName, targetUsername)) {
                                 String oldTarget = targetUsername;
                                 targetUsername = remoteName;
                                 try {
@@ -3760,7 +3788,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                                 remoteName = data;
                             }
                             
-                            if (!remoteName.isEmpty() && !remoteName.equals(targetUsername)) {
+                            if (!remoteName.isEmpty() && !Objects.equals(remoteName, targetUsername)) {
                                 String oldTarget = targetUsername;
                                 targetUsername = remoteName;
                                 try {
@@ -4204,7 +4232,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         try {
             InputStream is = null;
             if (pending.path != null && new File(pending.path).exists()) {
-                is = new FileInputStream(new File(pending.path));
+                is = Files.newInputStream(Paths.get(pending.path));
             } else if (pending.uri != null) {
                 is = getContentResolver().openInputStream(pending.uri);
             }
@@ -4313,7 +4341,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         ChatMessage msg = new ChatMessage(text, time, sender, false, null, timestamp, localSavedPath, msgId);
 
         String lowerName = fileName.toLowerCase();
-        boolean isVideo = (videoDuration != null && !videoDuration.equals("00:00")) || lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".3gp") || lowerName.endsWith(".webm");
+        boolean isVideo = (videoDuration != null && !Objects.equals(videoDuration, "00:00")) || lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".3gp") || lowerName.endsWith(".webm");
 
         if (isVideo) {
             msg.setMessageType(ChatMessage.MessageType.VIDEO);
@@ -5149,11 +5177,10 @@ public class ChatPersonActivity extends AppCompatActivity {
                 return BitmapFactory.decodeFile(path);
             }
             if (uri != null) {
-                InputStream is = getContentResolver().openInputStream(uri);
-                if (is != null) {
-                    Bitmap bmp = BitmapFactory.decodeStream(is);
-                    is.close();
-                    return bmp;
+                try (InputStream is = getContentResolver().openInputStream(uri)) {
+                    if (is != null) {
+                        return BitmapFactory.decodeStream(is);
+                    }
                 }
             }
         } catch (Exception ignored) {}
@@ -5161,18 +5188,20 @@ public class ChatPersonActivity extends AppCompatActivity {
     }
 
     private Bitmap getVideoThumbnail(String pathOrUri) {
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         try {
-            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
             if (pathOrUri.startsWith("content://")) {
                 retriever.setDataSource(this, Uri.parse(pathOrUri));
             } else {
                 retriever.setDataSource(pathOrUri);
             }
-            Bitmap bmp = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
-            retriever.release();
-            return bmp;
+            return retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
         } catch (Exception e) {
             return null;
+        } finally {
+            try {
+                retriever.release();
+            } catch (Exception ignored) {}
         }
     }
 
@@ -5240,7 +5269,7 @@ public class ChatPersonActivity extends AppCompatActivity {
     }
 
     private void loadGalleryMediaAsync() {
-        Executors.newSingleThreadExecutor().execute(() -> {
+        ioExecutor.execute(() -> {
             List<MediaItem> list = new ArrayList<>();
             Uri queryUri = MediaStore.Files.getContentUri("external");
             String[] projection = new String[] {
@@ -5304,7 +5333,7 @@ public class ChatPersonActivity extends AppCompatActivity {
     }
 
     private void loadFilesAsync() {
-        Executors.newSingleThreadExecutor().execute(() -> {
+        ioExecutor.execute(() -> {
             List<FileItem> list = new ArrayList<>();
             Uri queryUri = MediaStore.Files.getContentUri("external");
             String[] projection = new String[] {
@@ -5419,7 +5448,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                 galleryThumbnailCache.put(cacheKey, thumb);
                 final Bitmap finalThumb = thumb;
                 runOnUiThread(() -> {
-                    if (cacheKey.equals(imageView.getTag())) {
+                    if (Objects.equals(cacheKey, imageView.getTag())) {
                         imageView.setImageBitmap(finalThumb);
                     }
                 });

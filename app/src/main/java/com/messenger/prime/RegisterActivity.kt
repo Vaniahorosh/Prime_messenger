@@ -1,6 +1,5 @@
 package com.messenger.prime
 
-import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
@@ -32,6 +31,7 @@ import com.messenger.prime.databinding.ActivityRegisterContentBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrPosition
+import kotlin.math.max
 
 
 class RegisterActivity : AppCompatActivity() {
@@ -108,11 +108,13 @@ class RegisterActivity : AppCompatActivity() {
                                 headerParams.topMargin = systemBarsInsets.top + (56 * resources.displayMetrics.density).toInt()
                                 b.tvWelcome.layoutParams = headerParams
                                 
-                                v.setPadding(0, 0, 0, Math.max(systemBarsInsets.bottom, imeInsets.bottom))
+                                v.setPadding(0, 0, 0,
+                                    max(systemBarsInsets.bottom, imeInsets.bottom)
+                                )
                                 windowInsets
                             }
 
-                            val contentViews = listOf<View>(b.cvAvatar, b.inputLayoutName, b.inputLayoutPassword, b.tvPasswordHint, b.btnForward)
+                            val contentViews = listOf(b.cvAvatar, b.inputLayoutName, b.inputLayoutPassword, b.tvPasswordHint, b.btnForward)
                             contentViews.forEach { it.alpha = 1f }
                             b.tvWelcome.alpha = 1f
                             b.tvWelcome.text = "Будем знакомы, $userLogin!"

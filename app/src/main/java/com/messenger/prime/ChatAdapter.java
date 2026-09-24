@@ -13,6 +13,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.media.MediaMetadataRetriever;
+import androidx.recyclerview.widget.DiffUtil;
+import java.util.Objects;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.method.LinkMovementMethod;
@@ -35,6 +37,8 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
+import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -134,8 +138,38 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public void setMessages(List<ChatMessage> newMessages) {
-        this.messages = new ArrayList<>(newMessages != null ? newMessages : new ArrayList<>());
-        notifyDataSetChanged();
+        List<ChatMessage> oldMessages = new ArrayList<>(this.messages);
+        List<ChatMessage> incomingMessages = newMessages != null ? newMessages : new ArrayList<>();
+        
+        DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override
+            public int getOldListSize() {
+                return oldMessages.size();
+            }
+
+            @Override
+            public int getNewListSize() {
+                return incomingMessages.size();
+            }
+
+            @Override
+            public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
+                return Objects.equals(oldMessages.get(oldItemPosition).getMessageId(), incomingMessages.get(newItemPosition).getMessageId());
+            }
+
+            @Override
+            public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
+                ChatMessage oldItem = oldMessages.get(oldItemPosition);
+                ChatMessage newItem = incomingMessages.get(newItemPosition);
+                return Objects.equals(oldItem.getText(), newItem.getText()) &&
+                       oldItem.getMessageStatus() == newItem.getMessageStatus() &&
+                       Objects.equals(oldItem.getReaction(), newItem.getReaction()) &&
+                       oldItem.isEdited() == newItem.isEdited();
+            }
+        });
+        
+        this.messages = new ArrayList<>(incomingMessages);
+        diffResult.dispatchUpdatesTo(this);
     }
 
     public ChatMessage getLastMessage() {
@@ -1247,6 +1281,22 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 }
             }
 
+            GestureDetector doubleTapDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
+                @Override
+                public boolean onDoubleTap(@NonNull MotionEvent e) {
+                    if (isConnectionActive && actionListener != null) {
+                        actionListener.onQuickReaction(message, "❤️", position);
+                        itemView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                        return true;
+                    }
+                    return false;
+                }
+            });
+            itemView.setOnTouchListener((v, event) -> {
+                doubleTapDetector.onTouchEvent(event);
+                return false;
+            });
+
             itemView.setOnLongClickListener(v -> {
                 if (!isConnectionActive) {
                     if (v.getContext() instanceof Activity) {
@@ -1499,6 +1549,22 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     });
                 }
             }
+
+            GestureDetector doubleTapDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
+                @Override
+                public boolean onDoubleTap(@NonNull MotionEvent e) {
+                    if (isConnectionActive && actionListener != null) {
+                        actionListener.onQuickReaction(message, "❤️", position);
+                        itemView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                        return true;
+                    }
+                    return false;
+                }
+            });
+            itemView.setOnTouchListener((v, event) -> {
+                doubleTapDetector.onTouchEvent(event);
+                return false;
+            });
 
             itemView.setOnLongClickListener(v -> {
                 if (!isConnectionActive) {
