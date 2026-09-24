@@ -32,6 +32,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 
+import eightbitlab.com.blurview.BlurView;
 import java.lang.reflect.Method;
 import java.util.Set;
 
@@ -214,9 +215,10 @@ public class ChatPersonActivity extends AppCompatActivity {
     private TextView tvReplyBarText;
     private ImageButton btnCloseReplyBar;
     private ChatMessage replyingToMessage = null;
+    private String replyingToText = null;
 
     // Attachment Panel & Pending Attachment Views
-    private LinearLayout layoutAttachmentPanel;
+    private FrameLayout layoutAttachmentPanel;
     private LinearLayout layoutPendingAttachment;
     private RecyclerView rvPendingCards;
     private PendingCardsAdapter pendingCardsAdapter;
@@ -561,6 +563,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         });
         
         UIExtensionsKt.setupEdgeToEdge(this, !isDarkTheme);
+        setupChatBlurViews();
 
         View chatRoot = findViewById(R.id.chatRoot);
         if (chatRoot != null) {
@@ -571,12 +574,13 @@ public class ChatPersonActivity extends AppCompatActivity {
                     closeAttachmentPanel();
                 }
                 float density = getResources().getDisplayMetrics().density;
+                int statusBarTop = systemBars.top > 0 ? systemBars.top : getStatusBarHeight();
 
                 View vTopGradient = findViewById(R.id.vTopGradient);
                 if (vTopGradient != null) {
                     ViewGroup.LayoutParams lp = vTopGradient.getLayoutParams();
                     if (lp != null) {
-                        lp.height = systemBars.top + (int) (36 * density);
+                        lp.height = statusBarTop + (int) (56 * density);
                         vTopGradient.setLayoutParams(lp);
                     }
                     vTopGradient.setBackgroundResource(isDarkTheme ? R.drawable.bg_top_fog_dark : R.drawable.bg_top_fog_light);
@@ -596,7 +600,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                 if (layoutHeader != null) {
                     ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) layoutHeader.getLayoutParams();
                     if (lp != null) {
-                        lp.topMargin = systemBars.top;
+                        lp.topMargin = statusBarTop + (int) (12 * density);
                         layoutHeader.setLayoutParams(lp);
                     }
                 }
@@ -614,7 +618,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                 if (tvFloatingDate != null) {
                     ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) tvFloatingDate.getLayoutParams();
                     if (lp != null) {
-                        lp.topMargin = systemBars.top + (int) (80 * density);
+                        lp.topMargin = statusBarTop + (int) (80 * density);
                         tvFloatingDate.setLayoutParams(lp);
                     }
                 }
@@ -623,6 +627,7 @@ public class ChatPersonActivity extends AppCompatActivity {
 
                 return insets;
             });
+            ViewCompat.requestApplyInsets(chatRoot);
         }
 
         tvChatName = findViewById(R.id.tvChatName);
@@ -920,7 +925,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                     connectedThread.sendPacket(TYPE_DELETE_MSG, message.getMessageId().getBytes(StandardCharsets.UTF_8));
                 }
                 
-                Intent deleteMsgIntent = new Intent("com.messenger.prime.MSG_DELETED");
+                Intent deleteMsgIntent = new Intent("com.messenger.prime.MSG_DELETED").setPackage(getPackageName());
                 deleteMsgIntent.putExtra("messageId", message.getMessageId());
                 sendBroadcast(deleteMsgIntent);
 
@@ -960,19 +965,40 @@ public class ChatPersonActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onReplyToSelectedText(ChatMessage message, String selectedText, int position) {
+                if (!isRemoteUserOnline || connectedThread == null || !connectedThread.isAlive()) {
+                    return;
+                }
+                enterReplyModeForSelectedText(message, selectedText);
+            }
+
+            @Override
+            public void onForwardMessage(ChatMessage message, int position) {
+                showForwardDialog(message);
+            }
+
+            @Override
             public void onCancelSending(ChatMessage message, int position) {
                 cancelCurrentFileSending();
             }
 
             @Override
             public void onJumpToMessage(String messageId) {
+                onJumpToMessage(messageId, null);
+            }
+
+            @Override
+            public void onJumpToMessage(String messageId, String quotedText) {
                 if (messageId == null || chatAdapter == null) return;
                 int pos = chatAdapter.findPositionByMessageId(messageId);
                 if (pos != -1) {
                     LinearLayoutManager lm = (LinearLayoutManager) rvMessages.getLayoutManager();
                     if (lm != null) {
                         lm.scrollToPositionWithOffset(pos, (int) (80 * getResources().getDisplayMetrics().density));
-                        rvMessages.postDelayed(() -> chatAdapter.highlightMessageAtPosition(pos), 200);
+                        rvMessages.postDelayed(() -> {
+                            chatAdapter.highlightMessageAtPosition(pos);
+                            chatAdapter.triggerHighlightAnimation(rvMessages, messageId, quotedText);
+                        }, 200);
                     }
                 } else {
                     PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Исходное сообщение не найдено", null);
@@ -1279,7 +1305,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                         String deletedByName = (msg.obj instanceof String) ? (String) msg.obj : targetUsername;
                         PrimeNotification.INSTANCE.show(ChatPersonActivity.this, deletedByName + " полностью удалил(а) переписку!", null);
                         
-                        Intent chatDeletedIntent = new Intent("com.messenger.prime.CHAT_DELETED");
+                        Intent chatDeletedIntent = new Intent("com.messenger.prime.CHAT_DELETED").setPackage(getPackageName());
                         sendBroadcast(chatDeletedIntent);
 
                         try {
@@ -1372,7 +1398,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                     case MESSAGE_DELETE_SINGLE:
                         String deletedMsgId = (String) msg.obj;
                         if (deletedMsgId != null && chatAdapter != null) {
-                            Intent deleteMsgIntent = new Intent("com.messenger.prime.MSG_DELETED");
+                            Intent deleteMsgIntent = new Intent("com.messenger.prime.MSG_DELETED").setPackage(getPackageName());
                             deleteMsgIntent.putExtra("messageId", deletedMsgId);
                             sendBroadcast(deleteMsgIntent);
 
@@ -1957,6 +1983,7 @@ public class ChatPersonActivity extends AppCompatActivity {
     private void enterReplyMode(ChatMessage message) {
         if (message == null) return;
         replyingToMessage = message;
+        replyingToText = null;
 
         if (isEditMode) {
             exitEditMode();
@@ -1995,8 +2022,50 @@ public class ChatPersonActivity extends AppCompatActivity {
         updateMessageListPadding();
     }
 
+    private void enterReplyModeForSelectedText(ChatMessage message, String selectedText) {
+        if (message == null || selectedText == null || selectedText.trim().isEmpty()) return;
+        replyingToMessage = message;
+        replyingToText = selectedText.trim();
+
+        if (isEditMode) {
+            exitEditMode();
+        }
+
+        if (layoutReplyBar != null) {
+            layoutReplyBar.setVisibility(View.VISIBLE);
+            layoutReplyBar.setTranslationY(-30f);
+            layoutReplyBar.setAlpha(0f);
+            layoutReplyBar.animate()
+                    .translationY(0f)
+                    .alpha(1f)
+                    .setDuration(220)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .withEndAction(this::updateMessageListPadding)
+                    .start();
+        }
+
+        if (tvReplyBarTitle != null) {
+            String sender = message.getSenderLogin();
+            tvReplyBarTitle.setText("Ответ: " + (sender != null && !sender.isEmpty() ? sender : "Пользователю"));
+        }
+
+        if (tvReplyBarText != null) {
+            tvReplyBarText.setText("\"" + replyingToText + "\"");
+        }
+
+        if (etMessage != null) {
+            etMessage.requestFocus();
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.showSoftInput(etMessage, InputMethodManager.SHOW_IMPLICIT);
+            }
+        }
+        updateMessageListPadding();
+    }
+
     private void cancelReplyMode() {
         replyingToMessage = null;
+        replyingToText = null;
         if (layoutReplyBar != null && layoutReplyBar.getVisibility() == View.VISIBLE) {
             layoutReplyBar.animate()
                     .translationY(-30f)
@@ -2014,6 +2083,108 @@ public class ChatPersonActivity extends AppCompatActivity {
         }
     }
 
+    private void showForwardDialog(ChatMessage messageToForward) {
+        if (messageToForward == null) return;
+
+        SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
+        String jsonChats = sharedPrefs.getString("persisted_chats", "[]");
+        List<String> chatNames = new ArrayList<>();
+
+        try {
+            JSONArray chatArray = new JSONArray(jsonChats);
+            for (int i = 0; i < chatArray.length(); i++) {
+                JSONObject obj = chatArray.getJSONObject(i);
+                String name = obj.optString("name", "");
+                if (!name.isEmpty() && !chatNames.contains(name)) {
+                    chatNames.add(name);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error reading persisted_chats for forward", e);
+        }
+
+        if (targetUsername != null && !targetUsername.isEmpty() && !chatNames.contains(targetUsername)) {
+            chatNames.add(0, targetUsername);
+        }
+
+        if (chatNames.isEmpty()) {
+            PrimeNotification.INSTANCE.show(this, "Нет доступных чатов для пересылки", null);
+            return;
+        }
+
+        String[] chatArray = chatNames.toArray(new String[0]);
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Переслать сообщение")
+                .setItems(chatArray, (dialog, which) -> {
+                    String selectedTarget = chatArray[which];
+                    forwardMessageToTarget(messageToForward, selectedTarget);
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    private void forwardMessageToTarget(ChatMessage messageToForward, String targetName) {
+        if (messageToForward == null || targetName == null || targetName.isEmpty()) return;
+
+        long timestamp = System.currentTimeMillis();
+        String timeStr = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(timestamp));
+        SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
+        String myLogin = sharedPrefs.getString("current_user", "");
+
+        boolean isCurrentChat = targetName.equalsIgnoreCase(targetUsername);
+
+        String forwardedText = messageToForward.getText();
+        if (forwardedText == null) forwardedText = "";
+
+        ChatMessage fwdMsg = new ChatMessage(
+                forwardedText,
+                timeStr,
+                myLogin,
+                isCurrentChat,
+                null,
+                timestamp,
+                messageToForward.getImagePath()
+        );
+        fwdMsg.setFileName(messageToForward.getFileName());
+        fwdMsg.setFileSize(messageToForward.getFileSize());
+        fwdMsg.setVideoDuration(messageToForward.getVideoDuration());
+        fwdMsg.setMessageType(messageToForward.getMessageType());
+        if (messageToForward.getMediaItems() != null && !messageToForward.getMediaItems().isEmpty()) {
+            fwdMsg.setMediaItems(messageToForward.getMediaItems());
+        }
+
+        fwdMsg.setReplyToSender(messageToForward.getSenderLogin() != null ? messageToForward.getSenderLogin() : "Сообщение");
+        fwdMsg.setReplyToText(forwardedText.isEmpty() ? "Вложение" : forwardedText);
+        fwdMsg.setReplyToMessageId(messageToForward.getMessageId());
+
+        if (isCurrentChat) {
+            if (chatAdapter != null) {
+                chatAdapter.addMessage(fwdMsg);
+                if (chatAdapter.getItemCount() > 0) {
+                    rvMessages.scrollToPosition(chatAdapter.getItemCount() - 1);
+                }
+            }
+            ChatHistoryManager.saveMessage(this, targetUsername, fwdMsg);
+            saveLastMessageToChatList(fwdMsg.getText());
+
+            if (connectedThread != null && connectedThread.isAlive()) {
+                String packetContent = fwdMsg.getMessageId() + ":::" + fwdMsg.getText();
+                packetContent += ":::REPLY:::" + fwdMsg.getReplyToMessageId() + ":::" + fwdMsg.getReplyToSender() + ":::" + fwdMsg.getReplyToText();
+                connectedThread.sendPacket(TYPE_TEXT, packetContent.getBytes(StandardCharsets.UTF_8));
+            }
+        } else {
+            ChatHistoryManager.saveMessage(this, targetName, fwdMsg);
+        }
+
+        PrimeNotification.INSTANCE.show(this, "Переслано: " + targetName, null);
+    }
+
+    private int getStatusBarHeight() {
+        int resourceId = getResources().getIdentifier("status_bar_height", "dimen", "android");
+        return resourceId > 0 ? getResources().getDimensionPixelSize(resourceId) : (int) (36 * getResources().getDisplayMetrics().density);
+    }
+
     private void updateMessageListPadding() {
         View chatRoot = findViewById(R.id.chatRoot);
         View rvMessages = findViewById(R.id.rvMessages);
@@ -2023,12 +2194,12 @@ public class ChatPersonActivity extends AppCompatActivity {
         float density = getResources().getDisplayMetrics().density;
 
         WindowInsetsCompat rootInsets = ViewCompat.getRootWindowInsets(chatRoot);
-        int topInset = (int) (24 * density);
+        int topInset = getStatusBarHeight();
         int bottomInset = (int) (16 * density);
         if (rootInsets != null) {
             Insets sb = rootInsets.getInsets(WindowInsetsCompat.Type.systemBars());
             Insets ime = rootInsets.getInsets(WindowInsetsCompat.Type.ime());
-            topInset = sb.top;
+            if (sb.top > 0) topInset = sb.top;
             bottomInset = Math.max(sb.bottom, ime.bottom);
         }
 
@@ -2044,6 +2215,32 @@ public class ChatPersonActivity extends AppCompatActivity {
                 rvMessages.getPaddingRight(),
                 bottomPadding
         );
+    }
+
+    private void setupChatBlurViews() {
+        ViewGroup rootView = getWindow().getDecorView().findViewById(android.R.id.content);
+        if (rootView == null) rootView = (ViewGroup) getWindow().getDecorView();
+
+        boolean isDark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        Drawable windowBg = getWindow().getDecorView().getBackground();
+        int overlayColor = isDark
+                ? Color.parseColor("#400F172A")
+                : Color.parseColor("#40154B87");
+
+        BlurView blurHeader = findViewById(R.id.layoutHeader);
+        BlurView blurConnectAction = findViewById(R.id.layoutConnectAction);
+        BlurView blurInput = findViewById(R.id.layoutInput);
+        BlurView blurAttachmentPanel = findViewById(R.id.layoutAttachmentPanel);
+
+        BlurView[] blurViews = new BlurView[]{
+                blurHeader, blurConnectAction, blurInput, blurAttachmentPanel
+        };
+
+        for (BlurView bv : blurViews) {
+            if (bv != null) {
+                BlurViewKt.setupBlur(bv, rootView, 16f, overlayColor, windowBg);
+            }
+        }
     }
 
     private void showEditMessageDialog(ChatMessage message, int position) {
@@ -2409,7 +2606,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                     newArray.put(obj);
                 }
             }
-            sharedPrefs.edit().putString("persisted_chats", newArray.toString()).commit();
+            sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply();
             ChatListNotifier.INSTANCE.notifyChanged();
         } catch (Exception e) {
             Log.e(TAG, "Failed to remove deleted chat from persisted_chats", e);
@@ -2498,7 +2695,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                 finalArray.put(newArray.get(i));
             }
 
-            sharedPrefs.edit().putString("persisted_chats", finalArray.toString()).commit();
+            sharedPrefs.edit().putString("persisted_chats", finalArray.toString()).apply();
             ChatListNotifier.INSTANCE.notifyChanged();
         } catch (Exception e) {
             Log.e(TAG, "Failed to update persisted_chats", e);
@@ -2534,7 +2731,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                     break;
                 }
             }
-            sharedPrefs.edit().putString("persisted_chats", array.toString()).commit();
+            sharedPrefs.edit().putString("persisted_chats", array.toString()).apply();
             ChatListNotifier.INSTANCE.notifyChanged();
 
             if ("TYPING".equalsIgnoreCase(state)) {
@@ -2596,7 +2793,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         if (replyingToMessage != null) {
             message.setReplyToMessageId(replyingToMessage.getMessageId());
             message.setReplyToSender(replyingToMessage.getSenderLogin());
-            String qText = replyingToMessage.getText();
+            String qText = replyingToText != null && !replyingToText.isEmpty() ? replyingToText : replyingToMessage.getText();
             message.setReplyToText(qText != null && !qText.isEmpty() ? qText : "Фотография");
             cancelReplyMode();
         }
@@ -2655,7 +2852,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         if (replyingToMessage != null) {
             multiMsg.setReplyToMessageId(replyingToMessage.getMessageId());
             multiMsg.setReplyToSender(replyingToMessage.getSenderLogin());
-            String qText = replyingToMessage.getText();
+            String qText = replyingToText != null && !replyingToText.isEmpty() ? replyingToText : replyingToMessage.getText();
             multiMsg.setReplyToText(qText != null && !qText.isEmpty() ? qText : "Медиафайлы (" + items.size() + ")");
             cancelReplyMode();
         }
@@ -2758,7 +2955,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                 if (replyingToMessage != null) {
                     photoMsg.setReplyToMessageId(replyingToMessage.getMessageId());
                     photoMsg.setReplyToSender(replyingToMessage.getSenderLogin());
-                    String qText = replyingToMessage.getText();
+                    String qText = replyingToText != null && !replyingToText.isEmpty() ? replyingToText : replyingToMessage.getText();
                     photoMsg.setReplyToText(qText != null && !qText.isEmpty() ? qText : "Фотография");
                     cancelReplyMode();
                 }
@@ -3469,7 +3666,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                                             break;
                                         }
                                     }
-                                    sharedPrefs.edit().putString("persisted_chats", chatArray.toString()).commit();
+                                    sharedPrefs.edit().putString("persisted_chats", chatArray.toString()).apply();
                                 } catch (Exception e) {
                                     Log.e(TAG, "Failed to rename chat in persisted_chats", e);
                                 }
@@ -3589,7 +3786,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                                             break;
                                         }
                                     }
-                                    sharedPrefs.edit().putString("persisted_chats", chatArray.toString()).commit();
+                                    sharedPrefs.edit().putString("persisted_chats", chatArray.toString()).apply();
                                 } catch (Exception e) {
                                     Log.e(TAG, "Failed to rename chat in persisted_chats", e);
                                 }
@@ -4191,7 +4388,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         if (replyingToMessage != null) {
             msg.setReplyToMessageId(replyingToMessage.getMessageId());
             msg.setReplyToSender(replyingToMessage.getSenderLogin());
-            String qText = replyingToMessage.getText();
+            String qText = replyingToText != null && !replyingToText.isEmpty() ? replyingToText : replyingToMessage.getText();
             msg.setReplyToText(qText != null && !qText.isEmpty() ? qText : (pending.isVideo ? "Видео" : "Файл"));
             cancelReplyMode();
         }
@@ -4899,7 +5096,7 @@ public class ChatPersonActivity extends AppCompatActivity {
             currentSendingMessageId = null;
             int pos = chatAdapter != null ? chatAdapter.findPositionByMessageId(msgIdToDelete) : -1;
             if (pos != -1) {
-                Intent deleteMsgIntent = new Intent("com.messenger.prime.MSG_DELETED");
+                Intent deleteMsgIntent = new Intent("com.messenger.prime.MSG_DELETED").setPackage(getPackageName());
                 deleteMsgIntent.putExtra("messageId", msgIdToDelete);
                 sendBroadcast(deleteMsgIntent);
 

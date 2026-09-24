@@ -10,6 +10,7 @@ import android.graphics.drawable.Drawable
 import android.os.Build
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -127,6 +128,9 @@ fun EightBitBlurView.setupBlur(
     overlayColor: Int = android.graphics.Color.parseColor("#40154B87"),
     frameClearDrawable: Drawable? = null
 ) {
+    outlineProvider = ViewOutlineProvider.BACKGROUND
+    clipToOutline = true
+
     doOnPreDraw { view ->
         if (view.width <= 0 || view.height <= 0 || !view.isAttachedToWindow) return@doOnPreDraw
         try {

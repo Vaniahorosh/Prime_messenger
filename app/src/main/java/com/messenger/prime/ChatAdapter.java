@@ -1,14 +1,26 @@
 package com.messenger.prime;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.media.MediaMetadataRetriever;
+import android.text.Spannable;
+import android.text.SpannableString;
 import android.text.method.LinkMovementMethod;
+import android.text.style.BackgroundColorSpan;
 import android.util.Log;
+import android.view.ActionMode;
+import android.view.Menu;
+import android.view.MenuItem;
 
 import androidx.activity.ComponentActivity;
 import androidx.core.content.FileProvider;
@@ -68,7 +80,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         void onDeleteMessage(ChatMessage message, int position);
         void onQuickReaction(ChatMessage message, String reaction, int position);
         void onReplyMessage(ChatMessage message, int position);
+        void onReplyToSelectedText(ChatMessage message, String selectedText, int position);
+        void onForwardMessage(ChatMessage message, int position);
         void onJumpToMessage(String messageId);
+        void onJumpToMessage(String messageId, String quotedText);
         void onCancelSending(ChatMessage message, int position);
     }
 
@@ -1161,7 +1176,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     }
                     layoutQuotedReply.setOnClickListener(v -> {
                         if (actionListener != null && message.getReplyToMessageId() != null) {
-                            actionListener.onJumpToMessage(message.getReplyToMessageId());
+                            actionListener.onJumpToMessage(message.getReplyToMessageId(), message.getReplyToText());
                         }
                     });
                 } else {
@@ -1181,6 +1196,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 tvMessageText.setVisibility(View.VISIBLE);
                 tvMessageText.setText(text);
                 tvMessageText.setMovementMethod(LinkMovementMethod.getInstance());
+                tvMessageText.setTextIsSelectable(true);
+                setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
                 bindLinkPreview(itemView, text);
             } else {
                 tvMessageText.setVisibility(View.GONE);
@@ -1218,6 +1235,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         }
                     });
                 }
+
+                ImageButton btnForwardMsgAction = itemView.findViewById(R.id.btnForwardMsgAction);
+                if (btnForwardMsgAction != null) {
+                    btnForwardMsgAction.setOnClickListener(v -> {
+                        layoutMessageActions.setVisibility(View.GONE);
+                        if (actionListener != null) {
+                            actionListener.onForwardMessage(message, position);
+                        }
+                    });
+                }
             }
 
             itemView.setOnLongClickListener(v -> {
@@ -1234,6 +1261,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 animator.start();
 
                 if (layoutMessageActions != null) {
+                    View layoutDefaultActions = itemView.findViewById(R.id.layoutDefaultActions);
+                    View layoutSelectionActions = itemView.findViewById(R.id.layoutSelectionActions);
+                    if (layoutDefaultActions != null) layoutDefaultActions.setVisibility(View.VISIBLE);
+                    if (layoutSelectionActions != null) layoutSelectionActions.setVisibility(View.GONE);
+
                     if (layoutMessageActions.getVisibility() == View.VISIBLE) {
                         layoutMessageActions.setVisibility(View.GONE);
                     } else {
@@ -1349,7 +1381,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     }
                     layoutQuotedReply.setOnClickListener(v -> {
                         if (actionListener != null && message.getReplyToMessageId() != null) {
-                            actionListener.onJumpToMessage(message.getReplyToMessageId());
+                            actionListener.onJumpToMessage(message.getReplyToMessageId(), message.getReplyToText());
                         }
                     });
                 } else {
@@ -1369,6 +1401,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 tvMessageText.setVisibility(View.VISIBLE);
                 tvMessageText.setText(text);
                 tvMessageText.setMovementMethod(LinkMovementMethod.getInstance());
+                tvMessageText.setTextIsSelectable(true);
+                setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
                 bindLinkPreview(itemView, text);
             } else {
                 tvMessageText.setVisibility(View.GONE);
@@ -1480,6 +1514,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 animator.start();
 
                 if (layoutMessageActions != null) {
+                    View layoutDefaultActions = itemView.findViewById(R.id.layoutDefaultActions);
+                    View layoutSelectionActions = itemView.findViewById(R.id.layoutSelectionActions);
+                    if (layoutDefaultActions != null) layoutDefaultActions.setVisibility(View.VISIBLE);
+                    if (layoutSelectionActions != null) layoutSelectionActions.setVisibility(View.GONE);
+
                     if (layoutMessageActions.getVisibility() == View.VISIBLE) {
                         layoutMessageActions.setVisibility(View.GONE);
                     } else {
@@ -1503,6 +1542,196 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 return true;
             });
         }
+    }
+
+    private void setupCustomTextSelectionActionMode(View itemView, TextView textView, ChatMessage message, int position) {
+        if (textView == null || itemView == null) return;
+
+        View layoutMessageActions = itemView.findViewById(R.id.layoutMessageActions);
+        View layoutDefaultActions = itemView.findViewById(R.id.layoutDefaultActions);
+        View layoutSelectionActions = itemView.findViewById(R.id.layoutSelectionActions);
+        View btnReplySelectionAction = itemView.findViewById(R.id.btnReplySelectionAction);
+        View btnCopySelectionAction = itemView.findViewById(R.id.btnCopySelectionAction);
+
+        textView.setCustomSelectionActionModeCallback(new ActionMode.Callback() {
+            private ActionMode activeMode = null;
+
+            @Override
+            public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+                activeMode = mode;
+                menu.clear();
+
+                if (layoutMessageActions != null) {
+                    if (layoutDefaultActions != null) layoutDefaultActions.setVisibility(View.GONE);
+                    if (layoutSelectionActions != null) layoutSelectionActions.setVisibility(View.VISIBLE);
+
+                    if (layoutMessageActions.getVisibility() != View.VISIBLE) {
+                        layoutMessageActions.setVisibility(View.VISIBLE);
+                        layoutMessageActions.setAlpha(0f);
+                        layoutMessageActions.setScaleX(0.7f);
+                        layoutMessageActions.setScaleY(0.7f);
+                        layoutMessageActions.animate()
+                                .alpha(1f)
+                                .scaleX(1f)
+                                .scaleY(1f)
+                                .setDuration(220)
+                                .setInterpolator(new OvershootInterpolator())
+                                .start();
+                    }
+                }
+
+                if (btnReplySelectionAction != null) {
+                    btnReplySelectionAction.setOnClickListener(v -> {
+                        String selectedText = getSelectedText(textView);
+                        if (!selectedText.isEmpty() && actionListener != null) {
+                            actionListener.onReplyToSelectedText(message, selectedText, position);
+                        }
+                        if (activeMode != null) {
+                            try { activeMode.finish(); } catch (Exception ignored) {}
+                        }
+                    });
+                }
+
+                if (btnCopySelectionAction != null) {
+                    btnCopySelectionAction.setOnClickListener(v -> {
+                        String selectedText = getSelectedText(textView);
+                        if (!selectedText.isEmpty()) {
+                            ClipboardManager clipboard = (ClipboardManager) textView.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                            if (clipboard != null) {
+                                ClipData clip = ClipData.newPlainText("selected_text", selectedText);
+                                clipboard.setPrimaryClip(clip);
+                                if (textView.getContext() instanceof Activity) {
+                                    PrimeNotification.INSTANCE.show((Activity) textView.getContext(), "Текст скопирован", null);
+                                }
+                            }
+                        }
+                        if (activeMode != null) {
+                            try { activeMode.finish(); } catch (Exception ignored) {}
+                        }
+                    });
+                }
+
+                return true;
+            }
+
+            @Override
+            public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+                menu.clear();
+                return true;
+            }
+
+            @Override
+            public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+                return false;
+            }
+
+            @Override
+            public void onDestroyActionMode(ActionMode mode) {
+                activeMode = null;
+                if (layoutMessageActions != null) {
+                    layoutMessageActions.setVisibility(View.GONE);
+                    if (layoutSelectionActions != null) layoutSelectionActions.setVisibility(View.GONE);
+                    if (layoutDefaultActions != null) layoutDefaultActions.setVisibility(View.VISIBLE);
+                }
+            }
+        });
+    }
+
+    private String getSelectedText(TextView textView) {
+        if (textView == null) return "";
+        int start = textView.getSelectionStart();
+        int end = textView.getSelectionEnd();
+        if (start < 0) start = 0;
+        if (end < 0) end = 0;
+        if (start > end) {
+            int tmp = start;
+            start = end;
+            end = tmp;
+        }
+        CharSequence fullText = textView.getText();
+        if (fullText != null && start < fullText.length() && end <= fullText.length() && start < end) {
+            return fullText.subSequence(start, end).toString();
+        }
+        return "";
+    }
+
+    public void triggerHighlightAnimation(RecyclerView recyclerView, String messageId, String quotedText) {
+        if (recyclerView == null || messageId == null) return;
+
+        for (int i = 0; i < recyclerView.getChildCount(); i++) {
+            View child = recyclerView.getChildAt(i);
+            RecyclerView.ViewHolder holder = recyclerView.getChildViewHolder(child);
+            int pos = holder.getAdapterPosition();
+            if (pos >= 0 && pos < messages.size()) {
+                ChatMessage msg = messages.get(pos);
+                if (messageId.equals(msg.getMessageId())) {
+                    TextView tvMessageText = child.findViewById(R.id.tvMessageText);
+                    View bubble = child.findViewById(R.id.layoutIncomingBubble);
+                    if (bubble == null) bubble = child.findViewById(R.id.layoutOutgoingBubble);
+
+                    if (tvMessageText != null && tvMessageText.getVisibility() == View.VISIBLE && quotedText != null && !quotedText.isEmpty()) {
+                        String fullText = tvMessageText.getText().toString();
+                        int start = fullText.indexOf(quotedText);
+                        if (start == -1) {
+                            start = fullText.toLowerCase().indexOf(quotedText.toLowerCase());
+                        }
+                        if (start >= 0) {
+                            int end = start + quotedText.length();
+                            animateTextHighlight(tvMessageText, fullText, start, end);
+                        } else {
+                            animateBubbleHighlight(bubble != null ? bubble : child);
+                        }
+                    } else {
+                        animateBubbleHighlight(bubble != null ? bubble : child);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    private void animateTextHighlight(TextView textView, String fullText, int start, int end) {
+        if (textView == null || fullText == null || start < 0 || end > fullText.length() || start >= end) return;
+
+        SpannableString spannable = new SpannableString(fullText);
+        int highlightColor = Color.parseColor("#803EB489");
+        BackgroundColorSpan colorSpan = new BackgroundColorSpan(highlightColor);
+
+        ValueAnimator animator = ValueAnimator.ofInt(0, 1, 0, 1, 0, 1, 0);
+        animator.setDuration(2000);
+        animator.addUpdateListener(animation -> {
+            int val = (int) animation.getAnimatedValue();
+            if (val == 1) {
+                spannable.setSpan(colorSpan, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            } else {
+                spannable.removeSpan(colorSpan);
+            }
+            textView.setText(spannable);
+        });
+        animator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                textView.setText(fullText);
+            }
+        });
+        animator.start();
+    }
+
+    private void animateBubbleHighlight(View bubbleView) {
+        if (bubbleView == null) return;
+        ValueAnimator animator = ValueAnimator.ofFloat(1f, 0.3f, 1f, 0.3f, 1f);
+        animator.setDuration(2000);
+        animator.addUpdateListener(anim -> {
+            float alpha = (float) anim.getAnimatedValue();
+            bubbleView.setAlpha(alpha);
+        });
+        animator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                bubbleView.setAlpha(1f);
+            }
+        });
+        animator.start();
     }
 
     private void bindReactions(LinearLayout layoutMessageReaction, ChatMessage message, int position) {

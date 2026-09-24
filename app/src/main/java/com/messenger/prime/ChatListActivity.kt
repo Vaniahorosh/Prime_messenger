@@ -1556,7 +1556,7 @@ class ChatListActivity : AppCompatActivity() {
             }
             array.put(obj)
         }
-        sharedPrefs.edit().putString("persisted_chats", array.toString()).commit()
+        sharedPrefs.edit().putString("persisted_chats", array.toString()).apply()
     }
     private fun loadContacts() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)

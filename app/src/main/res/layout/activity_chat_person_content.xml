@@ -44,7 +44,7 @@
         app:layout_constraintStart_toStartOf="parent" />
 
     <!-- 2. Верхний парящий островок (Floating Glass Header) -->
-    <LinearLayout
+    <eightbitlab.com.blurview.BlurView
         android:id="@+id/layoutHeader"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -52,8 +52,9 @@
         android:layout_marginTop="12dp"
         android:layout_marginEnd="12dp"
         android:background="@drawable/bg_floating_island"
+        android:outlineProvider="background"
+        android:clipToOutline="true"
         android:elevation="8dp"
-        android:orientation="vertical"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -134,7 +135,7 @@
                 app:layout_constraintStart_toEndOf="@id/btnBack"
                 app:layout_constraintTop_toBottomOf="@id/tvChatName" />
         </androidx.constraintlayout.widget.ConstraintLayout>
-    </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
 
     <!-- Плавающая плашка даты -->
     <TextView
@@ -194,11 +195,13 @@
         app:layout_constraintStart_toStartOf="parent">
 
         <!-- Кнопка подключения (внизу) -->
-        <FrameLayout
+        <eightbitlab.com.blurview.BlurView
             android:id="@+id/layoutConnectAction"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@drawable/bg_floating_island"
+            android:outlineProvider="background"
+            android:clipToOutline="true"
             android:padding="8dp"
             android:visibility="visible">
 
@@ -212,20 +215,26 @@
                 android:textSize="16sp"
                 android:textStyle="bold"
                 app:cornerRadius="22dp" />
-        </FrameLayout>
+        </eightbitlab.com.blurview.BlurView>
 
         <!-- Строка ввода (скрыта до подключения) -->
-        <LinearLayout
+        <eightbitlab.com.blurview.BlurView
             android:id="@+id/layoutInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@drawable/bg_floating_island"
-            android:orientation="vertical"
+            android:outlineProvider="background"
+            android:clipToOutline="true"
             android:paddingStart="6dp"
             android:paddingTop="4dp"
             android:paddingEnd="6dp"
             android:paddingBottom="4dp"
             android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
 
             <!-- Плавающая панель прогресса отправки / передачи -->
             <LinearLayout
@@ -477,6 +486,7 @@
                     app:tint="@color/prime_text_primary" />
             </LinearLayout>
         </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
 
         <!-- Встроенная панель вложений -->
         <include

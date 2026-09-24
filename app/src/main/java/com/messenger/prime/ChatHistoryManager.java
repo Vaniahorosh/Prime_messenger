@@ -61,7 +61,7 @@ public class ChatHistoryManager {
                     }
                 }
             }
-            historyEdit.commit();
+            historyEdit.apply();
 
             // 2. Полное физическое удаление всех файлов аватарок, медиа и кэша, связанных с контактом
             try {
@@ -124,7 +124,7 @@ public class ChatHistoryManager {
                 e.printStackTrace();
             }
 
-            dbEdit.commit();
+            dbEdit.apply();
             ChatListNotifier.INSTANCE.notifyChanged();
         });
     }

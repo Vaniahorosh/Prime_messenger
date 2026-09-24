@@ -42,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -110,7 +111,7 @@ class SettingsActivity : AppCompatActivity() {
                     currentAvatarUri = newUri
                     val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                     val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-                    sharedPrefs.edit().putString("${currentUser}_avatar", newUri).commit()
+                    sharedPrefs.edit().putString("${currentUser}_avatar", newUri).apply()
                     applyAvatarState(newUri)
                     sendProfileUpdateOverBluetooth()
                 }
@@ -125,7 +126,7 @@ class SettingsActivity : AppCompatActivity() {
                 currentAvatarUri = editedUriString
                 val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                 val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-                sharedPrefs.edit().putString("${currentUser}_avatar", currentAvatarUri).commit()
+                sharedPrefs.edit().putString("${currentUser}_avatar", currentAvatarUri).apply()
                 applyAvatarState(currentAvatarUri)
                 sendProfileUpdateOverBluetooth()
                 PrimeNotification.show(this, "Фото готово")
@@ -196,6 +197,9 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<ComposeView>(R.id.composeRoot).setContent {
             val darkTheme = isSystemInDarkTheme()
             val isThemeVisible = isThemeDialogVisible.value
+            val density = LocalDensity.current
+            val statusBarTopPx = WindowInsets.statusBars.getTop(density)
+            val navBarBottomPx = WindowInsets.navigationBars.getBottom(density)
             
             PrimeTheme(darkTheme = darkTheme) {
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -247,18 +251,40 @@ class SettingsActivity : AppCompatActivity() {
                             b.nestedScrollView.setBackgroundColor(bgColorInt)
                             b.headerStaticBlock.clipChildren = true
 
-                            ViewCompat.setOnApplyWindowInsetsListener(b.headerStaticBlock) { _, insets ->
-                                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                                val density = resources.displayMetrics.density
-                                val extraPadding = (12 * density).toInt()
+                            val sysDensity = resources.displayMetrics.density
+                            val initialExtraPadding = (12 * sysDensity).toInt()
+                            val initialTopInset = if (statusBarTopPx > 0) statusBarTopPx else getStatusBarHeight()
 
-                                b.headerStaticBlock.updatePadding(top = systemBars.top)
-                                b.layoutWithPhoto.updatePadding(top = extraPadding)
-                                b.layoutNoPhoto.updatePadding(top = extraPadding)
+                            b.headerStaticBlock.updatePadding(top = 0)
+                            b.layoutWithPhoto.updatePadding(
+                                top = initialTopInset + initialExtraPadding,
+                                bottom = initialExtraPadding
+                            )
+                            b.layoutNoPhoto.updatePadding(
+                                top = initialTopInset + initialExtraPadding,
+                                bottom = initialExtraPadding
+                            )
+
+                            ViewCompat.setOnApplyWindowInsetsListener(view) { _, insets ->
+                                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                                val sDensity = resources.displayMetrics.density
+                                val extraPadding = (12 * sDensity).toInt()
+                                val topInset = if (systemBars.top > 0) systemBars.top else getStatusBarHeight()
+
+                                b.headerStaticBlock.updatePadding(top = 0)
+                                b.layoutWithPhoto.updatePadding(
+                                    top = topInset + extraPadding,
+                                    bottom = extraPadding
+                                )
+                                b.layoutNoPhoto.updatePadding(
+                                    top = topInset + extraPadding,
+                                    bottom = extraPadding
+                                )
                                 
-                                b.nestedScrollView.setPadding(0, 0, 0, systemBars.bottom)
+                                b.nestedScrollView.updatePadding(bottom = systemBars.bottom)
                                 insets
                             }
+                            ViewCompat.requestApplyInsets(view)
 
                             val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
                             windowInsetsController.isAppearanceLightStatusBars = !darkTheme
@@ -270,6 +296,26 @@ class SettingsActivity : AppCompatActivity() {
                             b.photoCard.translationZ = 8f
 
                             view
+                        },
+                        update = { _ ->
+                            val b = binding ?: return@AndroidView
+                            val sysDensity = resources.displayMetrics.density
+                            val extraPadding = (12 * sysDensity).toInt()
+                            val topInset = if (statusBarTopPx > 0) statusBarTopPx else getStatusBarHeight()
+
+                            b.headerStaticBlock.updatePadding(top = 0)
+                            b.layoutWithPhoto.updatePadding(
+                                top = topInset + extraPadding,
+                                bottom = extraPadding
+                            )
+                            b.layoutNoPhoto.updatePadding(
+                                top = topInset + extraPadding,
+                                bottom = extraPadding
+                            )
+                            
+                            if (navBarBottomPx > 0) {
+                                b.nestedScrollView.updatePadding(bottom = navBarBottomPx)
+                            }
                         },
                         modifier = Modifier.fillMaxSize()
                     )
@@ -703,10 +749,7 @@ class SettingsActivity : AppCompatActivity() {
 
         if (leftColWidth == 0f || cardWidth == 0f || headerHeight == 0f) return
 
-        val statusBarHeight = ViewCompat.getRootWindowInsets(b.root)
-            ?.getInsets(WindowInsetsCompat.Type.statusBars())?.top?.toFloat() ?: 0f
-        val innerPadding = b.layoutWithPhoto.paddingTop.toFloat()
-        val totalOffsetUp = statusBarHeight + innerPadding
+        val totalOffsetUp = b.layoutWithPhoto.paddingTop.toFloat()
 
         val targetScaleX = screenWidth / cardWidth
         val targetScaleY = (headerHeight + totalOffsetUp) / cardHeight 
@@ -1037,10 +1080,10 @@ class SettingsActivity : AppCompatActivity() {
         if (uriToDelete == null) return
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        sharedPrefs.edit().remove("${currentUser}_avatar").commit()
+        sharedPrefs.edit().remove("${currentUser}_avatar").apply()
         currentAvatarUri = null; applyAvatarState(null)
         sendProfileUpdateOverBluetooth()
-        PrimeNotification.show(this, "Фото удалено") { sharedPrefs.edit().putString("${currentUser}_avatar", uriToDelete).commit(); currentAvatarUri = uriToDelete; applyAvatarState(uriToDelete); sendProfileUpdateOverBluetooth() }
+        PrimeNotification.show(this, "Фото удалено") { sharedPrefs.edit().putString("${currentUser}_avatar", uriToDelete).apply(); currentAvatarUri = uriToDelete; applyAvatarState(uriToDelete); sendProfileUpdateOverBluetooth() }
     }
 
     private fun showLogoutDialog() {
@@ -1115,6 +1158,11 @@ class SettingsActivity : AppCompatActivity() {
                 )
             }
         }
+    }
+
+    private fun getStatusBarHeight(): Int {
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else (36 * resources.displayMetrics.density).toInt()
     }
 
     private fun restartApp() {

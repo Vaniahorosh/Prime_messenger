@@ -7,7 +7,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.graphics.BitmapFactory
+import android.graphics.Color
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -15,10 +18,14 @@ import android.os.Handler
 import android.os.Looper
 import android.view.GestureDetector
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.PathInterpolator
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -42,6 +49,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
+import eightbitlab.com.blurview.BlurView
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -91,6 +99,12 @@ class MediaPlayerActivity : AppCompatActivity() {
     private var scrubTargetMs: Long = -1L
     private var isZoomed = false
     private var isSpeedingUp = false
+    private var sourceRect: Rect? = null
+    private var isClosing = false
+
+    private val emphasizedDecelerate = PathInterpolator(0.05f, 0.7f, 0.1f, 1.0f)
+    private val emphasizedAccelerate = PathInterpolator(0.3f, 0.0f, 0.8f, 0.15f)
+    private val fastOutSlowIn = FastOutSlowInInterpolator()
     
     private val deletionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -201,14 +215,153 @@ class MediaPlayerActivity : AppCompatActivity() {
             }
         })
 
+        sourceRect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra("EXTRA_RECT", Rect::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra("EXTRA_RECT")
+        }
+
         setupListeners()
         updateUIForPage(sharedStartIndex)
 
+        if (sourceRect != null) {
+            viewPager.post { startEnterAnimation() }
+        }
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                finish()
+                startExitAnimation()
             }
         })
+    }
+
+    private fun startEnterAnimation() {
+        val rect = sourceRect ?: return
+
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        val screenHeight = resources.displayMetrics.heightPixels.toFloat()
+        val startScale = rect.width().toFloat() / screenWidth
+
+        viewPager.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        viewPager.pivotX = 0f
+        viewPager.pivotY = 0f
+        viewPager.scaleX = startScale
+        viewPager.scaleY = startScale
+        viewPager.translationX = rect.left.toFloat()
+        viewPager.translationY = rect.top.toFloat()
+
+        ivBlurredBackground.alpha = 0f
+        topOverlay.alpha = 0f
+        topOverlay.translationY = -40f
+        bottomOverlay.alpha = 0f
+        bottomOverlay.translationY = 40f
+
+        viewPager.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .translationX(0f)
+            .translationY(0f)
+            .setDuration(420)
+            .setInterpolator(emphasizedDecelerate)
+            .withEndAction {
+                viewPager.setLayerType(View.LAYER_TYPE_NONE, null)
+                viewPager.pivotX = screenWidth / 2f
+                viewPager.pivotY = screenHeight / 2f
+            }
+            .start()
+
+        ivBlurredBackground.animate()
+            .alpha(0.6f)
+            .setDuration(420)
+            .setInterpolator(emphasizedDecelerate)
+            .start()
+
+        topOverlay.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setDuration(320)
+            .setStartDelay(100)
+            .setInterpolator(emphasizedDecelerate)
+            .start()
+
+        bottomOverlay.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setDuration(320)
+            .setStartDelay(100)
+            .setInterpolator(emphasizedDecelerate)
+            .start()
+    }
+
+    private fun startExitAnimation() {
+        if (isClosing) return
+        isClosing = true
+
+        viewPager.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+
+        topOverlay.animate()
+            .alpha(0f)
+            .translationY(-50f)
+            .setDuration(220)
+            .setInterpolator(emphasizedAccelerate)
+            .start()
+
+        bottomOverlay.animate()
+            .alpha(0f)
+            .translationY(50f)
+            .setDuration(220)
+            .setInterpolator(emphasizedAccelerate)
+            .start()
+
+        if (btnPlayPause.visibility == View.VISIBLE) {
+            btnPlayPause.animate().alpha(0f).setDuration(180).start()
+        }
+
+        val rect = sourceRect
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+
+        if (rect != null) {
+            val targetScale = rect.width().toFloat() / screenWidth
+
+            viewPager.pivotX = 0f
+            viewPager.pivotY = 0f
+
+            viewPager.animate()
+                .scaleX(targetScale)
+                .scaleY(targetScale)
+                .translationX(rect.left.toFloat())
+                .translationY(rect.top.toFloat())
+                .setDuration(360)
+                .setInterpolator(emphasizedAccelerate)
+                .setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        viewPager.setLayerType(View.LAYER_TYPE_NONE, null)
+                        finish()
+                        overridePendingTransition(0, 0)
+                    }
+                })
+                .start()
+        } else {
+            viewPager.animate()
+                .alpha(0f)
+                .setDuration(250)
+                .setInterpolator(emphasizedAccelerate)
+                .setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        viewPager.setLayerType(View.LAYER_TYPE_NONE, null)
+                        finish()
+                        overridePendingTransition(0, 0)
+                    }
+                })
+                .start()
+        }
+
+        ivBlurredBackground.animate()
+            .alpha(0f)
+            .setDuration(360)
+            .setInterpolator(emphasizedAccelerate)
+            .start()
     }
 
     private fun initViews() {
@@ -230,23 +383,54 @@ class MediaPlayerActivity : AppCompatActivity() {
         tvSpeedIndicator = findViewById(R.id.tvSpeedIndicator)
     }
 
+    private fun getStatusBarHeight(): Int {
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else (36 * resources.displayMetrics.density).toInt()
+    }
+
     private fun setupInsets() {
         setupEdgeToEdge()
         ViewCompat.setOnApplyWindowInsetsListener(topOverlay) { view, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val density = resources.displayMetrics.density
+            val statusBarTop = if (insets.top > 0) insets.top else getStatusBarHeight()
             val lp = view.layoutParams as ViewGroup.MarginLayoutParams
-            lp.topMargin = insets.top
+            lp.topMargin = statusBarTop + (12 * density).toInt()
             view.layoutParams = lp
             windowInsets
         }
 
         ViewCompat.setOnApplyWindowInsetsListener(bottomOverlay) { view, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val density = resources.displayMetrics.density
             val lp = view.layoutParams as ViewGroup.MarginLayoutParams
-            lp.bottomMargin = insets.bottom
+            lp.bottomMargin = insets.bottom + (12 * density).toInt()
             view.layoutParams = lp
             windowInsets
         }
+
+        val mediaRoot = findViewById<View>(R.id.mediaRoot)
+        if (mediaRoot != null) {
+            ViewCompat.requestApplyInsets(mediaRoot)
+        }
+        setupBlurViews()
+    }
+
+    private fun setupBlurViews() {
+        val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
+        val windowBg = window.decorView.background
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val overlayColor = if (isDark) {
+            Color.parseColor("#400F172A")
+        } else {
+            Color.parseColor("#40154B87")
+        }
+
+        val topBlur = findViewById<BlurView>(R.id.topOverlay)
+        val bottomBlur = findViewById<BlurView>(R.id.bottomOverlay)
+
+        topBlur?.setupBlur(rootView, 16f, overlayColor, windowBg)
+        bottomBlur?.setupBlur(rootView, 16f, overlayColor, windowBg)
     }
 
     private fun setupListeners() {
@@ -471,15 +655,16 @@ class MediaPlayerActivity : AppCompatActivity() {
             tvSpeedIndicator.animate()
                 .alpha(1f)
                 .translationY(0f)
-                .setDuration(200)
-                .setInterpolator(DecelerateInterpolator())
+                .setDuration(220)
+                .setInterpolator(emphasizedDecelerate)
                 .setListener(null)
                 .start()
         } else {
             tvSpeedIndicator.animate()
                 .alpha(0f)
                 .translationY(20f)
-                .setDuration(200)
+                .setDuration(220)
+                .setInterpolator(emphasizedAccelerate)
                 .setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
                         tvSpeedIndicator.visibility = View.GONE
@@ -510,17 +695,17 @@ class MediaPlayerActivity : AppCompatActivity() {
             areControlsVisible = true
 
             topOverlay.visibility = View.VISIBLE
-            topOverlay.animate().alpha(1f).translationY(0f).setDuration(220).setInterpolator(DecelerateInterpolator()).start()
+            topOverlay.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
 
             if (isCurrentVideo) {
                 btnPlayPause.visibility = View.VISIBLE
-                btnPlayPause.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(DecelerateInterpolator()).start()
+                btnPlayPause.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
             }
 
             bottomOverlay.visibility = View.VISIBLE
-            bottomOverlay.animate().alpha(1f).translationY(0f).setDuration(220).setInterpolator(DecelerateInterpolator()).start()
+            bottomOverlay.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
 
-            navBarProgressBar.animate().alpha(0f).setDuration(180)
+            navBarProgressBar.animate().alpha(0f).setDuration(200)
                 .setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
                         if (areControlsVisible) navBarProgressBar.visibility = View.GONE
@@ -535,21 +720,21 @@ class MediaPlayerActivity : AppCompatActivity() {
         if (areControlsVisible) {
             areControlsVisible = false
 
-            topOverlay.animate().alpha(0f).translationY(-30f).setDuration(220)
+            topOverlay.animate().alpha(0f).translationY(-40f).setDuration(240).setInterpolator(emphasizedAccelerate)
                 .setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
                         if (!areControlsVisible) topOverlay.visibility = View.GONE
                     }
                 }).start()
 
-            btnPlayPause.animate().alpha(0f).scaleX(0.7f).scaleY(0.7f).setDuration(220)
+            btnPlayPause.animate().alpha(0f).scaleX(0.7f).scaleY(0.7f).setDuration(240).setInterpolator(emphasizedAccelerate)
                 .setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
                         if (!areControlsVisible) btnPlayPause.visibility = View.GONE
                     }
                 }).start()
 
-            bottomOverlay.animate().alpha(0f).translationY(30f).setDuration(220)
+            bottomOverlay.animate().alpha(0f).translationY(40f).setDuration(240).setInterpolator(emphasizedAccelerate)
                 .setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
                         if (!areControlsVisible) bottomOverlay.visibility = View.GONE
@@ -558,13 +743,18 @@ class MediaPlayerActivity : AppCompatActivity() {
 
             if (isCurrentVideo) {
                 navBarProgressBar.visibility = View.VISIBLE
-                navBarProgressBar.animate().alpha(0.4f).setDuration(220).start()
+                navBarProgressBar.animate().alpha(0.4f).setDuration(240).start()
             }
         }
     }
 
     private fun toggleControls() {
         if (areControlsVisible) hideControls() else showControls()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        setupInsets()
     }
 
     override fun onPause() {
@@ -575,7 +765,11 @@ class MediaPlayerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(deletionReceiver)
+        try {
+            unregisterReceiver(deletionReceiver)
+        } catch (e: Exception) {
+            // Ignore if not registered or already unregistered
+        }
         handler.removeCallbacksAndMessages(null)
         sharedMediaList = null
         
@@ -644,21 +838,130 @@ class MediaPlayerActivity : AppCompatActivity() {
         val imageView: ImageView = itemView.findViewById(R.id.imageView)
         var player: ExoPlayer? = null
 
+        var scaleFactor = 1.0f
+        private var lastFocusX = 0f
+        private var lastFocusY = 0f
+
+        fun resetViewZoom() {
+            scaleFactor = 1.0f
+            val target: View = if (playerView.visibility == View.VISIBLE) playerView else imageView
+            target.animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .translationX(0f)
+                .translationY(0f)
+                .setDuration(240)
+                .setInterpolator(emphasizedDecelerate)
+                .start()
+            viewPager.isUserInputEnabled = true
+        }
+
         init {
             var isHolding = false
             var startX = 0f
             var startY = 0f
+
             val holdRunnable = Runnable {
-                isHolding = true
-                listener.onLongPressStart()
+                if (scaleFactor <= 1.05f) {
+                    isHolding = true
+                    listener.onLongPressStart()
+                }
             }
 
+            val scaleDetector = ScaleGestureDetector(itemView.context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                override fun onScale(detector: ScaleGestureDetector): Boolean {
+                    val target: View = if (playerView.visibility == View.VISIBLE) playerView else imageView
+                    val prevScale = scaleFactor
+                    scaleFactor *= detector.scaleFactor
+                    scaleFactor = scaleFactor.coerceIn(1.0f, 5.0f)
+
+                    target.scaleX = scaleFactor
+                    target.scaleY = scaleFactor
+
+                    if (scaleFactor > 1.02f) {
+                        viewPager.isUserInputEnabled = false
+                    } else if (prevScale > 1.02f && scaleFactor <= 1.02f) {
+                        resetViewZoom()
+                    }
+                    return true
+                }
+            })
+
+            val gestureDetector = GestureDetector(itemView.context, object : GestureDetector.SimpleOnGestureListener() {
+                override fun onDoubleTap(e: MotionEvent): Boolean {
+                    handler.removeCallbacks(holdRunnable)
+                    if (isHolding) {
+                        isHolding = false
+                        listener.onLongPressEnd()
+                    }
+                    val target: View = if (playerView.visibility == View.VISIBLE) playerView else imageView
+                    if (scaleFactor > 1.1f) {
+                        resetViewZoom()
+                    } else {
+                        scaleFactor = 2.5f
+                        target.animate()
+                            .scaleX(2.5f)
+                            .scaleY(2.5f)
+                            .translationX(0f)
+                            .translationY(0f)
+                            .setDuration(260)
+                            .setInterpolator(emphasizedDecelerate)
+                            .start()
+                        viewPager.isUserInputEnabled = false
+                    }
+                    return true
+                }
+            })
+
+            var startRawY = 0f
+
             itemView.setOnTouchListener { v, event ->
+                val target: View = if (playerView.visibility == View.VISIBLE) playerView else imageView
+
+                scaleDetector.onTouchEvent(event)
+                gestureDetector.onTouchEvent(event)
+
+                if (event.pointerCount >= 2) {
+                    handler.removeCallbacks(holdRunnable)
+                    if (isHolding) {
+                        isHolding = false
+                        listener.onLongPressEnd()
+                    }
+                    lastFocusX = event.x
+                    lastFocusY = event.y
+                    return@setOnTouchListener true
+                }
+
+                if (scaleFactor > 1.02f) {
+                    handler.removeCallbacks(holdRunnable)
+                    if (isHolding) {
+                        isHolding = false
+                        listener.onLongPressEnd()
+                    }
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            lastFocusX = event.x
+                            lastFocusY = event.y
+                        }
+                        MotionEvent.ACTION_MOVE -> {
+                            val dx = event.x - lastFocusX
+                            val dy = event.y - lastFocusY
+                            target.translationX += dx
+                            target.translationY += dy
+                            lastFocusX = event.x
+                            lastFocusY = event.y
+                        }
+                    }
+                    return@setOnTouchListener true
+                }
+
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
                         startX = event.x
                         startY = event.y
+                        startRawY = event.rawY
                         isHolding = false
+                        handler.removeCallbacks(holdRunnable)
                         handler.postDelayed(holdRunnable, 350)
                     }
                     MotionEvent.ACTION_MOVE -> {
@@ -669,11 +972,53 @@ class MediaPlayerActivity : AppCompatActivity() {
                                 handler.removeCallbacks(holdRunnable)
                             }
                         }
+                        if (dy > dx && dy > 30 && !isClosing) {
+                            val rawDragY = event.rawY - startRawY
+                            val dragY = rawDragY * 0.88f
+                            viewPager.translationY = dragY
+
+                            val progress = (Math.abs(dragY) / 1000f).coerceIn(0f, 1f)
+                            val dragScale = 1.0f - (progress * 0.15f)
+                            viewPager.scaleX = dragScale
+                            viewPager.scaleY = dragScale
+
+                            ivBlurredBackground.alpha = (0.6f * (1f - progress)).coerceIn(0f, 0.6f)
+                            topOverlay.alpha = (1f - progress * 1.4f).coerceIn(0f, 1f)
+                            bottomOverlay.alpha = (1f - progress * 1.4f).coerceIn(0f, 1f)
+                        }
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         handler.removeCallbacks(holdRunnable)
                         if (isHolding) {
+                            isHolding = false
                             listener.onLongPressEnd()
+                        } else if (Math.abs(viewPager.translationY) > 200f && !isClosing) {
+                            startExitAnimation()
+                        } else if (viewPager.translationY != 0f) {
+                            viewPager.animate()
+                                .translationY(0f)
+                                .scaleX(1.0f)
+                                .scaleY(1.0f)
+                                .setDuration(260)
+                                .setInterpolator(emphasizedDecelerate)
+                                .start()
+                            ivBlurredBackground.animate()
+                                .alpha(0.6f)
+                                .setDuration(260)
+                                .setInterpolator(emphasizedDecelerate)
+                                .start()
+                            topOverlay.animate()
+                                .alpha(1f)
+                                .translationY(0f)
+                                .setDuration(260)
+                                .setInterpolator(emphasizedDecelerate)
+                                .start()
+                            bottomOverlay.animate()
+                                .alpha(1f)
+                                .translationY(0f)
+                                .setDuration(260)
+                                .setInterpolator(emphasizedDecelerate)
+                                .start()
                         } else if (event.action == MotionEvent.ACTION_UP) {
                             val dx = Math.abs(event.x - startX)
                             val dy = Math.abs(event.y - startY)

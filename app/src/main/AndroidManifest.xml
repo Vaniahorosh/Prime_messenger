@@ -48,11 +48,6 @@
         </activity>
 
         <activity
-            android:name=".HiActivityCompose"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
-
-        <activity
             android:name=".LoginActivity"
             android:theme="@style/Theme.Prime.Swipe"
             android:exported="false" />
@@ -81,6 +76,7 @@
         <activity
             android:name=".MediaPlayerActivity"
             android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
             android:theme="@style/Theme.Prime" />
 
         <activity

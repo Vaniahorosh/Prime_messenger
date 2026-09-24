@@ -1,16 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<eightbitlab.com.blurview.BlurView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/layoutAttachmentPanel"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/bg_floating_island"
-    android:orientation="vertical"
+    android:outlineProvider="background"
+    android:clipToOutline="true"
     android:paddingStart="12dp"
     android:paddingTop="12dp"
     android:paddingEnd="12dp"
     android:paddingBottom="12dp"
     android:visibility="gone">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
 
     <!-- Mode Selection Row -->
     <LinearLayout
@@ -324,3 +330,4 @@
         </LinearLayout>
     </FrameLayout>
 </LinearLayout>
+</eightbitlab.com.blurview.BlurView>
