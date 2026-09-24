@@ -45,7 +45,7 @@ class PhotoViewActivity : AppCompatActivity() {
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.topToolbar) { view, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(view.paddingLeft, insets.top, view.paddingRight, insets.bottom)
+            view.setPadding(view.paddingLeft, insets.top + (8 * resources.displayMetrics.density).toInt(), view.paddingRight, view.paddingBottom)
             windowInsets
         }
 

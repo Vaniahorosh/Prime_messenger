@@ -231,10 +231,11 @@ class MediaPlayerActivity : AppCompatActivity() {
     }
 
     private fun setupInsets() {
+        setupEdgeToEdge()
         ViewCompat.setOnApplyWindowInsetsListener(topOverlay) { view, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             val lp = view.layoutParams as ViewGroup.MarginLayoutParams
-            lp.topMargin = insets.top + (12 * resources.displayMetrics.density).toInt()
+            lp.topMargin = insets.top
             view.layoutParams = lp
             windowInsets
         }
@@ -242,7 +243,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(bottomOverlay) { view, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             val lp = view.layoutParams as ViewGroup.MarginLayoutParams
-            lp.bottomMargin = insets.bottom + (12 * resources.displayMetrics.density).toInt()
+            lp.bottomMargin = insets.bottom
             view.layoutParams = lp
             windowInsets
         }

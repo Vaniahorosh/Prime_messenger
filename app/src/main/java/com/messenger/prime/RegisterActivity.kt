@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.messenger.prime.databinding.ActivityRegisterContentBinding
@@ -102,7 +103,12 @@ class RegisterActivity : AppCompatActivity() {
                                 val backParams = b.btnBack.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
                                 backParams.topMargin = systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt()
                                 b.btnBack.layoutParams = backParams
-                                v.setPadding(0, 0, 0, imeInsets.bottom)
+                                
+                                val headerParams = b.tvWelcome.layoutParams as ConstraintLayout.LayoutParams
+                                headerParams.topMargin = systemBarsInsets.top + (56 * resources.displayMetrics.density).toInt()
+                                b.tvWelcome.layoutParams = headerParams
+                                
+                                v.setPadding(0, 0, 0, Math.max(systemBarsInsets.bottom, imeInsets.bottom))
                                 windowInsets
                             }
 

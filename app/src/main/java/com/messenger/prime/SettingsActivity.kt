@@ -248,13 +248,15 @@ class SettingsActivity : AppCompatActivity() {
                             b.headerStaticBlock.clipChildren = true
 
                             ViewCompat.setOnApplyWindowInsetsListener(b.headerStaticBlock) { _, insets ->
-                                val statusBarInset = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+                                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
                                 val density = resources.displayMetrics.density
                                 val extraPadding = (12 * density).toInt()
 
-                                b.headerStaticBlock.updatePadding(top = statusBarInset)
+                                b.headerStaticBlock.updatePadding(top = systemBars.top)
                                 b.layoutWithPhoto.updatePadding(top = extraPadding)
                                 b.layoutNoPhoto.updatePadding(top = extraPadding)
+                                
+                                b.nestedScrollView.setPadding(0, 0, 0, systemBars.bottom)
                                 insets
                             }
 

@@ -156,12 +156,14 @@ class HiActivity : AppCompatActivity() {
             val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             
             val headerParams = binding.topHeader.layoutParams as ConstraintLayout.LayoutParams
-            headerParams.height = systemBarsInsets.top + (64 * resources.displayMetrics.density).toInt()
+            headerParams.height = systemBarsInsets.top + (32 * resources.displayMetrics.density).toInt()
             binding.topHeader.layoutParams = headerParams
 
             val backParams = binding.btnExit.layoutParams as ConstraintLayout.LayoutParams
             backParams.topMargin = systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt()
             binding.btnExit.layoutParams = backParams
+
+            binding.root.setPadding(0, 0, 0, systemBarsInsets.bottom)
 
             windowInsets
         }

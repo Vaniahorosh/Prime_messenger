@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.transition.TransitionManager
@@ -84,7 +85,11 @@ class LoginActivity : AppCompatActivity() {
                                 backParams.topMargin = systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt()
                                 b.btnBack.layoutParams = backParams
 
-                                v.setPadding(0, 0, 0, imeInsets.bottom)
+                                val titleParams = b.tvTitle.layoutParams as ConstraintLayout.LayoutParams
+                                titleParams.topMargin = systemBarsInsets.top + (80 * resources.displayMetrics.density).toInt()
+                                b.tvTitle.layoutParams = titleParams
+
+                                v.setPadding(0, 0, 0, Math.max(systemBarsInsets.bottom, imeInsets.bottom))
                                 windowInsets
                             }
 

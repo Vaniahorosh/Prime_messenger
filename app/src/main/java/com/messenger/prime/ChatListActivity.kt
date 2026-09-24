@@ -118,6 +118,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.border
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -681,6 +682,11 @@ class ChatListActivity : AppCompatActivity() {
             val isDialogVisible by isContactDialogVisible
             val isNameEditVisible by isNameEditDialogVisible
             
+            val systemBarsPadding = WindowInsets.systemBars.asPaddingValues()
+            val density = LocalDensity.current
+            val topInsetPx = with(density) { systemBarsPadding.calculateTopPadding().roundToPx() }
+            val bottomInsetPx = with(density) { systemBarsPadding.calculateBottomPadding().roundToPx() }
+            
             Box(modifier = Modifier.fillMaxSize()) {
                 AndroidView(
                     factory = { context ->
@@ -691,19 +697,6 @@ class ChatListActivity : AppCompatActivity() {
                         binding.recyclerViewChats.layoutManager = LinearLayoutManager(context)
                         binding.recyclerViewChats.adapter = adapter
                         
-                        ViewCompat.setOnApplyWindowInsetsListener(view) { _, windowInsets ->
-                            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-                            val topInset = if (insets.top > 0) insets.top else (28 * resources.displayMetrics.density).toInt()
-                            view.setPadding(view.paddingLeft, topInset, view.paddingRight, view.paddingBottom)
-                            binding.recyclerViewChats.setPadding(
-                                binding.recyclerViewChats.paddingLeft,
-                                (16 * resources.displayMetrics.density).toInt(),
-                                binding.recyclerViewChats.paddingRight,
-                                (120 * resources.displayMetrics.density).toInt()
-                            )
-                            windowInsets
-                        }
-
                         binding.btnStartChatEmpty.setOnClickListener {
                             onStartChatClicked()
                         }
@@ -712,7 +705,13 @@ class ChatListActivity : AppCompatActivity() {
                         isContentBindingReady.value = true
                         view
                     },
-                    update = {
+                    update = { _ ->
+                        binding.recyclerViewChats.setPadding(
+                            binding.recyclerViewChats.paddingLeft,
+                            topInsetPx + (8 * resources.displayMetrics.density).toInt(),
+                            binding.recyclerViewChats.paddingRight,
+                            bottomInsetPx + (100 * resources.displayMetrics.density).toInt()
+                        )
                         updateEmptyState()
                         if (isContentBindingReady.value && isIslandBindingReady.value) {
                             setupLegacyListeners()

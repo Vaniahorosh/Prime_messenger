@@ -101,6 +101,7 @@ class PhotoEditorActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setupEdgeToEdge()
         
         if (android.os.Build.VERSION.SDK_INT >= 34) {
             overrideActivityTransition(
@@ -134,8 +135,7 @@ class PhotoEditorActivity : AppCompatActivity() {
 
                         ViewCompat.setOnApplyWindowInsetsListener(view) { _, windowInsets ->
                             val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-                            val topInset = if (systemBarsInsets.top > 0) systemBarsInsets.top else (28 * resources.displayMetrics.density).toInt()
-                            b.topBar.setPadding(b.topBar.paddingLeft, topInset, b.topBar.paddingRight, b.topBar.paddingBottom)
+                            b.topBar.setPadding(b.topBar.paddingLeft, systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt(), b.topBar.paddingRight, b.topBar.paddingBottom)
                             b.toolsLayout.setPadding(b.toolsLayout.paddingLeft, b.toolsLayout.paddingTop, b.toolsLayout.paddingRight, systemBarsInsets.bottom)
                             windowInsets
                         }

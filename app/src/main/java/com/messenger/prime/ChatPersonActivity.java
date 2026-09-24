@@ -559,6 +559,8 @@ public class ChatPersonActivity extends AppCompatActivity {
                 }
             }
         });
+        
+        UIExtensionsKt.setupEdgeToEdge(this, !isDarkTheme);
 
         View chatRoot = findViewById(R.id.chatRoot);
         if (chatRoot != null) {
@@ -569,7 +571,6 @@ public class ChatPersonActivity extends AppCompatActivity {
                     closeAttachmentPanel();
                 }
                 float density = getResources().getDisplayMetrics().density;
-                int baseMargin = (int) (12 * density);
 
                 View vTopGradient = findViewById(R.id.vTopGradient);
                 if (vTopGradient != null) {
@@ -595,7 +596,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                 if (layoutHeader != null) {
                     ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) layoutHeader.getLayoutParams();
                     if (lp != null) {
-                        lp.topMargin = systemBars.top + baseMargin;
+                        lp.topMargin = systemBars.top;
                         layoutHeader.setLayoutParams(lp);
                     }
                 }
@@ -604,7 +605,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                 if (bottomContainer != null) {
                     ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) bottomContainer.getLayoutParams();
                     if (lp != null) {
-                        lp.bottomMargin = Math.max(systemBars.bottom, ime.bottom) + baseMargin;
+                        lp.bottomMargin = Math.max(systemBars.bottom, ime.bottom);
                         bottomContainer.setLayoutParams(lp);
                     }
                 }

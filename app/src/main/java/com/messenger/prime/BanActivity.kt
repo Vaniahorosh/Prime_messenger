@@ -31,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.messenger.prime.databinding.ActivityBanContentBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
@@ -94,6 +96,13 @@ class BanActivity : AppCompatActivity() {
                     factory = { context ->
                         val view = layoutInflater.inflate(R.layout.activity_ban_content, null)
                         binding = ActivityBanContentBinding.bind(view)
+                        
+                        ViewCompat.setOnApplyWindowInsetsListener(view) { _, windowInsets ->
+                            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+                            view.setPadding(0, insets.top, 0, insets.bottom)
+                            windowInsets
+                        }
+                        
                         setupUI(userName, reason)
                         view
                     },

@@ -139,6 +139,7 @@ fun EightBitBlurView.setupBlur(
             val facade = setupWith(rootView, algorithm)
                 .setBlurRadius(blurRadius)
                 .setOverlayColor(overlayColor)
+                .setBlurAutoUpdate(true)
 
             if (frameClearDrawable != null) {
                 facade.setFrameClearDrawable(frameClearDrawable)
