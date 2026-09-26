@@ -84,6 +84,16 @@ public class ChatMessage {
         }
     }
 
+    private boolean isFirstUnread = false;
+
+    public boolean isFirstUnread() {
+        return isFirstUnread;
+    }
+
+    public void setFirstUnread(boolean firstUnread) {
+        isFirstUnread = firstUnread;
+    }
+
     public MessageType getMessageType() {
         return messageType;
     }

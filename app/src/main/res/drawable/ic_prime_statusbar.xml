@@ -1,47 +1,98 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
-    android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:height="27dp"
+    android:viewportWidth="486"
+    android:viewportHeight="544">
 
-    <!-- Левая верхняя дуга и грань контура -->
-    <path
-        android:strokeColor="#3CAEA3"
-        android:strokeWidth="1.8"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M 12.5,2.5 H 6.5 A 3.5,3.5 0 0 0 3,6 V 15.5 L 6.8,19.3" />
-
-    <!-- Правый верхний угол контура -->
-    <path
-        android:strokeColor="#3CAEA3"
-        android:strokeWidth="1.8"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M 14.5,2.5 H 17.5 A 3.5,3.5 0 0 1 21,6 V 9.5" />
-
-    <!-- Правая нижняя диагональная грань -->
-    <path
-        android:strokeColor="#3CAEA3"
-        android:strokeWidth="1.8"
-        android:strokeLineCap="round"
-        android:pathData="M 20.5,12.5 L 15.5,17.5" />
-
-    <!-- Три точки внутри -->
+    <!-- Основная бирюзовая часть -->
     <path
         android:fillColor="#3CAEA3"
-        android:pathData="M 8.5,10.5 m -1.1,0 a 1.1,1.1 0 1,0 2.2,0 a 1.1,1.1 0 1,0 -2.2,0" />
-    <path
-        android:fillColor="#3CAEA3"
-        android:pathData="M 12,10.5 m -1.1,0 a 1.1,1.1 0 1,0 2.2,0 a 1.1,1.1 0 1,0 -2.2,0" />
-    <path
-        android:fillColor="#3CAEA3"
-        android:pathData="M 15.5,10.5 m -1.1,0 a 1.1,1.1 0 1,0 2.2,0 a 1.1,1.1 0 1,0 -2.2,0" />
+        android:pathData="
+            M115,13
+            L257,13
+            C268,13 277,22 277,34
+            C277,45 268,54 257,54
+            L116,54
+            C81,54 53,82 53,117
+            L53,319
+            L136,402
+            C144,410 144,423 136,432
+            C128,440 115,440 107,432
+            L17,342
+            C12,337 10,331 10,324
+            L10,117
+            C10,59 57,13 115,13
+            Z" />
 
-    <!-- Нижний тёмный штрих-хвостик -->
+    <!-- Верхняя правая часть -->
     <path
-        android:strokeColor="#0F1B33"
-        android:strokeWidth="2.2"
-        android:strokeLineCap="round"
-        android:pathData="M 9,21.5 L 13.5,18" />
+        android:fillColor="#3CAEA3"
+        android:pathData="
+            M302,13
+            L371,13
+            C430,13 477,59 477,117
+            L477,198
+            C477,210 468,219 456,219
+            C444,219 434,210 434,198
+            L434,117
+            C434,82 406,54 371,54
+            L302,54
+            C290,54 281,45 281,34
+            C281,22 290,13 302,13
+            Z" />
+
+    <!-- Нижняя правая диагональ -->
+    <path
+        android:fillColor="#3CAEA3"
+        android:pathData="
+            M443,236
+            C449,236 455,239 460,244
+            C467,251 467,262 460,270
+            L341,389
+            C333,397 321,397 313,389
+            C305,381 305,369 313,361
+            L428,246
+            C432,240 437,237 443,236
+            Z" />
+
+    <!-- Три точки -->
+    <path
+        android:fillColor="#3CAEA3"
+        android:pathData="
+            M161,184
+            A26,26 0,1 0,161,236
+            A26,26 0,1 0,161,184
+            Z" />
+
+    <path
+        android:fillColor="#3CAEA3"
+        android:pathData="
+            M243,184
+            A26,26 0,1 0,243,236
+            A26,26 0,1 0,243,184
+            Z" />
+
+    <path
+        android:fillColor="#3CAEA3"
+        android:pathData="
+            M326,184
+            A26,26 0,1 0,326,236
+            A26,26 0,1 0,326,184
+            Z" />
+
+    <!-- Темно-синяя диагональ -->
+    <path
+        android:fillColor="#0F1B33"
+        android:pathData="
+            M286,389
+            C293,389 300,393 305,400
+            C313,410 313,422 305,431
+            L205,529
+            C195,538 181,531 176,526
+            C166,517 156,507 161,495
+            C163,490 166,486 170,482
+            L270,393
+            C275,390 280,389 286,389
+            Z" />
+
 </vector>

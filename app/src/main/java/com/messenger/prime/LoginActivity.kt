@@ -10,8 +10,10 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
@@ -78,24 +80,6 @@ class LoginActivity : AppCompatActivity() {
                             val b = ActivityLoginContentBinding.bind(view)
                             binding = b
 
-                            ViewCompat.setOnApplyWindowInsetsListener(view) { v, windowInsets ->
-                                val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-                                val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
-
-                                val backParams = b.btnBack.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-                                backParams.topMargin = systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt()
-                                b.btnBack.layoutParams = backParams
-
-                                val titleParams = b.tvTitle.layoutParams as ConstraintLayout.LayoutParams
-                                titleParams.topMargin = systemBarsInsets.top + (80 * resources.displayMetrics.density).toInt()
-                                b.tvTitle.layoutParams = titleParams
-
-                                v.setPadding(0, 0, 0,
-                                    max(systemBarsInsets.bottom, imeInsets.bottom)
-                                )
-                                windowInsets
-                            }
-
                             val contentViews = listOf(b.tvTitle, b.tvSubtitle, b.inputLayoutLogin)
                             contentViews.forEach { it.alpha = 1f }
 
@@ -111,6 +95,18 @@ class LoginActivity : AppCompatActivity() {
                                     showLoginStep(b)
                                 }
                             }
+
+                            val editorActionListener = TextView.OnEditorActionListener { _, actionId, _ ->
+                                if (actionId == EditorInfo.IME_ACTION_DONE ||
+                                    actionId == EditorInfo.IME_ACTION_GO ||
+                                    actionId == EditorInfo.IME_ACTION_NEXT) {
+                                    b.btnForward.performClick()
+                                    true
+                                } else false
+                            }
+
+                            b.etLogin.setOnEditorActionListener(editorActionListener)
+                            b.etPassword.setOnEditorActionListener(editorActionListener)
 
                             b.btnForward.setOnClickListener {
                                 val login = b.etLogin.text.toString().trim()
@@ -170,7 +166,10 @@ class LoginActivity : AppCompatActivity() {
                             
                             view
                         },
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .imePadding()
                     )
 
                     // Blur for navigation bar

@@ -7,6 +7,7 @@
     android:background="@android:color/transparent">
 
     <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/rootConstraint"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingBottom="32dp">
@@ -15,8 +16,8 @@
             android:id="@+id/btnBack"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="32dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="16dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="12dp"
             android:src="@drawable/ic_arrow_back"
@@ -24,151 +25,160 @@
             app:layout_constraintTop_toTopOf="parent"
             app:tint="@color/white" />
 
-        <TextView
-            android:id="@+id/tvWelcome"
-            android:layout_width="wrap_content"
+        <!-- Центрированный контейнер для основного контента -->
+        <LinearLayout
+            android:id="@+id/centerContainer"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Будем знакомы!"
-            android:textColor="@color/white"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:shadowColor="#40000000"
-            android:shadowDx="2"
-            android:shadowDy="2"
-            android:shadowRadius="4"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/btnBack" />
-
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/glassCard"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
             android:layout_marginHorizontal="24dp"
-            android:layout_marginTop="32dp"
-            android:background="@drawable/bg_glass_card"
-            android:padding="24dp"
-            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tvWelcome">
-
-            <androidx.cardview.widget.CardView
-                android:id="@+id/cvAvatar"
-                android:layout_width="120dp"
-                android:layout_height="120dp"
-                app:cardBackgroundColor="@color/glass_white_10"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
-
-                <TextView
-                    android:id="@+id/tvAvatarHint"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:text="Выбрать\nаватарку"
-                    android:textAlignment="center"
-                    android:textColor="@color/white"
-                    android:alpha="0.8"
-                    android:textStyle="bold" />
-
-                <ImageView
-                    android:id="@+id/ivSelectedAvatar"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:scaleType="centerCrop" />
-            </androidx.cardview.widget.CardView>
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/inputLayoutName"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
-                android:hint="Ваше Имя"
-                app:boxBackgroundColor="@color/glass_white_10"
-                app:boxStrokeWidth="0dp"
-                app:boxStrokeWidthFocused="1dp"
-                app:boxStrokeColor="@color/white"
-                app:boxCornerRadiusTopStart="16dp"
-                app:boxCornerRadiusTopEnd="16dp"
-                app:boxCornerRadiusBottomStart="16dp"
-                app:boxCornerRadiusBottomEnd="16dp"
-                app:counterEnabled="true"
-                app:counterMaxLength="16"
-                app:counterTextColor="@color/white"
-                app:hintTextColor="@color/white"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/cvAvatar">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etName"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:maxLength="16"
-                    android:inputType="textPersonName"
-                    android:textColor="@color/white" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/inputLayoutPassword"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:hint="Придумайте пароль"
-                app:boxBackgroundColor="@color/glass_white_10"
-                app:boxStrokeWidth="0dp"
-                app:boxStrokeWidthFocused="1dp"
-                app:boxStrokeColor="@color/white"
-                app:boxCornerRadiusTopStart="16dp"
-                app:boxCornerRadiusTopEnd="16dp"
-                app:boxCornerRadiusBottomStart="16dp"
-                app:boxCornerRadiusBottomEnd="16dp"
-                app:endIconMode="password_toggle"
-                app:endIconTint="@color/white"
-                app:hintTextColor="@color/white"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/inputLayoutName">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etPassword"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="textPassword"
-                    android:textColor="@color/white" />
-            </com.google.android.material.textfield.TextInputLayout>
+            app:layout_constraintEnd_toEndOf="parent">
 
             <TextView
-                android:id="@+id/tvPasswordHint"
+                android:id="@+id/tvWelcome"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Минимум 8 символов"
-                android:textColor="@color/glass_white_30"
-                android:textSize="12sp"
-                app:layout_constraintStart_toStartOf="@+id/inputLayoutPassword"
-                app:layout_constraintTop_toBottomOf="@+id/inputLayoutPassword" />
+                android:text="Будем знакомы!"
+                android:textColor="@color/white"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:shadowColor="#40000000"
+                android:shadowDx="2"
+                android:shadowDy="2"
+                android:shadowRadius="4"
+                android:layout_marginBottom="32dp" />
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/glassCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_glass_card"
+                android:padding="24dp">
 
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/btnForward"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            app:backgroundTint="@color/white"
-            app:tint="@color/grad_start"
-            android:src="@drawable/ic_arrow_forward"
-            app:layout_constraintEnd_toEndOf="@+id/glassCard"
-            app:layout_constraintTop_toBottomOf="@+id/glassCard"
-            app:shapeAppearanceOverlay="@style/SquareFABShape"
-            app:elevation="8dp"/>
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cvAvatar"
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    app:cardBackgroundColor="@color/glass_white_10"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="0dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent">
+
+                    <TextView
+                        android:id="@+id/tvAvatarHint"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="Выбрать\nаватарку"
+                        android:textAlignment="center"
+                        android:textColor="@color/white"
+                        android:alpha="0.8"
+                        android:textStyle="bold" />
+
+                    <ImageView
+                        android:id="@+id/ivSelectedAvatar"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop" />
+                </androidx.cardview.widget.CardView>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputLayoutName"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:hint="Ваше Имя"
+                    app:boxBackgroundColor="@color/glass_white_10"
+                    app:boxStrokeWidth="0dp"
+                    app:boxStrokeWidthFocused="1dp"
+                    app:boxStrokeColor="@color/white"
+                    app:boxCornerRadiusTopStart="16dp"
+                    app:boxCornerRadiusTopEnd="16dp"
+                    app:boxCornerRadiusBottomStart="16dp"
+                    app:boxCornerRadiusBottomEnd="16dp"
+                    app:counterEnabled="true"
+                    app:counterMaxLength="16"
+                    app:counterTextColor="@color/white"
+                    app:hintTextColor="@color/white"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/cvAvatar">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:maxLength="16"
+                        android:inputType="textPersonName"
+                        android:imeOptions="actionNext"
+                        android:textColor="@color/white" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputLayoutPassword"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="Придумайте пароль"
+                    app:boxBackgroundColor="@color/glass_white_10"
+                    app:boxStrokeWidth="0dp"
+                    app:boxStrokeWidthFocused="1dp"
+                    app:boxStrokeColor="@color/white"
+                    app:boxCornerRadiusTopStart="16dp"
+                    app:boxCornerRadiusTopEnd="16dp"
+                    app:boxCornerRadiusBottomStart="16dp"
+                    app:boxCornerRadiusBottomEnd="16dp"
+                    app:endIconMode="password_toggle"
+                    app:endIconTint="@color/white"
+                    app:hintTextColor="@color/white"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/inputLayoutName">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPassword"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textPassword"
+                        android:imeOptions="actionDone"
+                        android:textColor="@color/white" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/tvPasswordHint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Минимум 8 символов"
+                    android:textColor="@color/glass_white_30"
+                    android:textSize="12sp"
+                    app:layout_constraintStart_toStartOf="@+id/inputLayoutPassword"
+                    app:layout_constraintTop_toBottomOf="@+id/inputLayoutPassword" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/btnForward"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_gravity="end"
+                app:backgroundTint="@color/white"
+                app:tint="@color/grad_start"
+                android:src="@drawable/ic_arrow_forward"
+                app:shapeAppearanceOverlay="@style/SquareFABShape"
+                app:elevation="8dp"/>
+
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </ScrollView>

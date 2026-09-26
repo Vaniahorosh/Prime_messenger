@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
@@ -38,14 +39,19 @@
         android:theme="@style/Theme.Prime">
 
         <activity
-            android:name=".HiActivity"
+            android:name=".SplashActivity"
             android:exported="true"
-            android:windowSoftInputMode="adjustResize">
+            android:theme="@style/Theme.Prime">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".HiActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".LoginActivity"
@@ -96,11 +102,30 @@
             android:exported="false"
             android:theme="@style/Theme.Prime.Swipe" />
 
+        <activity
+            android:name=".PersonInformationActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Prime.Swipe" />
+
+        <activity-alias
+            android:name=".Person_information"
+            android:targetActivity=".PersonInformationActivity"
+            android:exported="false" />
+
         <service
             android:name=".PrimeBluetoothService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+
+        <receiver
+            android:name=".NotificationActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.messenger.prime.ACTION_NOTIFICATION_REPLY" />
+                <action android:name="com.messenger.prime.ACTION_NOTIFICATION_MARK_READ" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"

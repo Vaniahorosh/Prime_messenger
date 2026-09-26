@@ -3,7 +3,6 @@ package com.messenger.prime;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -185,6 +184,40 @@ public class ChatHistoryManager {
         });
     }
 
+    public static void markOutgoingMessagesAsRead(Context context, String targetUsername, String readMsgId) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return;
+        executor.execute(() -> {
+            Context appContext = context.getApplicationContext();
+            List<ChatMessage> history = loadMessages(appContext, targetUsername);
+            if (history.isEmpty()) return;
+
+            boolean markAll = (readMsgId == null || readMsgId.isEmpty() || readMsgId.startsWith("READ_ALL"));
+            int targetIdx = history.size() - 1;
+
+            if (!markAll) {
+                for (int i = 0; i < history.size(); i++) {
+                    if (readMsgId.equals(history.get(i).getMessageId())) {
+                        targetIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            boolean changed = false;
+            for (int i = 0; i <= targetIdx && i < history.size(); i++) {
+                ChatMessage m = history.get(i);
+                if (m.isOutgoing() && m.getMessageStatus() != MessageStatus.READ) {
+                    m.setMessageStatus(MessageStatus.READ);
+                    changed = true;
+                }
+            }
+
+            if (changed) {
+                saveHistoryList(appContext, targetUsername, history);
+            }
+        });
+    }
+
     public static List<ChatMessage> loadMessages(Context context, String targetUsername) {
         List<ChatMessage> list = new ArrayList<>();
         if (targetUsername == null || targetUsername.isEmpty()) return list;
@@ -212,12 +245,8 @@ public class ChatHistoryManager {
                     long fileSize = obj.optLong("fileSize", 0L);
                     String videoDuration = obj.optString("videoDuration", null);
 
-                    Bitmap bmp = null;
-                    if (imagePath != null && !imagePath.isEmpty() && new File(imagePath).exists()) {
-                        bmp = BitmapFactory.decodeFile(imagePath);
-                    }
-
-                    ChatMessage msg = new ChatMessage(text, time, senderLogin, isOutgoing, bmp, timestamp, imagePath, messageId);
+                    // Avoid decoding full bitmaps into memory synchronously for all history messages to prevent OOM
+                    ChatMessage msg = new ChatMessage(text, time, senderLogin, isOutgoing, null, timestamp, imagePath, messageId);
                     msg.setEdited(isEdited);
                     msg.setFileName(fileName);
                     msg.setFileSize(fileSize);

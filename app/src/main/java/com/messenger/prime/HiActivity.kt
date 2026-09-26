@@ -203,25 +203,34 @@ class HiActivity : AppCompatActivity() {
 
     private fun getAllRequiredPermissions(): Array<String> {
         val perms = mutableListOf<String>()
+        
+        // Камера и Контакты
         perms.add(Manifest.permission.CAMERA)
         perms.add(Manifest.permission.READ_CONTACTS)
 
+        // Геолокация (требуется для поиска устройств поблизости по Bluetooth)
+        perms.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        perms.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+
+        // Разрешения для Bluetooth на Android 12+ (API 31+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            perms.add(Manifest.permission.BLUETOOTH_CONNECT)
+            perms.add(Manifest.permission.BLUETOOTH_SCAN)
+            perms.add(Manifest.permission.BLUETOOTH_ADVERTISE)
+        }
+
+        // Уведомления и медиафайлы на Android 13+ (API 33+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             perms.add(Manifest.permission.POST_NOTIFICATIONS)
             perms.add(Manifest.permission.READ_MEDIA_IMAGES)
             perms.add(Manifest.permission.READ_MEDIA_VIDEO)
             perms.add(Manifest.permission.READ_MEDIA_AUDIO)
         } else {
+            // Память для ранних версий Android
             perms.add(Manifest.permission.READ_EXTERNAL_STORAGE)
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            perms.add(Manifest.permission.BLUETOOTH_CONNECT)
-            perms.add(Manifest.permission.BLUETOOTH_SCAN)
-            perms.add(Manifest.permission.BLUETOOTH_ADVERTISE)
-        } else {
-            perms.add(Manifest.permission.ACCESS_FINE_LOCATION)
-            perms.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                perms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
         }
 
         return perms.toTypedArray()
@@ -252,16 +261,7 @@ class HiActivity : AppCompatActivity() {
         val missing = getMissingPermissions()
         if (missing.isEmpty()) return
 
-        MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
-            .setTitle("Проверка готовности к переходу")
-            .setMessage("Для перехода в Prime Messenger необходимо предоставить разрешительные доступы (Bluetooth, уведомления, камера, галерея, контакты).")
-            .setPositiveButton("Предоставить все") { _, _ ->
-                requestAllPermissionsLauncher.launch(missing.toTypedArray())
-            }
-            .setNegativeButton("Отмена") { _, _ ->
-                isPendingNavigationAfterPermissions = false
-            }
-            .show()
+        requestAllPermissionsLauncher.launch(missing.toTypedArray())
     }
 
     private fun setupTextSwitcher() {

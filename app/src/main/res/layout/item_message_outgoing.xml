@@ -257,11 +257,14 @@
                     android:orientation="vertical"
                     android:visibility="gone">
 
-                    <ProgressBar
+                    <com.google.android.material.progressindicator.CircularProgressIndicator
                         android:id="@+id/pbDownloadProgress"
-                        style="?android:attr/progressBarStyleSmall"
                         android:layout_width="22dp"
-                        android:layout_height="22dp" />
+                        android:layout_height="22dp"
+                        android:indeterminate="true"
+                        app:indicatorColor="@color/white"
+                        app:indicatorSize="22dp"
+                        app:trackThickness="2.5dp" />
 
                     <TextView
                         android:id="@+id/tvDownloadPercent"

@@ -24,6 +24,40 @@
         android:textStyle="bold"
         android:visibility="gone" />
 
+    <!-- Разделитель "Новое сообщение" -->
+    <LinearLayout
+        android:id="@+id/layoutUnreadHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone">
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1.5dp"
+            android:layout_weight="1"
+            android:background="@color/prime_brand" />
+
+        <TextView
+            android:id="@+id/tvUnreadTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="12dp"
+            android:text="Новое сообщение"
+            android:textColor="@color/prime_brand"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1.5dp"
+            android:layout_weight="1"
+            android:background="@color/prime_brand" />
+    </LinearLayout>
+
     <LinearLayout
         android:id="@+id/layoutIncomingBubble"
         android:layout_width="wrap_content"
@@ -257,11 +291,14 @@
                     android:orientation="vertical"
                     android:visibility="gone">
 
-                    <ProgressBar
+                    <com.google.android.material.progressindicator.CircularProgressIndicator
                         android:id="@+id/pbDownloadProgress"
-                        style="?android:attr/progressBarStyleSmall"
                         android:layout_width="22dp"
-                        android:layout_height="22dp" />
+                        android:layout_height="22dp"
+                        android:indeterminate="true"
+                        app:indicatorColor="@color/prime_brand"
+                        app:indicatorSize="22dp"
+                        app:trackThickness="2.5dp" />
 
                     <TextView
                         android:id="@+id/tvDownloadPercent"

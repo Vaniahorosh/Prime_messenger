@@ -7,6 +7,16 @@
     android:layout_height="match_parent"
     android:background="@color/prime_base">
 
+    <!-- Локальные анимированные обои из Material фигур и логотипа -->
+    <com.messenger.prime.MaterialShapesWallpaperView
+        android:id="@+id/vWallpaperBackground"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <!-- Градиентный туман в области статус-бара -->
     <View
         android:id="@+id/vTopGradient"
@@ -75,6 +85,7 @@
                 tools:ignore="HardcodedText"
                 android:contentDescription="Назад"
                 android:src="@drawable/ic_arrow_back"
+                android:transitionName="transition_back_btn"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
@@ -95,6 +106,7 @@
                 android:id="@+id/viewOnlineStatus"
                 android:layout_width="14dp"
                 android:layout_height="14dp"
+                android:visibility="gone"
                 android:background="@android:color/transparent"
                 app:layout_constraintBottom_toBottomOf="@+id/ivChatAvatar"
                 app:layout_constraintEnd_toEndOf="@+id/ivChatAvatar"
@@ -252,6 +264,16 @@
                 android:paddingEnd="12dp"
                 android:paddingBottom="10dp"
                 android:visibility="gone">
+
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:id="@+id/snakeSendingProgress"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginEnd="10dp"
+                    android:indeterminate="true"
+                    app:indicatorColor="#00E676"
+                    app:indicatorSize="24dp"
+                    app:trackThickness="3dp" />
 
                 <ProgressBar
                     android:id="@+id/pbSendingProgress"

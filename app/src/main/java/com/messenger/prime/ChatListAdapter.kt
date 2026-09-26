@@ -272,6 +272,10 @@ class ChatListAdapter(
                 val binding = holder.binding
 
                 holder.resetReveal()
+                
+                binding.ivUserAvatar.setImageDrawable(null)
+                binding.tvUserInitials.visibility = View.GONE
+                binding.ivUserAvatar.visibility = View.INVISIBLE
 
                 val now = System.currentTimeMillis()
                 val isCurrentlyTyping = "TYPING".equals(chat.activityState, ignoreCase = true) && chat.typingUntil > now
@@ -475,7 +479,9 @@ class ChatListAdapter(
             override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int) = chatList[oldItemPosition] == newList[newItemPosition]
         }
         val diffResult = DiffUtil.calculateDiff(diffCallback)
+        val wasEmpty = chatList.isEmpty()
         chatList = ArrayList(newList)
+        val isEmpty = chatList.isEmpty()
         
         val offset = if (isSearchActive) 0 else 1
         diffResult.dispatchUpdatesTo(object : ListUpdateCallback {
@@ -492,6 +498,10 @@ class ChatListAdapter(
                 notifyItemRangeChanged(position + offset, count, payload)
             }
         })
+        
+        if (wasEmpty != isEmpty) {
+            notifyItemChanged(itemCount - 1)
+        }
     }
 
     fun getChatList(): List<ChatModel> = chatList
@@ -518,10 +528,13 @@ class ChatListAdapter(
     }
 
     private fun animateShowDelete(holder: ChatViewHolder) {
+        val density = holder.itemView.resources.displayMetrics.density
+        val targetTranslationX = -90f * density
+
         holder.binding.layoutDelete.visibility = View.VISIBLE
         holder.binding.layoutContent.animate()
-            .translationX(-440f) // Сдвигаем больше для двух кнопок по 72dp
-            .setDuration(300)
+            .translationX(targetTranslationX)
+            .setDuration(250)
             .setInterpolator(android.view.animation.DecelerateInterpolator())
             .withEndAction { holder.isRevealed = true }
             .start()
@@ -530,7 +543,7 @@ class ChatListAdapter(
     private fun animateHideDelete(holder: ChatViewHolder) {
         holder.binding.layoutContent.animate()
             .translationX(0f)
-            .setDuration(250)
+            .setDuration(220)
             .setInterpolator(android.view.animation.AccelerateInterpolator())
             .withEndAction { 
                 holder.resetReveal()

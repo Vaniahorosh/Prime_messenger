@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.inputmethod.EditorInfo
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
@@ -97,23 +98,6 @@ class RegisterActivity : AppCompatActivity() {
                             val b = ActivityRegisterContentBinding.bind(view)
                             binding = b
 
-                            ViewCompat.setOnApplyWindowInsetsListener(view) { v, windowInsets ->
-                                val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-                                val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
-                                val backParams = b.btnBack.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-                                backParams.topMargin = systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt()
-                                b.btnBack.layoutParams = backParams
-                                
-                                val headerParams = b.tvWelcome.layoutParams as ConstraintLayout.LayoutParams
-                                headerParams.topMargin = systemBarsInsets.top + (56 * resources.displayMetrics.density).toInt()
-                                b.tvWelcome.layoutParams = headerParams
-                                
-                                v.setPadding(0, 0, 0,
-                                    max(systemBarsInsets.bottom, imeInsets.bottom)
-                                )
-                                windowInsets
-                            }
-
                             val contentViews = listOf(b.cvAvatar, b.inputLayoutName, b.inputLayoutPassword, b.tvPasswordHint, b.btnForward)
                             contentViews.forEach { it.alpha = 1f }
                             b.tvWelcome.alpha = 1f
@@ -140,6 +124,14 @@ class RegisterActivity : AppCompatActivity() {
                                 }
                                 override fun afterTextChanged(s: android.text.Editable?) {}
                             })
+
+                            b.etPassword.setOnEditorActionListener { _, actionId, _ ->
+                                if (actionId == EditorInfo.IME_ACTION_DONE ||
+                                    actionId == EditorInfo.IME_ACTION_GO) {
+                                    b.btnForward.performClick()
+                                    true
+                                } else false
+                            }
 
                             b.btnForward.setOnClickListener {
                                 val name = b.etName.text.toString().trim()
@@ -187,7 +179,10 @@ class RegisterActivity : AppCompatActivity() {
                             
                             view
                         },
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .imePadding()
                     )
 
                     // Blur for navigation bar

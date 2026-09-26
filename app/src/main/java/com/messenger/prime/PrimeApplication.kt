@@ -8,10 +8,14 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
+import android.app.Activity
+import android.os.Bundle
+import java.lang.ref.WeakReference
 
-class PrimeApplication : Application() {
+class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
     override fun onCreate() {
         super.onCreate()
+        registerActivityLifecycleCallbacks(this)
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val theme = sharedPrefs.getString("app_theme", "system")
         when (theme) {
@@ -62,5 +66,42 @@ class PrimeApplication : Application() {
 
     companion object {
         const val CHANNEL_MESSAGES_ID = "prime_messages"
+        
+        @JvmStatic
+        var isAppInForeground: Boolean = false
+            private set
+            
+        @JvmStatic
+        private var currentActivityRef: WeakReference<Activity>? = null
+        
+        @JvmStatic
+        fun getCurrentActivity(): Activity? = currentActivityRef?.get()
     }
+    
+    private var activityReferences = 0
+    private var isActivityChangingConfigurations = false
+
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+    override fun onActivityStarted(activity: Activity) {
+        if (++activityReferences == 1 && !isActivityChangingConfigurations) {
+            isAppInForeground = true
+        }
+    }
+    override fun onActivityResumed(activity: Activity) {
+        currentActivityRef = WeakReference(activity)
+    }
+    override fun onActivityPaused(activity: Activity) {
+        if (currentActivityRef?.get() == activity) {
+            currentActivityRef?.clear()
+            currentActivityRef = null
+        }
+    }
+    override fun onActivityStopped(activity: Activity) {
+        isActivityChangingConfigurations = activity.isChangingConfigurations
+        if (--activityReferences == 0 && !isActivityChangingConfigurations) {
+            isAppInForeground = false
+        }
+    }
+    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+    override fun onActivityDestroyed(activity: Activity) {}
 }
