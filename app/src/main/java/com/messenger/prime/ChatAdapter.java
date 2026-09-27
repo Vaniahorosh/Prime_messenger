@@ -19,6 +19,7 @@ import java.util.Objects;
 
 import android.media.ThumbnailUtils;
 import android.os.Build;
+import android.os.SystemClock;
 import android.provider.MediaStore;
 import android.text.Spannable;
 import android.text.SpannableString;
@@ -135,8 +136,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         this.actionListener = listener;
     }
 
+    private String newlyAnimatedMessageId = null;
+
     public void addMessage(ChatMessage message) {
         messages.add(message);
+        notifyItemInserted(messages.size() - 1);
+    }
+
+    public void addMessageAnimated(ChatMessage message) {
+        messages.add(message);
+        if (message != null) {
+            newlyAnimatedMessageId = message.getMessageId();
+        }
         notifyItemInserted(messages.size() - 1);
     }
 
@@ -149,20 +160,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 if (progress >= 100) {
                     msg.setMessageStatus(MessageStatus.SENT);
                 }
-                notifyItemChanged(i);
+                notifyItemChanged(i, "PROGRESS");
                 break;
             }
         }
     }
 
     public void setMessages(List<ChatMessage> newMessages) {
-        List<ChatMessage> oldMessages = new ArrayList<>(this.messages);
         List<ChatMessage> incomingMessages = newMessages != null ? newMessages : new ArrayList<>();
-        
         DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new DiffUtil.Callback() {
             @Override
             public int getOldListSize() {
-                return oldMessages.size();
+                return messages.size();
             }
 
             @Override
@@ -172,21 +181,23 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
             @Override
             public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
-                return Objects.equals(oldMessages.get(oldItemPosition).getMessageId(), incomingMessages.get(newItemPosition).getMessageId());
+                return Objects.equals(messages.get(oldItemPosition).getMessageId(), incomingMessages.get(newItemPosition).getMessageId());
             }
 
             @Override
             public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
-                ChatMessage oldItem = oldMessages.get(oldItemPosition);
+                ChatMessage oldItem = messages.get(oldItemPosition);
                 ChatMessage newItem = incomingMessages.get(newItemPosition);
                 return Objects.equals(oldItem.getText(), newItem.getText()) &&
                        oldItem.getMessageStatus() == newItem.getMessageStatus() &&
                        Objects.equals(oldItem.getReaction(), newItem.getReaction()) &&
-                       oldItem.isEdited() == newItem.isEdited();
+                       oldItem.isEdited() == newItem.isEdited() &&
+                       Objects.equals(oldItem.getImagePath(), newItem.getImagePath());
             }
         });
         
-        this.messages = new ArrayList<>(incomingMessages);
+        this.messages.clear();
+        this.messages.addAll(incomingMessages);
         diffResult.dispatchUpdatesTo(this);
     }
 
@@ -362,28 +373,86 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             showDateHeader = true;
         }
 
+        View v = holder.itemView;
+        v.animate().cancel();
+
         if (holder.getItemViewType() == VIEW_TYPE_OUTGOING) {
             ((OutgoingViewHolder) holder).bind(message, showDateHeader, longClickListener, position);
         } else {
             ((IncomingViewHolder) holder).bind(message, showDateHeader, longClickListener, position);
         }
-        holder.itemView.setAlpha(1f);
-        holder.itemView.setTranslationY(0f);
-        holder.itemView.setTranslationX(0f);
+
+        if (message.isOutgoing() && message.getMessageId() != null && message.getMessageId().equals(newlyAnimatedMessageId)) {
+            newlyAnimatedMessageId = null;
+            v.setTranslationY(30f * v.getResources().getDisplayMetrics().density);
+            v.setAlpha(0.3f);
+            v.setScaleX(1f);
+            v.setScaleY(1f);
+            v.animate()
+                    .translationY(0f)
+                    .alpha(1.0f)
+                    .setDuration(220)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        } else {
+            v.setAlpha(1f);
+            v.setTranslationY(0f);
+            v.setTranslationX(0f);
+            v.setScaleX(1f);
+            v.setScaleY(1f);
+        }
     }
 
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position, @NonNull List<Object> payloads) {
-        if (!payloads.isEmpty() && payloads.contains("HIGHLIGHT")) {
-            View view = holder.itemView;
-            view.animate().cancel();
-            ObjectAnimator flicker = ObjectAnimator.ofFloat(view, "alpha", 1f, 0.15f, 1f, 0.15f, 1f, 0.35f, 1f);
-            flicker.setDuration(1200);
-            flicker.setInterpolator(new AccelerateDecelerateInterpolator());
-            flicker.start();
-        } else {
-            super.onBindViewHolder(holder, position, payloads);
+        if (!payloads.isEmpty()) {
+            if (payloads.contains("HIGHLIGHT")) {
+                View view = holder.itemView;
+                view.animate().cancel();
+                ObjectAnimator flicker = ObjectAnimator.ofFloat(view, "alpha", 1f, 0.15f, 1f, 0.15f, 1f, 0.35f, 1f);
+                flicker.setDuration(1200);
+                flicker.setInterpolator(new AccelerateDecelerateInterpolator());
+                flicker.start();
+            } else if (payloads.contains("PROGRESS")) {
+                if (position >= 0 && position < messages.size()) {
+                    ChatMessage message = messages.get(position);
+                    View layoutMessageProgress = holder.itemView.findViewById(R.id.layoutMessageProgress);
+                    ProgressBar pbMessageProgress = holder.itemView.findViewById(R.id.pbMessageProgress);
+                    TextView tvMessageProgressPercent = holder.itemView.findViewById(R.id.tvMessageProgressPercent);
+
+                    if (layoutMessageProgress != null) {
+                        if (message.getMessageStatus() == MessageStatus.SENDING && message.getSendingProgress() < 100) {
+                            layoutMessageProgress.setVisibility(View.VISIBLE);
+                            if (pbMessageProgress != null) pbMessageProgress.setProgress(message.getSendingProgress());
+                            if (tvMessageProgressPercent != null) tvMessageProgressPercent.setText(message.getSendingProgress() + "%");
+                        } else {
+                            layoutMessageProgress.setVisibility(View.GONE);
+                        }
+                    }
+
+                    ImageView ivMessageStatus = holder.itemView.findViewById(R.id.ivMessageStatus);
+                    if (ivMessageStatus != null) {
+                        if (message.getMessageStatus() == MessageStatus.SENDING) {
+                            ivMessageStatus.setVisibility(View.VISIBLE);
+                            ivMessageStatus.setImageResource(R.drawable.ic_clock);
+                        } else if (message.getMessageStatus() == MessageStatus.READ) {
+                            ivMessageStatus.setVisibility(View.VISIBLE);
+                            ivMessageStatus.setImageResource(R.drawable.ic_done_all);
+                        } else if (message.getMessageStatus() == MessageStatus.SENT) {
+                            ivMessageStatus.setVisibility(View.VISIBLE);
+                            ivMessageStatus.setImageResource(R.drawable.ic_done);
+                        } else if (message.getMessageStatus() == MessageStatus.ERROR) {
+                            ivMessageStatus.setVisibility(View.VISIBLE);
+                            ivMessageStatus.setImageResource(R.drawable.ic_error);
+                        } else {
+                            ivMessageStatus.setVisibility(View.GONE);
+                        }
+                    }
+                }
+                return;
+            }
         }
+        super.onBindViewHolder(holder, position, payloads);
     }
 
     public int findPositionByMessageId(String messageId) {
@@ -768,6 +837,26 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (layoutFileContainer != null) layoutFileContainer.setVisibility(View.GONE);
 
             List<ChatMessage.MediaItem> mediaItems = message.getMediaItems();
+            boolean hasValidPath = message.getImagePath() != null &&
+                    !message.getImagePath().trim().isEmpty() &&
+                    !"null".equalsIgnoreCase(message.getImagePath().trim()) &&
+                    !message.getImagePath().startsWith("MULTI:");
+            boolean hasBitmap = message.getImageBitmap() != null;
+            boolean isImageOrVideoType = message.getMessageType() == ChatMessage.MessageType.IMAGE ||
+                    message.getMessageType() == ChatMessage.MessageType.VIDEO ||
+                    message.isVideo();
+
+            if ((mediaItems == null || mediaItems.isEmpty()) && (hasValidPath || hasBitmap || isImageOrVideoType)) {
+                mediaItems = new ArrayList<>();
+                ChatMessage.MediaItem singleItem = new ChatMessage.MediaItem(
+                    message.getImagePath(),
+                    message.isVideo() || message.getMessageType() == ChatMessage.MessageType.VIDEO,
+                    message.getVideoDuration()
+                );
+                mediaItems.add(singleItem);
+                message.setMediaItems(mediaItems);
+            }
+
             if (mediaItems != null && !mediaItems.isEmpty()) {
                 if (layoutMediaContainer != null) layoutMediaContainer.setVisibility(View.VISIBLE);
 
@@ -797,6 +886,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
+    private static void setupSingleTapMediaOpener(View targetView, ChatMessage message, List<ChatMessage> messagesList) {
+        if (targetView == null) return;
+        targetView.setOnClickListener(v -> showFullScreenMedia(v.getContext(), v, message, messagesList));
+    }
+
+    private static void setupSingleTapMediaOpenerIndexed(View targetView, ChatMessage message, List<ChatMessage> messagesList, int itemIndex) {
+        if (targetView == null) return;
+        targetView.setOnClickListener(v -> showFullScreenMedia(v.getContext(), v, message, messagesList, itemIndex));
+    }
+
     private void bindSingleMediaItem(ChatMessage.MediaItem item, View container, ChatMessage message, ImageView ivImage, VideoView vvPreview, ImageView ivPlay, TextView tvDur) {
         if (container == null) return;
         ImageView img = ivImage != null ? ivImage : container.findViewById(R.id.ivMessageImage);
@@ -804,13 +903,33 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         ImageView play = ivPlay != null ? ivPlay : container.findViewById(R.id.ivVideoPlayBadge);
         TextView dur = tvDur != null ? tvDur : container.findViewById(R.id.tvVideoDuration);
 
-        if (item.isVideo) {
-            if (play != null) play.setVisibility(View.VISIBLE);
+        boolean isSending = message != null && message.getMessageStatus() == MessageStatus.SENDING;
+
+        if (item.isVideo && !isSending) {
+            if (play != null) play.setVisibility(View.GONE);
             if (dur != null) {
                 dur.setVisibility(View.VISIBLE);
                 dur.setText(item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "00:00");
             }
             loadVideoThumbnailIntoView(container.getContext(), item.path, img, vv);
+        } else if (item.isVideo) {
+            // Во время отправки (SENDING) демонстрируем статический снимок без создания VideoView,
+            // чтобы не создавать файловые блокировки и нагрузку на диск во время передачи по Bluetooth!
+            if (vv != null) vv.setVisibility(View.GONE);
+            if (play != null) play.setVisibility(View.GONE);
+            if (dur != null) {
+                dur.setVisibility(View.VISIBLE);
+                dur.setText(item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "00:00");
+            }
+            if (img != null) {
+                img.setVisibility(View.VISIBLE);
+                Bitmap thumb = getVideoThumbnail(container.getContext(), item.path);
+                if (thumb != null) {
+                    img.setImageBitmap(thumb);
+                } else {
+                    img.setImageResource(R.drawable.ic_video);
+                }
+            }
         } else {
             if (vv != null) vv.setVisibility(View.GONE);
             if (play != null) play.setVisibility(View.GONE);
@@ -821,10 +940,33 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
         }
 
-        View.OnClickListener clickListener = v -> showFullScreenMedia(v.getContext(), v, message, messages);
-        if (img != null) img.setOnClickListener(clickListener);
-        if (vv != null) vv.setOnClickListener(clickListener);
-        if (container != null) container.setOnClickListener(clickListener);
+        if (vv != null) {
+            vv.setOnTouchListener(new View.OnTouchListener() {
+                private float startX, startY;
+                @Override
+                public boolean onTouch(View v, MotionEvent event) {
+                    switch (event.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            startX = event.getX();
+                            startY = event.getY();
+                            return true;
+                        case MotionEvent.ACTION_UP:
+                            float diffX = Math.abs(event.getX() - startX);
+                            float diffY = Math.abs(event.getY() - startY);
+                            if (diffX < 20 && diffY < 20) {
+                                v.performClick();
+                                showFullScreenMedia(v.getContext(), v, message, messages);
+                            }
+                            return true;
+                    }
+                    return false;
+                }
+            });
+        }
+
+        if (img != null) setupSingleTapMediaOpener(img, message, messages);
+        if (container != null) setupSingleTapMediaOpener(container, message, messages);
+        if (dur != null) setupSingleTapMediaOpener(dur, message, messages);
     }
 
     private void bindGridMediaItems(List<ChatMessage.MediaItem> items, View container, ChatMessage message) {
@@ -843,16 +985,23 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private void bindTile(ChatMessage.MediaItem item, ImageView iv, ImageView play, View tile, ChatMessage message, int itemIndex) {
         if (item.isVideo) {
             if (play != null) play.setVisibility(View.VISIBLE);
-            loadVideoThumbnailIntoView(tile != null ? tile.getContext() : (iv != null ? iv.getContext() : null), item.path, iv, null);
+            if (iv != null) {
+                Bitmap thumb = getVideoThumbnail(tile != null ? tile.getContext() : (iv != null ? iv.getContext() : null), item.path);
+                if (thumb != null) {
+                    iv.setImageBitmap(thumb);
+                } else {
+                    iv.setImageResource(R.drawable.ic_video);
+                }
+            }
         } else {
             if (play != null) play.setVisibility(View.GONE);
             if (iv != null) {
                 loadMediaImageIntoView(iv.getContext(), item.path, iv);
             }
         }
-        View.OnClickListener clickListener = v -> showFullScreenMedia(v.getContext(), v, message, messages, itemIndex);
-        if (tile != null) tile.setOnClickListener(clickListener);
-        if (iv != null) iv.setOnClickListener(clickListener);
+        if (tile != null) setupSingleTapMediaOpenerIndexed(tile, message, messages, itemIndex);
+        if (iv != null) setupSingleTapMediaOpenerIndexed(iv, message, messages, itemIndex);
+        if (play != null) setupSingleTapMediaOpenerIndexed(play, message, messages, itemIndex);
     }
 
     private void bindSliderMediaItems(List<ChatMessage.MediaItem> items, View container, ChatMessage message) {
@@ -1042,9 +1191,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
             videoView.setVideoURI(uri);
             videoView.setOnPreparedListener(mp -> {
-                mp.setVolume(0f, 0f);
-                mp.setLooping(true);
-                videoView.start();
+                try {
+                    mp.setVolume(0f, 0f);
+                    mp.setLooping(true);
+                    videoView.start();
+                } catch (Exception ignored) {}
             });
             videoView.setOnErrorListener((mp, what, extra) -> {
                 videoView.setVisibility(View.GONE);
@@ -1607,7 +1758,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             ImageButton btnCancelMessageSending = itemView.findViewById(R.id.btnCancelMessageSending);
 
             if (layoutMessageProgress != null) {
-                if (message.getMessageStatus() == MessageStatus.SENDING || (message.getSendingProgress() > 0 && message.getSendingProgress() < 100)) {
+                if (message.getMessageStatus() == MessageStatus.SENDING && message.getSendingProgress() < 100) {
                     layoutMessageProgress.setVisibility(View.VISIBLE);
                     if (pbMessageProgress != null) pbMessageProgress.setProgress(message.getSendingProgress());
                     if (tvMessageProgressPercent != null) tvMessageProgressPercent.setText(message.getSendingProgress() + "%");

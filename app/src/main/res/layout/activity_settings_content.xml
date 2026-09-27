@@ -896,7 +896,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="32dp"
-                    android:text="Prime v1.0.0"
+                    android:text="Prime"
                     android:textColor="@color/prime_brand"
                     android:alpha="0.4"
                     android:textSize="12sp"

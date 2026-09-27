@@ -15,7 +15,12 @@ import androidx.core.graphics.toColorInt
  */
 fun View.shake() {
     // Тактильный отклик (вибрация ошибки)
-    this.performHapticFeedback(HapticFeedbackConstants.REJECT)
+    if (Build.VERSION.SDK_INT >= 30) {
+        this.performHapticFeedback(HapticFeedbackConstants.REJECT)
+    } else {
+        @Suppress("DEPRECATION")
+        this.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+    }
 
     // Анимация дрожания по горизонтали
     val shake = ObjectAnimator.ofPropertyValuesHolder(

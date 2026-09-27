@@ -33,6 +33,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.os.Vibrator;
+import android.os.VibrationEffect;
+import android.view.ViewConfiguration;
 
 import eightbitlab.com.blurview.BlurAlgorithm;
 import eightbitlab.com.blurview.BlurView;
@@ -231,6 +234,17 @@ public class ChatPersonActivity extends AppCompatActivity {
     private ImageButton btnCancelEdit;
     private ImageButton btnCloseEditBar;
     private View layoutEditBar;
+
+    private View layoutPullIndicator;
+    private ProgressBar pbPullProgress1;
+    private ProgressBar pbPullProgress2;
+    private TextView tvPullStatus;
+    private ImageView ivPullCheck;
+    private boolean isPullToOpenActive = false;
+    private boolean stage1HapticTriggered = false;
+    private boolean stage2HapticTriggered = false;
+    private float pullStartY = 0f;
+    private float pullStartX = 0f;
 
     private View layoutReplyBar;
     private TextView tvReplyBarTitle;
@@ -926,6 +940,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         };
 
         new ItemTouchHelper(swipeToReplyCallback).attachToRecyclerView(rvMessages);
+        setupPullToOpenPersonInfo();
 
         rvMessages.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
@@ -6084,5 +6099,288 @@ public class ChatPersonActivity extends AppCompatActivity {
                 tvSelectionIndex = itemView.findViewById(R.id.tvSelectionIndex);
             }
         }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private void setupPullToOpenPersonInfo() {
+        layoutPullIndicator = findViewById(R.id.layoutPullIndicator);
+        pbPullProgress1 = findViewById(R.id.pbPullProgress1);
+        pbPullProgress2 = findViewById(R.id.pbPullProgress2);
+        tvPullStatus = findViewById(R.id.tvPullStatus);
+        ivPullCheck = findViewById(R.id.ivPullCheck);
+
+        if (rvMessages == null) return;
+
+        rvMessages.setOverScrollMode(View.OVER_SCROLL_NEVER);
+
+        float density = getResources().getDisplayMetrics().density;
+        final float touchSlop = ViewConfiguration.get(this).getScaledTouchSlop();
+        final float pullThresholdPx = 130f * density;
+        final float maxTranslationPx = 110f * density;
+
+        rvMessages.addOnItemTouchListener(new RecyclerView.OnItemTouchListener() {
+            @Override
+            public boolean onInterceptTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
+                int action = e.getActionMasked();
+                switch (action) {
+                    case MotionEvent.ACTION_DOWN:
+                        pullStartY = e.getRawY();
+                        pullStartX = e.getRawX();
+                        isPullToOpenActive = false;
+                        stage1HapticTriggered = false;
+                        stage2HapticTriggered = false;
+                        break;
+
+                    case MotionEvent.ACTION_MOVE:
+                        float dy = e.getRawY() - pullStartY;
+                        float dx = e.getRawX() - pullStartX;
+
+                        if (!rv.canScrollVertically(-1) && dy > touchSlop && dy > Math.abs(dx) * 1.2f) {
+                            isPullToOpenActive = true;
+                            MotionEvent cancelEvent = MotionEvent.obtain(e);
+                            cancelEvent.setAction(MotionEvent.ACTION_CANCEL);
+                            rv.onTouchEvent(cancelEvent);
+                            cancelEvent.recycle();
+                            return true;
+                        }
+                        break;
+                }
+                return false;
+            }
+
+            @Override
+            public void onTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
+                if (!isPullToOpenActive) return;
+
+                int action = e.getActionMasked();
+                float dy = e.getRawY() - pullStartY;
+                if (dy < 0) dy = 0;
+
+                switch (action) {
+                    case MotionEvent.ACTION_MOVE: {
+                        float progress = Math.min(1.0f, dy / pullThresholdPx);
+                        float dampenedDistance = Math.min(maxTranslationPx, dy * 0.45f);
+
+                        updatePullUi(progress, dampenedDistance);
+
+                        if (progress >= 0.5f && !stage1HapticTriggered) {
+                            stage1HapticTriggered = true;
+                            triggerHapticVibration();
+                        } else if (progress < 0.5f && stage1HapticTriggered) {
+                            stage1HapticTriggered = false;
+                        }
+
+                        if (progress >= 1.0f && !stage2HapticTriggered) {
+                            stage2HapticTriggered = true;
+                            triggerHapticVibration();
+                        } else if (progress < 1.0f && stage2HapticTriggered) {
+                            stage2HapticTriggered = false;
+                        }
+                        break;
+                    }
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL: {
+                        float finalDy = e.getRawY() - pullStartY;
+                        float finalProgress = Math.min(1.0f, Math.max(0f, finalDy) / pullThresholdPx);
+                        finishPullGesture(finalProgress);
+                        break;
+                    }
+                }
+            }
+
+            @Override
+            public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept) {}
+        });
+
+        View layoutHeader = findViewById(R.id.layoutHeader);
+        if (layoutHeader != null) {
+            layoutHeader.setOnTouchListener(new View.OnTouchListener() {
+                private float hStartY = 0f;
+                private float hStartX = 0f;
+                private boolean hDragging = false;
+
+                @Override
+                public boolean onTouch(View v, MotionEvent e) {
+                    int action = e.getActionMasked();
+                    switch (action) {
+                        case MotionEvent.ACTION_DOWN:
+                            hStartY = e.getRawY();
+                            hStartX = e.getRawX();
+                            hDragging = false;
+                            stage1HapticTriggered = false;
+                            stage2HapticTriggered = false;
+                            return false;
+
+                        case MotionEvent.ACTION_MOVE: {
+                            float dy = e.getRawY() - hStartY;
+                            float dx = e.getRawX() - hStartX;
+
+                            if (!hDragging && dy > touchSlop && dy > Math.abs(dx) * 1.2f) {
+                                hDragging = true;
+                                isPullToOpenActive = true;
+                                if (v.getParent() != null) {
+                                    v.getParent().requestDisallowInterceptTouchEvent(true);
+                                }
+                            }
+
+                            if (hDragging) {
+                                float progress = Math.min(1.0f, Math.max(0f, dy) / pullThresholdPx);
+                                float dampenedDistance = Math.min(maxTranslationPx, Math.max(0f, dy) * 0.45f);
+
+                                updatePullUi(progress, dampenedDistance);
+
+                                if (progress >= 0.5f && !stage1HapticTriggered) {
+                                    stage1HapticTriggered = true;
+                                    triggerHapticVibration();
+                                } else if (progress < 0.5f && stage1HapticTriggered) {
+                                    stage1HapticTriggered = false;
+                                }
+
+                                if (progress >= 1.0f && !stage2HapticTriggered) {
+                                    stage2HapticTriggered = true;
+                                    triggerHapticVibration();
+                                } else if (progress < 1.0f && stage2HapticTriggered) {
+                                    stage2HapticTriggered = false;
+                                }
+                                return true;
+                            }
+                            break;
+                        }
+                        case MotionEvent.ACTION_UP:
+                        case MotionEvent.ACTION_CANCEL: {
+                            if (hDragging) {
+                                float dyUp = e.getRawY() - hStartY;
+                                float finalProgress = Math.min(1.0f, Math.max(0f, dyUp) / pullThresholdPx);
+                                finishPullGesture(finalProgress);
+                                hDragging = false;
+                                return true;
+                            }
+                            break;
+                        }
+                    }
+                    return false;
+                }
+            });
+        }
+    }
+
+    private void updatePullUi(float progress, float dampenedDistance) {
+        View layoutHeader = findViewById(R.id.layoutHeader);
+        View tvFloatingDate = findViewById(R.id.tvFloatingDate);
+
+        if (layoutHeader != null) {
+            layoutHeader.setTranslationY(dampenedDistance);
+        }
+        if (rvMessages != null) {
+            rvMessages.setTranslationY(dampenedDistance);
+        }
+        if (tvFloatingDate != null && tvFloatingDate.getAlpha() > 0) {
+            tvFloatingDate.setTranslationY(dampenedDistance);
+        }
+
+        if (layoutPullIndicator != null) {
+            if (layoutPullIndicator.getVisibility() != View.VISIBLE) {
+                layoutPullIndicator.setVisibility(View.VISIBLE);
+            }
+            layoutPullIndicator.setAlpha(Math.min(1.0f, progress * 1.5f));
+            layoutPullIndicator.setTranslationY(dampenedDistance * 0.35f);
+        }
+
+        float p1 = Math.min(1.0f, progress * 2.0f);
+        float p2 = Math.max(0f, (progress - 0.5f) * 2.0f);
+
+        if (pbPullProgress1 != null) pbPullProgress1.setProgress((int) (p1 * 100));
+        if (pbPullProgress2 != null) pbPullProgress2.setProgress((int) (p2 * 100));
+
+        boolean isConnected = BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername);
+        String stage2Str = isConnected ? "Отключить" : "Соединить";
+
+        if (tvPullStatus != null) {
+            if (progress < 0.95f) {
+                tvPullStatus.setText("Профиль");
+            } else {
+                tvPullStatus.setText(stage2Str);
+            }
+        }
+
+        if (ivPullCheck != null) {
+            ivPullCheck.setVisibility(progress >= 0.45f ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void finishPullGesture(float finalProgress) {
+        isPullToOpenActive = false;
+
+        View layoutHeader = findViewById(R.id.layoutHeader);
+        View tvFloatingDate = findViewById(R.id.tvFloatingDate);
+
+        long duration = 220L;
+        DecelerateInterpolator interpolator = new DecelerateInterpolator();
+
+        if (layoutHeader != null) {
+            layoutHeader.animate().translationY(0).setDuration(duration).setInterpolator(interpolator).start();
+        }
+        if (rvMessages != null) {
+            rvMessages.animate().translationY(0).setDuration(duration).setInterpolator(interpolator).start();
+        }
+        if (tvFloatingDate != null) {
+            tvFloatingDate.animate().translationY(0).setDuration(duration).setInterpolator(interpolator).start();
+        }
+
+        if (layoutPullIndicator != null) {
+            layoutPullIndicator.animate()
+                    .translationY(0)
+                    .alpha(0f)
+                    .setDuration(duration)
+                    .setInterpolator(interpolator)
+                    .withEndAction(() -> {
+                        layoutPullIndicator.setVisibility(View.INVISIBLE);
+                        if (pbPullProgress1 != null) pbPullProgress1.setProgress(0);
+                        if (pbPullProgress2 != null) pbPullProgress2.setProgress(0);
+                        if (ivPullCheck != null) ivPullCheck.setVisibility(View.GONE);
+                    })
+                    .start();
+        }
+
+        if (finalProgress >= 1.0f) {
+            boolean isConnected = BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername);
+            if (isConnected) {
+                BluetoothSocketHolder.clearSocket();
+                PrimeBluetoothService.stopService(this);
+                Intent disconnectIntent = new Intent("com.messenger.prime.DISCONNECT_REQUESTED").setPackage(getPackageName());
+                sendBroadcast(disconnectIntent);
+                disconnectCurrentChat();
+                PrimeNotification.INSTANCE.show(this, "Подключение отключено", null);
+            } else {
+                isManuallyDisconnected = false;
+                connectionRetryCount = 0;
+                checkPermissionsAndStartRole(false);
+                PrimeNotification.INSTANCE.show(this, "Установка соединения...", null);
+            }
+        } else if (finalProgress >= 0.5f) {
+            openPersonInformationActivity();
+        }
+    }
+
+    private void triggerHapticVibration() {
+        View chatRoot = findViewById(R.id.chatRoot);
+        if (chatRoot != null) {
+            chatRoot.performHapticFeedback(
+                    HapticFeedbackConstants.LONG_PRESS,
+                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+            );
+        }
+        try {
+            Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (v != null && v.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    v.vibrate(VibrationEffect.createOneShot(45, VibrationEffect.DEFAULT_AMPLITUDE));
+                } else {
+                    @SuppressWarnings("deprecation")
+                    Vibrator vibrator = v;
+                    vibrator.vibrate(45);
+                }
+            }
+        } catch (Exception ignored) {}
     }
 }

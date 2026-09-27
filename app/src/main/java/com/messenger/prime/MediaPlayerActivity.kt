@@ -25,6 +25,7 @@ import android.view.WindowManager
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.PathInterpolator
+import androidx.core.content.ContextCompat
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -110,7 +111,11 @@ class MediaPlayerActivity : AppCompatActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 "com.messenger.prime.CHAT_DELETED" -> {
-                    Toast.makeText(this@MediaPlayerActivity, "Чат был удален", Toast.LENGTH_SHORT).show()
+                    PrimeNotification.show(this@MediaPlayerActivity, "Чат был удален")
+                    val navIntent = Intent(this@MediaPlayerActivity, ChatListActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    }
+                    startActivity(navIntent)
                     finish()
                 }
                 "com.messenger.prime.MSG_DELETED" -> {
@@ -126,7 +131,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                     }
                     if (removedAny) {
                         if (list.isEmpty()) {
-                            Toast.makeText(this@MediaPlayerActivity, "Медиафайл удален", Toast.LENGTH_SHORT).show()
+                            PrimeNotification.show(this@MediaPlayerActivity, "Медиафайл удален")
                             finish()
                         } else {
                             sharedMediaList = list
@@ -136,7 +141,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                             } else {
                                 updateUIForPage(viewPager.currentItem)
                             }
-                            Toast.makeText(this@MediaPlayerActivity, "Медиафайл удален", Toast.LENGTH_SHORT).show()
+                            PrimeNotification.show(this@MediaPlayerActivity, "Медиафайл удален")
                         }
                     }
                 }
@@ -173,19 +178,14 @@ class MediaPlayerActivity : AppCompatActivity() {
             addAction("com.messenger.prime.CHAT_DELETED")
             addAction("com.messenger.prime.MSG_DELETED")
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(deletionReceiver, filter, RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag")
-            registerReceiver(deletionReceiver, filter)
-        }
+        ContextCompat.registerReceiver(this, deletionReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
 
         initViews()
         setupInsets()
 
         val list = sharedMediaList ?: emptyList()
         if (list.isEmpty()) {
-            Toast.makeText(this, "Нет медиафайлов", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(this, "Нет медиафайлов")
             finish()
             return
         }
@@ -446,10 +446,10 @@ class MediaPlayerActivity : AppCompatActivity() {
             val holder = recyclerView.findViewHolderForAdapterPosition(viewPager.currentItem) as? MediaViewHolder
             if (isZoomed) {
                 holder?.playerView?.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                Toast.makeText(this@MediaPlayerActivity, "Заполнение экрана", Toast.LENGTH_SHORT).show()
+                PrimeNotification.show(this@MediaPlayerActivity, "Заполнение экрана")
             } else {
                 holder?.playerView?.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                Toast.makeText(this@MediaPlayerActivity, "Вместить в экран", Toast.LENGTH_SHORT).show()
+                PrimeNotification.show(this@MediaPlayerActivity, "Вместить в экран")
             }
         }
 
@@ -473,14 +473,14 @@ class MediaPlayerActivity : AppCompatActivity() {
                         val success = MediaSaveUtils.saveToGallery(this, mediaUri, item.isVideo || item.messageType == ChatMessage.MessageType.VIDEO)
                         runOnUiThread {
                             if (success) {
-                                Toast.makeText(this, "Сохранено в галерею", Toast.LENGTH_SHORT).show()
+                                PrimeNotification.show(this, "Сохранено в галерею")
                             } else {
-                                Toast.makeText(this, "Не удалось сохранить файл", Toast.LENGTH_SHORT).show()
+                                PrimeNotification.show(this, "Не удалось сохранить файл")
                             }
                         }
                     }
                 } else {
-                    Toast.makeText(this, "Файл недоступен для сохранения", Toast.LENGTH_SHORT).show()
+                    PrimeNotification.show(this, "Файл недоступен для сохранения")
                 }
             }
         }
@@ -1078,7 +1078,7 @@ class MediaPlayerActivity : AppCompatActivity() {
 
                         override fun onPlayerError(error: PlaybackException) {
                             if (bindingAdapterPosition == viewPager.currentItem) {
-                                Toast.makeText(this@MediaPlayerActivity, "Ошибка воспроизведения видео", Toast.LENGTH_SHORT).show()
+                                PrimeNotification.show(this@MediaPlayerActivity, "Ошибка воспроизведения видео")
                             }
                         }
                     })

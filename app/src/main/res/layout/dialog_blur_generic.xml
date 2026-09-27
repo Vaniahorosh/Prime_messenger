@@ -23,32 +23,40 @@
             android:padding="24dp">
 
             <ImageView
+                android:id="@+id/ivDialogIcon"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:contentDescription="Удаление чата"
-                android:src="@drawable/ic_cancel"
-                app:tint="@color/prime_danger" />
+                android:contentDescription="Иконка диалога"
+                android:visibility="gone"
+                android:src="@drawable/ic_person"
+                app:tint="@color/prime_brand" />
 
             <TextView
-                android:id="@+id/tvBlurDialogTitle"
+                android:id="@+id/tvDialogTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
                 android:gravity="center"
                 android:textColor="@color/dialog_title_color"
-                android:textSize="18sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                tools:text="Удалить чат с Имя?" />
+                tools:text="Заголовок" />
 
             <TextView
-                android:id="@+id/tvBlurDialogMessage"
+                android:id="@+id/tvDialogMessage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="10dp"
                 android:gravity="center"
-                android:text="Вся история сообщений, вложения и устройство будут полностью безвозвратно удалены."
                 android:textColor="@color/dialog_body_color"
-                android:textSize="13sp" />
+                android:textSize="14sp"
+                tools:text="Текст сообщения диалога" />
+
+            <FrameLayout
+                android:id="@+id/dialogCustomViewContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:visibility="gone" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -58,7 +66,7 @@
                 android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnBlurDialogNo"
+                    android:id="@+id/btnDialogNegative"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="0dp"
                     android:layout_height="48dp"
@@ -70,12 +78,12 @@
                     app:strokeColor="@color/dialog_button_cancel_stroke" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnBlurDialogYes"
+                    android:id="@+id/btnDialogPositive"
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
                     android:layout_marginStart="8dp"
-                    android:backgroundTint="@color/prime_danger"
+                    android:backgroundTint="@color/prime_brand"
                     android:text="Да"
                     android:textColor="@color/white"
                     app:cornerRadius="16dp" />

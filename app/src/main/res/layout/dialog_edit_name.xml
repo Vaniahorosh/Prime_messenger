@@ -3,60 +3,44 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/dialogRoot"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#80000000">
+    android:layout_height="wrap_content"
+    android:padding="20dp">
 
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardContainer"
-        android:layout_width="300dp"
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/blurDialogCard"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        app:cardBackgroundColor="@android:color/transparent"
-        app:cardCornerRadius="28dp"
-        app:cardElevation="8dp"
-        app:strokeColor="#40FFFFFF"
-        app:strokeWidth="1dp">
+        android:background="@drawable/bg_floating_island"
+        android:outlineProvider="background"
+        android:clipToOutline="true"
+        android:elevation="12dp">
 
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <View
-                android:id="@+id/blurView"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:background="#33154B87"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
 
             <TextView
                 android:id="@+id/tvTitle"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:gravity="center"
                 android:text="Изменить имя"
-                android:textColor="@color/white"
+                android:textColor="@color/dialog_title_color"
                 android:textSize="20sp"
-                android:textStyle="bold"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                android:textStyle="bold" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/inputLayoutName"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="24dp"
                 android:layout_marginTop="20dp"
-                android:layout_marginEnd="24dp"
                 android:hint="Новое имя"
-                app:boxStrokeColor="#40FFFFFF"
+                app:boxStrokeColor="@color/dialog_box_stroke"
                 app:boxStrokeWidth="0.5dp"
-                app:hintTextColor="@color/white"
-                app:layout_constraintTop_toBottomOf="@+id/tvTitle">
+                app:hintTextColor="@color/dialog_hint_color">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etNewName"
@@ -65,7 +49,7 @@
                     android:imeOptions="actionDone"
                     android:inputType="textPersonName"
                     android:maxLength="16"
-                    android:textColor="@color/white"
+                    android:textColor="@color/dialog_input_text_color"
                     android:textSize="16sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -73,14 +57,9 @@
                 android:id="@+id/layoutButtonsActions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="24dp"
-                android:layout_marginTop="28dp"
-                android:layout_marginEnd="24dp"
-                android:layout_marginBottom="24dp"
+                android:layout_marginTop="24dp"
                 android:gravity="center_vertical"
-                android:orientation="horizontal"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/inputLayoutName">
+                android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnBack"
@@ -97,8 +76,8 @@
                     app:iconGravity="textStart"
                     app:iconPadding="0dp"
                     app:iconSize="22dp"
-                    app:iconTint="@color/white"
-                    app:strokeColor="#40FFFFFF" />
+                    app:iconTint="@color/dialog_button_cancel_text"
+                    app:strokeColor="@color/dialog_button_cancel_stroke" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnSave"
@@ -108,13 +87,12 @@
                     android:layout_weight="1"
                     android:text="Сохранить"
                     android:textAllCaps="false"
-                    android:textColor="@color/prime_background_blue"
+                    android:textColor="@color/dialog_button_save_text"
                     android:textStyle="bold"
-                    app:backgroundTint="@color/white"
+                    app:backgroundTint="@color/dialog_button_save_bg"
                     app:cornerRadius="16dp" />
             </LinearLayout>
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
-    </com.google.android.material.card.MaterialCardView>
-
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
 </FrameLayout>

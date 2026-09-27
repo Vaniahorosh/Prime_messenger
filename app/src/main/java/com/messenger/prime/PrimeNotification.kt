@@ -4,10 +4,9 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.app.Activity
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
-import android.os.Handler
-import android.os.Looper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -21,6 +20,8 @@ import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.TextSwitcher
 import android.widget.TextView
+import androidx.core.content.ContextCompat
+import eightbitlab.com.blurview.BlurView as EightBitBlurView
 import kotlin.math.abs
 
 /**
@@ -48,6 +49,19 @@ object PrimeNotification {
                 val btnUndo = notificationView.findViewById<ImageButton>(R.id.btnUndo)
                 
                 textView.text = message
+
+                // --- НАСТРОЙКА BlurView НАСТОЯЩЕГО РАЗМЫТИЯ ---
+                val blurView = notificationView as? EightBitBlurView
+                if (blurView != null) {
+                    val isDark = (activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+                    val overlayColor = if (isDark) {
+                        Color.parseColor("#400F172A")
+                    } else {
+                        Color.parseColor("#40154B87")
+                    }
+                    val windowBg = activity.window?.decorView?.background
+                    blurView.setupBlur(rootLayout, 16f, overlayColor, windowBg)
+                }
 
                 // Настройка параметров отображения
                 val density = activity.resources.displayMetrics.density
@@ -99,6 +113,7 @@ object PrimeNotification {
                     .start()
 
                 // --- ЛОГИКА ТАЙМЕРА ---
+                val textColorPrimary = ContextCompat.getColor(activity, R.color.prime_text_primary)
                 tsSeconds.setFactory {
                     TextView(activity).apply {
                         layoutParams = FrameLayout.LayoutParams(
@@ -106,7 +121,7 @@ object PrimeNotification {
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
                         gravity = Gravity.CENTER
-                        setTextColor(Color.WHITE)
+                        setTextColor(textColorPrimary)
                         textSize = 12f
                         typeface = Typeface.DEFAULT_BOLD
                     }
@@ -185,6 +200,7 @@ object PrimeNotification {
                             true
                         }
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            v.performClick()
                             if (!isDragging) {
                                 return@setOnTouchListener false
                             }
@@ -224,7 +240,7 @@ object PrimeNotification {
                 parent?.removeView(view)
             }
 
-        if (kotlin.math.abs(directionX) > kotlin.math.abs(directionY)) {
+        if (abs(directionX) > abs(directionY)) {
             animator.translationX(if (directionX >= 0) 800f else -800f)
         } else {
             animator.translationY(800f)

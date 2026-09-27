@@ -23,6 +23,60 @@
         app:layout_constraintTop_toTopOf="parent"
         tools:listitem="@layout/item_chat" />
 
+    <!-- Индикатор перетягивания вниз для открытия настроек -->
+    <LinearLayout
+        android:id="@+id/layoutPullIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:alpha="0"
+        android:visibility="invisible"
+        android:elevation="12dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_floating_island"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp">
+
+            <ImageView
+                android:id="@+id/ivPullIcon"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_settings"
+                app:tint="@color/prime_brand"
+                android:layout_marginEnd="6dp" />
+
+            <TextView
+                android:id="@+id/tvPullStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Потяните для настроек"
+                android:textColor="@color/prime_text_primary"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/pbPullProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="120dp"
+            android:layout_height="4dp"
+            android:layout_marginTop="4dp"
+            android:max="100"
+            android:progress="0"
+            android:progressDrawable="@drawable/bg_progress_bar_custom" />
+    </LinearLayout>
+
     <LinearLayout
         android:id="@+id/layoutEmptyState"
         android:layout_width="match_parent"

@@ -296,7 +296,8 @@
                         android:layout_width="22dp"
                         android:layout_height="22dp"
                         android:indeterminate="true"
-                        app:indicatorColor="@color/prime_brand"
+                        app:indicatorColor="@color/prime_progress_start"
+                        app:trackColor="@color/prime_progress_track_bg"
                         app:indicatorSize="22dp"
                         app:trackThickness="2.5dp" />
 
@@ -445,7 +446,8 @@
                 android:layout_width="0dp"
                 android:layout_height="6dp"
                 android:layout_weight="1"
-                android:max="100" />
+                android:max="100"
+                android:progressDrawable="@drawable/bg_progress_bar_custom" />
 
             <TextView
                 android:id="@+id/tvMessageProgressPercent"

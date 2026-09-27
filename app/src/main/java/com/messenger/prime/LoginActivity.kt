@@ -1,6 +1,5 @@
 package com.messenger.prime
 
-import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
@@ -49,13 +48,13 @@ class LoginActivity : AppCompatActivity() {
         if (android.os.Build.VERSION.SDK_INT >= 34) {
             // Forward transition to Register (if happens)
             overrideActivityTransition(
-                android.app.Activity.OVERRIDE_TRANSITION_OPEN,
+                OVERRIDE_TRANSITION_OPEN,
                 R.anim.fade_in_slow,
                 R.anim.stay_slow
             )
             // Back transition to Hi
             overrideActivityTransition(
-                android.app.Activity.OVERRIDE_TRANSITION_CLOSE,
+                OVERRIDE_TRANSITION_CLOSE,
                 R.anim.slide_in_left,
                 R.anim.slide_out_right
             )
@@ -79,6 +78,23 @@ class LoginActivity : AppCompatActivity() {
                             val view = layoutInflater.inflate(R.layout.activity_login_content, null)
                             val b = ActivityLoginContentBinding.bind(view)
                             binding = b
+
+                            ViewCompat.setOnApplyWindowInsetsListener(view) { _, windowInsets ->
+                                val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+                                val density = resources.displayMetrics.density
+
+                                (b.btnBack.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+                                    lp.topMargin = insets.top + (12 * density).toInt()
+                                    b.btnBack.layoutParams = lp
+                                }
+                                b.rootConstraint.setPadding(
+                                    b.rootConstraint.paddingLeft,
+                                    b.rootConstraint.paddingTop,
+                                    b.rootConstraint.paddingRight,
+                                    insets.bottom + (24 * density).toInt()
+                                )
+                                windowInsets
+                            }
 
                             val contentViews = listOf(b.tvTitle, b.tvSubtitle, b.inputLayoutLogin)
                             contentViews.forEach { it.alpha = 1f }

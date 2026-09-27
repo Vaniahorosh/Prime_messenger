@@ -1,6 +1,5 @@
 package com.messenger.prime
 
-import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
@@ -64,12 +63,12 @@ class BanActivity : AppCompatActivity() {
         
         if (android.os.Build.VERSION.SDK_INT >= 34) {
             overrideActivityTransition(
-                android.app.Activity.OVERRIDE_TRANSITION_OPEN,
+                OVERRIDE_TRANSITION_OPEN,
                 R.anim.slide_in_right,
                 R.anim.slide_out_left
             )
             overrideActivityTransition(
-                android.app.Activity.OVERRIDE_TRANSITION_CLOSE,
+                OVERRIDE_TRANSITION_CLOSE,
                 R.anim.slide_in_left,
                 R.anim.slide_out_right
             )
@@ -92,7 +91,7 @@ class BanActivity : AppCompatActivity() {
         findViewById<ComposeView>(R.id.composeRoot).setContent {
             Box(modifier = Modifier.fillMaxSize()) {
                 AndroidView(
-                    factory = { context ->
+                    factory = { _ ->
                         val view = layoutInflater.inflate(R.layout.activity_ban_content, null)
                         binding = ActivityBanContentBinding.bind(view)
                         

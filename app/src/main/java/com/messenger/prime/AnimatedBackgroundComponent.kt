@@ -69,19 +69,19 @@ object LavaBackgroundState {
         if (shapes != null && lastDarkTheme == darkTheme) return
         
         if (shapes == null) {
-            shapes = List(7) { i ->
+            shapes = List(5) { i ->
                 val startPoly = createRandomPolygon()
                 LavaShapeInstance(
                     id = i,
                     currentPolygon = startPoly,
                     targetPolygon = createRandomPolygon(),
-                    size = (200..400).random().dp,
+                    size = (220..420).random().dp,
                     startX = Random.nextFloat(),
                     startY = Random.nextFloat(),
                     lissajousParams = generateLissajousParams(),
-                    morphDuration = (3000..6000).random(),
+                    morphDuration = (4000..7000).random(),
                     lastMorphTime = startTime,
-                    rotationSpeed = (0.01f + Random.nextFloat() * 0.02f) * (if (Random.nextBoolean()) 1 else -1),
+                    rotationSpeed = (0.008f + Random.nextFloat() * 0.015f) * (if (Random.nextBoolean()) 1 else -1),
                     colorPalette = if (darkTheme) getDarkPalette() else getLightPalette()
                 )
             }
@@ -141,17 +141,47 @@ private fun createRandomPolygon(): RoundedPolygon {
     }
 }
 
-private fun getLightPalette() = listOf(
-    Color(0xFF64B5F6).copy(alpha = 0.60f),
-    Color(0xFFFFF176).copy(alpha = 0.45f),
-    Color.Transparent
-)
+private fun getLightPalette(): List<Color> {
+    val randomChoice = Random.nextInt(3)
+    return when (randomChoice) {
+        0 -> listOf(
+            Color(0xFF29B6F6).copy(alpha = 0.50f), // Sky Cyan
+            Color(0xFF1E88E5).copy(alpha = 0.40f), // Vibrant Prime Blue
+            Color.Transparent
+        )
+        1 -> listOf(
+            Color(0xFF00E5FF).copy(alpha = 0.40f), // Aqua Cyan
+            Color(0xFF1565C0).copy(alpha = 0.45f), // Deep Navy Accent
+            Color.Transparent
+        )
+        else -> listOf(
+            Color(0xFF42A5F5).copy(alpha = 0.48f), // Soft Electric Blue
+            Color(0xFF0097A7).copy(alpha = 0.38f), // Deep Teal Accent
+            Color.Transparent
+        )
+    }
+}
 
-private fun getDarkPalette() = listOf(
-    Color(0xFF7E57C2).copy(alpha = 0.65f), // Vibrant Purple
-    Color(0xFF26A69A).copy(alpha = 0.50f), // Vibrant Teal
-    Color.Transparent
-)
+private fun getDarkPalette(): List<Color> {
+    val randomChoice = Random.nextInt(3)
+    return when (randomChoice) {
+        0 -> listOf(
+            Color(0xFF1976D2).copy(alpha = 0.48f), // Deep Royal Blue
+            Color(0xFF00B0FF).copy(alpha = 0.38f), // Neon Cyan
+            Color.Transparent
+        )
+        1 -> listOf(
+            Color(0xFF00E5FF).copy(alpha = 0.35f), // Glowing Aqua
+            Color(0xFF3F51B5).copy(alpha = 0.45f), // Deep Indigo
+            Color.Transparent
+        )
+        else -> listOf(
+            Color(0xFF2979FF).copy(alpha = 0.42f), // Electric Accent Blue
+            Color(0xFF00838F).copy(alpha = 0.38f), // Deep Cyber Teal
+            Color.Transparent
+        )
+    }
+}
 
 // --- Components ---
 
@@ -205,7 +235,7 @@ fun AnimatedBackground(
         modifier = modifier
             .fillMaxSize()
             .background(bgColor)
-            .blur(32.dp)
+            .blur(20.dp)
     ) {
         shapes.forEach { shape ->
             LavaShape(shape)

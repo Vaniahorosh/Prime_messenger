@@ -55,24 +55,41 @@
         <item name="android:navigationBarColor">@android:color/black</item>
     </style>
 
-    <!-- Стиль для диалогов в стиле Prime -->
+    <!-- Стиль для всех диалогов в стиле Prime Glassmorphism -->
     <style name="Theme.Prime.AlertDialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
         <item name="colorPrimary">@color/prime_brand</item>
         <item name="colorAccent">@color/prime_brand</item>
-        <item name="android:windowBackground">@color/prime_surface</item>
-        <item name="android:textColorPrimary">@color/prime_text_primary</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="colorSurface">@color/chat_island_bg</item>
+        <item name="android:colorBackground">@color/chat_island_bg</item>
+        <item name="dialogCornerRadius">26dp</item>
         <item name="shapeAppearanceMediumComponent">@style/RoundedDialogShape</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/Widget.Prime.Dialog.Title</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/Widget.Prime.Dialog.Body</item>
+        <item name="android:textColorPrimary">@color/dialog_title_color</item>
+        <item name="android:textColorSecondary">@color/dialog_body_color</item>
         <item name="buttonBarPositiveButtonStyle">@style/Widget.Prime.Button.Dialog</item>
         <item name="buttonBarNegativeButtonStyle">@style/Widget.Prime.Button.Dialog.Negative</item>
     </style>
 
     <style name="RoundedDialogShape">
         <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">20dp</item>
+        <item name="cornerSize">26dp</item>
+    </style>
+
+    <style name="Widget.Prime.Dialog.Title" parent="MaterialAlertDialog.MaterialComponents.Title.Text">
+        <item name="android:textColor">@color/dialog_title_color</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Widget.Prime.Dialog.Body" parent="MaterialAlertDialog.MaterialComponents.Body.Text">
+        <item name="android:textColor">@color/dialog_body_color</item>
+        <item name="android:textSize">14sp</item>
     </style>
 
     <style name="Widget.Prime.Button.Dialog" parent="Widget.MaterialComponents.Button.TextButton">
-        <item name="android:textColor">@color/prime_brand</item>
+        <item name="android:textColor">@color/dialog_button_cancel_text</item>
         <item name="android:textStyle">bold</item>
     </style>
 

@@ -37,23 +37,56 @@ public class BluetoothSocketHolder {
     }
 
     public static synchronized void registerConnection(String address, String username, BluetoothSocket s, Object thread) {
-        if (s != null) {
+        if (s != null && s.isConnected()) {
             if (address != null && !address.isEmpty()) {
-                socketMap.put(address.toUpperCase(), s);
+                String key = address.toUpperCase();
+                BluetoothSocket oldSock = socketMap.get(key);
+                if (oldSock != null && oldSock != s) {
+                    try { oldSock.close(); } catch (Exception ignored) {}
+                }
+                socketMap.put(key, s);
             }
             if (username != null && !username.isEmpty()) {
-                socketMap.put(username.toLowerCase(), s);
+                String key = username.toLowerCase();
+                BluetoothSocket oldSock = socketMap.get(key);
+                if (oldSock != null && oldSock != s) {
+                    try { oldSock.close(); } catch (Exception ignored) {}
+                }
+                socketMap.put(key, s);
             }
             if (thread != null) {
                 if (address != null && !address.isEmpty()) threadMap.put(address.toUpperCase(), thread);
                 if (username != null && !username.isEmpty()) threadMap.put(username.toLowerCase(), thread);
             }
+            // Maintain legacy single references for backward compatibility
+            socket = s;
+            connectedThreadInstance = thread;
+            if (address != null && !address.isEmpty()) activeDeviceAddress = address;
+            if (username != null && !username.isEmpty()) activeTargetUsername = username;
         }
-        // Maintain legacy single references for backward compatibility
-        socket = s;
-        connectedThreadInstance = thread;
-        if (address != null && !address.isEmpty()) activeDeviceAddress = address;
-        if (username != null && !username.isEmpty()) activeTargetUsername = username;
+    }
+
+    public static synchronized void removeConnection(String address, String username) {
+        if (address != null && !address.isEmpty()) {
+            String key = address.toUpperCase();
+            BluetoothSocket s = socketMap.remove(key);
+            if (s != null) { try { s.close(); } catch (Exception ignored) {} }
+            threadMap.remove(key);
+        }
+        if (username != null && !username.isEmpty()) {
+            String key = username.toLowerCase();
+            BluetoothSocket s = socketMap.remove(key);
+            if (s != null) { try { s.close(); } catch (Exception ignored) {} }
+            threadMap.remove(key);
+        }
+        if (socket != null && (
+                (address != null && activeDeviceAddress != null && address.equalsIgnoreCase(activeDeviceAddress)) ||
+                (username != null && activeTargetUsername != null && username.equalsIgnoreCase(activeTargetUsername))
+        )) {
+            try { socket.close(); } catch (Exception ignored) {}
+            socket = null;
+            connectedThreadInstance = null;
+        }
     }
 
     public static synchronized void setSocket(BluetoothSocket s) {

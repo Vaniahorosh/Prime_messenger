@@ -2,10 +2,13 @@ package com.messenger.prime
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
-import android.graphics.Color
+import android.content.IntentFilter
 import android.graphics.Rect
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
@@ -15,6 +18,7 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -74,7 +78,12 @@ class PhotoViewActivity : AppCompatActivity() {
                 }
             }
         }
-        sourceRect = intent.getParcelableExtra("EXTRA_RECT")
+        sourceRect = if (Build.VERSION.SDK_INT >= 33) {
+            intent.getParcelableExtra("EXTRA_RECT", Rect::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra("EXTRA_RECT")
+        }
 
         currentUri?.let { 
             binding.ivFullPhoto.setImageURI(it)
@@ -96,11 +105,29 @@ class PhotoViewActivity : AppCompatActivity() {
         // Запуск анимации появления
         binding.photoRoot.post { startEnterAnimation() }
 
+        val filter = IntentFilter("com.messenger.prime.CHAT_DELETED")
+        ContextCompat.registerReceiver(this, chatDeletedReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 startExitAnimation()
             }
         })
+    }
+
+    private val chatDeletedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val navIntent = Intent(this@PhotoViewActivity, ChatListActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(navIntent)
+            finish()
+        }
+    }
+
+    override fun onDestroy() {
+        try { unregisterReceiver(chatDeletedReceiver) } catch (e: Exception) {}
+        super.onDestroy()
     }
 
     private fun setupListeners() {
@@ -113,14 +140,14 @@ class PhotoViewActivity : AppCompatActivity() {
                     val success = MediaSaveUtils.saveToGallery(this, uri, false)
                     runOnUiThread {
                         if (success) {
-                            Toast.makeText(this, "Сохранено в галерею", Toast.LENGTH_SHORT).show()
+                            PrimeNotification.show(this, "Сохранено в галерею")
                         } else {
-                            Toast.makeText(this, "Не удалось сохранить фото", Toast.LENGTH_SHORT).show()
+                            PrimeNotification.show(this, "Не удалось сохранить фото")
                         }
                     }
                 }
             } else {
-                Toast.makeText(this, "Фото недоступно для сохранения", Toast.LENGTH_SHORT).show()
+                PrimeNotification.show(this, "Фото недоступно для сохранения")
             }
         }
         

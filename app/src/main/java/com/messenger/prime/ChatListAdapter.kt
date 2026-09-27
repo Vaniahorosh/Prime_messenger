@@ -282,7 +282,7 @@ class ChatListAdapter(
 
                 binding.tvContactName.text = chat.name
                 if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
-                    holder.startTypingAnimation("Отправка медиа")
+                    holder.startTypingAnimation("Отправка медиа...")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("VIEWING_PHOTO".equals(chat.activityState, ignoreCase = true)) {
@@ -296,7 +296,7 @@ class ChatListAdapter(
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
-                    holder.startTypingAnimation("Отправка файла")
+                    holder.startTypingAnimation("Отправка медиа...")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("VIEWING_FILE".equals(chat.activityState, ignoreCase = true)) {

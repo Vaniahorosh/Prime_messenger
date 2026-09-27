@@ -6,8 +6,8 @@
     android:layout_margin="3dp"
     app:cardCornerRadius="10dp"
     app:cardElevation="1dp"
-    app:cardBackgroundColor="#F7F9FC"
-    app:strokeColor="#E2E8F0"
+    app:cardBackgroundColor="@color/prime_surface"
+    app:strokeColor="@color/prime_divider"
     app:strokeWidth="1dp">
 
     <FrameLayout

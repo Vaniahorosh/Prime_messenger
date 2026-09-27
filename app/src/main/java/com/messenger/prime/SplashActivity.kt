@@ -32,7 +32,7 @@ class SplashActivity : AppCompatActivity() {
                                 }
                             }
                         },
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
             }

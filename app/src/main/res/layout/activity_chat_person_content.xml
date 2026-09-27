@@ -53,6 +53,95 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
+    <!-- Индикатор перетягивания вниз для открытия профиля -->
+    <LinearLayout
+        android:id="@+id/layoutPullIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:alpha="0"
+        android:visibility="invisible"
+        android:elevation="12dp"
+        android:layout_marginTop="56dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:background="@drawable/bg_floating_island"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="10dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvPullStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Профиль"
+                    android:textColor="@color/white"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/ivPullCheck"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_done"
+                    app:tint="@color/prime_success"
+                    android:visibility="gone"
+                    android:layout_marginStart="6dp" />
+            </LinearLayout>
+
+            <!-- Двухсекционный прогресс-бар в одном блоке -->
+            <LinearLayout
+                android:layout_width="150dp"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="6dp">
+
+                <!-- Левая половина: Профиль -->
+                <ProgressBar
+                    android:id="@+id/pbPullProgress1"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="0dp"
+                    android:layout_height="4dp"
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/bg_progress_bar_custom" />
+
+                <Space
+                    android:layout_width="6dp"
+                    android:layout_height="wrap_content" />
+
+                <!-- Правая половина: Связь -->
+                <ProgressBar
+                    android:id="@+id/pbPullProgress2"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="0dp"
+                    android:layout_height="4dp"
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/bg_progress_bar_custom" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </LinearLayout>
+
     <!-- 2. Верхний парящий островок (Floating Glass Header) -->
     <eightbitlab.com.blurview.BlurView
         android:id="@+id/layoutHeader"
@@ -271,7 +360,8 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="10dp"
                     android:indeterminate="true"
-                    app:indicatorColor="#00E676"
+                    app:indicatorColor="@color/prime_progress_start"
+                    app:trackColor="@color/prime_progress_track_bg"
                     app:indicatorSize="24dp"
                     app:trackThickness="3dp" />
 
@@ -289,7 +379,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp"
-                    android:textColor="#80D8FF"
+                    android:textColor="@color/prime_progress_start"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     tools:text="Передача... 45%" />
@@ -338,18 +428,18 @@
                     android:layout_width="wrap_content"
                     android:layout_height="38dp"
                     android:layout_marginStart="6dp"
-                    android:backgroundTint="#33154B87"
+                    android:backgroundTint="#1AD32F2F"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
                     android:paddingStart="12dp"
                     android:paddingEnd="12dp"
                     android:text="Отменить все"
                     android:textAllCaps="false"
-                    android:textColor="#80D8FF"
+                    android:textColor="@color/prime_danger"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     app:cornerRadius="12dp"
-                    app:strokeColor="#4480D8FF"
+                    app:strokeColor="@color/prime_danger"
                     app:strokeWidth="1dp" />
             </LinearLayout>
 

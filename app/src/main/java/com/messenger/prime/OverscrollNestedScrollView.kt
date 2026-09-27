@@ -97,10 +97,10 @@ class OverscrollNestedScrollView @JvmOverloads constructor(
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                performClick()
                 if (dragging) {
                     val reached = currentDrag >= pullThresholdPx
                     dragging = false
-                    val dragSnapshot = currentDrag
                     currentDrag = 0f
                     startRawY = 0f
                     onPullReleased?.invoke(reached)

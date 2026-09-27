@@ -255,9 +255,7 @@ class PersonInformationActivity : AppCompatActivity() {
             "VIEWING_PHOTO".equals(state, ignoreCase = true) -> "смотрит фото"
             "VIEWING_VIDEO".equals(state, ignoreCase = true) -> "смотрит видео"
             "VIEWING_FILE".equals(state, ignoreCase = true) -> "смотрит файл"
-            "SENDING_PHOTO".equals(state, ignoreCase = true) || "SENDING_MEDIA".equals(state, ignoreCase = true) -> "отправляет фото..."
-            "SENDING_VIDEO".equals(state, ignoreCase = true) -> "отправляет видео..."
-            "SENDING_FILE".equals(state, ignoreCase = true) -> "отправляет файл..."
+            "SENDING_PHOTO".equals(state, ignoreCase = true) || "SENDING_VIDEO".equals(state, ignoreCase = true) || "SENDING_FILE".equals(state, ignoreCase = true) || "SENDING_MEDIA".equals(state, ignoreCase = true) -> "Отправка медиа..."
             else -> "в сети"
         }
 

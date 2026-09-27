@@ -133,12 +133,53 @@ public class PrimeBluetoothService extends Service {
         try {
             Intent serviceIntent = new Intent(context, PrimeBluetoothService.class);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent);
+                try {
+                    context.startForegroundService(serviceIntent);
+                } catch (Throwable bgError) {
+                    Log.w(TAG, "Foreground service start disallowed, falling back to standard startService", bgError);
+                    try { context.startService(serviceIntent); } catch (Throwable ignored) {}
+                }
             } else {
                 context.startService(serviceIntent);
             }
         } catch (Throwable e) {
             Log.e(TAG, "Failed to start service", e);
+        }
+    }
+
+    public static void updateStatus(Context context, String contentText) {
+        if (context == null) return;
+        try {
+            NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm == null) return;
+
+            Intent notificationIntent = new Intent(context, ChatListActivity.class);
+            notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                    context, 0, notificationIntent,
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+            );
+
+            Intent stopIntent = new Intent(context, PrimeBluetoothService.class);
+            stopIntent.setAction(ACTION_STOP_SERVICE);
+            PendingIntent stopPendingIntent = PendingIntent.getService(
+                    context, 1, stopIntent,
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+            );
+
+            Notification notification = new NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setContentTitle("Prime Messenger")
+                    .setContentText(contentText != null ? contentText : "Служба Bluetooth активна")
+                    .setSmallIcon(R.drawable.ic_prime_statusbar)
+                    .setContentIntent(pendingIntent)
+                    .setOngoing(true)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .addAction(R.drawable.ic_cancel, "Отключить фоновую работу", stopPendingIntent)
+                    .build();
+
+            nm.notify(NOTIFICATION_ID, notification);
+        } catch (Throwable e) {
+            Log.e(TAG, "Failed to update notification status", e);
         }
     }
 

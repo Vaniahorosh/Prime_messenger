@@ -4,8 +4,12 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.app.AlertDialog
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.graphics.*
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
@@ -51,6 +55,7 @@ import com.messenger.prime.databinding.DialogColorPickerBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrPosition
+import eightbitlab.com.blurview.BlurView
 
 import java.io.FileOutputStream
 
@@ -180,6 +185,24 @@ class PhotoEditorActivity : AppCompatActivity() {
                 )
             }
         }
+
+        val filter = IntentFilter("com.messenger.prime.CHAT_DELETED")
+        ContextCompat.registerReceiver(this, chatDeletedReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+    }
+
+    private val chatDeletedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val navIntent = Intent(this@PhotoEditorActivity, ChatListActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(navIntent)
+            finish()
+        }
+    }
+
+    override fun onDestroy() {
+        try { unregisterReceiver(chatDeletedReceiver) } catch (e: Exception) {}
+        super.onDestroy()
     }
 
     private fun setupTitleSwitcher(b: ActivityPhotoEditorContentBinding) {
@@ -592,6 +615,15 @@ class PhotoEditorActivity : AppCompatActivity() {
         val dialogBinding = DialogColorPickerBinding.inflate(layoutInflater)
         dialogBinding.root.setViewTreeLifecycleOwner(this)
         dialogBinding.root.setViewTreeSavedStateRegistryOwner(this)
+
+        val blurCard = dialogBinding.root.findViewById<BlurView>(R.id.blurDialogCard)
+        if (blurCard != null) {
+            val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
+            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val overlayColor = if (isDark) android.graphics.Color.parseColor("#400F172A") else android.graphics.Color.parseColor("#40154B87")
+            val windowBg = window.decorView.background
+            blurCard.setupBlur(rootView, 16f, overlayColor, windowBg)
+        }
 
         val dialog = AlertDialog.Builder(this, R.style.Theme_Prime_AlertDialog).setView(dialogBinding.root).create()
         dialog.window?.let { win ->

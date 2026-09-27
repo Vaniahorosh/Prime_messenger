@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<eightbitlab.com.blurview.BlurView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/notificationCard"
+    android:id="@+id/notificationBlurView"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginHorizontal="24dp"
+    android:layout_marginHorizontal="20dp"
     android:layout_marginBottom="80dp"
-    app:cardBackgroundColor="@color/prime_brand_alpha_85"
-    app:cardCornerRadius="18dp"
-    app:cardElevation="12dp">
+    android:background="@drawable/bg_floating_island"
+    android:outlineProvider="background"
+    android:clipToOutline="true"
+    android:elevation="12dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -50,7 +51,7 @@
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="12dp"
             android:gravity="start|center_vertical"
-            android:textColor="@color/white"
+            android:textColor="@color/prime_text_primary"
             android:textSize="14sp"
             android:textStyle="bold"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -69,9 +70,9 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:tint="@color/white"
+            app:tint="@color/prime_text_primary"
             tools:visibility="visible" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-</com.google.android.material.card.MaterialCardView>
+</eightbitlab.com.blurview.BlurView>

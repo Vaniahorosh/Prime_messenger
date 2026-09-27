@@ -1,6 +1,5 @@
 package com.messenger.prime
 
-import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
@@ -68,13 +67,13 @@ class RegisterActivity : AppCompatActivity() {
         if (android.os.Build.VERSION.SDK_INT >= 34) {
             // Incoming from Login
             overrideActivityTransition(
-                android.app.Activity.OVERRIDE_TRANSITION_OPEN,
+                OVERRIDE_TRANSITION_OPEN,
                 R.anim.fade_in_slow,
                 R.anim.stay_slow
             )
             // Back to Login
             overrideActivityTransition(
-                android.app.Activity.OVERRIDE_TRANSITION_CLOSE,
+                OVERRIDE_TRANSITION_CLOSE,
                 R.anim.slide_in_left,
                 R.anim.slide_out_right
             )
@@ -97,6 +96,23 @@ class RegisterActivity : AppCompatActivity() {
                             val view = layoutInflater.inflate(R.layout.activity_register_content, null)
                             val b = ActivityRegisterContentBinding.bind(view)
                             binding = b
+
+                            ViewCompat.setOnApplyWindowInsetsListener(view) { _, windowInsets ->
+                                val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+                                val density = resources.displayMetrics.density
+
+                                (b.btnBack.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+                                    lp.topMargin = insets.top + (12 * density).toInt()
+                                    b.btnBack.layoutParams = lp
+                                }
+                                b.rootConstraint.setPadding(
+                                    b.rootConstraint.paddingLeft,
+                                    b.rootConstraint.paddingTop,
+                                    b.rootConstraint.paddingRight,
+                                    insets.bottom + (24 * density).toInt()
+                                )
+                                windowInsets
+                            }
 
                             val contentViews = listOf(b.cvAvatar, b.inputLayoutName, b.inputLayoutPassword, b.tvPasswordHint, b.btnForward)
                             contentViews.forEach { it.alpha = 1f }

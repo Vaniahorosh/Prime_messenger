@@ -13,8 +13,8 @@
         android:layout_marginEnd="4dp"
         app:cardCornerRadius="12dp"
         app:cardElevation="1dp"
-        app:cardBackgroundColor="#1A2232"
-        app:strokeColor="#33FFFFFF"
+        app:cardBackgroundColor="@color/prime_surface"
+        app:strokeColor="@color/prime_divider"
         app:strokeWidth="1dp">
 
         <LinearLayout
@@ -54,7 +54,7 @@
                 android:ellipsize="end"
                 android:gravity="center"
                 android:maxLines="1"
-                android:textColor="@color/white"
+                android:textColor="@color/prime_text_primary"
                 android:textSize="10sp"
                 android:textStyle="bold"
                 tools:text="PNG 16" />
@@ -66,7 +66,7 @@
                 android:ellipsize="end"
                 android:gravity="center"
                 android:maxLines="1"
-                android:textColor="#B0BEC5"
+                android:textColor="@color/prime_text_secondary"
                 android:textSize="9sp"
                 tools:text="1.2М" />
         </LinearLayout>

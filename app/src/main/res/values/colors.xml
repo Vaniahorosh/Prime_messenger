@@ -59,5 +59,22 @@
     <color name="grad_center">#1A5EA8</color>
     <color name="grad_end">#0D2F54</color>
 
+    <!-- Progress Bar Brand Colors (Light Theme) -->
+    <color name="prime_progress_start">#154B87</color>
+    <color name="prime_progress_end">#1E88E5</color>
+    <color name="prime_progress_track_bg">#20154B87</color>
+    <color name="prime_progress_track_border">#33154B87</color>
+
+    <!-- Dialog Semantic Colors (Light Theme) -->
+    <color name="dialog_title_color">@color/prime_brand</color>
+    <color name="dialog_body_color">@color/prime_brand_alpha_80</color>
+    <color name="dialog_input_text_color">@color/prime_brand</color>
+    <color name="dialog_hint_color">#99154B87</color>
+    <color name="dialog_box_stroke">#40154B87</color>
+    <color name="dialog_button_cancel_text">@color/prime_brand</color>
+    <color name="dialog_button_cancel_stroke">#40154B87</color>
+    <color name="dialog_button_save_bg">@color/prime_brand</color>
+    <color name="dialog_button_save_text">@color/white</color>
+
     <color name="ic_launcher_background">#F7F9FC</color>
 </resources>

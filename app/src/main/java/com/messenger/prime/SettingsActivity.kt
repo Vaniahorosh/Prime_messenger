@@ -4,13 +4,15 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Rect
 import java.io.ByteArrayOutputStream
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.transition.AutoTransition
 import android.transition.TransitionManager
@@ -76,18 +78,6 @@ class SettingsActivity : AppCompatActivity() {
 
     private val isThemeDialogVisible = mutableStateOf(false)
 
-    // Состояния для динамических кнопок в шапке
-    private val backLabelState = mutableStateOf("Назад")
-    private val backIconState = mutableIntStateOf(R.drawable.ic_arrow_back)
-    
-    private val logoutLabelState = mutableStateOf("Выход")
-    private val logoutIconState = mutableIntStateOf(R.drawable.ic_exit_to_app)
-    private val logoutColorState = mutableStateOf(Color(0xFFEF5350))
-    
-    private val extraSettingsLabelState = mutableStateOf("Настройки")
-    private val extraSettingsIconState = mutableIntStateOf(R.drawable.ic_settings)
-    private val extraSettingsColorState = mutableStateOf(Color.White)
-
     private val backLabelAlpha = mutableFloatStateOf(1f)
     private val backLabelTranslationX = mutableFloatStateOf(0f)
 
@@ -99,25 +89,6 @@ class SettingsActivity : AppCompatActivity() {
 
     private val avatarUriState = mutableStateOf<String?>(null)
     private var profileImageView: ImageView? = null
-
-    private val photoViewLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == RESULT_OK) {
-            val data = result.data
-            if (data?.getBooleanExtra("DELETED", false) == true) {
-                handlePhotoDeletionWithUndo(currentAvatarUri)
-            } else {
-                val newUri = data?.getStringExtra("NEW_URI")
-                if (newUri != null) {
-                    currentAvatarUri = newUri
-                    val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-                    val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-                    sharedPrefs.edit().putString("${currentUser}_avatar", newUri).apply()
-                    applyAvatarState(newUri)
-                    sendProfileUpdateOverBluetooth()
-                }
-            }
-        }
-    }
 
     private val photoEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
@@ -221,6 +192,20 @@ class SettingsActivity : AppCompatActivity() {
                             b.etSettingsLogin.setText(currentUser)
                             b.etSettingsPassword.setText(currentPassInDB)
                             b.tvAccountHeaderSummary.text = savedName
+                            val versionName = try {
+                                val pInfo = packageManager.getPackageInfo(packageName, 0)
+                                val vName = pInfo.versionName ?: "1.0"
+                                val vCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                    pInfo.longVersionCode
+                                } else {
+                                    @Suppress("DEPRECATION")
+                                    pInfo.versionCode.toLong()
+                                }
+                                "Prime $vName (build $vCode)"
+                            } catch (e: Exception) {
+                                "Prime ${BuildConfig.VERSION_NAME}"
+                            }
+                            b.tvAppVersion.text = versionName
 
                             val isExpanded = sharedPrefs.getBoolean("settings_account_expanded", false)
                             b.layoutAccountCollapsible.visibility = if (isExpanded) View.VISIBLE else View.GONE
@@ -578,8 +563,20 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private val chatDeletedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val navIntent = Intent(this@SettingsActivity, ChatListActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(navIntent)
+            finish()
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        val filter = IntentFilter("com.messenger.prime.CHAT_DELETED")
+        ContextCompat.registerReceiver(this, chatDeletedReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         LavaBackgroundState.onActivityResumed()
         isClosing = false
         val b = binding
@@ -605,6 +602,7 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        try { unregisterReceiver(chatDeletedReceiver) } catch (e: Exception) {}
         stopWobbling()
     }
 
@@ -1087,10 +1085,14 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun showLogoutDialog() {
-        MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
-            .setTitle("Выход")
-            .setMessage("Сделать выход из аккаунта?")
-            .setPositiveButton("Да") { _, _ ->
+        PrimeBlurDialog.show(
+            activity = this,
+            title = "Выход",
+            message = "Сделать выход из аккаунта?",
+            positiveText = "Да",
+            negativeText = "Нет",
+            isPositiveDanger = true,
+            onPositive = {
                 if (BluetoothSocketHolder.getSocket() != null && BluetoothSocketHolder.getSocket().isConnected) {
                     try {
                         val thread = BluetoothSocketHolder.getConnectedThreadInstance()
@@ -1112,8 +1114,7 @@ class SettingsActivity : AppCompatActivity() {
                 startActivity(Intent(this, LoginActivity::class.java))
                 finishAffinity()
             }
-            .setNegativeButton("Нет", null)
-            .show()
+        )
     }
 
     private fun showThemeDialog(b: ActivitySettingsContentBinding) {
