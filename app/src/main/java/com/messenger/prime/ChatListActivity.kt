@@ -145,6 +145,7 @@ import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.core.graphics.toColorInt
+import androidx.lifecycle.Lifecycle
 import androidx.recyclerview.widget.SimpleItemAnimator
 import kotlin.math.abs
 
@@ -450,10 +451,19 @@ class ChatListActivity : AppCompatActivity() {
 
     private fun handlePrimeDeviceFound(device: BluetoothDevice, name: String?) {
         if (primeDevices.add(device.address)) {
-            triggerPrimeFoundVibration()
             val finalName = name ?: "Prime Собеседник"
             runOnUiThread {
-                if (!isFoundDeviceDialogVisible.value && !isIncomingConnectionDialogVisible.value) {
+                if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                    return@runOnUiThread
+                }
+                triggerPrimeFoundVibration()
+                if (BluetoothSocketHolder.hasAnyActiveConnection()) {
+                    // Если мы уже в чате, просто показываем тихое уведомление-тост
+                    PrimeNotification.show(this@ChatListActivity, "⚡ Найден: $finalName")
+                } else if (isIslandVisibleState.value) {
+                    // Если окно поиска открыто, просто добавляем в список, не перекрывая экран диалогом
+                    PrimeNotification.show(this@ChatListActivity, "⚡ Найден: $finalName")
+                } else if (!isFoundDeviceDialogVisible.value && !isIncomingConnectionDialogVisible.value) {
                     foundDeviceName = finalName
                     foundDeviceMac = device.address
                     isFoundDeviceDialogVisible.value = true
@@ -888,49 +898,49 @@ class ChatListActivity : AppCompatActivity() {
                             
                             val rawAllDevices = (pairedDevices.map { it to true } + discoveredDevices.map { it to false })
                                 .distinctBy { it.first.address }
+                                .filter { (device, _) ->
+                                    val name = try { @Suppress("MissingPermission") device.name } catch (e: Exception) { null }
+                                    val devUuids = try { @Suppress("MissingPermission") device.uuids } catch (e: Exception) { null }
+                                    val hasPrimeUuid = devUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true
+                                    
+                                    val isExplicitPrime = (name?.contains("Prime", ignoreCase = true) == true) || 
+                                                          primeDevices.contains(device.address) || 
+                                                          hasPrimeUuid
+                                    if (isExplicitPrime) return@filter true
 
-                            val primeOnlyDevices = rawAllDevices.filter { (device, _) ->
-                                val name = try {
-                                    @Suppress("MissingPermission")
-                                    device.name
-                                } catch (e: Exception) { null }
-
-                                val devUuids = try {
-                                    @Suppress("MissingPermission")
-                                    device.uuids
-                                } catch (e: Exception) { null }
-
-                                val bluetoothClass = try {
-                                    @Suppress("MissingPermission")
-                                    device.bluetoothClass
-                                } catch (e: Exception) { null }
-
-                                val majorClass = bluetoothClass?.majorDeviceClass
-                                val lowerName = name?.lowercase() ?: ""
-                                val isAudioDevice = majorClass == 0x0400 || 
-                                                    lowerName.contains("buds") ||
-                                                    lowerName.contains("headphone") ||
-                                                    lowerName.contains("earphone") ||
-                                                    lowerName.contains("airpods") ||
-                                                    lowerName.contains("audio") ||
-                                                    lowerName.contains("speaker") ||
-                                                    lowerName.contains("jbl") ||
-                                                    lowerName.contains("sony") ||
-                                                    lowerName.contains("bose") ||
-                                                    lowerName.contains("wh-") ||
-                                                    lowerName.contains("wi-") ||
-                                                    lowerName.contains("tws")
-
-                                if (isAudioDevice) {
-                                    return@filter false
+                                    val bluetoothClass = try { @Suppress("MissingPermission") device.bluetoothClass } catch (e: Exception) { null }
+                                    val majorClass = bluetoothClass?.majorDeviceClass
+                                    val lowerName = name?.lowercase() ?: ""
+                                    
+                                    val isUnwantedDevice = majorClass == BluetoothClass.Device.Major.AUDIO_VIDEO || 
+                                                           majorClass == BluetoothClass.Device.Major.WEARABLE ||
+                                                           majorClass == BluetoothClass.Device.Major.PERIPHERAL ||
+                                                           majorClass == BluetoothClass.Device.Major.HEALTH ||
+                                                           majorClass == BluetoothClass.Device.Major.TOY ||
+                                                           majorClass == BluetoothClass.Device.Major.IMAGING ||
+                                                           lowerName.contains("buds") ||
+                                                           lowerName.contains("headphone") ||
+                                                           lowerName.contains("earphone") ||
+                                                           lowerName.contains("airpods") ||
+                                                           lowerName.contains("audio") ||
+                                                           lowerName.contains("speaker") ||
+                                                           lowerName.contains("jbl") ||
+                                                           lowerName.contains("sony") ||
+                                                           lowerName.contains("bose") ||
+                                                           lowerName.contains("wh-") ||
+                                                           lowerName.contains("wi-") ||
+                                                           lowerName.contains("tws")
+                                                           
+                                    !isUnwantedDevice
                                 }
 
+                            val primeOnlyDevices = rawAllDevices.filter { (device, _) ->
+                                val name = try { @Suppress("MissingPermission") device.name } catch (e: Exception) { null }
+                                val devUuids = try { @Suppress("MissingPermission") device.uuids } catch (e: Exception) { null }
                                 val hasPrimeUuid = devUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true
-                                val isExplicitPrime = (name?.contains("Prime", ignoreCase = true) == true) || 
-                                                      primeDevices.contains(device.address) || 
-                                                      hasPrimeUuid
-
-                                isExplicitPrime
+                                (name?.contains("Prime", ignoreCase = true) == true) || 
+                                primeDevices.contains(device.address) || 
+                                hasPrimeUuid
                             }
                             
                             val pairedPrimeList = primeOnlyDevices.filter { it.second }
@@ -975,8 +985,9 @@ class ChatListActivity : AppCompatActivity() {
                             ) {
                                 // 1. Discovered Prime Devices
                                 items(discoveredPrimeList, key = { "disc_prime_" + it.first.address }) { (device, _) ->
-                                    val devName = try { @Suppress("MissingPermission") device.name ?: "Prime Собеседник" } catch (_: Exception) { "Prime Собеседник" }
                                     val devMac = device.address
+                                    val knownContact = chatListState.find { it.id == devMac }
+                                    val devName = knownContact?.name ?: try { @Suppress("MissingPermission") device.name ?: "Prime Собеседник" } catch (_: Exception) { "Prime Собеседник" }
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0x2200E676)).border(1.dp, Color(0xFF00E676), RoundedCornerShape(14.dp)).clickable { isContactDialogVisible.value = false; navigateToChatPerson(devName, devMac, useExistingSocket = false) }.padding(8.dp),
@@ -1025,8 +1036,9 @@ class ChatListActivity : AppCompatActivity() {
 
                                     if (showPairedDevices) {
                                         items(pairedPrimeList, key = { "paired_prime_" + it.first.address }) { (device, _) ->
-                                            val devName = try { @Suppress("MissingPermission") device.name ?: "Устройство" } catch (_: Exception) { "Устройство" }
                                             val devMac = device.address
+                                            val knownContact = chatListState.find { it.id == devMac }
+                                            val devName = knownContact?.name ?: try { @Suppress("MissingPermission") device.name ?: "Устройство" } catch (_: Exception) { "Устройство" }
 
                                             Row(
                                                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0x2200E676)).border(1.dp, Color(0xFF00E676), RoundedCornerShape(12.dp)).clickable { isContactDialogVisible.value = false; navigateToChatPerson(devName, devMac, useExistingSocket = false) }.padding(horizontal = 8.dp, vertical = 6.dp),
@@ -1246,9 +1258,7 @@ class ChatListActivity : AppCompatActivity() {
                                                 isIncomingConnectionDialogVisible.value = false
                                                 val socket = incomingSocket
                                                 if (socket != null && socket.isConnected) {
-                                                    BluetoothSocketHolder.setSocket(socket)
-                                                    BluetoothSocketHolder.setActiveDeviceAddress(incomingDeviceMac)
-                                                    BluetoothSocketHolder.setActiveTargetUsername(incomingDeviceName)
+                                                    BluetoothSocketHolder.registerConnection(incomingDeviceMac, incomingDeviceName, socket, null)
                                                     navigateToChatPerson(incomingDeviceName, incomingDeviceMac, useExistingSocket = true)
                                                 }
                                             },
@@ -1719,8 +1729,15 @@ class ChatListActivity : AppCompatActivity() {
         reloadChatsFromDb()
     }
 
+    override fun onPause() {
+        super.onPause()
+        stopBluetoothScan()
+    }
+
     override fun onStop() {
         super.onStop()
+        stopBluetoothScan()
+        stopAcceptThread()
         typingExpireHandler.removeCallbacks(typingExpireRunnable)
         ChatListNotifier.unsubscribe(onChatListChanged)
     }
@@ -1863,7 +1880,7 @@ class ChatListActivity : AppCompatActivity() {
         
         if (BluetoothSocketHolder.isConnectedWith(contact.id, contact.name)) {
             try {
-                val thread = BluetoothSocketHolder.getConnectedThreadInstance()
+                val thread = BluetoothSocketHolder.getThreadFor(contact.id, contact.name)
                 if (thread != null) {
                     val method = thread.javaClass.getDeclaredMethod("sendPacket", Byte::class.javaPrimitiveType, ByteArray::class.java)
                     method.isAccessible = true
@@ -1876,7 +1893,7 @@ class ChatListActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            BluetoothSocketHolder.clearSocket()
+            BluetoothSocketHolder.removeConnection(contact.id, contact.name)
             PrimeBluetoothService.stopService(this)
         }
         
@@ -2138,6 +2155,7 @@ class ChatListActivity : AppCompatActivity() {
         val btAdapter = bluetoothAdapter ?: return
         if (!btAdapter.isEnabled) return
 
+        primeDevices.clear()
         pairedDevices.clear()
         try {
             btAdapter.bondedDevices?.let { pairedDevices.addAll(it) }
@@ -2218,7 +2236,15 @@ class ChatListActivity : AppCompatActivity() {
                     val devName = try { device?.name ?: "Prime Собеседник" } catch (e: Exception) { "Prime Собеседник" }
 
                     runOnUiThread {
-                        if (!isIncomingConnectionDialogVisible.value) {
+                        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                            try { socket.close() } catch (e: Exception) {}
+                            return@runOnUiThread
+                        }
+
+                        if (BluetoothSocketHolder.hasAnyActiveConnection()) {
+                            // Уже есть активное подключение — не показываем диалог, отклоняем новое
+                            try { socket.close() } catch (e: Exception) {}
+                        } else if (!isIncomingConnectionDialogVisible.value) {
                             triggerPrimeFoundVibration()
                             incomingSocket = socket
                             incomingDeviceName = devName

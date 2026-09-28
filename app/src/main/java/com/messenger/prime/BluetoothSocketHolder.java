@@ -11,6 +11,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -166,6 +168,10 @@ public class BluetoothSocketHolder {
         connectedThreadInstance = thread;
     }
 
+    public static synchronized Collection<Object> getAllConnectedThreads() {
+        return new HashSet<>(threadMap.values());
+    }
+
     public static synchronized String getActiveDeviceAddress() {
         return activeDeviceAddress;
     }
@@ -180,6 +186,14 @@ public class BluetoothSocketHolder {
 
     public static synchronized void setActiveTargetUsername(String username) {
         activeTargetUsername = username;
+    }
+
+    public static synchronized boolean hasAnyActiveConnection() {
+        for (BluetoothSocket s : socketMap.values()) {
+            if (s != null && s.isConnected()) return true;
+        }
+        if (socket != null && socket.isConnected()) return true;
+        return false;
     }
 
     public static synchronized boolean isConnectedWith(String address, String name) {

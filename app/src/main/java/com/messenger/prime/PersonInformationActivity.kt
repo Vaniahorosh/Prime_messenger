@@ -125,11 +125,9 @@ class PersonInformationActivity : AppCompatActivity() {
             addAction("com.messenger.prime.AVATAR_UPDATED")
             addAction("com.messenger.prime.CHAT_DELETED")
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(statusUpdateReceiver, filter, RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(statusUpdateReceiver, filter)
-        }
+        ContextCompat.registerReceiver(
+            this, statusUpdateReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
+        )
 
         setupThemeAndBackground()
         setupHeaderUi()
@@ -279,8 +277,10 @@ class PersonInformationActivity : AppCompatActivity() {
 
         // 3. Отключиться
         binding.btnDisconnect.setOnClickListener {
-            BluetoothSocketHolder.clearSocket()
-            PrimeBluetoothService.stopService(this)
+            BluetoothSocketHolder.removeConnection(deviceAddress, targetUsername)
+            if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
+                PrimeBluetoothService.stopService(this)
+            }
 
             val disconnectIntent = Intent("com.messenger.prime.DISCONNECT_REQUESTED").setPackage(packageName)
             sendBroadcast(disconnectIntent)
@@ -338,7 +338,7 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     private fun performCompleteChatDeletion() {
-        val threadObj = BluetoothSocketHolder.getConnectedThreadInstance()
+        val threadObj = BluetoothSocketHolder.getThreadFor(null, targetUsername)
         if (threadObj is ChatPersonActivity.ConnectedThread && threadObj.isAlive) {
             val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
             val currentUser = sp.getString("current_user", "") ?: ""
@@ -347,7 +347,7 @@ class PersonInformationActivity : AppCompatActivity() {
             try { Thread.sleep(100) } catch (ignored: Exception) {}
         }
 
-        BluetoothSocketHolder.clearSocket()
+        BluetoothSocketHolder.removeConnection(null, targetUsername)
         PrimeBluetoothService.stopService(this)
 
         try {

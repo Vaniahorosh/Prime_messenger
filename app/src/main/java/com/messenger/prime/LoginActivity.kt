@@ -280,6 +280,11 @@ class LoginActivity : AppCompatActivity() {
         binding?.root?.alpha = 1f
     }
 
+    override fun onDestroy() {
+        binding = null
+        super.onDestroy()
+    }
+
     override fun finish() {
         LavaBackgroundState.onTransitionStart()
         super.finish()

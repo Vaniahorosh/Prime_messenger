@@ -202,6 +202,10 @@ class PhotoEditorActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         try { unregisterReceiver(chatDeletedReceiver) } catch (e: Exception) {}
+        try {
+            originalBitmap?.recycle()
+            originalBitmap = null
+        } catch (e: Exception) {}
         super.onDestroy()
     }
 

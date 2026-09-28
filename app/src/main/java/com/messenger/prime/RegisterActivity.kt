@@ -236,6 +236,11 @@ class RegisterActivity : AppCompatActivity() {
         LavaBackgroundState.onActivityResumed()
     }
 
+    override fun onDestroy() {
+        binding = null
+        super.onDestroy()
+    }
+
     override fun finish() {
         LavaBackgroundState.onTransitionStart()
         super.finish()

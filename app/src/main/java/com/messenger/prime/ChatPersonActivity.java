@@ -737,6 +737,9 @@ public class ChatPersonActivity extends AppCompatActivity {
         }
         
         layoutConnectAction = findViewById(R.id.layoutConnectAction);
+        if (layoutConnectAction != null) {
+            layoutConnectAction.setVisibility(View.GONE);
+        }
         btnPrimeConnect = findViewById(R.id.btnPrimeConnect);
         layoutInput = findViewById(R.id.layoutInput);
         btnAttach = findViewById(R.id.btnAttach);
@@ -1454,8 +1457,10 @@ public class ChatPersonActivity extends AppCompatActivity {
                             }
                         } catch (Exception ignored) {}
 
-                        BluetoothSocketHolder.clearSocket();
-                        PrimeBluetoothService.stopService(ChatPersonActivity.this);
+                        BluetoothSocketHolder.removeConnection(deviceAddress, targetUsername);
+                        if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
+                            PrimeBluetoothService.stopService(ChatPersonActivity.this);
+                        }
                         ChatHistoryManager.deleteHistoryCompletely(ChatPersonActivity.this, deletedByName, deviceAddress);
                         ChatHistoryManager.deleteHistoryCompletely(ChatPersonActivity.this, targetUsername, deviceAddress);
                         deleteChatFromChatListEx(deletedByName);
@@ -1728,7 +1733,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                 connected(existingSocket, device);
             }
         } else {
-            if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.VISIBLE);
+            if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.GONE);
             if (layoutInput != null) layoutInput.setVisibility(View.GONE);
             checkPermissionsAndStartRole(false);
         }
@@ -1802,11 +1807,7 @@ public class ChatPersonActivity extends AppCompatActivity {
             filter.addAction(Intent.ACTION_USER_PRESENT);
             filter.addAction("com.messenger.prime.DISCONNECT_REQUESTED");
             filter.addAction("com.messenger.prime.CHAT_DELETED");
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-            } else {
-                registerReceiver(screenReceiver, filter);
-            }
+            ContextCompat.registerReceiver(this, screenReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
         } catch (Exception ignored) {}
 
         if (wasSubActivity) {
@@ -1815,7 +1816,7 @@ public class ChatPersonActivity extends AppCompatActivity {
             sendPresenceUpdate(true);
         }
 
-        Object threadObj = BluetoothSocketHolder.getConnectedThreadInstance();
+        Object threadObj = BluetoothSocketHolder.getThreadFor(deviceAddress, targetUsername);
         if (threadObj instanceof ConnectedThread && ((ConnectedThread) threadObj).isAlive()) {
             this.connectedThread = (ConnectedThread) threadObj;
             this.connectedThread.setUiHandler(handler);
@@ -1882,8 +1883,14 @@ public class ChatPersonActivity extends AppCompatActivity {
     }
 
     @Override
+    @SuppressLint("MissingPermission")
     protected void onPause() {
         super.onPause();
+        if (bluetoothAdapter != null) {
+            try {
+                bluetoothAdapter.cancelDiscovery();
+            } catch (Exception ignored) {}
+        }
         try {
             unregisterReceiver(screenReceiver);
         } catch (Exception ignored) {}
@@ -2032,7 +2039,7 @@ public class ChatPersonActivity extends AppCompatActivity {
             } catch (Exception ignored) {}
         }
         isRemoteUserOnline = false;
-        BluetoothSocketHolder.clearSocket();
+        BluetoothSocketHolder.removeConnection(deviceAddress, targetUsername);
         if (connectedThread != null) {
             connectedThread.cancel();
             connectedThread = null;
@@ -2363,12 +2370,11 @@ public class ChatPersonActivity extends AppCompatActivity {
                 : Color.parseColor("#40154B87");
 
         BlurView blurHeader = findViewById(R.id.layoutHeader);
-        BlurView blurConnectAction = findViewById(R.id.layoutConnectAction);
         BlurView blurInput = findViewById(R.id.layoutInput);
         BlurView blurAttachmentPanel = findViewById(R.id.layoutAttachmentPanel);
 
         BlurView[] blurViews = new BlurView[]{
-                blurHeader, blurConnectAction, blurInput, blurAttachmentPanel
+                blurHeader, blurInput, blurAttachmentPanel
         };
 
         for (BlurView bv : blurViews) {
@@ -2783,8 +2789,10 @@ public class ChatPersonActivity extends AppCompatActivity {
             connectedThread.sendPacket(TYPE_CHAT_DELETED, deletionPayload.getBytes(StandardCharsets.UTF_8));
             try { Thread.sleep(100); } catch (Exception ignored) {}
         }
-        BluetoothSocketHolder.clearSocket();
-        PrimeBluetoothService.stopService(this);
+        BluetoothSocketHolder.removeConnection(deviceAddress, targetUsername);
+        if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
+            PrimeBluetoothService.stopService(this);
+        }
 
         try {
             BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -2827,7 +2835,7 @@ public class ChatPersonActivity extends AppCompatActivity {
         isChatDeleted = true;
         autoRetryHandler.removeCallbacks(autoRetryRunnable);
         connectTimeoutHandler.removeCallbacks(connectTimeoutRunnable);
-        BluetoothSocketHolder.clearSocket();
+        BluetoothSocketHolder.removeConnection(deviceAddress, targetUsername);
         ChatHistoryManager.deleteHistoryCompletely(this, targetUsername, deviceAddress);
         if (nameOrId != null && !nameOrId.equalsIgnoreCase(targetUsername)) {
             ChatHistoryManager.deleteHistoryCompletely(this, nameOrId, deviceAddress);
@@ -3120,7 +3128,7 @@ public class ChatPersonActivity extends AppCompatActivity {
 
         showSendingProgressUi(0);
 
-        Executors.newSingleThreadExecutor().execute(() -> {
+        ioExecutor.execute(() -> {
             long timestamp = System.currentTimeMillis();
             String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(timestamp));
             String messageId = localUsername + "_" + timestamp + "_" + UUID.randomUUID().toString();
@@ -3421,7 +3429,7 @@ public class ChatPersonActivity extends AppCompatActivity {
 
         Log.d(TAG, "Starting Fast Direct Connection...");
         
-        if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.VISIBLE);
+        if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.GONE);
         if (layoutInput != null) layoutInput.setVisibility(View.GONE);
         if (btnPrimeConnect != null) {
             btnPrimeConnect.setEnabled(false);
@@ -3551,7 +3559,7 @@ public class ChatPersonActivity extends AppCompatActivity {
             closeAttachmentPanel();
             clearPendingAttachment();
 
-            if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.VISIBLE);
+            if (layoutConnectAction != null) layoutConnectAction.setVisibility(View.GONE);
             if (layoutInput != null) layoutInput.setVisibility(View.GONE);
 
             stopAnimatingStatus();
@@ -3573,7 +3581,7 @@ public class ChatPersonActivity extends AppCompatActivity {
     }
 
     private void connectionLost() {
-        BluetoothSocketHolder.clearSocket();
+        BluetoothSocketHolder.removeConnection(deviceAddress, targetUsername);
         isHandshakeDone = false;
         isRemoteUserOnline = false;
         connectThread = null;
@@ -3585,7 +3593,9 @@ public class ChatPersonActivity extends AppCompatActivity {
         }
         
         try {
-            PrimeBluetoothService.stopService(this);
+            if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
+                PrimeBluetoothService.stopService(this);
+            }
         } catch (Throwable e) {
             Log.e(TAG, "Failed to stop bluetooth service", e);
         }
@@ -3826,6 +3836,15 @@ public class ChatPersonActivity extends AppCompatActivity {
                 }
 
                 if (socket != null) {
+                    BluetoothDevice incomingDevice = socket.getRemoteDevice();
+                    String incomingAddr = incomingDevice != null ? incomingDevice.getAddress() : null;
+
+                    if (connectedThread != null && connectedThread.isAlive() && incomingAddr != null && deviceAddress != null && !incomingAddr.equalsIgnoreCase(deviceAddress)) {
+                        Log.w(TAG, "Rejecting incoming socket from " + incomingAddr + " during active chat with " + deviceAddress);
+                        try { socket.close(); } catch (IOException ignored) {}
+                        continue;
+                    }
+
                     connected(socket, socket.getRemoteDevice());
                     try {
                         mmServerSocket.close();
@@ -3862,49 +3881,84 @@ public class ChatPersonActivity extends AppCompatActivity {
                     bluetoothAdapter.cancelDiscovery();
                 } catch (Exception ignored) {}
             }
+
+            // --- Device-Specific Optimizations ---
+            String manufacturer = Build.MANUFACTURER.toLowerCase(Locale.US);
+            long connectDelay = 150; // Default safe delay
+
+            if (manufacturer.contains("samsung")) {
+                connectDelay = 400; // Samsung hardware needs more time to free up the radio after cancelDiscovery
+            } else if (manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco")) {
+                connectDelay = 250;
+            } else if (manufacturer.contains("huawei") || manufacturer.contains("honor")) {
+                connectDelay = 200;
+            }
+            
             try {
-                Thread.sleep(50);
+                Thread.sleep(connectDelay);
             } catch (InterruptedException ignored) {}
 
-            // 3-Stage Robust RFCOMM Connection Strategy
-            // Stage 1: Insecure RFCOMM
+            boolean isXiaomiGroup = manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco");
+
+            // 4-Stage Adaptive RFCOMM Connection Strategy
+
+            // Stage 1: For Xiaomi devices, Reflection is often the only reliable way. Try it first to speed up connection.
+            if (isXiaomiGroup) {
+                try {
+                    mmSocket = (BluetoothSocket) mmDevice.getClass().getMethod("createRfcommSocket", int.class).invoke(mmDevice, 1);
+                    if (mmSocket != null) {
+                        mmSocket.connect();
+                        connected(mmSocket, mmDevice);
+                        return;
+                    }
+                } catch (Exception e0) {
+                    Log.w(TAG, "Stage 1 (Xiaomi Reflection) failed, falling back to standard...", e0);
+                    if (mmSocket != null) {
+                        try { mmSocket.close(); } catch (IOException ignored) {}
+                    }
+                }
+            }
+
+            // Stage 2: Insecure RFCOMM (Standard fast connection)
             try {
                 mmSocket = mmDevice.createInsecureRfcommSocketToServiceRecord(UUID_CHAT);
                 mmSocket.connect();
                 connected(mmSocket, mmDevice);
                 return;
             } catch (IOException e1) {
-                Log.w(TAG, "Stage 1 (Insecure RFCOMM) failed, trying Stage 2...", e1);
+                Log.w(TAG, "Stage 2 (Insecure RFCOMM) failed, trying Stage 3...", e1);
                 if (mmSocket != null) {
                     try { mmSocket.close(); } catch (IOException ignored) {}
                 }
             }
 
-            // Stage 2: Secure RFCOMM
+            // Stage 3: Secure RFCOMM (Sometimes required by strict Android variants)
             try {
                 mmSocket = mmDevice.createRfcommSocketToServiceRecord(UUID_CHAT);
                 mmSocket.connect();
                 connected(mmSocket, mmDevice);
                 return;
             } catch (IOException e2) {
-                Log.w(TAG, "Stage 2 (Secure RFCOMM) failed, trying Stage 3...", e2);
+                Log.w(TAG, "Stage 3 (Secure RFCOMM) failed, trying Stage 4...", e2);
                 if (mmSocket != null) {
                     try { mmSocket.close(); } catch (IOException ignored) {}
                 }
             }
 
-            // Stage 3: Reflection Channel 1
-            try {
-                mmSocket = (BluetoothSocket) mmDevice.getClass().getMethod("createRfcommSocket", int.class).invoke(mmDevice, 1);
-                if (mmSocket != null) {
-                    mmSocket.connect();
-                    connected(mmSocket, mmDevice);
-                    return;
-                }
-            } catch (Exception e3) {
-                Log.e(TAG, "Stage 3 (Reflection RFCOMM) failed", e3);
-                if (mmSocket != null) {
-                    try { mmSocket.close(); } catch (IOException ignored) {}
+            // Stage 4: Reflection Channel 1 (Fallback for other broken stacks)
+            if (!isXiaomiGroup) {
+                try {
+                    mmSocket = (BluetoothSocket) mmDevice.getClass().getMethod("createRfcommSocket", int.class).invoke(mmDevice, 1);
+                    if (mmSocket != null) {
+                        mmSocket.connect();
+                        connected(mmSocket, mmDevice);
+                        return;
+                    }
+                } catch (Exception e3) {
+                    Log.e(TAG, "Stage 4 (Reflection RFCOMM) failed", e3);
+                    if (mmSocket != null) {
+                        try { mmSocket.close(); } catch (IOException ignored) {}
+                    }
                 }
             }
 
@@ -4014,8 +4068,22 @@ public class ChatPersonActivity extends AppCompatActivity {
 
                     byte[] payload = null;
                     if (length > 0) {
-                        payload = new byte[length];
-                        mmInStream.readFully(payload);
+                        try {
+                            payload = new byte[length];
+                            mmInStream.readFully(payload);
+                        } catch (OutOfMemoryError e) {
+                            Log.e(TAG, "OOM while allocating payload of size " + length, e);
+                            // Пропускаем байты, чтобы не сломать синхронизацию потока
+                            int bytesToSkip = length;
+                            byte[] skipBuffer = new byte[8192];
+                            while (bytesToSkip > 0) {
+                                int read = mmInStream.read(skipBuffer, 0, Math.min(bytesToSkip, skipBuffer.length));
+                                if (read < 0) throw new IOException("Stream closed during OOM skip");
+                                bytesToSkip -= read;
+                            }
+                            postToUi(MESSAGE_SEND_CANCELLED, -1, -1, null);
+                            continue;
+                        }
                     }
 
                     if (isChatDeleted && type != TYPE_CHAT_DELETED) {
@@ -4327,8 +4395,10 @@ public class ChatPersonActivity extends AppCompatActivity {
                         ChatHistoryManager.deleteHistoryCompletely(getApplicationContext(), targetUsername, deviceAddress);
                         deleteChatFromChatList(targetUsername);
                         
-                        BluetoothSocketHolder.clearSocket();
-                        PrimeBluetoothService.stopService(getApplicationContext());
+                        BluetoothSocketHolder.removeConnection(deviceAddress, targetUsername);
+                        if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
+                            PrimeBluetoothService.stopService(getApplicationContext());
+                        }
                         
                         if (activeUiHandler != null) {
                             postToUi(MESSAGE_CHAT_DELETED, -1, -1, payload);
@@ -4585,7 +4655,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                         mmOutStream.writeInt(length);
                         if (length > 0 && payload != null) {
                             int offset = 0;
-                            int chunkSize = isChunkedMedia ? 16384 : length;
+                            int chunkSize = 2048; // Универсальный безопасный размер чанка для Bluetooth
                             while (offset < length) {
                                 if (isMediaSendingCancelled) {
                                     Log.d(TAG, "Media send cancelled by user");
@@ -4603,7 +4673,10 @@ public class ChatPersonActivity extends AppCompatActivity {
                                         int progress = (int) ((offset * 100L) / length);
                                         postToUi(MESSAGE_SEND_PROGRESS, progress, -1, null);
                                     }
-                                    if (type == TYPE_PHOTO || type == TYPE_FILE) {
+                                    try { Thread.sleep(2); } catch (InterruptedException ignored) {}
+                                } else {
+                                    // Небольшая задержка даже для обычных сообщений, чтобы не перегружать буфер
+                                    if (length > 2048) {
                                         try { Thread.sleep(2); } catch (InterruptedException ignored) {}
                                     }
                                 }
@@ -6159,6 +6232,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                 switch (action) {
                     case MotionEvent.ACTION_MOVE: {
                         float progress = Math.min(1.0f, dy / pullThresholdPx);
+                        if (progress >= 1.0f) progress = 1.0f;
                         float dampenedDistance = Math.min(maxTranslationPx, dy * 0.45f);
 
                         updatePullUi(progress, dampenedDistance);
@@ -6168,13 +6242,6 @@ public class ChatPersonActivity extends AppCompatActivity {
                             triggerHapticVibration();
                         } else if (progress < 0.5f && stage1HapticTriggered) {
                             stage1HapticTriggered = false;
-                        }
-
-                        if (progress >= 1.0f && !stage2HapticTriggered) {
-                            stage2HapticTriggered = true;
-                            triggerHapticVibration();
-                        } else if (progress < 1.0f && stage2HapticTriggered) {
-                            stage2HapticTriggered = false;
                         }
                         break;
                     }
@@ -6225,6 +6292,7 @@ public class ChatPersonActivity extends AppCompatActivity {
 
                             if (hDragging) {
                                 float progress = Math.min(1.0f, Math.max(0f, dy) / pullThresholdPx);
+                                if (progress >= 1.0f) progress = 1.0f;
                                 float dampenedDistance = Math.min(maxTranslationPx, Math.max(0f, dy) * 0.45f);
 
                                 updatePullUi(progress, dampenedDistance);
@@ -6236,12 +6304,6 @@ public class ChatPersonActivity extends AppCompatActivity {
                                     stage1HapticTriggered = false;
                                 }
 
-                                if (progress >= 1.0f && !stage2HapticTriggered) {
-                                    stage2HapticTriggered = true;
-                                    triggerHapticVibration();
-                                } else if (progress < 1.0f && stage2HapticTriggered) {
-                                    stage2HapticTriggered = false;
-                                }
                                 return true;
                             }
                             break;
@@ -6342,22 +6404,7 @@ public class ChatPersonActivity extends AppCompatActivity {
                     .start();
         }
 
-        if (finalProgress >= 1.0f) {
-            boolean isConnected = BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername);
-            if (isConnected) {
-                BluetoothSocketHolder.clearSocket();
-                PrimeBluetoothService.stopService(this);
-                Intent disconnectIntent = new Intent("com.messenger.prime.DISCONNECT_REQUESTED").setPackage(getPackageName());
-                sendBroadcast(disconnectIntent);
-                disconnectCurrentChat();
-                PrimeNotification.INSTANCE.show(this, "Подключение отключено", null);
-            } else {
-                isManuallyDisconnected = false;
-                connectionRetryCount = 0;
-                checkPermissionsAndStartRole(false);
-                PrimeNotification.INSTANCE.show(this, "Установка соединения...", null);
-            }
-        } else if (finalProgress >= 0.5f) {
+        if (finalProgress >= 0.5f) {
             openPersonInformationActivity();
         }
     }
