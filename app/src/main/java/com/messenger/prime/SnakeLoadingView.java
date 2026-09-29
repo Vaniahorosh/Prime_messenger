@@ -5,14 +5,14 @@ import android.graphics.Color;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.widget.FrameLayout;
-import com.google.android.material.progressindicator.CircularProgressIndicator;
 
 /**
- * Материальная анимированная змейка-индикатор загрузки (Material Design 3 Indeterminate Circular Progress).
+ * Material Design 3 Expressive morphing loader view.
+ * Embeds M3ExpressiveLoadingView for expressive shape morphing animations.
  */
 public class SnakeLoadingView extends FrameLayout {
 
-    private CircularProgressIndicator progressIndicator;
+    private M3ExpressiveLoadingView expressiveLoadingView;
 
     public SnakeLoadingView(Context context) {
         super(context);
@@ -30,23 +30,18 @@ public class SnakeLoadingView extends FrameLayout {
     }
 
     private void init(Context context) {
-        progressIndicator = new CircularProgressIndicator(context);
-        progressIndicator.setIndeterminate(true);
-        progressIndicator.setIndicatorColor(Color.parseColor("#00E676")); // Neon Prime Green
-        progressIndicator.setTrackThickness((int) (3 * getResources().getDisplayMetrics().density));
-        progressIndicator.setIndicatorSize((int) (24 * getResources().getDisplayMetrics().density));
+        expressiveLoadingView = new M3ExpressiveLoadingView(context);
+        expressiveLoadingView.setColor(Color.parseColor("#00E676")); // Neon Prime Green
 
-        LayoutParams lp = new LayoutParams(
-            LayoutParams.WRAP_CONTENT,
-            LayoutParams.WRAP_CONTENT
-        );
+        int sizePx = (int) (32 * getResources().getDisplayMetrics().density);
+        LayoutParams lp = new LayoutParams(sizePx, sizePx);
         lp.gravity = Gravity.CENTER;
-        addView(progressIndicator, lp);
+        addView(expressiveLoadingView, lp);
     }
 
     public void setIndicatorColor(int color) {
-        if (progressIndicator != null) {
-            progressIndicator.setIndicatorColor(color);
+        if (expressiveLoadingView != null) {
+            expressiveLoadingView.setColor(color);
         }
     }
 }

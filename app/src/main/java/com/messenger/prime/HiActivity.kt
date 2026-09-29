@@ -337,6 +337,12 @@ class HiActivity : AppCompatActivity() {
         stopDynamicSequence()
     }
 
+    override fun onDestroy() {
+        stopDynamicSequence()
+        handler.removeCallbacksAndMessages(null)
+        super.onDestroy()
+    }
+
     private fun fadeOutAndNavigateToLogin() {
         LavaBackgroundState.onTransitionStart()
         val fadeOutDuration = 600L

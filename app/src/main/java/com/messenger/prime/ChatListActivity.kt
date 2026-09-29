@@ -398,6 +398,43 @@ class ChatListActivity : AppCompatActivity() {
         }
         lastChatLaunchTime = now
 
+        // 1. Immediately cancel Bluetooth discovery synchronously to free radio module!
+        try {
+            val bManager = getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager
+            val bAdapter = bManager?.adapter
+            bAdapter?.cancelDiscovery()
+        } catch (e: Exception) {
+            Log.w("ChatListActivity", "Failed to cancel discovery: ${e.message}")
+        }
+
+        // 2. Start Bluetooth service immediately
+        PrimeBluetoothService.startService(this)
+
+        // 3. Trigger forced connection in BluetoothConnectionManager immediately
+        if (BluetoothAdapter.checkBluetoothAddress(deviceAddress)) {
+            try {
+                val bManager = getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager
+                val bAdapter = bManager?.adapter
+                if (bAdapter != null && bAdapter.isEnabled) {
+                    val device = bAdapter.getRemoteDevice(deviceAddress)
+                    val currentUser = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("current_user", "") ?: ""
+                    val myDisplayName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${currentUser}_name", currentUser) ?: currentUser
+
+                    BluetoothConnectionManager.getInstance().connectToDevice(
+                        bAdapter,
+                        device,
+                        UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66"),
+                        myDisplayName,
+                        targetName,
+                        true
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("ChatListActivity", "Failed to connectToDevice in navigateToChatPerson", e)
+            }
+        }
+
+        // 4. Open ChatPersonActivity immediately
         runOnUiThread {
             stopBluetoothScan()
             stopAcceptThread()
@@ -408,15 +445,14 @@ class ChatListActivity : AppCompatActivity() {
             val chatIntent = Intent(this@ChatListActivity, ChatPersonActivity::class.java).apply {
                 putExtra("EXTRA_CHAT_NAME", targetName)
                 putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress)
+                putExtra("EXTRA_AUTO_CONNECT", true)
                 if (useExistingSocket) {
                     putExtra("EXTRA_USE_EXISTING_SOCKET", true)
                 }
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
             startActivity(chatIntent)
-            if (Build.VERSION.SDK_INT < 34) {
-                @Suppress("DEPRECATION")
-                if (Build.VERSION.SDK_INT >= 34) {
+            if (Build.VERSION.SDK_INT >= 34) {
                 overrideActivityTransition(
                     OVERRIDE_TRANSITION_OPEN,
                     R.anim.slide_in_right,
@@ -425,7 +461,6 @@ class ChatListActivity : AppCompatActivity() {
             } else {
                 @Suppress("DEPRECATION")
                 overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-            }
             }
         }
     }
@@ -457,19 +492,7 @@ class ChatListActivity : AppCompatActivity() {
                     return@runOnUiThread
                 }
                 triggerPrimeFoundVibration()
-                if (BluetoothSocketHolder.hasAnyActiveConnection()) {
-                    // Если мы уже в чате, просто показываем тихое уведомление-тост
-                    PrimeNotification.show(this@ChatListActivity, "⚡ Найден: $finalName")
-                } else if (isIslandVisibleState.value) {
-                    // Если окно поиска открыто, просто добавляем в список, не перекрывая экран диалогом
-                    PrimeNotification.show(this@ChatListActivity, "⚡ Найден: $finalName")
-                } else if (!isFoundDeviceDialogVisible.value && !isIncomingConnectionDialogVisible.value) {
-                    foundDeviceName = finalName
-                    foundDeviceMac = device.address
-                    isFoundDeviceDialogVisible.value = true
-                } else {
-                    PrimeNotification.show(this@ChatListActivity, "⚡ Найден: $finalName")
-                }
+                PrimeNotification.show(this@ChatListActivity, "⚡ Найден: $finalName")
             }
         }
     }
@@ -508,6 +531,20 @@ class ChatListActivity : AppCompatActivity() {
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
+
+                        // Fast delayed re-checks after Android resolves name/SDP UUIDs
+                        val mainHandler = Handler(Looper.getMainLooper())
+                        val checkTask = Runnable {
+                            val updatedName = try { device.name } catch (_: Exception) { null }
+                            val updatedUuids = try { device.uuids } catch (_: Exception) { null }
+                            val isPrime = (updatedName?.contains("Prime", ignoreCase = true) == true) ||
+                                          (updatedUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true)
+                            if (isPrime) {
+                                handlePrimeDeviceFound(device, updatedName)
+                            }
+                        }
+                        mainHandler.postDelayed(checkTask, 1200L)
+                        mainHandler.postDelayed(checkTask, 2800L)
                     }
                 }
                 BluetoothDevice.ACTION_UUID -> {
@@ -952,9 +989,9 @@ class ChatListActivity : AppCompatActivity() {
                             val pairedOtherList = otherDevices.filter { it.second }
                             val discoveredOtherList = otherDevices.filter { !it.second }
 
-                            var showOtherDevices by remember { mutableStateOf(false) }
+                            var showOtherDevices by remember { mutableStateOf(true) }
                             var showPairedDevices by remember { mutableStateOf(true) }
-                            var showPairedOther by remember { mutableStateOf(false) }
+                            var showPairedOther by remember { mutableStateOf(true) }
 
                             if (isScanningState.value) {
                                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().height(90.dp)) {
@@ -1878,36 +1915,30 @@ class ChatListActivity : AppCompatActivity() {
         chatListState.removeAt(index)
         allChats = ArrayList(chatListState)
         
-        if (BluetoothSocketHolder.isConnectedWith(contact.id, contact.name)) {
-            try {
-                val thread = BluetoothSocketHolder.getThreadFor(contact.id, contact.name)
-                if (thread != null) {
-                    val method = thread.javaClass.getDeclaredMethod("sendPacket", Byte::class.javaPrimitiveType, ByteArray::class.java)
-                    method.isAccessible = true
-                    val currentUser = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("current_user", "") ?: ""
-                    val myDisplayName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${currentUser}_name", currentUser) ?: currentUser
-                    val payload = "DELETE_CHAT:login=$myDisplayName;name=$myDisplayName".toByteArray(Charsets.UTF_8)
-                    method.invoke(thread, 8.toByte(), payload) // TYPE_CHAT_DELETED = 0x08
-                    Thread.sleep(100)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            BluetoothSocketHolder.removeConnection(contact.id, contact.name)
-            PrimeBluetoothService.stopService(this)
+        try {
+            val currentUser = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("current_user", "") ?: ""
+            val myDisplayName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${currentUser}_name", currentUser) ?: currentUser
+            val payload = "DELETE_CHAT:login=$myDisplayName;name=$myDisplayName".toByteArray(Charsets.UTF_8)
+            BluetoothConnectionManager.getInstance().sendPacket(8.toByte(), payload)
+            Thread.sleep(80)
+        } catch (e: Exception) {
+            Log.e("ChatListActivity", "Error sending deletion packet", e)
         }
+
+        BluetoothConnectionManager.getInstance().stopAll()
+        BluetoothSocketHolder.removeConnection(contact.id, contact.name)
         
         // Completely forget the device (unpair/removeBond) if it's a Bluetooth MAC address
         try {
             val bManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
             val bAdapter = bManager.adapter
-            if (bAdapter != null && bAdapter.isEnabled) {
+            if (bAdapter != null && bAdapter.isEnabled && BluetoothAdapter.checkBluetoothAddress(contact.id)) {
                 val device = bAdapter.getRemoteDevice(contact.id)
                 val removeBondMethod = device.javaClass.getMethod("removeBond")
                 removeBondMethod.invoke(device)
             }
         } catch (e: Exception) {
-            e.printStackTrace() // Ignore if invalid MAC or reflection fails
+            Log.w("ChatListActivity", "Remove bond ignored: ${e.message}")
         }
         
         ChatHistoryManager.deleteHistoryCompletely(this, targetName, targetId)
@@ -2032,9 +2063,16 @@ class ChatListActivity : AppCompatActivity() {
                             
                             val idStr = item.optString("id", System.currentTimeMillis().toString() + i)
                             val nameStr = item.optString("name", "Контакт")
-                            val isSocketConnected = BluetoothSocketHolder.isConnectedWith(idStr, nameStr)
+
+                            val activeManagerAddress = BluetoothConnectionManager.getInstance().activeDeviceAddress
+                            val activeManagerName = BluetoothConnectionManager.getInstance().activeDeviceName
+                            val isBtConnected = BluetoothConnectionManager.getInstance().state == BluetoothConnectionManager.ConnectionState.CONNECTED
+
+                            val isSocketConnected = BluetoothSocketHolder.isConnectedWith(idStr, nameStr) ||
+                                (isBtConnected && (idStr.equals(activeManagerAddress, ignoreCase = true) || nameStr.equals(activeManagerName, ignoreCase = true)))
+
                             val savedStatusStr = item.optString("onlineStatus", "OFFLINE")
-                            val realOnlineStatus = if (isSocketConnected && "ONLINE".equals(savedStatusStr, ignoreCase = true)) {
+                            val realOnlineStatus = if (isSocketConnected || ("ONLINE".equals(savedStatusStr, ignoreCase = true) && isBtConnected)) {
                                 OnlineStatus.ONLINE
                             } else {
                                 OnlineStatus.OFFLINE
@@ -2136,7 +2174,7 @@ class ChatListActivity : AppCompatActivity() {
             }
         }
 
-        startAcceptThread()
+        performDiscovery()
 
         try {
             val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
@@ -2144,7 +2182,7 @@ class ChatListActivity : AppCompatActivity() {
             }
             enableDiscoverableLauncher.launch(discoverableIntent)
         } catch (e: Exception) {
-            performDiscovery()
+            e.printStackTrace()
         }
     }
 
@@ -2158,7 +2196,18 @@ class ChatListActivity : AppCompatActivity() {
         primeDevices.clear()
         pairedDevices.clear()
         try {
-            btAdapter.bondedDevices?.let { pairedDevices.addAll(it) }
+            btAdapter.bondedDevices?.let { bonded ->
+                pairedDevices.addAll(bonded)
+                for (dev in bonded) {
+                    val devName = try { dev.name } catch (_: Exception) { null }
+                    val devUuids = try { dev.uuids } catch (_: Exception) { null }
+                    val hasPrimeUuid = devUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true
+                    if (devName?.contains("Prime", ignoreCase = true) == true || hasPrimeUuid) {
+                        handlePrimeDeviceFound(dev, devName)
+                    }
+                    try { dev.fetchUuidsWithSdp() } catch (_: Exception) {}
+                }
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -2241,17 +2290,15 @@ class ChatListActivity : AppCompatActivity() {
                             return@runOnUiThread
                         }
 
-                        if (BluetoothSocketHolder.hasAnyActiveConnection()) {
-                            // Уже есть активное подключение — не показываем диалог, отклоняем новое
-                            try { socket.close() } catch (e: Exception) {}
-                        } else if (!isIncomingConnectionDialogVisible.value) {
+                        if (!isIncomingConnectionDialogVisible.value) {
                             triggerPrimeFoundVibration()
                             incomingSocket = socket
                             incomingDeviceName = devName
                             incomingDeviceMac = devMac
                             isIncomingConnectionDialogVisible.value = true
                         } else {
-                            try { socket.close() } catch (e: Exception) {}
+                            BluetoothSocketHolder.registerConnection(devMac, devName, socket, null)
+                            ChatListNotifier.notifyChanged()
                         }
                     }
                 }

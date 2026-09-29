@@ -218,6 +218,48 @@ public class ChatHistoryManager {
         });
     }
 
+    public static void updateMessageStatus(Context context, String targetUsername, String messageId, MessageStatus newStatus) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty() || messageId == null || newStatus == null) return;
+        executor.execute(() -> {
+            Context appContext = context.getApplicationContext();
+            List<ChatMessage> history = loadMessages(appContext, targetUsername);
+            boolean changed = false;
+            for (ChatMessage m : history) {
+                if (messageId.equals(m.getMessageId())) {
+                    m.setMessageStatus(newStatus);
+                    changed = true;
+                    break;
+                }
+            }
+            if (changed) {
+                saveHistoryList(appContext, targetUsername, history);
+            }
+        });
+    }
+
+    public static String getDisplayNameForAddress(Context context, String addressOrName) {
+        if (context == null || addressOrName == null || addressOrName.isEmpty()) return "";
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        
+        String storedName = sp.getString(addressOrName + "_name", null);
+        if (storedName != null && !storedName.isEmpty()) return storedName;
+
+        try {
+            String json = sp.getString("persisted_chats", "[]");
+            JSONArray array = new JSONArray(json);
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject obj = array.getJSONObject(i);
+                String id = obj.optString("id", "");
+                String name = obj.optString("name", "");
+                if (addressOrName.equalsIgnoreCase(id) || addressOrName.equalsIgnoreCase(name)) {
+                    if (!name.isEmpty()) return name;
+                }
+            }
+        } catch (Exception ignored) {}
+
+        return addressOrName;
+    }
+
     public static List<ChatMessage> loadMessages(Context context, String targetUsername) {
         List<ChatMessage> list = new ArrayList<>();
         if (targetUsername == null || targetUsername.isEmpty()) return list;

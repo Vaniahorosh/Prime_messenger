@@ -104,40 +104,16 @@
                     android:layout_marginStart="6dp" />
             </LinearLayout>
 
-            <!-- Двухсекционный прогресс-бар в одном блоке -->
-            <LinearLayout
-                android:layout_width="150dp"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginTop="6dp">
-
-                <!-- Левая половина: Профиль -->
-                <ProgressBar
-                    android:id="@+id/pbPullProgress1"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="0dp"
-                    android:layout_height="4dp"
-                    android:layout_weight="1"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressDrawable="@drawable/bg_progress_bar_custom" />
-
-                <Space
-                    android:layout_width="6dp"
-                    android:layout_height="wrap_content" />
-
-                <!-- Правая половина: Связь -->
-                <ProgressBar
-                    android:id="@+id/pbPullProgress2"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="0dp"
-                    android:layout_height="4dp"
-                    android:layout_weight="1"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressDrawable="@drawable/bg_progress_bar_custom" />
-            </LinearLayout>
+            <!-- Односекционный прогресс-бар индикатора перетягивания -->
+            <ProgressBar
+                android:id="@+id/pbPullProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="140dp"
+                android:layout_height="4dp"
+                android:layout_marginTop="6dp"
+                android:max="100"
+                android:progress="0"
+                android:progressDrawable="@drawable/bg_progress_bar_custom" />
 
         </LinearLayout>
     </LinearLayout>
@@ -281,6 +257,19 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:tint="@color/white" />
 
+    <!-- Встроенная панель вложений -->
+    <include
+        layout="@layout/layout_attachment_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="8dp"
+        android:elevation="6dp"
+        app:layout_constraintBottom_toTopOf="@+id/bottomContainer"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- 3. Нижний парящий контейнер (Floating Glass Footer) -->
     <LinearLayout
         android:id="@+id/bottomContainer"
@@ -295,7 +284,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <!-- Кнопка подключения (внизу) -->
+        <!-- Кнопка подключения (устарела, убрана из интерфейса) -->
         <eightbitlab.com.blurview.BlurView
             android:id="@+id/layoutConnectAction"
             android:layout_width="match_parent"
@@ -304,7 +293,7 @@
             android:outlineProvider="background"
             android:clipToOutline="true"
             android:padding="8dp"
-            android:visibility="visible">
+            android:visibility="gone">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnPrimeConnect"
@@ -318,7 +307,7 @@
                 app:cornerRadius="22dp" />
         </eightbitlab.com.blurview.BlurView>
 
-        <!-- Строка ввода (скрыта до подключения) -->
+        <!-- Строка ввода (отображается только при активном подключении) -->
         <eightbitlab.com.blurview.BlurView
             android:id="@+id/layoutInput"
             android:layout_width="match_parent"
@@ -600,12 +589,6 @@
         </LinearLayout>
     </eightbitlab.com.blurview.BlurView>
 
-        <!-- Встроенная панель вложений -->
-        <include
-            layout="@layout/layout_attachment_panel"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

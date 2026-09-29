@@ -41,13 +41,13 @@ object PrimeNotification {
                 val rootLayout = activity.findViewById<ViewGroup>(android.R.id.content) ?: return@runOnUiThread
                 val inflater = LayoutInflater.from(activity)
                 val notificationView = inflater.inflate(R.layout.layout_prime_notification, rootLayout, false)
-                
+
                 val textView = notificationView.findViewById<TextView>(R.id.tvNotificationText)
                 val layoutTimer = notificationView.findViewById<View>(R.id.layoutTimer)
                 val pbTimer = notificationView.findViewById<ProgressBar>(R.id.pbTimer)
                 val tsSeconds = notificationView.findViewById<TextSwitcher>(R.id.tsTimerSeconds)
                 val btnUndo = notificationView.findViewById<ImageButton>(R.id.btnUndo)
-                
+
                 textView.text = message
 
                 // --- НАСТРОЙКА BlurView НАСТОЯЩЕГО РАЗМЫТИЯ ---
@@ -126,7 +126,7 @@ object PrimeNotification {
                         typeface = Typeface.DEFAULT_BOLD
                     }
                 }
-                
+
                 var lastSecond = -1
                 var isCancelled = false
                 val timerAnimator = ValueAnimator.ofInt(1000, 0).apply {
@@ -135,7 +135,7 @@ object PrimeNotification {
                     addUpdateListener { animator ->
                         val progress = animator.animatedValue as Int
                         pbTimer.progress = progress
-                        
+
                         // Обновление секунд (3..2..1)
                         val secondsLeft = Math.ceil(progress.toDouble() * DURATION / 1000000.0).toInt().coerceAtLeast(1)
                         if (secondsLeft != lastSecond) {
@@ -195,7 +195,7 @@ object PrimeNotification {
                             val dy = event.rawY - startY
                             v.translationX = dx
                             v.translationY = if (dy > 0) dy else dy * 0.1f
-                            v.alpha = 1f - (abs(dx) / (screenWidth * 0.8f)).coerceIn(0f, 0.5f)
+                            v.alpha = (1f - (abs(dx) / (screenWidth * 0.8f))).coerceIn(0f, 1f)
                             isDragging = true
                             true
                         }

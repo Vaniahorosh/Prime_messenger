@@ -159,6 +159,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 msg.setSendingProgress(progress);
                 if (progress >= 100) {
                     msg.setMessageStatus(MessageStatus.SENT);
+                } else {
+                    msg.setMessageStatus(MessageStatus.SENDING);
                 }
                 notifyItemChanged(i, "PROGRESS");
                 break;
@@ -463,6 +465,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
         }
         return -1;
+    }
+
+    public ChatMessage findMessageById(String messageId) {
+        int pos = findPositionByMessageId(messageId);
+        return pos != -1 ? messages.get(pos) : null;
     }
 
     public int findPositionByQuery(String query, int startFromIndex) {

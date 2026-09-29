@@ -23,12 +23,13 @@
                 <DeviceId pluginId="PhysicalDevice" identifier="serial=65221VDCR000G9" />
               </handle>
             </Target>
+            <Target type="DEFAULT_BOOT">
+              <handle>
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=R58N80FAF2E" />
+              </handle>
+            </Target>
           </targets>
         </DialogSelection>
-      </SelectionState>
-      <SelectionState runConfigName="androidTest">
-        <option name="selectionMode" value="DROPDOWN" />
-        <DialogSelection />
       </SelectionState>
     </selectionStates>
   </component>

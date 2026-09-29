@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -47,6 +48,7 @@ public class BluetoothSocketHolder {
                     try { oldSock.close(); } catch (Exception ignored) {}
                 }
                 socketMap.put(key, s);
+                if (thread != null) threadMap.put(key, thread);
             }
             if (username != null && !username.isEmpty()) {
                 String key = username.toLowerCase();
@@ -55,12 +57,9 @@ public class BluetoothSocketHolder {
                     try { oldSock.close(); } catch (Exception ignored) {}
                 }
                 socketMap.put(key, s);
+                if (thread != null) threadMap.put(key, thread);
             }
-            if (thread != null) {
-                if (address != null && !address.isEmpty()) threadMap.put(address.toUpperCase(), thread);
-                if (username != null && !username.isEmpty()) threadMap.put(username.toLowerCase(), thread);
-            }
-            // Maintain legacy single references for backward compatibility
+            // Maintain single reference if matching or empty
             socket = s;
             connectedThreadInstance = thread;
             if (address != null && !address.isEmpty()) activeDeviceAddress = address;
@@ -120,26 +119,39 @@ public class BluetoothSocketHolder {
         return socket;
     }
 
+    public static synchronized boolean isSocketHealthy(BluetoothSocket s) {
+        if (s == null) return false;
+        try {
+            return s.isConnected() && s.getInputStream() != null && s.getOutputStream() != null;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public static synchronized BluetoothSocket getSocketFor(String address, String name) {
         if (address != null && !address.isEmpty() && socketMap.containsKey(address.toUpperCase())) {
             BluetoothSocket s = socketMap.get(address.toUpperCase());
-            if (s != null && s.isConnected()) return s;
+            if (isSocketHealthy(s)) return s;
         }
         if (name != null && !name.isEmpty() && socketMap.containsKey(name.toLowerCase())) {
             BluetoothSocket s = socketMap.get(name.toLowerCase());
-            if (s != null && s.isConnected()) return s;
+            if (isSocketHealthy(s)) return s;
         }
-        return socket;
+        // Strict mapping: do NOT return wrong socket from another user
+        return null;
     }
 
     public static synchronized Object getThreadFor(String address, String name) {
         if (address != null && !address.isEmpty() && threadMap.containsKey(address.toUpperCase())) {
-            return threadMap.get(address.toUpperCase());
+            Object t = threadMap.get(address.toUpperCase());
+            if (t != null) return t;
         }
         if (name != null && !name.isEmpty() && threadMap.containsKey(name.toLowerCase())) {
-            return threadMap.get(name.toLowerCase());
+            Object t = threadMap.get(name.toLowerCase());
+            if (t != null) return t;
         }
-        return connectedThreadInstance;
+        // Strict mapping: do NOT return wrong thread from another user
+        return null;
     }
 
     public static synchronized void clearSocket() {
@@ -268,29 +280,29 @@ public class BluetoothSocketHolder {
                 } catch (Exception ignored) {}
             }
 
+            Set<ChatPersonActivity.ConnectedThread> uniqueThreads = new HashSet<>();
             for (Object threadObj : threadMap.values()) {
                 if (threadObj instanceof ChatPersonActivity.ConnectedThread) {
                     ChatPersonActivity.ConnectedThread thread = (ChatPersonActivity.ConnectedThread) threadObj;
                     if (thread.isAlive()) {
-                        thread.sendPacket((byte) 0x0F, handshakeBytes); // TYPE_PROFILE_UPDATE
-                        if (avatarBytes != null) {
-                            thread.sendPacket((byte) 0x07, avatarBytes); // TYPE_AVATAR
-                        } else {
-                            thread.sendPacket((byte) 0x07, new byte[0]); // Clear avatar
-                        }
+                        uniqueThreads.add(thread);
                     }
                 }
             }
             if (connectedThreadInstance instanceof ChatPersonActivity.ConnectedThread) {
                 ChatPersonActivity.ConnectedThread thread = (ChatPersonActivity.ConnectedThread) connectedThreadInstance;
                 if (thread.isAlive()) {
-                    thread.sendPacket((byte) 0x0F, handshakeBytes);
-                    if (avatarBytes != null) {
-                        thread.sendPacket((byte) 0x07, avatarBytes);
-                    } else {
-                        thread.sendPacket((byte) 0x07, new byte[0]);
-                    }
+                    uniqueThreads.add(thread);
                 }
+            }
+
+            for (ChatPersonActivity.ConnectedThread thread : uniqueThreads) {
+                try {
+                    thread.sendPacket((byte) 0x0F, handshakeBytes);
+                    if (avatarBytes != null && avatarBytes.length > 0) {
+                        thread.sendPacket((byte) 0x07, avatarBytes);
+                    }
+                } catch (Exception ignored) {}
             }
         } catch (Exception e) {
             e.printStackTrace();

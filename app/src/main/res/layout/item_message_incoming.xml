@@ -63,7 +63,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="start"
-        android:layout_marginEnd="64dp"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="60dp"
         android:background="@drawable/bg_bubble_incoming"
         android:orientation="vertical"
         android:padding="10dp">

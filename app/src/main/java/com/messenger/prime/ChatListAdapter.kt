@@ -15,6 +15,7 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import android.annotation.SuppressLint
+import android.content.Context
 import androidx.core.view.isEmpty
 import androidx.core.net.toUri
 import androidx.core.graphics.toColorInt
@@ -341,20 +342,48 @@ class ChatListAdapter(
                     }
 
                     if (!avatarLoaded) {
-                        val localAvatarFile = File(context.filesDir, "avatar_${chat.name}.jpg")
-                        val localAvatarFileId = File(context.filesDir, "avatar_${chat.id}.jpg")
-                        val targetFile = if (localAvatarFile.exists()) localAvatarFile else if (localAvatarFileId.exists()) localAvatarFileId else null
-                        if (targetFile != null && targetFile.exists()) {
+                        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                        val prefAvatar = sharedPrefs.getString("${chat.name}_avatarUri", null)
+                            ?: sharedPrefs.getString("${chat.name}_avatar", null)
+                            ?: sharedPrefs.getString("${chat.id}_avatarUri", null)
+                            ?: sharedPrefs.getString("${chat.id}_avatar", null)
+
+                        if (!prefAvatar.isNullOrEmpty()) {
                             try {
-                                val bmp = BitmapFactory.decodeFile(targetFile.absolutePath)
-                                if (bmp != null) {
-                                    binding.ivUserAvatar.setImageBitmap(bmp)
-                                    binding.ivUserAvatar.visibility = View.VISIBLE
-                                    binding.tvUserInitials.visibility = View.GONE
-                                    avatarLoaded = true
+                                val uri = prefAvatar.toUri()
+                                val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
+                                if (file != null && file.exists()) {
+                                    val bmp = BitmapFactory.decodeFile(file.absolutePath)
+                                    if (bmp != null) {
+                                        binding.ivUserAvatar.setImageBitmap(bmp)
+                                        binding.ivUserAvatar.visibility = View.VISIBLE
+                                        binding.tvUserInitials.visibility = View.GONE
+                                        avatarLoaded = true
+                                    }
                                 }
-                            } catch (e: Exception) {
-                                avatarLoaded = false
+                            } catch (_: Exception) {}
+                        }
+                    }
+
+                    if (!avatarLoaded) {
+                        val possibleFiles = listOfNotNull(
+                            File(context.filesDir, "rec_avatar_${chat.name}.jpg"),
+                            File(context.filesDir, "rec_avatar_${chat.id}.jpg"),
+                            File(context.filesDir, "avatar_${chat.name}.jpg"),
+                            File(context.filesDir, "avatar_${chat.id}.jpg")
+                        )
+                        for (targetFile in possibleFiles) {
+                            if (targetFile.exists()) {
+                                try {
+                                    val bmp = BitmapFactory.decodeFile(targetFile.absolutePath)
+                                    if (bmp != null) {
+                                        binding.ivUserAvatar.setImageBitmap(bmp)
+                                        binding.ivUserAvatar.visibility = View.VISIBLE
+                                        binding.tvUserInitials.visibility = View.GONE
+                                        avatarLoaded = true
+                                        break
+                                    }
+                                } catch (_: Exception) {}
                             }
                         }
                     }

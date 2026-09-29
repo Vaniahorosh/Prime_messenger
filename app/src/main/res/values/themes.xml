@@ -4,14 +4,20 @@
         <item name="colorPrimary">@color/prime_brand</item>
         <item name="colorAccent">@color/prime_brand</item>
         <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">@color/prime_brand_alpha_80</item>
+        <item name="colorOnPrimaryContainer">@color/white</item>
         <item name="colorSecondary">@color/prime_brand</item>
         <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSecondaryContainer">@color/prime_search_bg</item>
+        <item name="colorOnSecondaryContainer">@color/prime_text_primary</item>
         <item name="android:windowBackground">@color/prime_base</item>
         <item name="android:colorBackground">@color/prime_base</item>
         <item name="colorSurface">@color/prime_base</item>
         <item name="colorOnSurface">@color/prime_text_primary</item>
         <item name="colorSurfaceVariant">@color/prime_surface</item>
         <item name="colorOnSurfaceVariant">@color/prime_text_secondary</item>
+        <item name="colorSurfaceContainerHigh">@color/chat_island_bg</item>
+        <item name="colorOutline">@color/prime_divider</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
@@ -19,10 +25,42 @@
         <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
 
-        <!-- Material 3 specific -->
+        <!-- Material 3 Expressive attributes -->
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Material3.HeadlineLarge</item>
+        <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Material3.HeadlineMedium</item>
         <item name="textAppearanceTitleMedium">@style/TextAppearance.Material3.TitleMedium</item>
-        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Material3.LargeComponent</item>
+        <item name="textAppearanceBodyLarge">@style/TextAppearance.Material3.BodyLarge</item>
+        <item name="textAppearanceLabelLarge">@style/TextAppearance.Material3.LabelLarge</item>
+
+        <item name="shapeAppearanceCornerExtraLarge">@style/ShapeAppearance.Material3.Expressive.ExtraLarge</item>
+        <item name="shapeAppearanceCornerLarge">@style/ShapeAppearance.Material3.Expressive.Large</item>
+        <item name="shapeAppearanceCornerMedium">@style/ShapeAppearance.Material3.Expressive.Medium</item>
+        <item name="shapeAppearanceCornerSmall">@style/ShapeAppearance.Material3.Expressive.Small</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Material3.Expressive.Large</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Material3.Expressive.Medium</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Material3.Expressive.Small</item>
+
+        <item name="materialAlertDialogTheme">@style/Theme.Prime.AlertDialog</item>
+    </style>
+
+    <style name="ShapeAppearance.Material3.Expressive.ExtraLarge" parent="ShapeAppearance.Material3.Corner.ExtraLarge">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">28dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Material3.Expressive.Large" parent="ShapeAppearance.Material3.Corner.Large">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">24dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Material3.Expressive.Medium" parent="ShapeAppearance.Material3.Corner.Medium">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">18dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Material3.Expressive.Small" parent="ShapeAppearance.Material3.Corner.Small">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
     </style>
 
     <style name="Theme.Prime.Swipe" parent="Theme.Prime">

@@ -42,6 +42,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
 
 class PersonInformationActivity : AppCompatActivity() {
 
@@ -165,6 +166,16 @@ class PersonInformationActivity : AppCompatActivity() {
     private fun setupHeaderUi() {
         binding.tvUserNameWP.text = targetUsername
 
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        if (avatarUriStr.isNullOrEmpty()) {
+            avatarUriStr = sharedPrefs.getString("${targetUsername}_avatar", null)
+                ?: sharedPrefs.getString("${targetUsername}_avatarUri", null)
+                ?: if (!deviceAddress.isNullOrEmpty()) {
+                    sharedPrefs.getString("${deviceAddress}_avatar", null)
+                        ?: sharedPrefs.getString("${deviceAddress}_avatarUri", null)
+                } else null
+        }
+
         var photoLoaded = false
         if (!avatarUriStr.isNullOrEmpty()) {
             try {
@@ -172,8 +183,11 @@ class PersonInformationActivity : AppCompatActivity() {
                 if ("file" == uri.scheme && uri.path != null) {
                     val file = File(uri.path!!)
                     if (file.exists()) {
-                        binding.ivPhotoCard.setImageURI(uri)
-                        photoLoaded = true
+                        val bmp = BitmapFactory.decodeFile(file.absolutePath)
+                        if (bmp != null) {
+                            binding.ivPhotoCard.setImageBitmap(bmp)
+                            photoLoaded = true
+                        }
                     }
                 } else if (avatarUriStr!!.startsWith("content://")) {
                     binding.ivPhotoCard.setImageURI(uri)
@@ -183,20 +197,21 @@ class PersonInformationActivity : AppCompatActivity() {
         }
 
         if (!photoLoaded) {
-            val localAvatarFile = File(filesDir, "avatar_${targetUsername}.jpg")
-            if (localAvatarFile.exists()) {
-                val bmp = BitmapFactory.decodeFile(localAvatarFile.absolutePath)
-                if (bmp != null) {
-                    binding.ivPhotoCard.setImageBitmap(bmp)
-                    photoLoaded = true
-                }
-            } else if (!deviceAddress.isNullOrEmpty()) {
-                val devAvatarFile = File(filesDir, "avatar_${deviceAddress}.jpg")
-                if (devAvatarFile.exists()) {
-                    val bmp = BitmapFactory.decodeFile(devAvatarFile.absolutePath)
+            val possibleFiles = listOfNotNull(
+                File(filesDir, "rec_avatar_${targetUsername}.jpg"),
+                File(filesDir, "avatar_${targetUsername}.jpg"),
+                deviceAddress?.let { File(filesDir, "rec_avatar_${it}.jpg") },
+                deviceAddress?.let { File(filesDir, "avatar_${it}.jpg") }
+            )
+
+            for (file in possibleFiles) {
+                if (file.exists()) {
+                    val bmp = BitmapFactory.decodeFile(file.absolutePath)
                     if (bmp != null) {
                         binding.ivPhotoCard.setImageBitmap(bmp)
+                        avatarUriStr = Uri.fromFile(file).toString()
                         photoLoaded = true
+                        break
                     }
                 }
             }
@@ -402,88 +417,97 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     private fun loadSharedMediaAndFiles() {
-        val history = ChatHistoryManager.loadMessages(this, targetUsername)
+        Executors.newSingleThreadExecutor().execute {
+            val history = ChatHistoryManager.loadMessages(this, targetUsername)
 
-        val mediaGrouped = LinkedHashMap<String, MutableList<ChatMessage>>()
-        val filesGrouped = LinkedHashMap<String, MutableList<ChatMessage>>()
+            val mediaGrouped = LinkedHashMap<String, MutableList<ChatMessage>>()
+            val filesGrouped = LinkedHashMap<String, MutableList<ChatMessage>>()
 
-        var totalMediaCount = 0
-        var totalFilesCount = 0
+            var totalMediaCount = 0
+            var totalFilesCount = 0
 
-        for (msg in history) {
-            if (msg.isMultiMedia || (!msg.imagePath.isNullOrEmpty() && msg.imagePath.startsWith("MULTI:"))) {
-                val subItems = msg.getMediaItems()
-                for (it in subItems) {
-                    val subMsg = ChatMessage(msg.text, msg.time, msg.senderLogin, msg.isOutgoing, null, msg.timestamp, it.path, msg.messageId)
-                    subMsg.messageType = if (it.isVideo) ChatMessage.MessageType.VIDEO else ChatMessage.MessageType.IMAGE
-                    subMsg.videoDuration = it.durationStr
-                    val dateLabel = formatDateSection(subMsg.timestamp)
-                    mediaGrouped.getOrPut(dateLabel) { mutableListOf() }.add(subMsg)
+            for (msg in history) {
+                if (msg.isMultiMedia || (!msg.imagePath.isNullOrEmpty() && msg.imagePath.startsWith("MULTI:"))) {
+                    val subItems = msg.getMediaItems()
+                    for (it in subItems) {
+                        val subMsg = ChatMessage(msg.text, msg.time, msg.senderLogin, msg.isOutgoing, null, msg.timestamp, it.path, msg.messageId)
+                        subMsg.messageType = if (it.isVideo) ChatMessage.MessageType.VIDEO else ChatMessage.MessageType.IMAGE
+                        subMsg.videoDuration = it.durationStr
+                        val dateLabel = formatDateSection(subMsg.timestamp)
+                        mediaGrouped.getOrPut(dateLabel) { mutableListOf() }.add(subMsg)
+                        totalMediaCount++
+                    }
+                } else if (!msg.imagePath.isNullOrEmpty() || msg.imageBitmap != null || msg.messageType == ChatMessage.MessageType.IMAGE || msg.messageType == ChatMessage.MessageType.VIDEO) {
+                    val dateLabel = formatDateSection(msg.timestamp)
+                    mediaGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
                     totalMediaCount++
-                }
-            } else if (!msg.imagePath.isNullOrEmpty() || msg.imageBitmap != null || msg.messageType == ChatMessage.MessageType.IMAGE || msg.messageType == ChatMessage.MessageType.VIDEO) {
-                val dateLabel = formatDateSection(msg.timestamp)
-                mediaGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
-                totalMediaCount++
-            } else if (msg.isFile || msg.messageType == ChatMessage.MessageType.FILE || !msg.fileName.isNullOrEmpty()) {
-                val dateLabel = formatDateSection(msg.timestamp)
-                filesGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
-                totalFilesCount++
-            }
-        }
-
-        // Build media adapter list
-        val mediaAdapterItems = mutableListOf<MediaListItem>()
-        val mediaClickList = mutableListOf<ChatMessage>()
-        for ((dateTitle, list) in mediaGrouped) {
-            mediaAdapterItems.add(MediaListItem.Header(dateTitle))
-            for (m in list) {
-                mediaAdapterItems.add(MediaListItem.Item(m))
-                mediaClickList.add(m)
-            }
-        }
-
-        binding.tvMediaCount.text = totalMediaCount.toString()
-        if (totalMediaCount == 0) {
-            binding.tvEmptyMedia.visibility = View.VISIBLE
-            binding.rvSharedMedia.visibility = View.GONE
-        } else {
-            binding.tvEmptyMedia.visibility = View.GONE
-            binding.rvSharedMedia.visibility = View.VISIBLE
-
-            val mediaAdapter = PersonMediaAdapter(mediaAdapterItems) { clickedMsg ->
-                ChatAdapter.showFullScreenMedia(this, null, clickedMsg, mediaClickList, 0)
-            }
-            val gridManager = GridLayoutManager(this, 3)
-            gridManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
-                override fun getSpanSize(position: Int): Int {
-                    return if (mediaAdapter.getItemViewType(position) == PersonMediaAdapter.TYPE_HEADER) 3 else 1
+                } else if (msg.isFile || msg.messageType == ChatMessage.MessageType.FILE || !msg.fileName.isNullOrEmpty()) {
+                    val dateLabel = formatDateSection(msg.timestamp)
+                    filesGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
+                    totalFilesCount++
                 }
             }
-            binding.rvSharedMedia.layoutManager = gridManager
-            binding.rvSharedMedia.adapter = mediaAdapter
-        }
 
-        // Build files adapter list
-        val fileAdapterItems = mutableListOf<FileListItem>()
-        for ((dateTitle, list) in filesGrouped) {
-            fileAdapterItems.add(FileListItem.Header(dateTitle))
-            for (f in list) {
-                fileAdapterItems.add(FileListItem.Item(f))
+            // Build media adapter list
+            val mediaAdapterItems = mutableListOf<MediaListItem>()
+            val mediaClickList = mutableListOf<ChatMessage>()
+            for ((dateTitle, list) in mediaGrouped) {
+                mediaAdapterItems.add(MediaListItem.Header(dateTitle))
+                for (m in list) {
+                    mediaAdapterItems.add(MediaListItem.Item(m))
+                    mediaClickList.add(m)
+                }
             }
-        }
 
-        binding.tvFilesCount.text = totalFilesCount.toString()
-        if (totalFilesCount == 0) {
-            binding.tvEmptyFiles.visibility = View.VISIBLE
-            binding.rvSharedFiles.visibility = View.GONE
-        } else {
-            binding.tvEmptyFiles.visibility = View.GONE
-            binding.rvSharedFiles.visibility = View.VISIBLE
-            binding.rvSharedFiles.layoutManager = LinearLayoutManager(this)
-            binding.rvSharedFiles.adapter = PersonFilesAdapter(fileAdapterItems) { clickedFileMsg ->
-                val filePath = clickedFileMsg.imagePath ?: clickedFileMsg.fileName ?: ""
-                ChatAdapter.openFile(this, filePath)
+            // Build files adapter list
+            val fileAdapterItems = mutableListOf<FileListItem>()
+            for ((dateTitle, list) in filesGrouped) {
+                fileAdapterItems.add(FileListItem.Header(dateTitle))
+                for (f in list) {
+                    fileAdapterItems.add(FileListItem.Item(f))
+                }
+            }
+
+            val finalMediaCount = totalMediaCount
+            val finalFilesCount = totalFilesCount
+
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+
+                binding.tvMediaCount.text = finalMediaCount.toString()
+                if (finalMediaCount == 0) {
+                    binding.tvEmptyMedia.visibility = View.VISIBLE
+                    binding.rvSharedMedia.visibility = View.GONE
+                } else {
+                    binding.tvEmptyMedia.visibility = View.GONE
+                    binding.rvSharedMedia.visibility = View.VISIBLE
+
+                    val mediaAdapter = PersonMediaAdapter(mediaAdapterItems) { clickedMsg ->
+                        ChatAdapter.showFullScreenMedia(this, null, clickedMsg, mediaClickList, 0)
+                    }
+                    val gridManager = GridLayoutManager(this, 3)
+                    gridManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                        override fun getSpanSize(position: Int): Int {
+                            return if (mediaAdapter.getItemViewType(position) == PersonMediaAdapter.TYPE_HEADER) 3 else 1
+                        }
+                    }
+                    binding.rvSharedMedia.layoutManager = gridManager
+                    binding.rvSharedMedia.adapter = mediaAdapter
+                }
+
+                binding.tvFilesCount.text = finalFilesCount.toString()
+                if (finalFilesCount == 0) {
+                    binding.tvEmptyFiles.visibility = View.VISIBLE
+                    binding.rvSharedFiles.visibility = View.GONE
+                } else {
+                    binding.tvEmptyFiles.visibility = View.GONE
+                    binding.rvSharedFiles.visibility = View.VISIBLE
+                    binding.rvSharedFiles.layoutManager = LinearLayoutManager(this)
+                    binding.rvSharedFiles.adapter = PersonFilesAdapter(fileAdapterItems) { clickedFileMsg ->
+                        val filePath = clickedFileMsg.imagePath ?: clickedFileMsg.fileName ?: ""
+                        ChatAdapter.openFile(this, filePath)
+                    }
+                }
             }
         }
     }
