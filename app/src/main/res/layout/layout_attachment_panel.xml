@@ -26,7 +26,7 @@
         android:orientation="horizontal"
         android:paddingBottom="12dp">
 
-        <!-- Mode 1: Камера -->
+        <!-- Mode 1: GIF -->
         <LinearLayout
             android:id="@+id/layoutModeCamera"
             android:layout_width="0dp"
@@ -48,8 +48,8 @@
                     android:layout_width="26dp"
                     android:layout_height="26dp"
                     android:layout_gravity="center"
-                    android:contentDescription="Камера"
-                    android:src="@drawable/ic_camera"
+                    android:contentDescription="GIF"
+                    android:src="@drawable/ic_undo"
                     app:tint="@color/prime_brand" />
             </FrameLayout>
 
@@ -58,7 +58,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="Камера"
+                android:text="GIF"
                 android:textColor="@color/prime_brand"
                 android:textSize="12sp"
                 android:textStyle="bold" />
@@ -145,90 +145,73 @@
         android:layout_width="match_parent"
         android:layout_height="230dp">
 
-        <!-- Section 1: Камера -->
+        <!-- Section 1: GIF -->
         <LinearLayout
             android:id="@+id/layoutSectionCamera"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:gravity="center"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:visibility="visible">
 
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/btnCameraPhoto"
-                android:layout_width="120dp"
-                android:layout_height="120dp"
-                android:layout_marginEnd="12dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
-                app:strokeColor="@color/prime_brand"
-                app:strokeWidth="1dp">
+            <!-- Top Row: Gallery GIF picker & Search Input -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingBottom="6dp">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="8dp">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnPickGifFromGallery"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="0dp"
+                    android:text="ВЫБРАТЬ ИЗ ГАЛЕРЕИ"
+                    android:textColor="@color/prime_brand"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="12dp"
+                    app:strokeColor="@color/prime_brand"
+                    app:strokeWidth="1dp" />
 
-                    <ImageView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:contentDescription="Фото"
-                        android:src="@drawable/ic_camera"
-                        app:tint="@color/prime_brand" />
+                <EditText
+                    android:id="@+id/etGifSearch"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_pending_attachment"
+                    android:hint="Поиск GIF..."
+                    android:imeOptions="actionSearch"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:paddingHorizontal="10dp"
+                    android:textColor="@color/white"
+                    android:textColorHint="@color/prime_text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Сделать фото"
-                        android:textColor="@color/prime_brand"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            <!-- Loading Spinner -->
+            <ProgressBar
+                android:id="@+id/pbGifLoading"
+                style="?android:attr/progressBarStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:visibility="gone" />
 
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/btnCameraVideo"
-                android:layout_width="120dp"
-                android:layout_height="120dp"
-                android:layout_marginStart="12dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
-                app:strokeColor="@color/prime_brand"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="8dp">
-
-                    <ImageView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:contentDescription="Видео"
-                        android:src="@drawable/ic_video"
-                        app:tint="@color/prime_brand" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Записать видео"
-                        android:textColor="@color/prime_brand"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            <!-- Tenor GIFs Grid -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvTenorGifs"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:clipToPadding="false"
+                app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
+                app:spanCount="2" />
         </LinearLayout>
-
         <!-- Section 2: Фото & Видео Галерея -->
         <LinearLayout
             android:id="@+id/layoutSectionPhoto"

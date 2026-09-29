@@ -23,6 +23,7 @@ import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import com.bumptech.glide.Glide
 import com.messenger.prime.databinding.ActivityPhotoViewBinding
 import java.io.File
 import java.util.concurrent.Executors
@@ -85,9 +86,22 @@ class PhotoViewActivity : AppCompatActivity() {
             intent.getParcelableExtra("EXTRA_RECT")
         }
 
-        currentUri?.let { 
-            binding.ivFullPhoto.setImageURI(it)
-            binding.ivBlurredBackground.setImageURI(it)
+        currentUri?.let { uri ->
+            val uriStr = uri.toString().lowercase()
+            val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif")
+
+            if (isGif) {
+                Glide.with(this)
+                    .asGif()
+                    .load(uri)
+                    .into(binding.ivFullPhoto)
+                Glide.with(this)
+                    .load(uri)
+                    .into(binding.ivBlurredBackground)
+            } else {
+                binding.ivFullPhoto.setImageURI(uri)
+                binding.ivBlurredBackground.setImageURI(uri)
+            }
             binding.ivBlurredBackground.applyGlassBlur(50f)
         } ?: run {
             binding.ivFullPhoto.setImageResource(R.drawable.ic_person)

@@ -11,6 +11,8 @@ import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -94,25 +96,81 @@ class SettingsActivity : AppCompatActivity() {
         if (result.resultCode == RESULT_OK) {
             val editedUriString = result.data?.getStringExtra("EDITED_IMAGE_URI")
             if (editedUriString != null) {
-                currentAvatarUri = editedUriString
-                val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
                 val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-                sharedPrefs.edit().putString("${currentUser}_avatar", currentAvatarUri).apply()
+                val isGif = editedUriString.lowercase().endsWith(".gif") || editedUriString.lowercase().contains("gif")
+                val ext = if (isGif) ".gif" else ".jpg"
+                
+                var avatarSavedPath = editedUriString
+                try {
+                    val srcUri = Uri.parse(editedUriString)
+                    val destFile = File(filesDir, "avatar_${currentUser}${ext}")
+                    contentResolver.openInputStream(srcUri)?.use { input ->
+                        FileOutputStream(destFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    avatarSavedPath = Uri.fromFile(destFile).toString()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
+                currentAvatarUri = avatarSavedPath
+                sharedPrefs.edit()
+                    .putString("${currentUser}_avatar", currentAvatarUri)
+                    .putString("${currentUser}_avatarUri", currentAvatarUri)
+                    .apply()
+
                 applyAvatarState(currentAvatarUri)
                 sendProfileUpdateOverBluetooth()
-                PrimeNotification.show(this, "Фото готово")
+                PrimeNotification.show(this, if (isGif) "GIF-аватарка установлена" else "Фото готово")
             }
         }
     }
 
+    private fun setGifAvatarDirectly(uri: Uri) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        var avatarSavedPath = uri.toString()
+        try {
+            val destFile = File(filesDir, "avatar_${currentUser}.gif")
+            contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(destFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            avatarSavedPath = Uri.fromFile(destFile).toString()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        currentAvatarUri = avatarSavedPath
+        sharedPrefs.edit()
+            .putString("${currentUser}_avatar", currentAvatarUri)
+            .putString("${currentUser}_avatarUri", currentAvatarUri)
+            .apply()
+
+        applyAvatarState(currentAvatarUri)
+        sendProfileUpdateOverBluetooth()
+        PrimeNotification.show(this, "GIF-аватарка установлена")
+    }
+
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
-            val intent = Intent(this, PhotoEditorActivity::class.java).apply {
-                putExtra("EXTRA_IMAGE_URI", it.toString())
-                putExtra("IS_PROFILE_PHOTO", true)
+            val uriStr = it.toString().lowercase()
+            val mime = try { contentResolver.getType(it) } catch (_: Exception) { null }
+            val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif") || "image/gif".equals(mime, ignoreCase = true)
+
+            if (isGif) {
+                setGifAvatarDirectly(it)
+            } else {
+                val intent = Intent(this, PhotoEditorActivity::class.java).apply {
+                    putExtra("EXTRA_IMAGE_URI", it.toString())
+                    putExtra("IS_PROFILE_PHOTO", true)
+                }
+                photoEditorLauncher.launch(intent)
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             }
-            photoEditorLauncher.launch(intent)
-            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         }
     }
 

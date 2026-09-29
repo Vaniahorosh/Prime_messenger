@@ -50,6 +50,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
+import com.bumptech.glide.Glide
 import eightbitlab.com.blurview.BlurView
 import java.io.File
 import java.text.SimpleDateFormat
@@ -1087,10 +1088,18 @@ class MediaPlayerActivity : AppCompatActivity() {
                 playerView.visibility = View.GONE
                 imageView.visibility = View.VISIBLE
 
-                if (item.imageBitmap != null) {
+                val path = item.imagePath ?: ""
+                val isGif = path.lowercase().endsWith(".gif") || path.lowercase().contains("gif")
+
+                if (isGif && path.isNotEmpty()) {
+                    val target = if (path.startsWith("content://")) Uri.parse(path) else File(path)
+                    Glide.with(itemView.context)
+                        .asGif()
+                        .load(target)
+                        .into(imageView)
+                } else if (item.imageBitmap != null) {
                     imageView.setImageBitmap(item.imageBitmap)
-                } else if (!item.imagePath.isNullOrEmpty()) {
-                    val path = item.imagePath
+                } else if (path.isNotEmpty()) {
                     if (path.startsWith("content://")) {
                         imageView.setImageURI(Uri.parse(path))
                     } else {

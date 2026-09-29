@@ -147,6 +147,7 @@ import androidx.core.view.isVisible
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.Lifecycle
 import androidx.recyclerview.widget.SimpleItemAnimator
+import com.bumptech.glide.Glide
 import kotlin.math.abs
 
 @Composable
@@ -1760,9 +1761,20 @@ class ChatListActivity : AppCompatActivity() {
         runOnUiThread { reloadChatsFromDb() }
     }
 
+    private val chatDeletedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            reloadChatsFromDb()
+            ChatListNotifier.notifyChanged()
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         ChatListNotifier.subscribe(onChatListChanged)
+        try {
+            val filter = IntentFilter("com.messenger.prime.CHAT_DELETED")
+            ContextCompat.registerReceiver(this, chatDeletedReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        } catch (_: Exception) {}
         reloadChatsFromDb()
     }
 
@@ -1773,6 +1785,9 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        try {
+            unregisterReceiver(chatDeletedReceiver)
+        } catch (_: Exception) {}
         stopBluetoothScan()
         stopAcceptThread()
         typingExpireHandler.removeCallbacks(typingExpireRunnable)
@@ -1837,17 +1852,32 @@ class ChatListActivity : AppCompatActivity() {
         val name = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
         var loaded = false
 
-        val avatarFile = if (!avatar.isNullOrEmpty()) {
-            val uri = avatar.toUri()
-            if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else File(filesDir, "avatar_$currentUser.jpg")
-        } else {
-            File(filesDir, "avatar_$currentUser.jpg")
-        }
+        val possibleFiles = listOfNotNull(
+            File(filesDir, "avatar_$currentUser.gif"),
+            File(filesDir, "avatar_$currentUser.jpg"),
+            if (!avatar.isNullOrEmpty()) {
+                val uri = avatar.toUri()
+                if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
+            } else null
+        )
 
-        if (avatarFile.exists()) {
+        val avatarFile = possibleFiles.firstOrNull { it.exists() && it.length() > 0 }
+
+        if (avatarFile != null && avatarFile.exists()) {
             try {
-                islandBinding.ivToolbarAvatar.setImageURI(null)
-                islandBinding.ivToolbarAvatar.setImageURI(Uri.fromFile(avatarFile))
+                val isGif = avatarFile.name.lowercase().endsWith(".gif")
+                if (isGif) {
+                    Glide.with(this)
+                        .asGif()
+                        .load(avatarFile)
+                        .circleCrop()
+                        .into(islandBinding.ivToolbarAvatar)
+                } else {
+                    Glide.with(this)
+                        .load(avatarFile)
+                        .circleCrop()
+                        .into(islandBinding.ivToolbarAvatar)
+                }
                 islandBinding.tvToolbarInitials.visibility = View.GONE
                 islandBinding.ivToolbarAvatar.visibility = View.VISIBLE
                 adapter.updateAvatar(Uri.fromFile(avatarFile).toString())
@@ -1919,7 +1949,7 @@ class ChatListActivity : AppCompatActivity() {
             val currentUser = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("current_user", "") ?: ""
             val myDisplayName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${currentUser}_name", currentUser) ?: currentUser
             val payload = "DELETE_CHAT:login=$myDisplayName;name=$myDisplayName".toByteArray(Charsets.UTF_8)
-            BluetoothConnectionManager.getInstance().sendPacket(8.toByte(), payload)
+            BluetoothConnectionManager.getInstance().sendPacket(targetId, 8.toByte(), payload)
             Thread.sleep(80)
         } catch (e: Exception) {
             Log.e("ChatListActivity", "Error sending deletion packet", e)
@@ -2064,15 +2094,12 @@ class ChatListActivity : AppCompatActivity() {
                             val idStr = item.optString("id", System.currentTimeMillis().toString() + i)
                             val nameStr = item.optString("name", "Контакт")
 
-                            val activeManagerAddress = BluetoothConnectionManager.getInstance().activeDeviceAddress
-                            val activeManagerName = BluetoothConnectionManager.getInstance().activeDeviceName
-                            val isBtConnected = BluetoothConnectionManager.getInstance().state == BluetoothConnectionManager.ConnectionState.CONNECTED
-
-                            val isSocketConnected = BluetoothSocketHolder.isConnectedWith(idStr, nameStr) ||
-                                (isBtConnected && (idStr.equals(activeManagerAddress, ignoreCase = true) || nameStr.equals(activeManagerName, ignoreCase = true)))
+                            val isConnectedInManager = BluetoothConnectionManager.getInstance().isConnected(idStr) ||
+                                BluetoothConnectionManager.getInstance().isConnected(nameStr)
+                            val isSocketConnected = BluetoothSocketHolder.isConnectedWith(idStr, nameStr) || isConnectedInManager
 
                             val savedStatusStr = item.optString("onlineStatus", "OFFLINE")
-                            val realOnlineStatus = if (isSocketConnected || ("ONLINE".equals(savedStatusStr, ignoreCase = true) && isBtConnected)) {
+                            val realOnlineStatus = if (isSocketConnected || ("ONLINE".equals(savedStatusStr, ignoreCase = true) && isConnectedInManager)) {
                                 OnlineStatus.ONLINE
                             } else {
                                 OnlineStatus.OFFLINE
@@ -2200,9 +2227,14 @@ class ChatListActivity : AppCompatActivity() {
                 pairedDevices.addAll(bonded)
                 for (dev in bonded) {
                     val devName = try { dev.name } catch (_: Exception) { null }
+                    val devAddr = dev.address
                     val devUuids = try { dev.uuids } catch (_: Exception) { null }
                     val hasPrimeUuid = devUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true
-                    if (devName?.contains("Prime", ignoreCase = true) == true || hasPrimeUuid) {
+                    val isSavedInChats = chatListState.any { 
+                        it.id.equals(devAddr, ignoreCase = true) || (devName != null && it.name.equals(devName, ignoreCase = true)) 
+                    }
+
+                    if (isSavedInChats || devName?.contains("Prime", ignoreCase = true) == true || hasPrimeUuid) {
                         handlePrimeDeviceFound(dev, devName)
                     }
                     try { dev.fetchUuidsWithSdp() } catch (_: Exception) {}

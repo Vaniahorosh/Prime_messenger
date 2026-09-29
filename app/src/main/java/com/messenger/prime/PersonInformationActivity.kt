@@ -1,5 +1,7 @@
 package com.messenger.prime
 
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -11,6 +13,8 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -19,6 +23,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import com.bumptech.glide.Glide
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -198,21 +203,34 @@ class PersonInformationActivity : AppCompatActivity() {
 
         if (!photoLoaded) {
             val possibleFiles = listOfNotNull(
+                File(filesDir, "rec_avatar_${targetUsername}.gif"),
+                File(filesDir, "avatar_${targetUsername}.gif"),
                 File(filesDir, "rec_avatar_${targetUsername}.jpg"),
                 File(filesDir, "avatar_${targetUsername}.jpg"),
+                deviceAddress?.let { File(filesDir, "rec_avatar_${it}.gif") },
+                deviceAddress?.let { File(filesDir, "avatar_${it}.gif") },
                 deviceAddress?.let { File(filesDir, "rec_avatar_${it}.jpg") },
                 deviceAddress?.let { File(filesDir, "avatar_${it}.jpg") }
             )
 
             for (file in possibleFiles) {
                 if (file.exists()) {
-                    val bmp = BitmapFactory.decodeFile(file.absolutePath)
-                    if (bmp != null) {
-                        binding.ivPhotoCard.setImageBitmap(bmp)
-                        avatarUriStr = Uri.fromFile(file).toString()
-                        photoLoaded = true
-                        break
+                    if (file.name.lowercase().endsWith(".gif")) {
+                        Glide.with(this)
+                            .asGif()
+                            .load(file)
+                            .into(binding.ivPhotoCard)
+                    } else {
+                        val bmp = BitmapFactory.decodeFile(file.absolutePath)
+                        if (bmp != null) {
+                            binding.ivPhotoCard.setImageBitmap(bmp)
+                        } else {
+                            Glide.with(this).load(file).into(binding.ivPhotoCard)
+                        }
                     }
+                    avatarUriStr = Uri.fromFile(file).toString()
+                    photoLoaded = true
+                    break
                 }
             }
         }
@@ -246,7 +264,8 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     private fun updateLiveStatus() {
-        val isConnected = BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername)
+        val targetAddr = deviceAddress ?: targetUsername
+        val isConnected = BluetoothConnectionManager.getInstance().isConnected(targetAddr)
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val state = sharedPrefs.getString("activity_state_$targetUsername", "IDLE") ?: "IDLE"
         val typingUntil = sharedPrefs.getLong("typing_until_$targetUsername", 0L)
@@ -292,10 +311,8 @@ class PersonInformationActivity : AppCompatActivity() {
 
         // 3. Отключиться
         binding.btnDisconnect.setOnClickListener {
-            BluetoothSocketHolder.removeConnection(deviceAddress, targetUsername)
-            if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
-                PrimeBluetoothService.stopService(this)
-            }
+            val targetAddr = deviceAddress ?: targetUsername
+            BluetoothConnectionManager.getInstance().disconnect(targetAddr)
 
             val disconnectIntent = Intent("com.messenger.prime.DISCONNECT_REQUESTED").setPackage(packageName)
             sendBroadcast(disconnectIntent)
@@ -353,41 +370,60 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     private fun performCompleteChatDeletion() {
-        val threadObj = BluetoothSocketHolder.getThreadFor(null, targetUsername)
-        if (threadObj is ChatPersonActivity.ConnectedThread && threadObj.isAlive) {
+        val targetAddr = deviceAddress ?: targetUsername
+        if (BluetoothConnectionManager.getInstance().isConnected(targetAddr)) {
             val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
             val currentUser = sp.getString("current_user", "") ?: ""
             val deletionPayload = "DELETE_CHAT:login=$currentUser;name=$currentUser"
-            threadObj.sendPacket(8.toByte(), deletionPayload.toByteArray(Charsets.UTF_8))
-            try { Thread.sleep(100) } catch (ignored: Exception) {}
+            BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 8.toByte(), deletionPayload.toByteArray(Charsets.UTF_8))
+            
+            Handler(Looper.getMainLooper()).postDelayed({
+                finalizeChatDeletion()
+            }, 200)
+        } else {
+            finalizeChatDeletion()
         }
+    }
 
-        BluetoothSocketHolder.removeConnection(null, targetUsername)
-        PrimeBluetoothService.stopService(this)
+    private fun finalizeChatDeletion() {
+        val targetAddr = deviceAddress ?: targetUsername
 
         try {
-            val bluetoothManager = getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager
-            val bAdapter = bluetoothManager?.adapter
-            if (bAdapter != null && bAdapter.isEnabled && !deviceAddress.isNullOrEmpty()) {
-                val device = bAdapter.getRemoteDevice(deviceAddress)
-                val removeBondMethod = device.javaClass.getMethod("removeBond")
-                removeBondMethod.invoke(device)
+            val adapter = BluetoothAdapter.getDefaultAdapter()
+            if (adapter != null && !deviceAddress.isNullOrEmpty() && BluetoothAdapter.checkBluetoothAddress(deviceAddress)) {
+                val device = adapter.getRemoteDevice(deviceAddress)
+                if (device != null && device.bondState == BluetoothDevice.BOND_BONDED) {
+                    try {
+                        val removeBond = device.javaClass.getMethod("removeBond")
+                        removeBond.invoke(device)
+                        Log.d("ChatDeletion", "Successfully unbonded device: $deviceAddress")
+                    } catch (e: Exception) {
+                        Log.e("ChatDeletion", "Failed to invoke removeBond", e)
+                    }
+                }
             }
         } catch (e: Exception) {
             Log.w("PersonInfo", "Failed to remove bond", e)
         }
 
+        BluetoothConnectionManager.getInstance().disconnect(targetAddr)
+        if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
+            PrimeBluetoothService.stopService(this)
+        }
+
         ChatHistoryManager.deleteHistoryCompletely(this, targetUsername, deviceAddress)
 
-        val chatDeletedIntent = Intent("com.messenger.prime.CHAT_DELETED").setPackage(packageName)
+        val chatDeletedIntent = Intent("com.messenger.prime.CHAT_DELETED").apply {
+            `package` = packageName
+        }
         sendBroadcast(chatDeletedIntent)
 
         Toast.makeText(this, "Переписка и устройство полностью удалены", Toast.LENGTH_SHORT).show()
 
-        val intent = Intent(this, ChatListActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        val mainIntent = Intent(this, ChatListActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        startActivity(intent)
+        startActivity(mainIntent)
         finish()
     }
 

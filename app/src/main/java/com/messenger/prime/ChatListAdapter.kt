@@ -16,6 +16,7 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import android.annotation.SuppressLint
 import android.content.Context
+import com.bumptech.glide.Glide
 import androidx.core.view.isEmpty
 import androidx.core.net.toUri
 import androidx.core.graphics.toColorInt
@@ -328,13 +329,17 @@ class ChatListAdapter(
                             val uri = chat.avatarUri.toUri()
                             val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
                             if (file != null && file.exists()) {
-                                val bmp = BitmapFactory.decodeFile(file.absolutePath)
-                                if (bmp != null) {
-                                    binding.ivUserAvatar.setImageBitmap(bmp)
-                                    binding.ivUserAvatar.visibility = View.VISIBLE
-                                    binding.tvUserInitials.visibility = View.GONE
-                                    avatarLoaded = true
+                                val isGif = file.name.lowercase().endsWith(".gif") || chat.avatarUri.lowercase().contains("gif")
+                                if (isGif) {
+                                    Glide.with(context).asGif().load(file).circleCrop().into(binding.ivUserAvatar)
+                                } else {
+                                    val bmp = BitmapFactory.decodeFile(file.absolutePath)
+                                    if (bmp != null) binding.ivUserAvatar.setImageBitmap(bmp)
+                                    else Glide.with(context).load(file).circleCrop().into(binding.ivUserAvatar)
                                 }
+                                binding.ivUserAvatar.visibility = View.VISIBLE
+                                binding.tvUserInitials.visibility = View.GONE
+                                avatarLoaded = true
                             }
                         } catch (e: Exception) {
                             avatarLoaded = false
@@ -353,13 +358,17 @@ class ChatListAdapter(
                                 val uri = prefAvatar.toUri()
                                 val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
                                 if (file != null && file.exists()) {
-                                    val bmp = BitmapFactory.decodeFile(file.absolutePath)
-                                    if (bmp != null) {
-                                        binding.ivUserAvatar.setImageBitmap(bmp)
-                                        binding.ivUserAvatar.visibility = View.VISIBLE
-                                        binding.tvUserInitials.visibility = View.GONE
-                                        avatarLoaded = true
+                                    val isGif = file.name.lowercase().endsWith(".gif") || prefAvatar.lowercase().contains("gif")
+                                    if (isGif) {
+                                        Glide.with(context).asGif().load(file).circleCrop().into(binding.ivUserAvatar)
+                                    } else {
+                                        val bmp = BitmapFactory.decodeFile(file.absolutePath)
+                                        if (bmp != null) binding.ivUserAvatar.setImageBitmap(bmp)
+                                        else Glide.with(context).load(file).circleCrop().into(binding.ivUserAvatar)
                                     }
+                                    binding.ivUserAvatar.visibility = View.VISIBLE
+                                    binding.tvUserInitials.visibility = View.GONE
+                                    avatarLoaded = true
                                 }
                             } catch (_: Exception) {}
                         }
@@ -367,6 +376,10 @@ class ChatListAdapter(
 
                     if (!avatarLoaded) {
                         val possibleFiles = listOfNotNull(
+                            File(context.filesDir, "rec_avatar_${chat.name}.gif"),
+                            File(context.filesDir, "rec_avatar_${chat.id}.gif"),
+                            File(context.filesDir, "avatar_${chat.name}.gif"),
+                            File(context.filesDir, "avatar_${chat.id}.gif"),
                             File(context.filesDir, "rec_avatar_${chat.name}.jpg"),
                             File(context.filesDir, "rec_avatar_${chat.id}.jpg"),
                             File(context.filesDir, "avatar_${chat.name}.jpg"),
@@ -375,14 +388,24 @@ class ChatListAdapter(
                         for (targetFile in possibleFiles) {
                             if (targetFile.exists()) {
                                 try {
-                                    val bmp = BitmapFactory.decodeFile(targetFile.absolutePath)
-                                    if (bmp != null) {
-                                        binding.ivUserAvatar.setImageBitmap(bmp)
-                                        binding.ivUserAvatar.visibility = View.VISIBLE
-                                        binding.tvUserInitials.visibility = View.GONE
-                                        avatarLoaded = true
-                                        break
+                                    if (targetFile.name.lowercase().endsWith(".gif")) {
+                                        Glide.with(context)
+                                            .asGif()
+                                            .load(targetFile)
+                                            .circleCrop()
+                                            .into(binding.ivUserAvatar)
+                                    } else {
+                                        val bmp = BitmapFactory.decodeFile(targetFile.absolutePath)
+                                        if (bmp != null) {
+                                            binding.ivUserAvatar.setImageBitmap(bmp)
+                                        } else {
+                                            Glide.with(context).load(targetFile).circleCrop().into(binding.ivUserAvatar)
+                                        }
                                     }
+                                    binding.ivUserAvatar.visibility = View.VISIBLE
+                                    binding.tvUserInitials.visibility = View.GONE
+                                    avatarLoaded = true
+                                    break
                                 } catch (_: Exception) {}
                             }
                         }

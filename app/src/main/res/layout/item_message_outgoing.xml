@@ -358,18 +358,22 @@
             android:padding="8dp"
             android:visibility="gone">
 
-            <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/ivLinkPreviewImage"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_gravity="center_vertical"
                 android:layout_marginEnd="8dp"
                 android:contentDescription="Ссылка"
+                android:scaleType="centerCrop"
                 android:src="@drawable/ic_search"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
                 app:tint="@color/prime_brand" />
 
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
                 android:layout_weight="1"
                 android:orientation="vertical">
 
@@ -384,13 +388,25 @@
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/tvLinkPreviewDescription"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:maxLines="2"
+                    android:textColor="@color/chat_bubble_outgoing_text"
+                    android:textSize="11sp"
+                    android:visibility="gone" />
+
+                <TextView
                     android:id="@+id/tvLinkPreviewUrl"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:textColor="@color/chat_bubble_outgoing_time"
-                    android:textSize="11sp" />
+                    android:textSize="10sp" />
             </LinearLayout>
         </LinearLayout>
 

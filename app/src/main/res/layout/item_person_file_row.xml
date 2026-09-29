@@ -24,6 +24,7 @@
             android:layout_height="36dp"
             android:padding="6dp"
             android:background="@drawable/bg_circular_mode_idle"
+            android:contentDescription="Файл"
             android:src="@drawable/ic_file"
             app:tint="@color/prime_brand" />
 

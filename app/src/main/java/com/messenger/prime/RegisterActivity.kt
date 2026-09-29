@@ -27,6 +27,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.bumptech.glide.Glide
 import com.messenger.prime.databinding.ActivityRegisterContentBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
@@ -54,10 +55,27 @@ class RegisterActivity : AppCompatActivity() {
 
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
-            val intent = Intent(this, PhotoEditorActivity::class.java)
-            intent.putExtra("EXTRA_IMAGE_URI", uri.toString())
-            photoEditorLauncher.launch(intent)
-            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+            val uriStr = uri.toString().lowercase()
+            val mime = try { contentResolver.getType(uri) } catch (_: Exception) { null }
+            val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif") || "image/gif".equals(mime, ignoreCase = true)
+
+            if (isGif) {
+                avatarUri = uri
+                binding?.ivSelectedAvatar?.let { iv ->
+                    Glide.with(this)
+                        .asGif()
+                        .load(uri)
+                        .circleCrop()
+                        .into(iv)
+                }
+                binding?.tvAvatarHint?.visibility = View.GONE
+                PrimeNotification.show(this, "GIF-аватарка выбрана")
+            } else {
+                val intent = Intent(this, PhotoEditorActivity::class.java)
+                intent.putExtra("EXTRA_IMAGE_URI", uri.toString())
+                photoEditorLauncher.launch(intent)
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+            }
         }
     }
 

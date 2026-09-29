@@ -50,12 +50,14 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.LinearSnapHelper
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.messenger.prime.databinding.ActivityPhotoEditorContentBinding
 import com.messenger.prime.databinding.DialogColorPickerBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrPosition
 import eightbitlab.com.blurview.BlurView
+import java.io.File
 
 import java.io.FileOutputStream
 
@@ -104,6 +106,9 @@ class PhotoEditorActivity : AppCompatActivity() {
 
 
 
+    private var isGifMode = false
+    private var originalUri: Uri? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setupEdgeToEdge()
@@ -138,31 +143,100 @@ class PhotoEditorActivity : AppCompatActivity() {
                         val b = ActivityPhotoEditorContentBinding.bind(view)
                         binding = b
 
-                        ViewCompat.setOnApplyWindowInsetsListener(view) { _, windowInsets ->
-                            val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-                            b.topBar.setPadding(b.topBar.paddingLeft, systemBarsInsets.top + (8 * resources.displayMetrics.density).toInt(), b.topBar.paddingRight, b.topBar.paddingBottom)
-                            b.toolsLayout.setPadding(b.toolsLayout.paddingLeft, b.toolsLayout.paddingTop, b.toolsLayout.paddingRight, systemBarsInsets.bottom)
+                        val applyInsetsToUi = { topInset: Int, bottomInset: Int ->
+                            val b = binding
+                            if (b != null) {
+                                val density = resources.displayMetrics.density
+
+                                b.topBar.setPadding(
+                                    b.topBar.paddingLeft,
+                                    topInset,
+                                    b.topBar.paddingRight,
+                                    b.topBar.paddingBottom
+                                )
+
+                                val baseToolsHeight = (80 * density).toInt()
+                                val lp = b.toolsLayout.layoutParams
+                                if (lp != null) {
+                                    lp.height = baseToolsHeight + bottomInset
+                                    b.toolsLayout.layoutParams = lp
+                                }
+                                b.toolsLayout.setPadding(
+                                    b.toolsLayout.paddingLeft,
+                                    b.toolsLayout.paddingTop,
+                                    b.toolsLayout.paddingRight,
+                                    bottomInset
+                                )
+
+                                val setOriginalLp = b.layoutSetOriginal.layoutParams as? ViewGroup.MarginLayoutParams
+                                if (setOriginalLp != null) {
+                                    val baseMargin = if (isGifMode) (24 * density).toInt() else (16 * density).toInt()
+                                    val extraBottom = if (isGifMode || b.toolsLayout.visibility != View.VISIBLE) bottomInset else 0
+                                    setOriginalLp.bottomMargin = baseMargin + extraBottom
+                                    b.layoutSetOriginal.layoutParams = setOriginalLp
+                                }
+                            }
+                        }
+
+                        ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { _, windowInsets ->
+                            val systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+                            applyInsetsToUi(systemBars.top, systemBars.bottom)
                             windowInsets
+                        }
+
+                        window.decorView.post {
+                            val rootInsets = ViewCompat.getRootWindowInsets(window.decorView)
+                            val systemBars = rootInsets?.getInsets(WindowInsetsCompat.Type.systemBars())
+                            val topInset = systemBars?.top ?: getStatusBarHeight()
+                            val bottomInset = systemBars?.bottom ?: getNavigationBarHeight()
+                            applyInsetsToUi(topInset, bottomInset)
                         }
 
                         setupTitleSwitcher(b)
                         setupAspectSelector(b)
 
                         val isProfilePhoto = intent.getBooleanExtra("IS_PROFILE_PHOTO", false)
-                        if (isProfilePhoto) {
-                            b.btnSetOriginal.text = "Поставить фото без редактирования"
-                        } else {
-                            b.btnSetOriginal.text = "Отправить без редактирования"
-                        }
 
                         if (uriString != null) {
                             val uri = Uri.parse(uriString)
-                            try {
-                                originalBitmap = loadOptimizedBitmap(uri)
-                                b.ivEditorPreview.setImageBitmap(originalBitmap)
-                                b.ivEditorPreview.post { centerImage(b) }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
+                            originalUri = uri
+                            val uriLower = uriString.lowercase()
+                            val mime = try { contentResolver.getType(uri) } catch (_: Exception) { null }
+                            isGifMode = uriLower.endsWith(".gif") || uriLower.contains("gif") || "image/gif".equals(mime, ignoreCase = true)
+
+                            if (isGifMode) {
+                                b.toolsLayout.visibility = View.GONE
+                                b.toolsScroll.visibility = View.GONE
+                                b.btnSetOriginal.text = if (isProfilePhoto) "Поставить GIF без редактирования" else "Отправить GIF без редактирования"
+
+                                val density = resources.displayMetrics.density
+                                val rootInsets = ViewCompat.getRootWindowInsets(window.decorView)
+                                val systemBars = rootInsets?.getInsets(WindowInsetsCompat.Type.systemBars())
+                                val bottomInset = systemBars?.bottom ?: getNavigationBarHeight()
+
+                                val setOriginalLp = b.layoutSetOriginal.layoutParams as? ViewGroup.MarginLayoutParams
+                                if (setOriginalLp != null) {
+                                    setOriginalLp.bottomMargin = (24 * density).toInt() + bottomInset
+                                    b.layoutSetOriginal.layoutParams = setOriginalLp
+                                }
+
+                                Glide.with(this@PhotoEditorActivity)
+                                    .asGif()
+                                    .load(uri)
+                                    .into(b.ivEditorPreview)
+                            } else {
+                                if (isProfilePhoto) {
+                                    b.btnSetOriginal.text = "Поставить фото без редактирования"
+                                } else {
+                                    b.btnSetOriginal.text = "Отправить без редактирования"
+                                }
+                                try {
+                                    originalBitmap = loadOptimizedBitmap(uri)
+                                    b.ivEditorPreview.setImageBitmap(originalBitmap)
+                                    b.ivEditorPreview.post { centerImage(b) }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
                             }
                         }
 
@@ -602,7 +676,30 @@ class PhotoEditorActivity : AppCompatActivity() {
         updateTopActionVisibility(b)
     }
 
+    private fun saveGifAndFinish(uri: Uri) {
+        try {
+            val file = File(cacheDir, "gif_avatar_${System.currentTimeMillis()}.gif")
+            contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(file).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            val resultIntent = Intent().apply {
+                putExtra("EDITED_IMAGE_URI", Uri.fromFile(file).toString())
+            }
+            setResult(RESULT_OK, resultIntent)
+            finish()
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+        } catch (e: Exception) {
+            finish()
+        }
+    }
+
     private fun setOriginalAndFinish() {
+        if (isGifMode && originalUri != null) {
+            saveGifAndFinish(originalUri!!)
+            return
+        }
         val bitmap = originalBitmap ?: return
         val file = java.io.File(cacheDir, "original_${System.currentTimeMillis()}.jpg")
         try {
@@ -808,7 +905,21 @@ class PhotoEditorActivity : AppCompatActivity() {
         return cm
     }
 
+    private fun getStatusBarHeight(): Int {
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else (32 * resources.displayMetrics.density).toInt()
+    }
+
+    private fun getNavigationBarHeight(): Int {
+        val resourceId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
+        return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else (48 * resources.displayMetrics.density).toInt()
+    }
+
     private fun saveAndFinish(b: ActivityPhotoEditorContentBinding) {
+        if (isGifMode && originalUri != null) {
+            saveGifAndFinish(originalUri!!)
+            return
+        }
         val bitmap = originalBitmap ?: return
         val resultBitmap = Bitmap.createBitmap(b.ivEditorPreview.width, b.ivEditorPreview.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(resultBitmap)

@@ -12,7 +12,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = 1
-        versionName = "Beta 0.46 build 28092620"
+        versionName = "Beta 0.48 build 29092620"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.material)
     implementation("com.r0adkll:slidableactivity:2.1.0")
+    implementation("com.github.bumptech.glide:glide:4.16.0")
     
     // Compose & BlurView
     implementation("androidx.compose.ui:ui:1.6.8")

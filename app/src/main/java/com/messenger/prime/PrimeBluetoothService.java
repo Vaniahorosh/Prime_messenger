@@ -12,11 +12,16 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
+import android.os.PowerManager;
 import android.util.Log;
+import android.bluetooth.BluetoothDevice;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.RemoteInput;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -25,6 +30,8 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PrimeBluetoothService extends Service implements BluetoothConnectionManager.ConnectionCallback {
 
@@ -33,17 +40,92 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     public static final String ACTION_STOP_SERVICE = "com.messenger.prime.action.STOP_SERVICE";
     private static final String TAG = "PrimeBluetoothService";
 
+    private PowerManager.WakeLock wakeLock;
+    private final Handler reconnectHandler = new Handler(Looper.getMainLooper());
+    private final ConcurrentHashMap<String, Integer> reconnectAttempts = new ConcurrentHashMap<>();
+
     @Override
     public void onCreate() {
         super.onCreate();
+        initWakeLock();
         promoteToForeground();
         BluetoothConnectionManager.getInstance().registerCallback(this);
     }
 
     @Override
     public void onDestroy() {
-        super.onDestroy();
         BluetoothConnectionManager.getInstance().unregisterCallback(this);
+        if (wakeLock != null && wakeLock.isHeld()) {
+            try { wakeLock.release(); } catch (Throwable ignored) {}
+        }
+        super.onDestroy();
+    }
+
+    private void initWakeLock() {
+        try {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Prime:BluetoothServiceWakeLock");
+                wakeLock.setReferenceCounted(false);
+            }
+        } catch (Throwable e) {
+            Log.e(TAG, "Failed to initialize WakeLock", e);
+        }
+    }
+
+    private synchronized void manageWakeLock() {
+        int activeCount = BluetoothConnectionManager.getInstance().getConnectedDeviceCount();
+        if (activeCount > 0) {
+            if (wakeLock != null && !wakeLock.isHeld()) {
+                wakeLock.acquire();
+                Log.d(TAG, "Partial WakeLock acquired (active connections: " + activeCount + ")");
+            }
+        } else {
+            if (wakeLock != null && wakeLock.isHeld()) {
+                wakeLock.release();
+                Log.d(TAG, "Partial WakeLock released (no active connections)");
+            }
+        }
+    }
+
+    private void resetReconnectAttempts(String address) {
+        if (address != null) {
+            reconnectAttempts.remove(address);
+        }
+    }
+
+    private void scheduleReconnect(String address) {
+        if (address == null || address.isEmpty() || !BluetoothAdapter.checkBluetoothAddress(address)) return;
+
+        int attempts = reconnectAttempts.getOrDefault(address, 0) + 1;
+        reconnectAttempts.put(address, attempts);
+
+        long delayMs;
+        if (attempts == 1) delayMs = 2000L;
+        else if (attempts == 2) delayMs = 5000L;
+        else if (attempts == 3) delayMs = 15000L;
+        else delayMs = 45000L;
+
+        Log.d(TAG, "Scheduling exponential reconnect for " + address + " (Attempt #" + attempts + " in " + (delayMs/1000) + "s)");
+
+        reconnectHandler.postDelayed(() -> {
+            if (!BluetoothConnectionManager.getInstance().isConnected(address)) {
+                BluetoothManager manager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+                BluetoothAdapter adapter = manager != null ? manager.getAdapter() : null;
+                if (adapter != null && adapter.isEnabled()) {
+                    try {
+                        BluetoothDevice device = adapter.getRemoteDevice(address);
+                        String displayName = ChatHistoryManager.getDisplayNameForAddress(this, address);
+                        BluetoothConnectionManager.getInstance().connectToDevice(
+                                adapter, device, UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66"),
+                                "PrimeUser", displayName, false
+                        );
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed reconnect to " + address, e);
+                    }
+                }
+            }
+        }, delayMs);
     }
 
     @Override
@@ -228,10 +310,56 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             chatIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
             int requestCode = (senderName != null ? senderName.hashCode() : 100);
+            int notificationId = 2000 + (senderName != null ? Math.abs(senderName.hashCode() % 5000) : 1);
+
             PendingIntent pendingIntent = PendingIntent.getActivity(
                     context, requestCode, chatIntent,
                     PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
             );
+
+            // 1. RemoteInput Action: "Ответить"
+            RemoteInput remoteInput = new RemoteInput.Builder("KEY_TEXT_REPLY")
+                    .setLabel("Ответить...")
+                    .build();
+
+            Intent replyIntent = new Intent(context, NotificationReplyReceiver.class);
+            replyIntent.setAction("ACTION_NOTIFICATION_REPLY");
+            replyIntent.putExtra("EXTRA_CHAT_NAME", senderName);
+            replyIntent.putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress);
+            replyIntent.putExtra("EXTRA_NOTIFICATION_ID", notificationId);
+
+            PendingIntent replyPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    requestCode + 10,
+                    replyIntent,
+                    PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+            );
+
+            NotificationCompat.Action replyAction = new NotificationCompat.Action.Builder(
+                    R.drawable.ic_undo,
+                    "Ответить",
+                    replyPendingIntent
+            ).addRemoteInput(remoteInput).build();
+
+            // 2. Mark as Read Action: "Прочитано"
+            Intent markReadIntent = new Intent(context, NotificationReplyReceiver.class);
+            markReadIntent.setAction("ACTION_NOTIFICATION_MARK_READ");
+            markReadIntent.putExtra("EXTRA_CHAT_NAME", senderName);
+            markReadIntent.putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress);
+            markReadIntent.putExtra("EXTRA_NOTIFICATION_ID", notificationId);
+
+            PendingIntent markReadPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    requestCode + 20,
+                    markReadIntent,
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+            );
+
+            NotificationCompat.Action markReadAction = new NotificationCompat.Action.Builder(
+                    R.drawable.ic_done,
+                    "Прочитано",
+                    markReadPendingIntent
+            ).build();
 
             Notification notification = new NotificationCompat.Builder(context, MSG_CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_prime_statusbar)
@@ -240,11 +368,12 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
                     .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                     .setContentIntent(pendingIntent)
+                    .addAction(replyAction)
+                    .addAction(markReadAction)
                     .setAutoCancel(true)
                     .setDefaults(Notification.DEFAULT_ALL)
                     .build();
 
-            int notificationId = 2000 + (senderName != null ? Math.abs(senderName.hashCode() % 5000) : 1);
             nm.notify(notificationId, notification);
         } catch (Throwable e) {
             Log.e(TAG, "Failed to post message notification", e);
@@ -252,33 +381,74 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     }
 
     @Override
-    public void onStateChanged(BluetoothConnectionManager.ConnectionState state, String deviceName, String deviceAddress) {
+    public void onStateChanged(String deviceAddress, BluetoothConnectionManager.ConnectionState state, String deviceName) {
+        manageWakeLock();
+        promoteToForeground();
+
         if (state == BluetoothConnectionManager.ConnectionState.CONNECTED) {
-            updateStatus(this, "Подключено: " + (deviceName != null ? deviceName : "Prime User"));
-        } else if (state == BluetoothConnectionManager.ConnectionState.CONNECTING) {
-            updateStatus(this, "Установка связи...");
-        } else {
-            updateStatus(this, "Служба Bluetooth активна");
+            resetReconnectAttempts(deviceAddress);
+        } else if (state == BluetoothConnectionManager.ConnectionState.DISCONNECTED) {
+            scheduleReconnect(deviceAddress);
+        }
+    }
+
+    public static final int PROGRESS_NOTIFICATION_ID = 1002;
+
+    @Override
+    public void onSendProgress(String deviceAddress, int progress) {
+        updateSendProgressNotification(deviceAddress, progress);
+    }
+
+    private void updateSendProgressNotification(String deviceAddress, int progress) {
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm == null) return;
+
+            if (progress >= 100) {
+                nm.cancel(PROGRESS_NOTIFICATION_ID);
+                return;
+            }
+
+            Intent cancelIntent = new Intent(this, NotificationReplyReceiver.class);
+            cancelIntent.setAction("com.messenger.prime.action.CANCEL_UPLOAD");
+            cancelIntent.putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress);
+            cancelIntent.putExtra("EXTRA_NOTIFICATION_ID", PROGRESS_NOTIFICATION_ID);
+
+            PendingIntent cancelPendingIntent = PendingIntent.getBroadcast(
+                    this, 1002, cancelIntent,
+                    PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+            );
+
+            String peerName = ChatHistoryManager.getDisplayNameForAddress(this, deviceAddress);
+            if (peerName == null || peerName.isEmpty()) peerName = "Собеседнику";
+
+            Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.stat_sys_upload)
+                    .setContentTitle("Отправка файла...")
+                    .setContentText(progress + "% (" + peerName + ")")
+                    .setProgress(100, progress, false)
+                    .setOngoing(true)
+                    .setOnlyAlertOnce(true)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .addAction(R.drawable.ic_cancel, "Отменить", cancelPendingIntent)
+                    .build();
+
+            nm.notify(PROGRESS_NOTIFICATION_ID, notification);
+        } catch (Throwable e) {
+            Log.e(TAG, "Failed to update send progress notification", e);
         }
     }
 
     @Override
-    public void onSendProgress(int progress) {
-        // Фоновая служба прогресс отправки не обрабатывает
-    }
-
-    @Override
-    public void onPacketReceived(byte type, byte[] payload) {
+    public void onPacketReceived(String fromAddress, byte type, byte[] payload) {
         if (payload == null || payload.length == 0) return;
-        String activeAddress = BluetoothConnectionManager.getInstance().getActiveDeviceAddress();
-        String rawActiveName = BluetoothConnectionManager.getInstance().getActiveDeviceName();
         
-        String displayName = ChatHistoryManager.getDisplayNameForAddress(this, activeAddress);
-        if (displayName == null || displayName.isEmpty() || displayName.equalsIgnoreCase(activeAddress)) {
-            displayName = ChatHistoryManager.getDisplayNameForAddress(this, rawActiveName);
-        }
-        if (displayName == null || displayName.isEmpty() || displayName.equalsIgnoreCase(activeAddress)) {
-            displayName = (rawActiveName != null && !rawActiveName.isEmpty()) ? rawActiveName : "Собеседник";
+        resetReconnectAttempts(fromAddress);
+        manageWakeLock();
+        
+        String displayName = ChatHistoryManager.getDisplayNameForAddress(this, fromAddress);
+        if (displayName == null || displayName.isEmpty() || displayName.equalsIgnoreCase(fromAddress)) {
+            displayName = fromAddress != null ? fromAddress : "Собеседник";
         }
 
         try {
@@ -291,24 +461,24 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     ChatMessage msg = new ChatMessage(parsed.realText, time, displayName, false, null, ts, null, parsed.msgId);
                     
                     ChatHistoryManager.saveMessage(this, displayName, msg);
-                    saveBackgroundLastMessageToChatList(displayName, activeAddress, parsed.realText);
+                    saveBackgroundLastMessageToChatList(displayName, fromAddress, parsed.realText);
                     
-                    if (!ChatPersonActivity.isActivityForeground()) {
-                        showMessageNotification(this, displayName, parsed.realText, activeAddress);
+                    if (!ChatPersonActivity.isForegroundWithAddress(fromAddress)) {
+                        showMessageNotification(this, displayName, parsed.realText, fromAddress);
                     }
                 }
             } else if (type == 0x02) { // TYPE_PHOTO
-                if (!ChatPersonActivity.isActivityForeground()) {
-                    saveBackgroundLastMessageToChatList(displayName, activeAddress, "📷 Фотография");
-                    showMessageNotification(this, displayName, "📷 Фотография", activeAddress);
+                if (!ChatPersonActivity.isForegroundWithAddress(fromAddress)) {
+                    saveBackgroundLastMessageToChatList(displayName, fromAddress, "📷 Фотография");
+                    showMessageNotification(this, displayName, "📷 Фотография", fromAddress);
                 }
             } else if (type == 0x0E) { // TYPE_FILE
-                if (!ChatPersonActivity.isActivityForeground()) {
-                    saveBackgroundLastMessageToChatList(displayName, activeAddress, "📎 Файл");
-                    showMessageNotification(this, displayName, "📎 Файл", activeAddress);
+                if (!ChatPersonActivity.isForegroundWithAddress(fromAddress)) {
+                    saveBackgroundLastMessageToChatList(displayName, fromAddress, "📎 Файл");
+                    showMessageNotification(this, displayName, "📎 Файл", fromAddress);
                 }
             } else if (type == 0x08) { // TYPE_CHAT_DELETED
-                ChatHistoryManager.deleteHistoryCompletely(this, displayName, activeAddress);
+                ChatHistoryManager.deleteHistoryCompletely(this, displayName, fromAddress);
                 ChatListNotifier.INSTANCE.notifyChanged();
             }
         } catch (Throwable e) {
@@ -317,8 +487,12 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     }
 
     @Override
-    public void onError(String errorMessage) {
-        Log.w(TAG, "Service Connection Error: " + errorMessage);
+    public void onError(String deviceAddress, String errorMessage) {
+        Log.w(TAG, "Service Connection Error (" + deviceAddress + "): " + errorMessage);
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) nm.cancel(PROGRESS_NOTIFICATION_ID);
+        } catch (Throwable ignored) {}
     }
 
     private void saveBackgroundLastMessageToChatList(String targetName, String deviceAddr, String lastMsg) {

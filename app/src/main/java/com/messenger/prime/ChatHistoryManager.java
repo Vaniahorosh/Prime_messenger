@@ -1,5 +1,6 @@
 package com.messenger.prime;
 
+import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
@@ -13,6 +14,7 @@ import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -237,35 +239,58 @@ public class ChatHistoryManager {
         });
     }
 
-    public static String getDisplayNameForAddress(Context context, String addressOrName) {
-        if (context == null || addressOrName == null || addressOrName.isEmpty()) return "";
+    public static String getStorageKey(Context context, String nameOrAddress) {
+        if (context == null || nameOrAddress == null || nameOrAddress.trim().isEmpty()) return "";
+        String clean = nameOrAddress.trim();
+
         SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-        
-        String storedName = sp.getString(addressOrName + "_name", null);
-        if (storedName != null && !storedName.isEmpty()) return storedName;
 
-        try {
-            String json = sp.getString("persisted_chats", "[]");
-            JSONArray array = new JSONArray(json);
-            for (int i = 0; i < array.length(); i++) {
-                JSONObject obj = array.getJSONObject(i);
-                String id = obj.optString("id", "");
-                String name = obj.optString("name", "");
-                if (addressOrName.equalsIgnoreCase(id) || addressOrName.equalsIgnoreCase(name)) {
-                    if (!name.isEmpty()) return name;
-                }
+        if (BluetoothAdapter.checkBluetoothAddress(clean.toUpperCase(Locale.US))) {
+            String mappedName = sp.getString(clean + "_name", null);
+            if (mappedName != null && !mappedName.trim().isEmpty()) {
+                return mappedName.trim();
             }
-        } catch (Exception ignored) {}
+            try {
+                String json = sp.getString("persisted_chats", "[]");
+                JSONArray array = new JSONArray(json);
+                for (int i = 0; i < array.length(); i++) {
+                    JSONObject obj = array.getJSONObject(i);
+                    String id = obj.optString("id", "");
+                    String name = obj.optString("name", "");
+                    if (clean.equalsIgnoreCase(id) && !name.trim().isEmpty()) {
+                        return name.trim();
+                    }
+                }
+            } catch (Exception ignored) {}
+            return clean;
+        }
 
-        return addressOrName;
+        String mappedMac = sp.getString(clean + "_mac", null);
+        if (mappedMac != null && !mappedMac.trim().isEmpty()) {
+            String nameForMac = sp.getString(mappedMac + "_name", null);
+            if (nameForMac != null && !nameForMac.trim().isEmpty()) {
+                return nameForMac.trim();
+            }
+        }
+
+        return clean;
+    }
+
+    public static String getDisplayNameForAddress(Context context, String addressOrName) {
+        return getStorageKey(context, addressOrName);
     }
 
     public static List<ChatMessage> loadMessages(Context context, String targetUsername) {
         List<ChatMessage> list = new ArrayList<>();
-        if (targetUsername == null || targetUsername.isEmpty()) return list;
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return list;
 
+        String key = getStorageKey(context, targetUsername);
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        String json = prefs.getString("history_" + targetUsername, null);
+        String json = prefs.getString("history_" + key, null);
+
+        if ((json == null || json.isEmpty()) && !key.equalsIgnoreCase(targetUsername)) {
+            json = prefs.getString("history_" + targetUsername, null);
+        }
 
         if (json != null && !json.isEmpty()) {
             try {
@@ -337,6 +362,8 @@ public class ChatHistoryManager {
     }
 
     public static void saveHistoryList(Context context, String targetUsername, List<ChatMessage> history) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return;
+        String key = getStorageKey(context, targetUsername);
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         JSONArray array = new JSONArray();
         try {
@@ -368,7 +395,7 @@ public class ChatHistoryManager {
                 obj.put("reactionSenderLogin", msg.getReactionSenderLogin() != null ? msg.getReactionSenderLogin() : "");
                 array.put(obj);
             }
-            prefs.edit().putString("history_" + targetUsername, array.toString()).apply();
+            prefs.edit().putString("history_" + key, array.toString()).apply();
         } catch (Exception e) {
             Log.e("ChatHistoryManager", "Failed to save history", e);
         }

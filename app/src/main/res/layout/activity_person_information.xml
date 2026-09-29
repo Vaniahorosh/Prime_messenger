@@ -323,6 +323,7 @@
                             <ImageView
                                 android:layout_width="20dp"
                                 android:layout_height="20dp"
+                                android:contentDescription="Фото и видео"
                                 android:src="@drawable/ic_photo"
                                 app:tint="@color/prime_brand" />
 
@@ -391,6 +392,7 @@
                             <ImageView
                                 android:layout_width="20dp"
                                 android:layout_height="20dp"
+                                android:contentDescription="Файлы и документы"
                                 android:src="@drawable/ic_file"
                                 app:tint="@color/prime_brand" />
 

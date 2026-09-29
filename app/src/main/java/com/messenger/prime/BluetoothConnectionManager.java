@@ -7,21 +7,23 @@ import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Единый потокобезопасный менеджер соединений Bluetooth Classic (RFCOMM).
- * Содержит детерминированный арбитраж ролей (Client / Server), последовательный фоллбэк сокетов,
- * а также защищает сервер прослушивания и поток обмена сообщениями.
+ * Единый потокобезопасный менеджер соединений Bluetooth Classic (RFCOMM) с пулом подключений (Multi-Peer).
  */
 public class BluetoothConnectionManager {
 
@@ -35,24 +37,25 @@ public class BluetoothConnectionManager {
     }
 
     public interface ConnectionCallback {
-        void onStateChanged(ConnectionState state, String deviceName, String deviceAddress);
-        void onPacketReceived(byte type, byte[] payload);
-        void onSendProgress(int progress);
-        void onError(String errorMessage);
+        void onStateChanged(String deviceAddress, ConnectionState state, String deviceName);
+        void onPacketReceived(String fromAddress, byte type, byte[] payload);
+        void onSendProgress(String deviceAddress, int progress);
+        void onError(String deviceAddress, String errorMessage);
     }
 
     private static BluetoothConnectionManager instance;
 
-    private ConnectionState currentState = ConnectionState.DISCONNECTED;
     private final CopyOnWriteArrayList<ConnectionCallback> callbacks = new CopyOnWriteArrayList<>();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private AcceptThread acceptThread;
-    private ConnectThread connectThread;
-    private ConnectedThread connectedThread;
-
-    private String activeDeviceName = "";
-    private String activeDeviceAddress = "";
+    
+    // Пул активных соединений и их статусов
+    private final ConcurrentHashMap<String, ConnectedThread> connectionPool = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ConnectionState> deviceStates = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String> deviceNames = new ConcurrentHashMap<>();
+    // Также храним исходящие потоки ConnectThread, чтобы избежать параллельных коннектов к одному устройству
+    private final ConcurrentHashMap<String, ConnectThread> connectingThreads = new ConcurrentHashMap<>();
 
     public static synchronized BluetoothConnectionManager getInstance() {
         if (instance == null) {
@@ -66,10 +69,16 @@ public class BluetoothConnectionManager {
     public void registerCallback(ConnectionCallback callback) {
         if (callback != null && !callbacks.contains(callback)) {
             callbacks.add(callback);
-            final ConnectionState state = this.currentState;
-            final String name = this.activeDeviceName;
-            final String addr = this.activeDeviceAddress;
-            mainHandler.post(() -> callback.onStateChanged(state, name, addr));
+            // Пробрасываем текущие статусы всех активных устройств
+            mainHandler.post(() -> {
+                for (String address : deviceStates.keySet()) {
+                    ConnectionState state = deviceStates.get(address);
+                    String name = deviceNames.get(address);
+                    if (state != null) {
+                        callback.onStateChanged(address, state, name);
+                    }
+                }
+            });
         }
     }
 
@@ -88,29 +97,55 @@ public class BluetoothConnectionManager {
     }
 
     public synchronized ConnectionState getState() {
-        return currentState;
+        if (!connectionPool.isEmpty()) {
+            return ConnectionState.CONNECTED;
+        }
+        return ConnectionState.DISCONNECTED;
+    }
+
+    public synchronized ConnectionState getState(String deviceAddress) {
+        if (deviceAddress == null) return getState();
+        return deviceStates.getOrDefault(deviceAddress, ConnectionState.DISCONNECTED);
     }
 
     public synchronized String getActiveDeviceAddress() {
-        return activeDeviceAddress;
+        if (!connectionPool.isEmpty()) {
+            return connectionPool.keySet().iterator().next();
+        }
+        return "";
     }
 
     public synchronized String getActiveDeviceName() {
-        return activeDeviceName;
+        String addr = getActiveDeviceAddress();
+        if (!addr.isEmpty()) {
+            return deviceNames.getOrDefault(addr, "Prime User");
+        }
+        return "";
     }
 
-    public synchronized void setState(ConnectionState newState, String deviceName, String deviceAddress) {
-        this.currentState = newState;
-        if (deviceName != null && !deviceName.isEmpty()) this.activeDeviceName = deviceName;
-        if (deviceAddress != null && !deviceAddress.isEmpty()) this.activeDeviceAddress = deviceAddress;
+    public synchronized boolean isConnected(String deviceAddress) {
+        if (deviceAddress == null) return !connectionPool.isEmpty();
+        return getState(deviceAddress) == ConnectionState.CONNECTED;
+    }
 
-        final String name = this.activeDeviceName;
-        final String addr = this.activeDeviceAddress;
+    public synchronized int getConnectedDeviceCount() {
+        return connectionPool.size();
+    }
+
+    private synchronized void setState(String deviceAddress, ConnectionState newState, String deviceName) {
+        if (deviceAddress == null || deviceAddress.isEmpty()) return;
+        
+        deviceStates.put(deviceAddress, newState);
+        if (deviceName != null && !deviceName.isEmpty()) {
+            deviceNames.put(deviceAddress, deviceName);
+        }
+
+        final String finalName = deviceNames.getOrDefault(deviceAddress, "Prime User");
 
         mainHandler.post(() -> {
             for (ConnectionCallback cb : callbacks) {
                 try {
-                    cb.onStateChanged(newState, name, addr);
+                    cb.onStateChanged(deviceAddress, newState, finalName);
                 } catch (Exception e) {
                     Log.e(TAG, "Error in onStateChanged callback", e);
                 }
@@ -118,12 +153,12 @@ public class BluetoothConnectionManager {
         });
     }
 
-    private void notifyPacketReceived(byte type, byte[] payload) {
+    private void notifyPacketReceived(String deviceAddress, byte type, byte[] payload) {
         final byte[] data = payload != null ? payload : new byte[0];
         mainHandler.post(() -> {
             for (ConnectionCallback cb : callbacks) {
                 try {
-                    cb.onPacketReceived(type, data);
+                    cb.onPacketReceived(deviceAddress, type, data);
                 } catch (Exception e) {
                     Log.e(TAG, "Error in onPacketReceived callback", e);
                 }
@@ -131,11 +166,11 @@ public class BluetoothConnectionManager {
         });
     }
 
-    private void notifyError(String errorMsg) {
+    private void notifyError(String deviceAddress, String errorMsg) {
         mainHandler.post(() -> {
             for (ConnectionCallback cb : callbacks) {
                 try {
-                    cb.onError(errorMsg);
+                    cb.onError(deviceAddress, errorMsg);
                 } catch (Exception e) {
                     Log.e(TAG, "Error in onError callback", e);
                 }
@@ -143,11 +178,11 @@ public class BluetoothConnectionManager {
         });
     }
 
-    private void notifySendProgress(int progress) {
+    private void notifySendProgress(String deviceAddress, int progress) {
         mainHandler.post(() -> {
             for (ConnectionCallback cb : callbacks) {
                 try {
-                    cb.onSendProgress(progress);
+                    cb.onSendProgress(deviceAddress, progress);
                 } catch (Exception e) {
                     Log.e(TAG, "Error in onSendProgress callback", e);
                 }
@@ -175,9 +210,6 @@ public class BluetoothConnectionManager {
         if (acceptThread == null || !acceptThread.isAlive()) {
             acceptThread = new AcceptThread(adapter, serviceUuid);
             acceptThread.start();
-            if (currentState != ConnectionState.CONNECTED && currentState != ConnectionState.CONNECTING) {
-                setState(ConnectionState.LISTENING, null, null);
-            }
         }
     }
 
@@ -192,9 +224,9 @@ public class BluetoothConnectionManager {
     public synchronized void connectToDevice(BluetoothAdapter adapter, BluetoothDevice device, UUID serviceUuid, String localIdentifier, String remoteIdentifier, boolean forceClient) {
         if (adapter == null || !adapter.isEnabled() || device == null) return;
 
-        if (currentState == ConnectionState.CONNECTED && activeDeviceAddress.equalsIgnoreCase(device.getAddress())) {
+        if (isConnected(device.getAddress())) {
             Log.d(TAG, "Already connected to target device: " + device.getAddress());
-            setState(ConnectionState.CONNECTED, device.getName(), device.getAddress());
+            setState(device.getAddress(), ConnectionState.CONNECTED, device.getName());
             return;
         }
 
@@ -224,10 +256,15 @@ public class BluetoothConnectionManager {
             return;
         }
 
-        stopConnectThread();
-        connectThread = new ConnectThread(adapter, device, serviceUuid);
-        connectThread.start();
-        setState(ConnectionState.CONNECTING, device.getName(), device.getAddress());
+        ConnectThread currentCT = connectingThreads.get(device.getAddress());
+        if (currentCT != null && currentCT.isAlive()) {
+            currentCT.cancel();
+        }
+        
+        ConnectThread newCT = new ConnectThread(adapter, device, serviceUuid);
+        connectingThreads.put(device.getAddress(), newCT);
+        newCT.start();
+        setState(device.getAddress(), ConnectionState.CONNECTING, device.getName());
     }
 
     /**
@@ -235,75 +272,94 @@ public class BluetoothConnectionManager {
      */
     @SuppressLint("MissingPermission")
     public synchronized void onSocketConnected(BluetoothSocket socket, BluetoothDevice device) {
-        if (socket == null || !socket.isConnected()) return;
+        if (socket == null || !socket.isConnected() || device == null) return;
 
-        stopConnectThread();
-        stopConnectedThread();
+        String devAddr = device.getAddress();
+        
+        ConnectThread ct = connectingThreads.remove(devAddr);
+        if (ct != null) ct.cancel();
+
+        ConnectedThread oldCt = connectionPool.get(devAddr);
+        if (oldCt != null) {
+            oldCt.cancel();
+        }
 
         String devName = "";
-        String devAddr = "";
         try {
-            if (device != null) {
-                devName = device.getName() != null ? device.getName() : "Prime User";
-                devAddr = device.getAddress();
-            }
+            devName = device.getName() != null ? device.getName() : "Prime User";
         } catch (SecurityException ignored) {}
 
-        connectedThread = new ConnectedThread(socket);
-        connectedThread.start();
+        ConnectedThread newThread = new ConnectedThread(socket);
+        connectionPool.put(devAddr, newThread);
+        newThread.start();
 
-        setState(ConnectionState.CONNECTED, devName, devAddr);
+        setState(devAddr, ConnectionState.CONNECTED, devName);
     }
 
     /**
      * Отправка пакета через активный сокет.
      */
-    public synchronized void sendPacket(byte type, byte[] payload) {
-        ConnectedThread r = connectedThread;
+    public synchronized void sendPacket(String deviceAddress, byte type, byte[] payload) {
+        if (deviceAddress == null) return;
+        ConnectedThread r = connectionPool.get(deviceAddress);
         if (r != null && r.isAlive()) {
             r.sendPacket(type, payload);
         } else {
-            Log.w(TAG, "Cannot send packet, no active connected thread");
+            Log.w(TAG, "Cannot send packet, no active connected thread for " + deviceAddress);
         }
+    }
+
+    public synchronized ConnectedThread getThreadFor(String deviceAddress) {
+        if (deviceAddress == null) return null;
+        return connectionPool.get(deviceAddress);
     }
 
     /**
      * Отключение активного соединения.
      */
+    public synchronized void disconnect(String deviceAddress) {
+        if (deviceAddress == null) {
+            disconnect();
+            return;
+        }
+        ConnectThread ct = connectingThreads.remove(deviceAddress);
+        if (ct != null) ct.cancel();
+
+        ConnectedThread ctd = connectionPool.remove(deviceAddress);
+        if (ctd != null) ctd.cancel();
+
+        setState(deviceAddress, ConnectionState.DISCONNECTED, null);
+    }
+
     public synchronized void disconnect() {
-        stopConnectThread();
-        stopConnectedThread();
-        setState(ConnectionState.DISCONNECTED, null, null);
+        stopAll();
     }
 
     /**
      * Полный сброс всех потоков и ресурсов.
      */
     public synchronized void stopAll() {
-        stopConnectThread();
-        stopConnectedThread();
+        for (ConnectThread ct : connectingThreads.values()) {
+            ct.cancel();
+        }
+        connectingThreads.clear();
+
+        for (String addr : connectionPool.keySet()) {
+            ConnectedThread ctd = connectionPool.get(addr);
+            if (ctd != null) ctd.cancel();
+            setState(addr, ConnectionState.DISCONNECTED, null);
+        }
+        connectionPool.clear();
+        deviceStates.clear();
+        deviceNames.clear();
+
         stopAcceptThread();
-        setState(ConnectionState.DISCONNECTED, null, null);
     }
 
     private synchronized void stopAcceptThread() {
         if (acceptThread != null) {
             acceptThread.cancel();
             acceptThread = null;
-        }
-    }
-
-    private synchronized void stopConnectThread() {
-        if (connectThread != null) {
-            connectThread.cancel();
-            connectThread = null;
-        }
-    }
-
-    private synchronized void stopConnectedThread() {
-        if (connectedThread != null) {
-            connectedThread.cancel();
-            connectedThread = null;
         }
     }
 
@@ -361,9 +417,7 @@ public class BluetoothConnectionManager {
 
                 if (socket != null && socket.isConnected()) {
                     BluetoothDevice remoteDevice = socket.getRemoteDevice();
-                    cancel();
                     onSocketConnected(socket, remoteDevice);
-                    break;
                 }
             }
         }
@@ -402,7 +456,7 @@ public class BluetoothConnectionManager {
 
             BluetoothSocket socket = null;
 
-            // Stage 1: Insecure RFCOMM
+            // Stage 1: Insecure RFCOMM (Без системного PIN-кода)
             try {
                 socket = mmDevice.createInsecureRfcommSocketToServiceRecord(mmUuid);
                 if (socket != null) {
@@ -414,21 +468,7 @@ public class BluetoothConnectionManager {
                 socket = null;
             }
 
-            // Stage 2: Secure RFCOMM
-            if (socket == null) {
-                try {
-                    socket = mmDevice.createRfcommSocketToServiceRecord(mmUuid);
-                    if (socket != null) {
-                        socket.connect();
-                    }
-                } catch (Exception e2) {
-                    Log.w(TAG, "Stage 2 (Secure RFCOMM) failed: " + e2.getMessage());
-                    closeSocketQuietly(socket);
-                    socket = null;
-                }
-            }
-
-            // Stage 3: Reflection RFCOMM
+            // Stage 2: Reflection Insecure RFCOMM
             if (socket == null) {
                 try {
                     socket = (BluetoothSocket) mmDevice.getClass()
@@ -449,8 +489,8 @@ public class BluetoothConnectionManager {
                 this.isHandedOff = true;
                 onSocketConnected(socket, mmDevice);
             } else {
-                notifyError("Не удалось установить прямое соединение с устройством");
-                setState(ConnectionState.DISCONNECTED, null, null);
+                notifyError(mmDevice.getAddress(), "Не удалось установить прямое соединение с устройством");
+                setState(mmDevice.getAddress(), ConnectionState.DISCONNECTED, null);
             }
         }
 
@@ -466,14 +506,23 @@ public class BluetoothConnectionManager {
         private final DataOutputStream mmOutStream;
         private final ExecutorService writeExecutor = Executors.newSingleThreadExecutor();
         private volatile boolean isRunning = true;
+        private final String threadDeviceAddress;
 
         public ConnectedThread(BluetoothSocket socket) {
             mmSocket = socket;
+            String addr = "";
+            try {
+                if (socket != null && socket.getRemoteDevice() != null) {
+                    addr = socket.getRemoteDevice().getAddress();
+                }
+            } catch (Exception ignored) {}
+            this.threadDeviceAddress = addr;
+            
             DataInputStream tmpIn = null;
             DataOutputStream tmpOut = null;
             try {
-                tmpIn = new DataInputStream(socket.getInputStream());
-                tmpOut = new DataOutputStream(socket.getOutputStream());
+                tmpIn = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 65536));
+                tmpOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
             } catch (IOException e) {
                 Log.e(TAG, "Sockets streams create failed", e);
             }
@@ -492,19 +541,17 @@ public class BluetoothConnectionManager {
                         throw new IOException("Invalid packet length: " + length);
                     }
 
-                    byte[] payload = new byte[length];
+                    byte[] payloadData = new byte[length];
                     if (length > 0) {
-                        mmInStream.readFully(payload);
+                        mmInStream.readFully(payloadData);
                     }
 
-                    notifyPacketReceived(type, payload);
+                    notifyPacketReceived(threadDeviceAddress, type, payloadData);
                 } catch (IOException e) {
                     if (isRunning) {
                         Log.e(TAG, "Connection lost during read", e);
-                        notifyError("Соединение сброшено");
-                        setState(ConnectionState.DISCONNECTED, null, null);
-                        activeDeviceAddress = "";
-                        activeDeviceName = "";
+                        notifyError(threadDeviceAddress, "Соединение сброшено");
+                        setState(threadDeviceAddress, ConnectionState.DISCONNECTED, null);
                     }
                     break;
                 }
@@ -521,25 +568,27 @@ public class BluetoothConnectionManager {
                         mmOutStream.writeInt(len);
                         if (len > 0 && payload != null) {
                             int offset = 0;
-                            int chunkSize = 4096; // Безопасный размер чанка для Bluetooth RFCOMM
+                            int chunkSize = 32768; // 32 KB оптимальный размер чанка для Bluetooth RFCOMM
+                            long lastProgressReportTime = 0L;
+                            int lastReportedProgress = -1;
+
                             while (offset < len) {
                                 if (!isRunning) break;
                                 int bytesToWrite = Math.min(chunkSize, len - offset);
                                 mmOutStream.write(payload, offset, bytesToWrite);
                                 offset += bytesToWrite;
-                                mmOutStream.flush();
 
-                                // Обновляем прогресс при больших файлах (фото/видео/документы)
                                 if (len > 256 * 1024) {
                                     int progress = (int) ((offset * 100L) / len);
-                                    notifySendProgress(progress);
-                                }
-                                
-                                // Небольшая задержка, чтобы дать аппаратному буферу освободиться
-                                if (len > 1024 * 1024) {
-                                    try { Thread.sleep(2); } catch (InterruptedException ignored) {}
+                                    long now = SystemClock.elapsedRealtime();
+                                    if (progress != lastReportedProgress && (now - lastProgressReportTime > 250L || progress == 100)) {
+                                        lastReportedProgress = progress;
+                                        lastProgressReportTime = now;
+                                        notifySendProgress(threadDeviceAddress, progress);
+                                    }
                                 }
                             }
+                            mmOutStream.flush();
                         } else {
                             mmOutStream.flush();
                         }
@@ -547,10 +596,8 @@ public class BluetoothConnectionManager {
                 } catch (IOException e) {
                     Log.e(TAG, "Error writing packet type " + type, e);
                     if (isRunning) {
-                        notifyError("Ошибка отправки данных: " + e.getMessage());
-                        setState(ConnectionState.DISCONNECTED, null, null);
-                        activeDeviceAddress = "";
-                        activeDeviceName = "";
+                        notifyError(threadDeviceAddress, "Ошибка отправки данных: " + e.getMessage());
+                        setState(threadDeviceAddress, ConnectionState.DISCONNECTED, null);
                         cancel();
                     }
                 }
@@ -561,6 +608,8 @@ public class BluetoothConnectionManager {
             isRunning = false;
             writeExecutor.shutdownNow();
             closeSocketQuietly(mmSocket);
+            connectionPool.remove(threadDeviceAddress);
+            connectingThreads.remove(threadDeviceAddress);
         }
     }
 }

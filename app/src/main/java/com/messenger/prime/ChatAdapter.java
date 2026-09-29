@@ -15,6 +15,7 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.media.MediaMetadataRetriever;
 import androidx.recyclerview.widget.DiffUtil;
+import com.bumptech.glide.Glide;
 import java.util.Objects;
 
 import android.media.ThumbnailUtils;
@@ -728,25 +729,49 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private void bindLinkPreview(View itemView, String messageText) {
         View layoutLinkPreview = itemView.findViewById(R.id.layoutLinkPreview);
+        ImageView ivLinkPreviewImage = itemView.findViewById(R.id.ivLinkPreviewImage);
         TextView tvLinkPreviewTitle = itemView.findViewById(R.id.tvLinkPreviewTitle);
+        TextView tvLinkPreviewDescription = itemView.findViewById(R.id.tvLinkPreviewDescription);
         TextView tvLinkPreviewUrl = itemView.findViewById(R.id.tvLinkPreviewUrl);
 
         if (layoutLinkPreview != null) {
             String url = extractUrl(messageText);
-            if (url != null && !url.isEmpty()) {
+            if (url != null && !url.trim().isEmpty()) {
                 layoutLinkPreview.setVisibility(View.VISIBLE);
-                if (tvLinkPreviewTitle != null) {
-                    try {
-                        Uri uri = Uri.parse(url);
-                        String host = uri.getHost();
-                        tvLinkPreviewTitle.setText(host != null ? host : url);
-                    } catch (Exception e) {
-                        tvLinkPreviewTitle.setText(url);
+
+                String domain = url;
+                try {
+                    Uri uri = Uri.parse(url.startsWith("http") ? url : "https://" + url);
+                    if (uri.getHost() != null) domain = uri.getHost();
+                } catch (Exception ignored) {}
+
+                if (tvLinkPreviewTitle != null) tvLinkPreviewTitle.setText(domain);
+                if (tvLinkPreviewUrl != null) tvLinkPreviewUrl.setText(url);
+                if (tvLinkPreviewDescription != null) tvLinkPreviewDescription.setVisibility(View.GONE);
+
+                LinkPreviewManager.getInstance().fetchPreview(url, data -> {
+                    if (data != null && itemView.isAttachedToWindow()) {
+                        if (tvLinkPreviewTitle != null && data.title != null && !data.title.isEmpty()) {
+                            tvLinkPreviewTitle.setText(data.title);
+                        }
+                        if (tvLinkPreviewDescription != null && data.description != null && !data.description.isEmpty()) {
+                            tvLinkPreviewDescription.setText(data.description);
+                            tvLinkPreviewDescription.setVisibility(View.VISIBLE);
+                        }
+                        if (tvLinkPreviewUrl != null && data.domain != null && !data.domain.isEmpty()) {
+                            tvLinkPreviewUrl.setText(data.domain);
+                        }
+                        if (ivLinkPreviewImage != null && data.imageUrl != null && !data.imageUrl.isEmpty()) {
+                            Glide.with(itemView.getContext())
+                                    .load(data.imageUrl)
+                                    .centerCrop()
+                                    .placeholder(R.drawable.ic_search)
+                                    .error(R.drawable.ic_search)
+                                    .into(ivLinkPreviewImage);
+                        }
                     }
-                }
-                if (tvLinkPreviewUrl != null) {
-                    tvLinkPreviewUrl.setText(url);
-                }
+                });
+
                 layoutLinkPreview.setOnClickListener(v -> {
                     try {
                         String targetUrl = url;
@@ -1161,12 +1186,27 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
 
         try {
+            boolean isGif = pathOrUri.toLowerCase().endsWith(".gif") || pathOrUri.toLowerCase().contains("gif");
             if (pathOrUri.startsWith("content://")) {
+                if (isGif && context != null) {
+                    Glide.with(context)
+                            .asGif()
+                            .load(Uri.parse(pathOrUri))
+                            .into(imageView);
+                    return;
+                }
                 imageView.setImageURI(Uri.parse(pathOrUri));
                 return;
             }
             File file = new File(pathOrUri);
             if (file.exists()) {
+                if (isGif && context != null) {
+                    Glide.with(context)
+                            .asGif()
+                            .load(file)
+                            .into(imageView);
+                    return;
+                }
                 Bitmap bmp = decodeSampledBitmapFromFile(file.getAbsolutePath(), 512, 512);
                 if (bmp != null) {
                     imageView.setImageBitmap(bmp);
@@ -1174,6 +1214,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 }
             }
             Uri uri = Uri.parse(pathOrUri);
+            if (isGif && context != null) {
+                Glide.with(context)
+                        .asGif()
+                        .load(uri)
+                        .into(imageView);
+                return;
+            }
             imageView.setImageURI(uri);
         } catch (Exception e) {
             imageView.setImageResource(R.drawable.ic_photo);

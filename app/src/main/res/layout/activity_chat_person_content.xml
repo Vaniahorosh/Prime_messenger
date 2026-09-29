@@ -98,6 +98,7 @@
                     android:id="@+id/ivPullCheck"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
+                    android:contentDescription="Статус"
                     android:src="@drawable/ic_done"
                     app:tint="@color/prime_success"
                     android:visibility="gone"
@@ -448,6 +449,7 @@
                 <ImageView
                     android:layout_width="16dp"
                     android:layout_height="16dp"
+                    android:contentDescription="Панель"
                     android:src="@drawable/ic_undo"
                     app:tint="@color/prime_brand" />
 
