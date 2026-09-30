@@ -46,7 +46,7 @@
 
     <style name="Rounded15PercentImageView">
         <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">15%</item>
+        <item name="cornerSize">24%</item>
     </style>
 
     <style name="Theme.Prime.PhotoViewer" parent="Theme.Prime.Swipe">

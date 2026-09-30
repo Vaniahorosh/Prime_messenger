@@ -56,6 +56,7 @@ public class BluetoothConnectionManager {
     private final ConcurrentHashMap<String, String> deviceNames = new ConcurrentHashMap<>();
     // Также храним исходящие потоки ConnectThread, чтобы избежать параллельных коннектов к одному устройству
     private final ConcurrentHashMap<String, ConnectThread> connectingThreads = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Handler> connectRetryHandlers = new ConcurrentHashMap<>();
 
     public static synchronized BluetoothConnectionManager getInstance() {
         if (instance == null) {
@@ -253,6 +254,25 @@ public class BluetoothConnectionManager {
 
         if (!shouldBeClient) {
             Log.d(TAG, "Role arbitration: Local device (" + localName + ") acts as Server, waiting for client connection...");
+            Handler retryHandler = connectRetryHandlers.get(device.getAddress());
+            if (retryHandler == null) {
+                retryHandler = new Handler(Looper.getMainLooper());
+                connectRetryHandlers.put(device.getAddress(), retryHandler);
+            } else {
+                retryHandler.removeCallbacksAndMessages(null);
+            }
+            final BluetoothAdapter adp = adapter;
+            final BluetoothDevice dev = device;
+            final UUID uuid = serviceUuid;
+            retryHandler.postDelayed(() -> {
+                if (!isConnected(dev.getAddress())) {
+                    Log.d(TAG, "Server wait timeout fallback: forcing client connection to " + dev.getAddress());
+                    ConnectThread ct = new ConnectThread(adp, dev, uuid);
+                    connectingThreads.put(dev.getAddress(), ct);
+                    ct.start();
+                    setState(dev.getAddress(), ConnectionState.CONNECTING, dev.getName());
+                }
+            }, 1500L);
             return;
         }
 
@@ -440,6 +460,7 @@ public class BluetoothConnectionManager {
         private final UUID mmUuid;
         private BluetoothSocket mmSocket;
         private volatile boolean isHandedOff = false;
+        private volatile boolean isCancelled = false;
 
         public ConnectThread(BluetoothAdapter adapter, BluetoothDevice device, UUID uuid) {
             mmAdapter = adapter;
@@ -448,6 +469,7 @@ public class BluetoothConnectionManager {
         }
 
         public void run() {
+            if (isCancelled) return;
             if (mmAdapter != null) {
                 try {
                     mmAdapter.cancelDiscovery();
@@ -460,6 +482,7 @@ public class BluetoothConnectionManager {
             try {
                 socket = mmDevice.createInsecureRfcommSocketToServiceRecord(mmUuid);
                 if (socket != null) {
+                    this.mmSocket = socket;
                     socket.connect();
                 }
             } catch (Exception e1) {
@@ -469,23 +492,43 @@ public class BluetoothConnectionManager {
             }
 
             // Stage 2: Reflection Insecure RFCOMM
-            if (socket == null) {
+            if (socket == null && !isCancelled) {
                 try {
                     socket = (BluetoothSocket) mmDevice.getClass()
                             .getMethod("createInsecureRfcommSocketToServiceRecord", UUID.class)
                             .invoke(mmDevice, mmUuid);
                     if (socket != null) {
+                        this.mmSocket = socket;
                         socket.connect();
                     }
                 } catch (Exception e3) {
-                    Log.e(TAG, "Stage 3 (Reflection RFCOMM) failed: " + e3.getMessage());
+                    Log.w(TAG, "Stage 2 (Reflection Insecure RFCOMM) failed: " + e3.getMessage());
                     closeSocketQuietly(socket);
                     socket = null;
                 }
             }
 
+            // Stage 3: Secure RFCOMM
+            if (socket == null && !isCancelled) {
+                try {
+                    socket = mmDevice.createRfcommSocketToServiceRecord(mmUuid);
+                    if (socket != null) {
+                        this.mmSocket = socket;
+                        socket.connect();
+                    }
+                } catch (Exception e2) {
+                    Log.w(TAG, "Stage 3 (Secure RFCOMM) failed: " + e2.getMessage());
+                    closeSocketQuietly(socket);
+                    socket = null;
+                }
+            }
+
+            if (isCancelled) {
+                closeSocketQuietly(socket);
+                return;
+            }
+
             if (socket != null && socket.isConnected()) {
-                this.mmSocket = socket;
                 this.isHandedOff = true;
                 onSocketConnected(socket, mmDevice);
             } else {
@@ -496,6 +539,7 @@ public class BluetoothConnectionManager {
 
         public void cancel() {
             if (isHandedOff) return;
+            isCancelled = true;
             closeSocketQuietly(mmSocket);
         }
     }

@@ -32,6 +32,8 @@ import com.messenger.prime.databinding.ActivityRegisterContentBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrPosition
+import java.io.File
+import java.io.FileOutputStream
 import kotlin.math.max
 
 
@@ -60,12 +62,21 @@ class RegisterActivity : AppCompatActivity() {
             val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif") || "image/gif".equals(mime, ignoreCase = true)
 
             if (isGif) {
-                avatarUri = uri
+                try {
+                    val destFile = File(filesDir, "avatar_${userLogin}.gif")
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        FileOutputStream(destFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    avatarUri = Uri.fromFile(destFile)
+                } catch (e: Exception) {
+                    avatarUri = uri
+                }
                 binding?.ivSelectedAvatar?.let { iv ->
                     Glide.with(this)
                         .asGif()
                         .load(uri)
-                        .circleCrop()
                         .into(iv)
                 }
                 binding?.tvAvatarHint?.visibility = View.GONE

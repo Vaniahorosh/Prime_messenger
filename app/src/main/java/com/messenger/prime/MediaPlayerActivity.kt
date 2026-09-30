@@ -1101,7 +1101,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                     imageView.setImageBitmap(item.imageBitmap)
                 } else if (path.isNotEmpty()) {
                     if (path.startsWith("content://")) {
-                        imageView.setImageURI(Uri.parse(path))
+                        Glide.with(itemView.context).load(Uri.parse(path)).error(R.drawable.ic_person).into(imageView)
                     } else {
                         val file = File(path)
                         if (file.exists()) {

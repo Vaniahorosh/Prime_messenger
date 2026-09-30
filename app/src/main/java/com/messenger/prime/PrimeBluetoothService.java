@@ -28,10 +28,16 @@ import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.Objects;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
 
 public class PrimeBluetoothService extends Service implements BluetoothConnectionManager.ConnectionCallback {
 
@@ -452,6 +458,15 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         }
 
         try {
+            if (ChatPersonActivity.isForegroundWithAddress(fromAddress)) {
+                // Если чат открыт на экране, он сам обработает и сохранит все пакеты,
+                // поэтому фоновому сервису не нужно дублировать работу и ломать файлы.
+                if (type == 0x08) {
+                    ChatListNotifier.INSTANCE.notifyChanged();
+                }
+                return;
+            }
+
             if (type == 0x01) { // TYPE_TEXT
                 String textData = new String(payload, StandardCharsets.UTF_8);
                 if (!textData.startsWith("HANDSHAKE:") && !textData.startsWith("HANDSHAKE_ACK:")) {
@@ -462,21 +477,26 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     
                     ChatHistoryManager.saveMessage(this, displayName, msg);
                     saveBackgroundLastMessageToChatList(displayName, fromAddress, parsed.realText);
-                    
-                    if (!ChatPersonActivity.isForegroundWithAddress(fromAddress)) {
-                        showMessageNotification(this, displayName, parsed.realText, fromAddress);
-                    }
+                    showMessageNotification(this, displayName, parsed.realText, fromAddress);
                 }
             } else if (type == 0x02) { // TYPE_PHOTO
-                if (!ChatPersonActivity.isForegroundWithAddress(fromAddress)) {
-                    saveBackgroundLastMessageToChatList(displayName, fromAddress, "📷 Фотография");
-                    showMessageNotification(this, displayName, "📷 Фотография", fromAddress);
-                }
+                long ts = System.currentTimeMillis();
+                String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(ts));
+                ChatMessage msg = parseBackgroundPhotoMessage(this, payload, displayName, ts, time);
+                ChatHistoryManager.saveMessage(this, displayName, msg);
+
+                String summaryStr = ChatMessage.getSummaryDescription(msg);
+                saveBackgroundLastMessageToChatList(displayName, fromAddress, summaryStr);
+                showMessageNotification(this, displayName, summaryStr, fromAddress);
             } else if (type == 0x0E) { // TYPE_FILE
-                if (!ChatPersonActivity.isForegroundWithAddress(fromAddress)) {
-                    saveBackgroundLastMessageToChatList(displayName, fromAddress, "📎 Файл");
-                    showMessageNotification(this, displayName, "📎 Файл", fromAddress);
-                }
+                long ts = System.currentTimeMillis();
+                String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(ts));
+                ChatMessage msg = parseBackgroundFileMessage(this, payload, displayName, ts, time);
+                ChatHistoryManager.saveMessage(this, displayName, msg);
+
+                String summaryStr = ChatMessage.getSummaryDescription(msg);
+                saveBackgroundLastMessageToChatList(displayName, fromAddress, summaryStr);
+                showMessageNotification(this, displayName, summaryStr, fromAddress);
             } else if (type == 0x08) { // TYPE_CHAT_DELETED
                 ChatHistoryManager.deleteHistoryCompletely(this, displayName, fromAddress);
                 ChatListNotifier.INSTANCE.notifyChanged();
@@ -499,6 +519,13 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         if (targetName == null || targetName.isEmpty()) return;
         try {
             SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
+            String myName = sharedPrefs.getString("my_name", null);
+            if (myName == null || myName.isEmpty()) myName = sharedPrefs.getString("my_local_name", null);
+            if (myName == null || myName.isEmpty()) myName = sharedPrefs.getString("current_user_name", null);
+            if (myName != null && !myName.isEmpty() && targetName.equalsIgnoreCase(myName)) {
+                return;
+            }
+
             String json = sharedPrefs.getString("persisted_chats", "[]");
             JSONArray array = new JSONArray(json);
             JSONArray newArray = new JSONArray();
@@ -542,6 +569,243 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         } catch (Throwable e) {
             Log.e(TAG, "Failed to save background last message", e);
         }
+    }
+
+    private static ChatMessage parseBackgroundPhotoMessage(Context context, byte[] fullPayload, String sender, long photoTs, String photoTime) {
+        if (fullPayload == null || fullPayload.length == 0) {
+            return new ChatMessage("📷 Фотография", photoTime, sender, false, null, photoTs, null, null);
+        }
+
+        String metaCheck = new String(fullPayload, 0, Math.min(fullPayload.length, 300), StandardCharsets.UTF_8);
+        if (metaCheck.contains(":::MULTI:")) {
+            int headerEndIdx = -1;
+            String headerEndTag = ":::HEADER_END:::";
+            byte[] tagBytes = headerEndTag.getBytes(StandardCharsets.UTF_8);
+            for (int i = 0; i <= fullPayload.length - tagBytes.length; i++) {
+                boolean match = true;
+                for (int j = 0; j < tagBytes.length; j++) {
+                    if (fullPayload[i + j] != tagBytes[j]) { match = false; break; }
+                }
+                if (match) { headerEndIdx = i; break; }
+            }
+
+            if (headerEndIdx != -1) {
+                String headerStr = new String(fullPayload, 0, headerEndIdx, StandardCharsets.UTF_8);
+                int bodyStart = headerEndIdx + tagBytes.length;
+
+                String photoMsgId = ChatPersonActivity.extractMsgId(headerStr);
+                String sizesPart = "";
+                int sizesIdx = headerStr.indexOf(":::SIZES:");
+                if (sizesIdx != -1) {
+                    sizesPart = headerStr.substring(sizesIdx + 9);
+                    int endSizes = sizesPart.indexOf(":::");
+                    if (endSizes != -1) sizesPart = sizesPart.substring(0, endSizes);
+                }
+
+                String captionText = "";
+                int multiIdx = headerStr.indexOf(":::MULTI:");
+                if (multiIdx != -1 && sizesIdx != -1 && sizesIdx > multiIdx) {
+                    String multiSub = headerStr.substring(multiIdx + 9, sizesIdx);
+                    int colonIdx = multiSub.indexOf(":::");
+                    if (colonIdx != -1) {
+                        captionText = multiSub.substring(colonIdx + 3);
+                    }
+                }
+
+                String[] itemMetas = sizesPart.split(",");
+                List<ChatMessage.MediaItem> recMediaItems = new ArrayList<>();
+                int currentOffset = bodyStart;
+
+                for (int idx = 0; idx < itemMetas.length; idx++) {
+                    try {
+                        String metaStr = itemMetas[idx].trim();
+                        String[] parts = metaStr.split("\\|");
+                        boolean isVideo = parts.length >= 1 && "1".equals(parts[0]);
+                        int pSize = parts.length >= 2 ? Integer.parseInt(parts[1]) : Integer.parseInt(parts[0]);
+                        String durStr = parts.length >= 3 ? parts[2] : "00:00";
+                        String ext = parts.length >= 4 ? parts[3] : (isVideo ? "mp4" : "jpg");
+
+                        if (currentOffset + pSize <= fullPayload.length) {
+                            byte[] itemBytes = new byte[pSize];
+                            System.arraycopy(fullPayload, currentOffset, itemBytes, 0, pSize);
+                            currentOffset += pSize;
+
+                            File mediaFile = new File(context.getFilesDir(), "rec_media_" + (photoMsgId != null ? photoMsgId : photoTs) + "_" + idx + "." + ext);
+                            FileOutputStream fos = new FileOutputStream(mediaFile);
+                            fos.write(itemBytes);
+                            fos.flush();
+                            fos.close();
+
+                            recMediaItems.add(new ChatMessage.MediaItem(mediaFile.getAbsolutePath(), isVideo, durStr));
+                        }
+                    } catch (Exception e) {
+                        Log.e("PrimeBluetoothService", "Failed to parse multi-media item " + idx, e);
+                    }
+                }
+
+                if (!recMediaItems.isEmpty()) {
+                    ChatMessage multiMsg = new ChatMessage(captionText, photoTime, sender, false, null, photoTs, null, photoMsgId);
+                    multiMsg.setMediaItems(recMediaItems);
+                    return multiMsg;
+                }
+            }
+        }
+
+        String photoMsgId = null;
+        String captionText = null;
+        byte[] photoBytes = fullPayload;
+        int sepIdx = -1;
+        for (int i = 0; i < Math.min(fullPayload.length, 120); i++) {
+            if (fullPayload[i] == ':' && i + 2 < fullPayload.length && fullPayload[i+1] == ':' && fullPayload[i+2] == ':') {
+                sepIdx = i;
+                break;
+            }
+        }
+        if (sepIdx != -1) {
+            photoMsgId = new String(fullPayload, 0, sepIdx, StandardCharsets.UTF_8);
+            photoBytes = new byte[fullPayload.length - (sepIdx + 3)];
+            System.arraycopy(fullPayload, sepIdx + 3, photoBytes, 0, photoBytes.length);
+        }
+
+        if (photoBytes.length > 9) {
+            byte[] magic = "|PRM|".getBytes(StandardCharsets.UTF_8);
+            boolean hasMagic = true;
+            for (int i = 0; i < 5; i++) {
+                if (photoBytes[photoBytes.length - 5 + i] != magic[i]) {
+                    hasMagic = false;
+                    break;
+                }
+            }
+            if (hasMagic) {
+                int capLen = ((photoBytes[photoBytes.length - 9] & 0xFF) << 24) |
+                             ((photoBytes[photoBytes.length - 8] & 0xFF) << 16) |
+                             ((photoBytes[photoBytes.length - 7] & 0xFF) << 8) |
+                             (photoBytes[photoBytes.length - 6] & 0xFF);
+                if (capLen > 0 && capLen < photoBytes.length - 9) {
+                    captionText = new String(photoBytes, photoBytes.length - 9 - capLen, capLen, StandardCharsets.UTF_8);
+                    byte[] cleanPhoto = new byte[photoBytes.length - 9 - capLen];
+                    System.arraycopy(photoBytes, 0, cleanPhoto, 0, cleanPhoto.length);
+                    photoBytes = cleanPhoto;
+                }
+            }
+        }
+
+        String savedPhotoPath = null;
+        if (photoBytes.length > 0) {
+            try {
+                boolean isGif = photoBytes.length > 3 && photoBytes[0] == (byte) 'G' && photoBytes[1] == (byte) 'I' && photoBytes[2] == (byte) 'F';
+                String ext = isGif ? ".gif" : ".jpg";
+                File photoFile = new File(context.getFilesDir(), "rec_photo_" + (photoMsgId != null ? photoMsgId : photoTs) + ext);
+                FileOutputStream fos = new FileOutputStream(photoFile);
+                fos.write(photoBytes);
+                fos.flush();
+                fos.close();
+                savedPhotoPath = photoFile.getAbsolutePath();
+            } catch (Exception e) {
+                Log.e("PrimeBluetoothService", "Failed to save received photo in background", e);
+            }
+        }
+
+        ChatMessage photoMsg = new ChatMessage(captionText, photoTime, sender, false, null, photoTs, savedPhotoPath, photoMsgId);
+        photoMsg.setMessageType(ChatMessage.MessageType.IMAGE);
+        return photoMsg;
+    }
+
+    private static ChatMessage parseBackgroundFileMessage(Context context, byte[] fullPayload, String sender, long timestamp, String time) {
+        if (fullPayload == null || fullPayload.length == 0) {
+            return new ChatMessage("Файл", time, sender, false, null, timestamp, null, null);
+        }
+
+        int headerEndIdx = -1;
+        String headerEndTag = ":::HEADER_END:::";
+        byte[] tagBytes = headerEndTag.getBytes(StandardCharsets.UTF_8);
+
+        for (int i = 0; i <= fullPayload.length - tagBytes.length; i++) {
+            boolean match = true;
+            for (int j = 0; j < tagBytes.length; j++) {
+                if (fullPayload[i + j] != tagBytes[j]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) {
+                headerEndIdx = i;
+                break;
+            }
+        }
+
+        String headerStr = "";
+        byte[] fileDataBytes = new byte[0];
+
+        if (headerEndIdx != -1) {
+            headerStr = new String(fullPayload, 0, headerEndIdx, StandardCharsets.UTF_8);
+            int bodyStart = headerEndIdx + tagBytes.length;
+            int bodyLen = fullPayload.length - bodyStart;
+            if (bodyLen > 0) {
+                fileDataBytes = new byte[bodyLen];
+                System.arraycopy(fullPayload, bodyStart, fileDataBytes, 0, bodyLen);
+            }
+        } else {
+            headerStr = new String(fullPayload, StandardCharsets.UTF_8);
+        }
+
+        String msgId = null;
+        String fileName = "Файл";
+        long fileSize = 0L;
+        String text = "";
+        String videoDuration = null;
+
+        BiFunction<String, String, String> extractTag = (header, tag) -> {
+            int idx = header.indexOf(tag);
+            if (idx == -1) return null;
+            int start = idx + tag.length();
+            int end = header.indexOf(":::", start);
+            if (end == -1) end = header.length();
+            return header.substring(start, end).trim();
+        };
+
+        videoDuration = extractTag.apply(headerStr, ":::DURATION:::");
+        String isVideoStr = extractTag.apply(headerStr, ":::IS_VIDEO:::");
+        boolean isVideoFlag = "1".equals(isVideoStr);
+
+        String[] parts = headerStr.split(":::");
+        if (parts.length >= 1) msgId = parts[0];
+        if (parts.length >= 2) fileName = parts[1];
+        if (parts.length >= 3) {
+            try { fileSize = Long.parseLong(parts[2]); } catch (Exception ignored) {}
+        }
+        if (parts.length >= 4) text = parts[3];
+
+        String localSavedPath = null;
+        if (fileDataBytes.length > 0) {
+            try {
+                File localFile = new File(context.getFilesDir(), "rec_file_" + (msgId != null ? msgId : timestamp) + "_" + fileName);
+                FileOutputStream fos = new FileOutputStream(localFile);
+                fos.write(fileDataBytes);
+                fos.flush();
+                fos.close();
+                localSavedPath = localFile.getAbsolutePath();
+            } catch (Exception e) {
+                Log.e("PrimeBluetoothService", "Failed to save received file in background", e);
+            }
+        }
+
+        ChatMessage msg = new ChatMessage(text, time, sender, false, null, timestamp, localSavedPath, msgId);
+
+        String lowerName = fileName.toLowerCase(Locale.US);
+        boolean isVideo = isVideoFlag || (videoDuration != null && !videoDuration.equals("00:00")) || lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".3gp") || lowerName.endsWith(".webm") || lowerName.endsWith(".mov") || lowerName.endsWith(".avi");
+
+        if (isVideo) {
+            msg.setMessageType(ChatMessage.MessageType.VIDEO);
+            msg.setVideoDuration(videoDuration != null ? videoDuration : "00:00");
+        } else {
+            msg.setMessageType(ChatMessage.MessageType.FILE);
+        }
+
+        msg.setFileName(fileName);
+        msg.setFileSize(fileSize > 0 ? fileSize : fileDataBytes.length);
+
+        return msg;
     }
 
     @Nullable

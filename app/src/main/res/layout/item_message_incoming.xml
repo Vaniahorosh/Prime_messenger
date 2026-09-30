@@ -67,7 +67,8 @@
         android:layout_marginEnd="60dp"
         android:background="@drawable/bg_bubble_incoming"
         android:orientation="vertical"
-        android:padding="10dp">
+        android:elevation="0dp"
+        android:padding="12dp">
 
         <!-- Медиа Контейнер (1 элемент, 2 элемента сетка, 3-5 слайдер) -->
         <FrameLayout
@@ -515,7 +516,7 @@
             android:layout_marginEnd="4dp"
             android:scaleType="centerCrop"
             android:visibility="gone"
-            app:shapeAppearanceOverlay="@style/CircleImageView" />
+            app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
 
         <TextView
             android:id="@+id/tvMessageReaction"

@@ -1,6 +1,9 @@
 package com.messenger.prime;
 
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
@@ -11,11 +14,13 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -127,8 +132,56 @@ public class ChatHistoryManager {
             }
 
             dbEdit.apply();
+            unpairBluetoothDevice(appContext, targetUsername, deviceAddress);
             ChatListNotifier.INSTANCE.notifyChanged();
         });
+    }
+
+    @SuppressLint("MissingPermission")
+    public static void unpairBluetoothDevice(Context context, String targetUsername, String deviceAddress) {
+        if (context == null) return;
+        try {
+            BluetoothManager bm = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
+            BluetoothAdapter adapter = bm != null ? bm.getAdapter() : null;
+            if (adapter == null || !adapter.isEnabled()) return;
+
+            SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+            String mappedMac = null;
+            if (targetUsername != null && !targetUsername.isEmpty()) {
+                mappedMac = sp.getString(targetUsername + "_mac", null);
+            }
+
+            Set<BluetoothDevice> bonded = null;
+            try {
+                bonded = adapter.getBondedDevices();
+            } catch (SecurityException ignored) {}
+            if (bonded == null || bonded.isEmpty()) return;
+
+            for (BluetoothDevice dev : bonded) {
+                String devAddr = dev.getAddress();
+                String devName = null;
+                try {
+                    devName = dev.getName();
+                } catch (Exception ignored) {}
+
+                boolean matchAddr = (deviceAddress != null && !deviceAddress.isEmpty() && deviceAddress.equalsIgnoreCase(devAddr));
+                boolean matchMappedMac = (mappedMac != null && !mappedMac.isEmpty() && mappedMac.equalsIgnoreCase(devAddr));
+                boolean matchName = (targetUsername != null && !targetUsername.isEmpty() && devName != null && targetUsername.equalsIgnoreCase(devName));
+                boolean matchNameAddr = (targetUsername != null && !targetUsername.isEmpty() && targetUsername.equalsIgnoreCase(devAddr));
+
+                if (matchAddr || matchMappedMac || matchName || matchNameAddr) {
+                    try {
+                        Method removeBondMethod = dev.getClass().getMethod("removeBond");
+                        removeBondMethod.invoke(dev);
+                        Log.d("ChatHistoryManager", "Successfully unpaired bluetooth device: " + devAddr + " (" + devName + ")");
+                    } catch (Exception e) {
+                        Log.e("ChatHistoryManager", "Failed to unpair bluetooth device " + devAddr, e);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e("ChatHistoryManager", "Error unpairing bluetooth device", e);
+        }
     }
 
     public static void deleteSingleMessage(Context context, String targetUsername, String messageId) {
@@ -321,6 +374,19 @@ public class ChatHistoryManager {
                     try {
                         msg.setMessageType(ChatMessage.MessageType.valueOf(msgTypeStr));
                     } catch (Exception ignored) {}
+
+                    String pathToCheck = msg.getImagePath();
+                    if ((pathToCheck == null || pathToCheck.isEmpty()) && msg.getFileName() != null) {
+                        pathToCheck = msg.getFileName();
+                    }
+                    if (pathToCheck != null) {
+                        String lower = pathToCheck.toLowerCase(Locale.US);
+                        if (lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".3gp") || lower.endsWith(".webm") || lower.endsWith(".mov") || lower.endsWith(".avi")) {
+                            if (msg.getMessageType() != ChatMessage.MessageType.VIDEO) {
+                                msg.setMessageType(ChatMessage.MessageType.VIDEO);
+                            }
+                        }
+                    }
 
                     JSONObject reactionsObj = obj.optJSONObject("reactions");
                     if (reactionsObj != null) {

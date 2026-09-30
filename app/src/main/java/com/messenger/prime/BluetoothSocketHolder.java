@@ -251,16 +251,30 @@ public class BluetoothSocketHolder {
         try {
             SharedPreferences sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
             String currentUser = sharedPrefs.getString("current_user", "");
-            String myDisplayName = sharedPrefs.getString(currentUser + "_name", currentUser);
-            String localUsername = (myDisplayName != null && !myDisplayName.isEmpty()) ? myDisplayName : "Пользователь";
+            String myDisplayName = sharedPrefs.getString("my_name", null);
+            if (myDisplayName == null || myDisplayName.isEmpty()) {
+                myDisplayName = sharedPrefs.getString("my_local_name", null);
+            }
+            if (myDisplayName == null || myDisplayName.isEmpty()) {
+                myDisplayName = sharedPrefs.getString("current_user_name", null);
+            }
+            if (myDisplayName == null || myDisplayName.isEmpty()) {
+                myDisplayName = sharedPrefs.getString(currentUser + "_name", currentUser);
+            }
+            String localUsername = (myDisplayName != null && !myDisplayName.isEmpty()) ? myDisplayName : "Prime User";
 
-            String handshake = "HANDSHAKE:login=" + currentUser + ";name=" + localUsername + ";version=" + ChatPersonActivity.getAppVersionCode(context);
+            String handshake = "HANDSHAKE:name=" + localUsername + ";login=" + currentUser + ";version=" + ChatPersonActivity.getAppVersionCode(context);
             byte[] handshakeBytes = handshake.getBytes(StandardCharsets.UTF_8);
 
-            String localAvatarUri = sharedPrefs.getString(currentUser + "_avatar", "");
+            String localAvatarUri = sharedPrefs.getString("my_avatar", null);
             if (localAvatarUri == null || localAvatarUri.isEmpty()) {
-                File f = new File(context.getFilesDir(), "avatar_" + currentUser + ".jpg");
-                if (f.exists()) localAvatarUri = Uri.fromFile(f).toString();
+                localAvatarUri = sharedPrefs.getString("my_local_avatar", null);
+            }
+            if (localAvatarUri == null || localAvatarUri.isEmpty()) {
+                localAvatarUri = sharedPrefs.getString("my_avatar_uri", null);
+            }
+            if (localAvatarUri == null || localAvatarUri.isEmpty()) {
+                localAvatarUri = sharedPrefs.getString(currentUser + "_avatar", "");
             }
 
             byte[] avatarBytes = new byte[0];

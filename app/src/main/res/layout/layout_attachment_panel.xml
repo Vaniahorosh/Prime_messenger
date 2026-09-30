@@ -49,8 +49,7 @@
                     android:layout_height="26dp"
                     android:layout_gravity="center"
                     android:contentDescription="GIF"
-                    android:src="@drawable/ic_undo"
-                    app:tint="@color/prime_brand" />
+                    android:src="@drawable/ic_prime_gif" />
             </FrameLayout>
 
             <TextView

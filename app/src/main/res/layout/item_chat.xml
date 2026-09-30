@@ -19,7 +19,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            app:cardCornerRadius="24dp"
+            app:cardCornerRadius="20dp"
             app:cardElevation="0dp"
             app:strokeWidth="0dp"
             app:layout_constraintEnd_toEndOf="parent">
@@ -50,7 +50,7 @@
         </com.google.android.material.card.MaterialCardView>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- Передний слой с контентом чата -->
+    <!-- Передний слой с контентом чата (Material 3 Card-like styling) -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutContent"
         android:layout_width="match_parent"
@@ -61,13 +61,14 @@
         android:clickable="true"
         android:focusable="true"
         android:paddingHorizontal="16dp"
-        android:paddingVertical="12dp">
+        android:paddingVertical="14dp"
+        android:elevation="0dp"> <!-- Убрана тень, чтобы выглядело как плоский Material Design 3 лист-айтэм -->
 
-        <!-- Контейнер для аватарки или букв -->
+        <!-- Контейнер для аватарки или букв (Увеличенная аватарка) -->
         <FrameLayout
             android:id="@+id/layoutAvatarContainer"
-            android:layout_width="54dp"
-            android:layout_height="54dp"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
@@ -87,7 +88,7 @@
                 android:layout_height="match_parent"
                 android:gravity="center"
                 android:textColor="@color/white"
-                android:textSize="20sp"
+                android:textSize="22sp"
                 android:textStyle="bold"
                 android:visibility="gone"
                 tools:text="Д"
@@ -97,15 +98,15 @@
         <!-- Точка статуса -->
         <View
             android:id="@+id/viewOnlineStatus"
-            android:layout_width="14dp"
-            android:layout_height="14dp"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
             android:background="@android:color/transparent"
             app:layout_constraintBottom_toBottomOf="@+id/layoutAvatarContainer"
             app:layout_constraintEnd_toEndOf="@+id/layoutAvatarContainer"
             android:layout_marginEnd="-2dp"
             android:layout_marginBottom="-2dp" />
 
-        <!-- Имя контакта -->
+        <!-- Имя контакта (Material Title typography) -->
         <TextView
             android:id="@+id/tvContactName"
             android:layout_width="0dp"
@@ -138,11 +139,12 @@
             android:id="@+id/tvLastMessage"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="2dp"
             android:ellipsize="end"
-            android:maxLines="1"
-            android:textColor="@color/prime_text_primary"
+            android:maxLines="2"
+            android:textColor="@color/prime_text_secondary"
             android:textSize="14sp"
+            android:lineSpacingExtra="2dp"
             app:layout_constraintEnd_toStartOf="@+id/layoutStatusContainer"
             app:layout_constraintStart_toStartOf="@+id/tvContactName"
             app:layout_constraintTop_toBottomOf="@+id/tvContactName"
@@ -155,9 +157,10 @@
             android:layout_height="wrap_content"
             android:gravity="center_vertical|end"
             android:orientation="horizontal"
-            app:layout_constraintBottom_toBottomOf="@+id/layoutAvatarContainer"
+            android:layout_marginStart="8dp"
+            app:layout_constraintBottom_toBottomOf="@+id/tvLastMessage"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tvMessageTime">
+            app:layout_constraintTop_toTopOf="@+id/tvLastMessage">
 
             <ImageView
                 android:id="@+id/ivMuteStatus"

@@ -1179,55 +1179,22 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public static void loadMediaImageIntoView(Context context, String pathOrUri, ImageView imageView) {
-        if (imageView == null) return;
+        if (imageView == null || context == null) return;
         if (pathOrUri == null || pathOrUri.isEmpty()) {
             imageView.setImageResource(R.drawable.ic_photo);
             return;
         }
-
-        try {
-            boolean isGif = pathOrUri.toLowerCase().endsWith(".gif") || pathOrUri.toLowerCase().contains("gif");
-            if (pathOrUri.startsWith("content://")) {
-                if (isGif && context != null) {
-                    Glide.with(context)
-                            .asGif()
-                            .load(Uri.parse(pathOrUri))
-                            .into(imageView);
-                    return;
-                }
-                imageView.setImageURI(Uri.parse(pathOrUri));
-                return;
-            }
-            File file = new File(pathOrUri);
-            if (file.exists()) {
-                if (isGif && context != null) {
-                    Glide.with(context)
-                            .asGif()
-                            .load(file)
-                            .into(imageView);
-                    return;
-                }
-                Bitmap bmp = decodeSampledBitmapFromFile(file.getAbsolutePath(), 512, 512);
-                if (bmp != null) {
-                    imageView.setImageBitmap(bmp);
-                    return;
-                }
-            }
-            Uri uri = Uri.parse(pathOrUri);
-            if (isGif && context != null) {
-                Glide.with(context)
-                        .asGif()
-                        .load(uri)
-                        .into(imageView);
-                return;
-            }
-            imageView.setImageURI(uri);
-        } catch (Exception e) {
-            imageView.setImageResource(R.drawable.ic_photo);
+        boolean isGif = pathOrUri.toLowerCase(Locale.US).endsWith(".gif") || pathOrUri.toLowerCase(Locale.US).contains("gif");
+        Uri uri = pathOrUri.startsWith("content://") ? Uri.parse(pathOrUri) : Uri.fromFile(new File(pathOrUri));
+        if (isGif) {
+            Glide.with(context).asGif().load(uri).centerCrop().placeholder(R.drawable.ic_photo).into(imageView);
+        } else {
+            Glide.with(context).load(uri).centerCrop().placeholder(R.drawable.ic_photo).into(imageView);
         }
     }
 
     public static void loadVideoThumbnailIntoView(Context context, String pathOrUri, ImageView imageView, VideoView videoView) {
+        if (context == null) return;
         if (pathOrUri == null || pathOrUri.isEmpty()) {
             if (imageView != null) {
                 imageView.setVisibility(View.VISIBLE);
@@ -1242,7 +1209,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (videoView != null && uri != null) {
             videoView.setVisibility(View.VISIBLE);
             if (imageView != null) imageView.setVisibility(View.GONE);
-
             videoView.setVideoURI(uri);
             videoView.setOnPreparedListener(mp -> {
                 try {
@@ -1255,9 +1221,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 videoView.setVisibility(View.GONE);
                 if (imageView != null) {
                     imageView.setVisibility(View.VISIBLE);
-                    Bitmap thumb = getVideoThumbnail(context, pathOrUri);
-                    if (thumb != null) imageView.setImageBitmap(thumb);
-                    else imageView.setImageResource(R.drawable.ic_video);
+                    Glide.with(context).load(uri).centerCrop().placeholder(R.drawable.ic_video).into(imageView);
                 }
                 return true;
             });
@@ -1267,13 +1231,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (imageView != null) {
             imageView.setVisibility(View.VISIBLE);
             if (videoView != null) videoView.setVisibility(View.GONE);
-
-            Bitmap thumb = getVideoThumbnail(context, pathOrUri);
-            if (thumb != null) {
-                imageView.setImageBitmap(thumb);
-            } else {
-                imageView.setImageResource(R.drawable.ic_video);
-            }
+            Object loadUri = uri != null ? uri : pathOrUri;
+            Glide.with(context).load(loadUri).centerCrop().placeholder(R.drawable.ic_video).into(imageView);
         }
     }
 
@@ -2253,7 +2212,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
         } else {
             if (author != null && !author.isEmpty()) {
-                File fAuthor = new File(context.getFilesDir(), "avatar_" + author + ".jpg");
+                File fAuthor = new File(context.getFilesDir(), "rec_avatar_" + author + ".jpg");
+                if (!fAuthor.exists()) {
+                    fAuthor = new File(context.getFilesDir(), "rec_avatar_" + author + ".gif");
+                }
                 if (fAuthor.exists()) {
                     try {
                         Bitmap bmp = BitmapFactory.decodeFile(fAuthor.getAbsolutePath());
@@ -2261,12 +2223,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     } catch (Exception ignored) {}
                 }
             }
-            File[] files = context.getFilesDir().listFiles((dir, name) -> name.startsWith("avatar_") && name.endsWith(".jpg"));
+            File[] files = context.getFilesDir().listFiles((dir, name) -> name.startsWith("rec_avatar_") && (name.endsWith(".jpg") || name.endsWith(".gif")));
             if (files != null) {
                 for (File f : files) {
-                    String name = f.getName();
-                    if (!currentUser.isEmpty() && name.contains(currentUser)) continue;
-                    if (localUsername != null && !localUsername.isEmpty() && name.contains(localUsername)) continue;
                     try {
                         Bitmap bmp = BitmapFactory.decodeFile(f.getAbsolutePath());
                         if (bmp != null) return bmp;

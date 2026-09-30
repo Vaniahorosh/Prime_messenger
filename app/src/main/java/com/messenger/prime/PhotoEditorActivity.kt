@@ -58,6 +58,7 @@ import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrPosition
 import eightbitlab.com.blurview.BlurView
 import java.io.File
+import java.io.FileInputStream
 
 import java.io.FileOutputStream
 
@@ -202,12 +203,21 @@ class PhotoEditorActivity : AppCompatActivity() {
                             originalUri = uri
                             val uriLower = uriString.lowercase()
                             val mime = try { contentResolver.getType(uri) } catch (_: Exception) { null }
-                            isGifMode = uriLower.endsWith(".gif") || uriLower.contains("gif") || "image/gif".equals(mime, ignoreCase = true)
+                            isGifMode = uriLower.endsWith(".gif") ||
+                                        uriLower.contains("gif") ||
+                                        "image/gif".equals(mime, ignoreCase = true) ||
+                                        (uri.scheme == "file" && uri.path != null && File(uri.path!!).name.lowercase().endsWith(".gif"))
 
                             if (isGifMode) {
                                 b.toolsLayout.visibility = View.GONE
                                 b.toolsScroll.visibility = View.GONE
-                                b.btnSetOriginal.text = if (isProfilePhoto) "Поставить GIF без редактирования" else "Отправить GIF без редактирования"
+                                b.groupSlidersContainer.visibility = View.GONE
+                                b.aspectSelectorContainer.visibility = View.GONE
+                                b.cropFrame.visibility = View.GONE
+                                b.drawingView.visibility = View.GONE
+                                b.topActionsLayout.visibility = View.GONE
+                                b.tsEditorTitle.setText("GIF Просмотр")
+                                b.btnSetOriginal.text = if (isProfilePhoto) "Выбрать этот GIF" else "Отправить GIF"
 
                                 val density = resources.displayMetrics.density
                                 val rootInsets = ViewCompat.getRootWindowInsets(window.decorView)
@@ -678,19 +688,30 @@ class PhotoEditorActivity : AppCompatActivity() {
 
     private fun saveGifAndFinish(uri: Uri) {
         try {
-            val file = File(cacheDir, "gif_avatar_${System.currentTimeMillis()}.gif")
-            contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(file).use { output ->
+            val tempFile = File(cacheDir, "avatar_temp_${System.currentTimeMillis()}.gif")
+
+            val inputStream = try {
+                contentResolver.openInputStream(uri)
+            } catch (_: Exception) { null }
+                ?: if (uri.scheme == "file" && uri.path != null) FileInputStream(File(uri.path!!))
+                   else FileInputStream(File(uri.toString().removePrefix("file://")))
+
+            inputStream.use { input ->
+                FileOutputStream(tempFile).use { output ->
                     input.copyTo(output)
                 }
             }
+
+            val gifUriStr = Uri.fromFile(tempFile).toString()
             val resultIntent = Intent().apply {
-                putExtra("EDITED_IMAGE_URI", Uri.fromFile(file).toString())
+                putExtra("EDITED_IMAGE_URI", gifUriStr)
+                putExtra("EXTRA_IMAGE_URI", gifUriStr)
             }
             setResult(RESULT_OK, resultIntent)
             finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         } catch (e: Exception) {
+            e.printStackTrace()
             finish()
         }
     }
@@ -701,12 +722,19 @@ class PhotoEditorActivity : AppCompatActivity() {
             return
         }
         val bitmap = originalBitmap ?: return
-        val file = java.io.File(cacheDir, "original_${System.currentTimeMillis()}.jpg")
+        val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
         try {
-            val out = FileOutputStream(file)
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-            out.flush(); out.close()
-            val resultIntent = Intent(); resultIntent.putExtra("EDITED_IMAGE_URI", Uri.fromFile(file).toString()); setResult(RESULT_OK, resultIntent); finish()
+            FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                out.flush()
+            }
+            val uriStr = Uri.fromFile(file).toString()
+            val resultIntent = Intent().apply {
+                putExtra("EDITED_IMAGE_URI", uriStr)
+                putExtra("EXTRA_IMAGE_URI", uriStr)
+            }
+            setResult(RESULT_OK, resultIntent)
+            finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         } catch (e: Exception) { finish() }
     }
@@ -939,11 +967,18 @@ class PhotoEditorActivity : AppCompatActivity() {
         val height = rect.height().coerceAtMost(resultBitmap.height - top)
         try {
             val croppedBitmap = Bitmap.createBitmap(resultBitmap, left, top, width, height)
-            val file = java.io.File(cacheDir, "edited_${System.currentTimeMillis()}.jpg")
-            val out = FileOutputStream(file)
-            croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-            out.flush(); out.close()
-            val resultIntent = Intent(); resultIntent.putExtra("EDITED_IMAGE_URI", Uri.fromFile(file).toString()); setResult(RESULT_OK, resultIntent); finish()
+            val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(file).use { out ->
+                croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                out.flush()
+            }
+            val uriStr = Uri.fromFile(file).toString()
+            val resultIntent = Intent().apply {
+                putExtra("EDITED_IMAGE_URI", uriStr)
+                putExtra("EXTRA_IMAGE_URI", uriStr)
+            }
+            setResult(RESULT_OK, resultIntent)
+            finish()
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
         } catch (e: Exception) { finish() }
     }

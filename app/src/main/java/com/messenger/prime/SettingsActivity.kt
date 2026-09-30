@@ -12,6 +12,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import android.net.Uri
 import android.os.Build
@@ -26,6 +27,11 @@ import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.ImageView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.CenterCrop
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+import com.bumptech.glide.signature.ObjectKey
+import java.util.concurrent.Executors
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -93,36 +99,62 @@ class SettingsActivity : AppCompatActivity() {
     private var profileImageView: ImageView? = null
 
     private val photoEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == RESULT_OK) {
-            val editedUriString = result.data?.getStringExtra("EDITED_IMAGE_URI")
-            if (editedUriString != null) {
+        if (result.resultCode == RESULT_OK && result.data != null) {
+            val data = result.data
+            var uriStr = data?.getStringExtra("EDITED_IMAGE_URI")
+            if (uriStr.isNullOrEmpty()) uriStr = data?.getStringExtra("EXTRA_IMAGE_URI")
+            if (uriStr.isNullOrEmpty() && data?.data != null) uriStr = data?.data.toString()
+
+            if (!uriStr.isNullOrEmpty()) {
                 val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
                 val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-                val isGif = editedUriString.lowercase().endsWith(".gif") || editedUriString.lowercase().contains("gif")
+                val isGif = uriStr.lowercase().contains(".gif")
                 val ext = if (isGif) ".gif" else ".jpg"
-                
-                var avatarSavedPath = editedUriString
+
+                val permanentAvatar = File(filesDir, "my_profile_avatar$ext")
                 try {
-                    val srcUri = Uri.parse(editedUriString)
-                    val destFile = File(filesDir, "avatar_${currentUser}${ext}")
-                    contentResolver.openInputStream(srcUri)?.use { input ->
-                        FileOutputStream(destFile).use { output ->
+                    val srcUri = Uri.parse(uriStr)
+                    val inputStream = try {
+                        contentResolver.openInputStream(srcUri)
+                    } catch (_: Exception) { null }
+                        ?: if (srcUri.scheme == "file" && srcUri.path != null) FileInputStream(File(srcUri.path!!))
+                           else FileInputStream(File(uriStr.removePrefix("file://")))
+
+                    inputStream.use { input ->
+                        FileOutputStream(permanentAvatar).use { output ->
                             input.copyTo(output)
                         }
                     }
-                    avatarSavedPath = Uri.fromFile(destFile).toString()
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
 
-                currentAvatarUri = avatarSavedPath
+                val permAvatarUri = Uri.fromFile(permanentAvatar).toString()
+
+                currentAvatarUri = permAvatarUri
+                avatarUriState.value = permAvatarUri
+
                 sharedPrefs.edit()
-                    .putString("${currentUser}_avatar", currentAvatarUri)
-                    .putString("${currentUser}_avatarUri", currentAvatarUri)
+                    .putString("my_avatar", permAvatarUri)
+                    .putString("my_avatar_uri", permAvatarUri)
+                    .putString("my_local_avatar", permAvatarUri)
+                    .putString("${currentUser}_avatar", permAvatarUri)
+                    .putString("${currentUser}_avatarUri", permAvatarUri)
                     .apply()
 
-                applyAvatarState(currentAvatarUri)
+                val b = binding
+                if (b != null) {
+                    val radiusPx = (14 * resources.displayMetrics.density).toInt()
+                    val sig = ObjectKey(if (permanentAvatar.exists()) permanentAvatar.lastModified() else System.currentTimeMillis())
+                    if (isGif) {
+                        Glide.with(this).asGif().load(permanentAvatar).transform(CenterCrop(), RoundedCorners(radiusPx)).signature(sig).placeholder(R.drawable.ic_person).into(b.ivPhotoCard)
+                    } else {
+                        Glide.with(this).load(permanentAvatar).transform(CenterCrop(), RoundedCorners(radiusPx)).signature(sig).placeholder(R.drawable.ic_person).into(b.ivPhotoCard)
+                    }
+                }
+                applyAvatarState(permAvatarUri)
                 sendProfileUpdateOverBluetooth()
+                sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
                 PrimeNotification.show(this, if (isGif) "GIF-аватарка установлена" else "Фото готово")
             }
         }
@@ -131,27 +163,38 @@ class SettingsActivity : AppCompatActivity() {
     private fun setGifAvatarDirectly(uri: Uri) {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        var avatarSavedPath = uri.toString()
+        val permanentAvatar = File(filesDir, "my_profile_avatar.gif")
         try {
-            val destFile = File(filesDir, "avatar_${currentUser}.gif")
             contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(destFile).use { output ->
+                FileOutputStream(permanentAvatar).use { output ->
                     input.copyTo(output)
                 }
             }
-            avatarSavedPath = Uri.fromFile(destFile).toString()
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
-        currentAvatarUri = avatarSavedPath
+        val permAvatarUri = Uri.fromFile(permanentAvatar).toString()
+        currentAvatarUri = permAvatarUri
+        avatarUriState.value = permAvatarUri
+
         sharedPrefs.edit()
-            .putString("${currentUser}_avatar", currentAvatarUri)
-            .putString("${currentUser}_avatarUri", currentAvatarUri)
+            .putString("my_avatar", permAvatarUri)
+            .putString("my_avatar_uri", permAvatarUri)
+            .putString("my_local_avatar", permAvatarUri)
+            .putString("${currentUser}_avatar", permAvatarUri)
+            .putString("${currentUser}_avatarUri", permAvatarUri)
             .apply()
 
-        applyAvatarState(currentAvatarUri)
+        val b = binding
+        if (b != null) {
+            val radiusPx = (14 * resources.displayMetrics.density).toInt()
+            val sig = ObjectKey(if (permanentAvatar.exists()) permanentAvatar.lastModified() else System.currentTimeMillis())
+            Glide.with(this).asGif().load(permanentAvatar).transform(CenterCrop(), RoundedCorners(radiusPx)).signature(sig).placeholder(R.drawable.ic_person).into(b.ivPhotoCard)
+        }
+        applyAvatarState(permAvatarUri)
         sendProfileUpdateOverBluetooth()
+        sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
         PrimeNotification.show(this, "GIF-аватарка установлена")
     }
 
@@ -217,9 +260,15 @@ class SettingsActivity : AppCompatActivity() {
         currentLoginInDB = currentUser
         currentPassInDB = sharedPrefs.getString(currentUser, "") ?: ""
         
-        val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
+        val savedName = sharedPrefs.getString("my_name", null)
+            ?: sharedPrefs.getString("my_local_name", null)
+            ?: sharedPrefs.getString("current_user_name", null)
+            ?: sharedPrefs.getString("${currentUser}_name", "Я") ?: "Я"
         currentNameInDB = savedName
-        val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
+        val savedAvatarUri = sharedPrefs.getString("my_avatar", null)
+            ?: sharedPrefs.getString("my_local_avatar", null)
+            ?: sharedPrefs.getString("my_avatar_uri", null)
+            ?: sharedPrefs.getString("${currentUser}_avatar", null)
         currentAvatarUri = savedAvatarUri
         avatarUriState.value = savedAvatarUri
 
@@ -442,10 +491,35 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun updatePhotoCardImage(b: ActivitySettingsContentBinding) {
         val avatarUri = currentAvatarUri ?: avatarUriState.value
-        b.ivPhotoCard.setImageURI(null)
-        if (avatarUri != null) {
+        val radiusPx = (14 * resources.displayMetrics.density).toInt()
+        if (!avatarUri.isNullOrEmpty()) {
             try {
-                b.ivPhotoCard.setImageURI(Uri.parse(avatarUri))
+                val model: Any = if (avatarUri.startsWith("content://") || avatarUri.startsWith("file://") || avatarUri.startsWith("http")) {
+                    Uri.parse(avatarUri)
+                } else {
+                    val f = File(avatarUri)
+                    if (f.exists()) f else Uri.parse(avatarUri)
+                }
+                val file = if (model is File) model else if (model is Uri && "file" == model.scheme && model.path != null) File(model.path!!) else null
+                val isGif = avatarUri.lowercase().contains(".gif")
+                val signatureKey = ObjectKey(if (file != null && file.exists()) file.lastModified() else System.currentTimeMillis())
+
+                if (isGif) {
+                    Glide.with(this)
+                        .asGif()
+                        .load(model)
+                        .transform(CenterCrop(), RoundedCorners(radiusPx))
+                        .signature(signatureKey)
+                        .placeholder(R.drawable.ic_person)
+                        .into(b.ivPhotoCard)
+                } else {
+                    Glide.with(this)
+                        .load(model)
+                        .transform(CenterCrop(), RoundedCorners(radiusPx))
+                        .signature(signatureKey)
+                        .placeholder(R.drawable.ic_person)
+                        .into(b.ivPhotoCard)
+                }
             } catch (e: Exception) {
                 b.ivPhotoCard.setImageResource(R.drawable.ic_person)
             }
@@ -642,8 +716,14 @@ class SettingsActivity : AppCompatActivity() {
         
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
-        val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
+        val savedName = sharedPrefs.getString("my_name", null)
+            ?: sharedPrefs.getString("my_local_name", null)
+            ?: sharedPrefs.getString("current_user_name", null)
+            ?: sharedPrefs.getString("${currentUser}_name", "Я") ?: "Я"
+        val savedAvatarUri = sharedPrefs.getString("my_avatar", null)
+            ?: sharedPrefs.getString("my_local_avatar", null)
+            ?: sharedPrefs.getString("my_avatar_uri", null)
+            ?: sharedPrefs.getString("${currentUser}_avatar", null)
         
         currentAvatarUri = savedAvatarUri
         avatarUriState.value = savedAvatarUri
@@ -910,16 +990,17 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun openFullPhoto() {
-        if (currentAvatarUri == null || isClosing) return
-        isClosing = true
-        val dummy = ChatMessage("", "", if (currentNameInDB.isNotEmpty()) currentNameInDB else "Пользователь", false).apply {
-            imagePath = currentAvatarUri
-            messageType = ChatMessage.MessageType.IMAGE
+        val avatarUri = currentAvatarUri ?: avatarUriState.value
+        if (avatarUri.isNullOrEmpty()) {
+            PrimeNotification.show(this, "Фотография не установлена")
+            return
         }
-        MediaPlayerActivity.setSharedMediaList(listOf(dummy), 0)
-        val intent = Intent(this, MediaPlayerActivity::class.java)
+        if (isClosing) return
+        val intent = Intent(this, PhotoViewActivity::class.java).apply {
+            putExtra("EXTRA_URI", avatarUri)
+            putExtra("EXTRA_PHOTO_URI", avatarUri)
+        }
         startActivity(intent)
-        isClosing = false
     }
 
     private fun toggleAccountCollapsible(b: ActivitySettingsContentBinding) {
@@ -1026,6 +1107,9 @@ class SettingsActivity : AppCompatActivity() {
             val oldPass = currentPassInDB
 
             sharedPrefs.edit().apply {
+                putString("my_name", newName)
+                putString("my_local_name", newName)
+                putString("current_user_name", newName)
                 if (newLogin != currentLoginInDB) {
                     val avatar = sharedPrefs.getString("${currentLoginInDB}_avatar", null)
                     putString("current_user", newLogin); putString(newLogin, newPass); putString("${newLogin}_name", newName)
@@ -1035,6 +1119,8 @@ class SettingsActivity : AppCompatActivity() {
                 apply()
             }
             currentNameInDB = newName; currentLoginInDB = newLogin; currentPassInDB = newPass
+            sendBroadcast(Intent("com.messenger.prime.NAME_CHANGED").setPackage(packageName))
+            sendProfileUpdateOverBluetooth()
             
             b.tvUserNameStatic.text = newName
             b.tvUserNameWP.text = newName
@@ -1101,8 +1187,14 @@ class SettingsActivity : AppCompatActivity() {
         try {
             val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
             val currentUser = sharedPrefs.getString("current_user", "") ?: return
-            val myDisplayName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: currentUser
-            val localAvatarUri = sharedPrefs.getString("${currentUser}_avatar", "") ?: ""
+            val myDisplayName = sharedPrefs.getString("my_name", null)
+                ?: sharedPrefs.getString("my_local_name", null)
+                ?: sharedPrefs.getString("current_user_name", null)
+                ?: sharedPrefs.getString("${currentUser}_name", currentUser) ?: currentUser
+            val localAvatarUri = sharedPrefs.getString("my_avatar", null)
+                ?: sharedPrefs.getString("my_local_avatar", null)
+                ?: sharedPrefs.getString("my_avatar_uri", null)
+                ?: sharedPrefs.getString("${currentUser}_avatar", "") ?: ""
 
             val allThreads = BluetoothSocketHolder.getAllConnectedThreads()
             for (threadObj in allThreads) {
@@ -1135,13 +1227,46 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun handlePhotoDeletionWithUndo(uriToDelete: String?) {
-        if (uriToDelete == null) return
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        sharedPrefs.edit().remove("${currentUser}_avatar").apply()
-        currentAvatarUri = null; applyAvatarState(null)
+
+        val fJpg = File(filesDir, "my_profile_avatar.jpg")
+        val fGif = File(filesDir, "my_profile_avatar.gif")
+        val fUserJpg = File(filesDir, "avatar_${currentUser}.jpg")
+        val fUserGif = File(filesDir, "avatar_${currentUser}.gif")
+        if (fJpg.exists()) fJpg.delete()
+        if (fGif.exists()) fGif.delete()
+        if (fUserJpg.exists()) fUserJpg.delete()
+        if (fUserGif.exists()) fUserGif.delete()
+
+        sharedPrefs.edit()
+            .remove("my_avatar")
+            .remove("my_local_avatar")
+            .remove("my_avatar_uri")
+            .remove("${currentUser}_avatar")
+            .remove("${currentUser}_avatarUri")
+            .apply()
+
+        currentAvatarUri = null
+        avatarUriState.value = null
+
+        try {
+            Glide.get(this).clearMemory()
+            Executors.newSingleThreadExecutor().execute {
+                try {
+                    Glide.get(applicationContext).clearDiskCache()
+                } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
+
+        val b = binding
+        if (b != null) {
+            b.ivPhotoCard.setImageResource(R.drawable.ic_person)
+        }
+        applyAvatarState(null)
         sendProfileUpdateOverBluetooth()
-        PrimeNotification.show(this, "Фото удалено") { sharedPrefs.edit().putString("${currentUser}_avatar", uriToDelete).apply(); currentAvatarUri = uriToDelete; applyAvatarState(uriToDelete); sendProfileUpdateOverBluetooth() }
+        sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
+        PrimeNotification.show(this, "Фото удалено")
     }
 
     private fun showLogoutDialog() {

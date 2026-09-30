@@ -12,6 +12,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import android.annotation.SuppressLint
@@ -27,6 +28,9 @@ import com.messenger.prime.databinding.ItemChatIslandHeaderBinding
 import android.graphics.BitmapFactory
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListUpdateCallback
+import com.bumptech.glide.load.resource.bitmap.CenterCrop
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+import com.bumptech.glide.signature.ObjectKey
 import kotlin.math.abs
 
 class ChatListAdapter(
@@ -95,7 +99,7 @@ class ChatListAdapter(
 
     class FooterViewHolder(val binding: ItemChatFooterBinding) : RecyclerView.ViewHolder(binding.root)
     
-    class HeaderViewHolder(val binding: ItemChatIslandHeaderBinding) : RecyclerView.ViewHolder(binding.root) {
+    inner class HeaderViewHolder(val binding: ItemChatIslandHeaderBinding) : RecyclerView.ViewHolder(binding.root) {
         private val handler = Handler(Looper.getMainLooper())
         private var isShowingName = false
         private val switchRunnable = object : Runnable {
@@ -116,17 +120,18 @@ class ChatListAdapter(
             currentUserName = userName
             networkHint = netHint
             
-            if (avatarUri != null) {
+            val context = itemView.context
+            if (!avatarUri.isNullOrEmpty()) {
                 var loaded = false
                 try {
                     val uri = Uri.parse(avatarUri)
                     val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
                     if (file != null && file.exists()) {
-                        val bmp = BitmapFactory.decodeFile(file.absolutePath)
-                        if (bmp != null) {
-                            binding.ivHeaderAvatar.setImageBitmap(bmp)
-                            loaded = true
-                        }
+                        loadAvatarFileIntoView(context, file, binding.ivHeaderAvatar)
+                        loaded = true
+                    } else {
+                        loadAvatarUriIntoView(context, uri, binding.ivHeaderAvatar)
+                        loaded = true
                     }
                 } catch (_: Exception) {}
                 
@@ -134,9 +139,10 @@ class ChatListAdapter(
                     binding.tvHeaderInitials.visibility = View.GONE
                     binding.ivHeaderAvatar.visibility = View.VISIBLE
                 } else {
-                    binding.ivHeaderAvatar.setImageURI(Uri.parse(avatarUri))
-                    binding.tvHeaderInitials.visibility = View.GONE
-                    binding.ivHeaderAvatar.visibility = View.VISIBLE
+                    val initial = if (userName.isNotEmpty()) userName.take(1).uppercase() else "P"
+                    binding.tvHeaderInitials.text = initial
+                    binding.tvHeaderInitials.visibility = View.VISIBLE
+                    binding.ivHeaderAvatar.visibility = View.INVISIBLE
                 }
             } else {
                 val initial = userName.take(1).uppercase()
@@ -283,8 +289,8 @@ class ChatListAdapter(
                 val isCurrentlyTyping = "TYPING".equals(chat.activityState, ignoreCase = true) && chat.typingUntil > now
 
                 binding.tvContactName.text = chat.name
-                if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
-                    holder.startTypingAnimation("Отправка медиа...")
+                if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true) || "SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
+                    holder.startTypingAnimation("Отправка медиа")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("VIEWING_PHOTO".equals(chat.activityState, ignoreCase = true)) {
@@ -295,10 +301,6 @@ class ChatListAdapter(
                 } else if ("VIEWING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
                     holder.stopTypingAnimation()
                     binding.tvLastMessage.text = "Смотрит видео"
-                    binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
-                    binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
-                } else if ("SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
-                    holder.startTypingAnimation("Отправка медиа...")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("VIEWING_FILE".equals(chat.activityState, ignoreCase = true)) {
@@ -319,7 +321,12 @@ class ChatListAdapter(
                 binding.tvMessageTime.text = chat.time
 
                 if (chat.id == "block_test_contact") {
-                    binding.ivUserAvatar.setImageResource(R.drawable.prime_logo)
+                    val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
+                    Glide.with(context)
+                        .load(R.drawable.prime_logo)
+                        .transform(CenterCrop(), RoundedCorners(radiusPx))
+                        .placeholder(R.drawable.ic_person)
+                        .into(binding.ivUserAvatar)
                     binding.ivUserAvatar.visibility = View.VISIBLE
                     binding.tvUserInitials.visibility = View.GONE
                 } else {
@@ -329,14 +336,12 @@ class ChatListAdapter(
                             val uri = chat.avatarUri.toUri()
                             val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
                             if (file != null && file.exists()) {
-                                val isGif = file.name.lowercase().endsWith(".gif") || chat.avatarUri.lowercase().contains("gif")
-                                if (isGif) {
-                                    Glide.with(context).asGif().load(file).circleCrop().into(binding.ivUserAvatar)
-                                } else {
-                                    val bmp = BitmapFactory.decodeFile(file.absolutePath)
-                                    if (bmp != null) binding.ivUserAvatar.setImageBitmap(bmp)
-                                    else Glide.with(context).load(file).circleCrop().into(binding.ivUserAvatar)
-                                }
+                                loadAvatarFileIntoView(context, file, binding.ivUserAvatar)
+                                binding.ivUserAvatar.visibility = View.VISIBLE
+                                binding.tvUserInitials.visibility = View.GONE
+                                avatarLoaded = true
+                            } else {
+                                loadAvatarUriIntoView(context, uri, binding.ivUserAvatar)
                                 binding.ivUserAvatar.visibility = View.VISIBLE
                                 binding.tvUserInitials.visibility = View.GONE
                                 avatarLoaded = true
@@ -348,8 +353,7 @@ class ChatListAdapter(
 
                     if (!avatarLoaded) {
                         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-                        val prefAvatar = sharedPrefs.getString("${chat.name}_avatarUri", null)
-                            ?: sharedPrefs.getString("${chat.name}_avatar", null)
+                        val prefAvatar = sharedPrefs.getString("contact_avatar_${chat.id}", null)
                             ?: sharedPrefs.getString("${chat.id}_avatarUri", null)
                             ?: sharedPrefs.getString("${chat.id}_avatar", null)
 
@@ -358,18 +362,13 @@ class ChatListAdapter(
                                 val uri = prefAvatar.toUri()
                                 val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
                                 if (file != null && file.exists()) {
-                                    val isGif = file.name.lowercase().endsWith(".gif") || prefAvatar.lowercase().contains("gif")
-                                    if (isGif) {
-                                        Glide.with(context).asGif().load(file).circleCrop().into(binding.ivUserAvatar)
-                                    } else {
-                                        val bmp = BitmapFactory.decodeFile(file.absolutePath)
-                                        if (bmp != null) binding.ivUserAvatar.setImageBitmap(bmp)
-                                        else Glide.with(context).load(file).circleCrop().into(binding.ivUserAvatar)
-                                    }
-                                    binding.ivUserAvatar.visibility = View.VISIBLE
-                                    binding.tvUserInitials.visibility = View.GONE
-                                    avatarLoaded = true
+                                    loadAvatarFileIntoView(context, file, binding.ivUserAvatar)
+                                } else {
+                                    loadAvatarUriIntoView(context, uri, binding.ivUserAvatar)
                                 }
+                                binding.ivUserAvatar.visibility = View.VISIBLE
+                                binding.tvUserInitials.visibility = View.GONE
+                                avatarLoaded = true
                             } catch (_: Exception) {}
                         }
                     }
@@ -388,20 +387,7 @@ class ChatListAdapter(
                         for (targetFile in possibleFiles) {
                             if (targetFile.exists()) {
                                 try {
-                                    if (targetFile.name.lowercase().endsWith(".gif")) {
-                                        Glide.with(context)
-                                            .asGif()
-                                            .load(targetFile)
-                                            .circleCrop()
-                                            .into(binding.ivUserAvatar)
-                                    } else {
-                                        val bmp = BitmapFactory.decodeFile(targetFile.absolutePath)
-                                        if (bmp != null) {
-                                            binding.ivUserAvatar.setImageBitmap(bmp)
-                                        } else {
-                                            Glide.with(context).load(targetFile).circleCrop().into(binding.ivUserAvatar)
-                                        }
-                                    }
+                                    loadAvatarFileIntoView(context, targetFile, binding.ivUserAvatar)
                                     binding.ivUserAvatar.visibility = View.VISIBLE
                                     binding.tvUserInitials.visibility = View.GONE
                                     avatarLoaded = true
@@ -417,7 +403,7 @@ class ChatListAdapter(
                         binding.tvUserInitials.visibility = View.VISIBLE
                         binding.ivUserAvatar.visibility = View.INVISIBLE
                         val color = getAvatarColor(chat.name)
-                        val radiusPx = 0.15f * 54 * context.resources.displayMetrics.density
+                        val radiusPx = 0.24f * 54 * context.resources.displayMetrics.density
                         val bg = GradientDrawable().apply {
                             shape = GradientDrawable.RECTANGLE
                             cornerRadius = radiusPx
@@ -601,6 +587,52 @@ class ChatListAdapter(
                 holder.resetReveal()
             }
             .start()
+    }
+
+    private fun loadAvatarFileIntoView(context: Context, file: File, imageView: ImageView) {
+        val isGif = file.name.lowercase().endsWith(".gif")
+        val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
+        val signatureKey = ObjectKey(if (file.exists()) file.lastModified() else System.currentTimeMillis())
+        if (isGif) {
+            Glide.with(context)
+                .asGif()
+                .load(file)
+                .centerCrop()
+                .signature(signatureKey)
+                .placeholder(R.drawable.ic_person)
+                .into(imageView)
+        } else {
+            Glide.with(context)
+                .load(file)
+                .transform(CenterCrop(), RoundedCorners(radiusPx))
+                .signature(signatureKey)
+                .placeholder(R.drawable.ic_person)
+                .into(imageView)
+        }
+    }
+
+    private fun loadAvatarUriIntoView(context: Context, uri: Uri, imageView: ImageView) {
+        val uriStr = uri.toString().lowercase()
+        val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif")
+        val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
+        val file = if ("file" == uri.scheme && uri.path != null) File(uri.path!!) else null
+        val signatureKey = ObjectKey(if (file != null && file.exists()) file.lastModified() else System.currentTimeMillis())
+        if (isGif) {
+            Glide.with(context)
+                .asGif()
+                .load(uri)
+                .centerCrop()
+                .signature(signatureKey)
+                .placeholder(R.drawable.ic_person)
+                .into(imageView)
+        } else {
+            Glide.with(context)
+                .load(uri)
+                .transform(CenterCrop(), RoundedCorners(radiusPx))
+                .signature(signatureKey)
+                .placeholder(R.drawable.ic_person)
+                .into(imageView)
+        }
     }
 
     private fun getAvatarColor(name: String): Int {

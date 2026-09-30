@@ -24,6 +24,10 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.CenterCrop
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
+import com.bumptech.glide.signature.ObjectKey
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -64,7 +68,7 @@ class PersonInformationActivity : AppCompatActivity() {
                 "com.messenger.prime.STATUS_UPDATED" -> {
                     updateLiveStatus()
                 }
-                "com.messenger.prime.AVATAR_UPDATED" -> {
+                "com.messenger.prime.AVATAR_UPDATED", "com.messenger.prime.AVATAR_CHANGED", "com.messenger.prime.NAME_CHANGED" -> {
                     setupHeaderUi()
                 }
                 "com.messenger.prime.CHAT_DELETED" -> {
@@ -130,6 +134,8 @@ class PersonInformationActivity : AppCompatActivity() {
             addAction("com.messenger.prime.STATUS_UPDATED")
             addAction("com.messenger.prime.AVATAR_UPDATED")
             addAction("com.messenger.prime.CHAT_DELETED")
+            addAction("com.messenger.prime.AVATAR_CHANGED")
+            addAction("com.messenger.prime.NAME_CHANGED")
         }
         ContextCompat.registerReceiver(
             this, statusUpdateReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
@@ -140,6 +146,11 @@ class PersonInformationActivity : AppCompatActivity() {
         setupLeftColumnButtons()
         updateLiveStatus()
         loadSharedMediaAndFiles()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        setupHeaderUi()
     }
 
     override fun onDestroy() {
@@ -169,33 +180,48 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     private fun setupHeaderUi() {
-        binding.tvUserNameWP.text = targetUsername
-
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-        if (avatarUriStr.isNullOrEmpty()) {
-            avatarUriStr = sharedPrefs.getString("${targetUsername}_avatar", null)
-                ?: sharedPrefs.getString("${targetUsername}_avatarUri", null)
-                ?: if (!deviceAddress.isNullOrEmpty()) {
-                    sharedPrefs.getString("${deviceAddress}_avatar", null)
-                        ?: sharedPrefs.getString("${deviceAddress}_avatarUri", null)
-                } else null
-        }
+        val targetAddr = deviceAddress ?: ""
+
+        val contactName = if (targetAddr.isNotEmpty()) {
+            sharedPrefs.getString("contact_name_$targetAddr", null) ?: targetUsername
+        } else targetUsername
+        binding.tvUserNameWP.text = contactName
+
+        val contactAvatar = if (targetAddr.isNotEmpty()) {
+            sharedPrefs.getString("contact_avatar_$targetAddr", null) ?: avatarUriStr
+        } else avatarUriStr
+
+        avatarUriStr = contactAvatar
 
         var photoLoaded = false
+        val radiusPx = (14 * resources.displayMetrics.density).toInt()
+
         if (!avatarUriStr.isNullOrEmpty()) {
             try {
                 val uri = Uri.parse(avatarUriStr)
-                if ("file" == uri.scheme && uri.path != null) {
-                    val file = File(uri.path!!)
-                    if (file.exists()) {
-                        val bmp = BitmapFactory.decodeFile(file.absolutePath)
-                        if (bmp != null) {
-                            binding.ivPhotoCard.setImageBitmap(bmp)
-                            photoLoaded = true
-                        }
-                    }
-                } else if (avatarUriStr!!.startsWith("content://")) {
-                    binding.ivPhotoCard.setImageURI(uri)
+                val file = if ("file" == uri.scheme && uri.path != null) File(uri.path!!) else null
+                val signatureKey = ObjectKey(if (file != null && file.exists()) file.lastModified() else System.currentTimeMillis())
+                val isGif = avatarUriStr!!.lowercase().contains(".gif")
+
+                if (isGif) {
+                    Glide.with(this)
+                        .asGif()
+                        .load(uri)
+                        .centerCrop()
+                        .signature(signatureKey)
+                        .transition(DrawableTransitionOptions.withCrossFade(300))
+                        .placeholder(R.drawable.ic_person)
+                        .into(binding.ivPhotoCard)
+                    photoLoaded = true
+                } else {
+                    Glide.with(this)
+                        .load(uri)
+                        .transform(CenterCrop(), RoundedCorners(radiusPx))
+                        .signature(signatureKey)
+                        .transition(DrawableTransitionOptions.withCrossFade(300))
+                        .placeholder(R.drawable.ic_person)
+                        .into(binding.ivPhotoCard)
                     photoLoaded = true
                 }
             } catch (ignored: Exception) {}
@@ -203,30 +229,32 @@ class PersonInformationActivity : AppCompatActivity() {
 
         if (!photoLoaded) {
             val possibleFiles = listOfNotNull(
-                File(filesDir, "rec_avatar_${targetUsername}.gif"),
-                File(filesDir, "avatar_${targetUsername}.gif"),
-                File(filesDir, "rec_avatar_${targetUsername}.jpg"),
-                File(filesDir, "avatar_${targetUsername}.jpg"),
                 deviceAddress?.let { File(filesDir, "rec_avatar_${it}.gif") },
-                deviceAddress?.let { File(filesDir, "avatar_${it}.gif") },
                 deviceAddress?.let { File(filesDir, "rec_avatar_${it}.jpg") },
-                deviceAddress?.let { File(filesDir, "avatar_${it}.jpg") }
+                File(filesDir, "rec_avatar_${contactName}.gif"),
+                File(filesDir, "rec_avatar_${contactName}.jpg")
             )
 
             for (file in possibleFiles) {
                 if (file.exists()) {
+                    val signatureKey = ObjectKey(file.lastModified())
                     if (file.name.lowercase().endsWith(".gif")) {
                         Glide.with(this)
                             .asGif()
                             .load(file)
+                            .centerCrop()
+                            .signature(signatureKey)
+                            .transition(DrawableTransitionOptions.withCrossFade(300))
+                            .placeholder(R.drawable.ic_person)
                             .into(binding.ivPhotoCard)
                     } else {
-                        val bmp = BitmapFactory.decodeFile(file.absolutePath)
-                        if (bmp != null) {
-                            binding.ivPhotoCard.setImageBitmap(bmp)
-                        } else {
-                            Glide.with(this).load(file).into(binding.ivPhotoCard)
-                        }
+                        Glide.with(this)
+                            .load(file)
+                            .transform(CenterCrop(), RoundedCorners(radiusPx))
+                            .signature(signatureKey)
+                            .transition(DrawableTransitionOptions.withCrossFade(300))
+                            .placeholder(R.drawable.ic_person)
+                            .into(binding.ivPhotoCard)
                     }
                     avatarUriStr = Uri.fromFile(file).toString()
                     photoLoaded = true
@@ -239,7 +267,6 @@ class PersonInformationActivity : AppCompatActivity() {
             binding.ivPhotoCard.setImageResource(R.drawable.ic_person)
         }
 
-        // Tapping avatar opens full photo in media player / photo viewer
         val avatarClickListener = View.OnClickListener {
             openAvatarInMediaPlayer()
         }
@@ -249,7 +276,7 @@ class PersonInformationActivity : AppCompatActivity() {
 
     private fun openAvatarInMediaPlayer() {
         val uriToPass = avatarUriStr ?: run {
-            val file = File(filesDir, "avatar_${targetUsername}.jpg")
+            val file = File(filesDir, "rec_avatar_${targetUsername}.jpg")
             if (file.exists()) Uri.fromFile(file).toString() else null
         }
         if (uriToPass != null) {
@@ -259,7 +286,7 @@ class PersonInformationActivity : AppCompatActivity() {
             }
             startActivity(intent)
         } else {
-            Toast.makeText(this, "Фотография отсутствует", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Фотография не установлена", Toast.LENGTH_SHORT).show()
         }
     }
 

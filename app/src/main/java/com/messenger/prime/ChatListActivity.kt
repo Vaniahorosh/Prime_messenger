@@ -148,6 +148,9 @@ import androidx.core.graphics.toColorInt
 import androidx.lifecycle.Lifecycle
 import androidx.recyclerview.widget.SimpleItemAnimator
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.CenterCrop
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+import com.bumptech.glide.signature.ObjectKey
 import kotlin.math.abs
 
 @Composable
@@ -214,12 +217,14 @@ fun CachedAvatarView(name: String, macAddress: String, modifier: Modifier = Modi
         }
     }
 
+    val avatarShape = RoundedCornerShape(10.dp)
+
     if (bitmap != null) {
         Image(
             bitmap = bitmap!!,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = modifier
+            modifier = modifier.clip(avatarShape)
         )
     } else {
         val colors = listOf(0xFFF44336, 0xFFE91E63, 0xFF9C27B0, 0xFF673AB7, 0xFF3F51B5, 0xFF2196F3, 0xFF03A9F4, 0xFF00BCD4, 0xFF009688, 0xFF4CAF50, 0xFF8BC34A, 0xFFCDDC39, 0xFFFFEB3B, 0xFFFFC107, 0xFFFF9800, 0xFFFF5722)
@@ -228,7 +233,7 @@ fun CachedAvatarView(name: String, macAddress: String, modifier: Modifier = Modi
         val initial = if (name.isNotEmpty()) name.take(1).uppercase() else "P"
 
         Box(
-            modifier = modifier.background(color),
+            modifier = modifier.clip(avatarShape).background(color),
             contentAlignment = Alignment.Center
         ) {
             Text(text = initial, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -267,6 +272,7 @@ class ChatListActivity : AppCompatActivity() {
     private val discoveredDevices = mutableStateListOf<BluetoothDevice>()
     private val pairedDevices = mutableStateListOf<BluetoothDevice>()
     private val isScanningState = mutableStateOf(false)
+    private val deviceRssiMap = mutableStateMapOf<String, Short>()
 
     private val isIncomingConnectionDialogVisible = mutableStateOf(false)
     private var incomingSocket: BluetoothSocket? = null
@@ -510,11 +516,23 @@ class ChatListActivity : AppCompatActivity() {
                         intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                     }
                     if (device != null) {
+                        val rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE)
+                        if (rssi != Short.MIN_VALUE) {
+                            deviceRssiMap[device.address] = rssi
+                        }
+
                         if (!discoveredDevices.any { it.address == device.address }) {
                             discoveredDevices.add(device)
+                        } else {
+                            val idx = discoveredDevices.indexOfFirst { it.address == device.address }
+                            if (idx != -1) {
+                                discoveredDevices[idx] = device
+                            }
                         }
                         val devName = try { device.name } catch (_: Exception) { null }
-                        if (devName?.contains("Prime", ignoreCase = true) == true) {
+                        val isSavedInChats = chatListState.any { it.id.equals(device.address, ignoreCase = true) }
+                        
+                        if (isSavedInChats || devName?.contains("Prime", ignoreCase = true) == true) {
                             handlePrimeDeviceFound(device, devName)
                         } else {
                             val cachedUuids = try { device.uuids } catch (_: Exception) { null }
@@ -538,14 +556,45 @@ class ChatListActivity : AppCompatActivity() {
                         val checkTask = Runnable {
                             val updatedName = try { device.name } catch (_: Exception) { null }
                             val updatedUuids = try { device.uuids } catch (_: Exception) { null }
+                            val isSaved = chatListState.any { it.id.equals(device.address, ignoreCase = true) }
                             val isPrime = (updatedName?.contains("Prime", ignoreCase = true) == true) ||
-                                          (updatedUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true)
+                                          (updatedUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true) ||
+                                          isSaved
                             if (isPrime) {
                                 handlePrimeDeviceFound(device, updatedName)
                             }
                         }
                         mainHandler.postDelayed(checkTask, 1200L)
                         mainHandler.postDelayed(checkTask, 2800L)
+                    }
+                }
+                BluetoothDevice.ACTION_NAME_CHANGED -> {
+                    val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                    }
+                    if (device != null) {
+                        val devName = try { device.name } catch (_: Exception) { null }
+                        if (devName?.contains("Prime", ignoreCase = true) == true) {
+                            handlePrimeDeviceFound(device, devName)
+                        }
+                        val idx = discoveredDevices.indexOfFirst { it.address == device.address }
+                        if (idx != -1) {
+                            discoveredDevices[idx] = device
+                        }
+                    }
+                }
+                BluetoothDevice.ACTION_BOND_STATE_CHANGED -> {
+                    val btAdapter = bluetoothAdapter
+                    try {
+                        btAdapter?.bondedDevices?.let { bonded ->
+                            pairedDevices.clear()
+                            pairedDevices.addAll(bonded)
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
                 }
                 BluetoothDevice.ACTION_UUID -> {
@@ -571,7 +620,8 @@ class ChatListActivity : AppCompatActivity() {
                             device.uuids?.forEach { uuidList.add(it.uuid.toString()) }
                         } catch (e: Exception) {}
 
-                        if (uuidList.any { it.equals(primeUuid.toString(), ignoreCase = true) }) {
+                        val isSaved = chatListState.any { it.id.equals(device.address, ignoreCase = true) }
+                        if (uuidList.any { it.equals(primeUuid.toString(), ignoreCase = true) } || isSaved) {
                             val devName = try { device.name ?: "Prime Собеседник" } catch(e: Exception) { "Prime Собеседник" }
                             handlePrimeDeviceFound(device, devName)
                         }
@@ -605,7 +655,7 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == "current_user" || key?.endsWith("_name") == true || key?.endsWith("_avatar") == true) {
+        if (key == "my_name" || key == "my_avatar" || key == "my_local_name" || key == "my_local_avatar" || key == "current_user" || key?.endsWith("_name") == true || key?.endsWith("_avatar") == true) {
             runOnUiThread { refreshUserUi() }
         } else if (key == "persisted_chats") {
             runOnUiThread { reloadChatsFromDb() }
@@ -736,8 +786,14 @@ class ChatListActivity : AppCompatActivity() {
         sharedPrefs.registerOnSharedPreferenceChangeListener(prefListener)
         
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        val savedAvatarUri = sharedPrefs.getString("${currentUser}_avatar", null)
-        val savedName = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
+        val savedName = sharedPrefs.getString("my_name", null)
+            ?: sharedPrefs.getString("my_local_name", null)
+            ?: sharedPrefs.getString("current_user_name", null)
+            ?: sharedPrefs.getString("${currentUser}_name", "Мой профиль") ?: "Мой профиль"
+        val savedAvatarUri = sharedPrefs.getString("my_avatar", null)
+            ?: sharedPrefs.getString("my_local_avatar", null)
+            ?: sharedPrefs.getString("my_avatar_uri", null)
+            ?: sharedPrefs.getString("${currentUser}_avatar", null)
 
         try {
             loadContacts()
@@ -897,21 +953,31 @@ class ChatListActivity : AppCompatActivity() {
                             modifier = Modifier
                                 .fillMaxSize()
                                 .clickable { isContactDialogVisible.value = false },
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.BottomCenter
                         ) {
                         BlurView(
                             modifier = Modifier
-                                .padding(24.dp)
                                 .fillMaxWidth()
                                 .clickable(enabled = true) {}, // prevent closing on inner click
-                            blurRadius = 20.dp,
-                            tint = Color(0x33154B87),
-                            shape = RoundedCornerShape(32.dp)
+                            blurRadius = 24.dp,
+                            tint = Color(0x660F172A),
+                            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
                         ) {
                             Column(
-                                modifier = Modifier.padding(20.dp),
+                                modifier = Modifier
+                                    .padding(horizontal = 24.dp, vertical = 20.dp)
+                                    .fillMaxWidth(),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
+                                // Drag pill
+                                Box(
+                                    modifier = Modifier
+                                        .padding(bottom = 16.dp)
+                                        .width(40.dp)
+                                        .height(4.dp)
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(Color.White.copy(alpha = 0.3f))
+                                )
                             val versionName = try {
                                 packageManager.getPackageInfo(packageName, 0).versionName ?: "Beta 0.45"
                             } catch (e: Exception) {
@@ -923,16 +989,16 @@ class ChatListActivity : AppCompatActivity() {
                                 text = "Поиск Prime-собеседников",
                                 color = Color.White,
                                 style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold
+                                fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Приложение: Prime $versionName (build $myVerCode) • ID: $packageName",
-                                color = Color.White.copy(alpha = 0.6f),
-                                fontSize = 11.sp,
-                                modifier = Modifier.padding(top = 2.dp)
+                                text = "Ваш ID: $packageName • Prime $versionName",
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(top = 4.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
                             
                             val rawAllDevices = (pairedDevices.map { it to true } + discoveredDevices.map { it to false })
                                 .distinctBy { it.first.address }
@@ -940,10 +1006,11 @@ class ChatListActivity : AppCompatActivity() {
                                     val name = try { @Suppress("MissingPermission") device.name } catch (e: Exception) { null }
                                     val devUuids = try { @Suppress("MissingPermission") device.uuids } catch (e: Exception) { null }
                                     val hasPrimeUuid = devUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true
+                                    val isSavedInChats = chatListState.any { it.id.equals(device.address, ignoreCase = true) }
                                     
                                     val isExplicitPrime = (name?.contains("Prime", ignoreCase = true) == true) || 
                                                           primeDevices.contains(device.address) || 
-                                                          hasPrimeUuid
+                                                          hasPrimeUuid || isSavedInChats
                                     if (isExplicitPrime) return@filter true
 
                                     val bluetoothClass = try { @Suppress("MissingPermission") device.bluetoothClass } catch (e: Exception) { null }
@@ -976,9 +1043,11 @@ class ChatListActivity : AppCompatActivity() {
                                 val name = try { @Suppress("MissingPermission") device.name } catch (e: Exception) { null }
                                 val devUuids = try { @Suppress("MissingPermission") device.uuids } catch (e: Exception) { null }
                                 val hasPrimeUuid = devUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true
+                                val isSavedInChats = chatListState.any { it.id.equals(device.address, ignoreCase = true) }
+                                
                                 (name?.contains("Prime", ignoreCase = true) == true) || 
                                 primeDevices.contains(device.address) || 
-                                hasPrimeUuid
+                                hasPrimeUuid || isSavedInChats
                             }
                             
                             val pairedPrimeList = primeOnlyDevices.filter { it.second }
@@ -1018,43 +1087,45 @@ class ChatListActivity : AppCompatActivity() {
                             Spacer(modifier = Modifier.height(10.dp))
 
                             LazyColumn(
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 70.dp, max = 250.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 350.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 // 1. Discovered Prime Devices
-                                items(discoveredPrimeList, key = { "disc_prime_" + it.first.address }) { (device, _) ->
+                                        items(discoveredPrimeList, key = { "disc_prime_" + it.first.address }) { (device, _) ->
                                     val devMac = device.address
                                     val knownContact = chatListState.find { it.id == devMac }
                                     val devName = knownContact?.name ?: try { @Suppress("MissingPermission") device.name ?: "Prime Собеседник" } catch (_: Exception) { "Prime Собеседник" }
+                                    val rssi = deviceRssiMap[devMac]
+                                    val rssiText = if (rssi != null) " • Уровень сигнала: $rssi дБм" else ""
 
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0x2200E676)).border(1.dp, Color(0xFF00E676), RoundedCornerShape(14.dp)).clickable { isContactDialogVisible.value = false; navigateToChatPerson(devName, devMac, useExistingSocket = false) }.padding(8.dp),
+                                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0x3300E676)).border(1.dp, Color(0xFF00E676), RoundedCornerShape(14.dp)).clickable { isContactDialogVisible.value = false; navigateToChatPerson(devName, devMac, useExistingSocket = false) }.padding(10.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        CachedAvatarView(name = devName, macAddress = devMac, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)))
-                                        Spacer(modifier = Modifier.width(10.dp))
+                                        CachedAvatarView(name = devName, macAddress = devMac, modifier = Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)))
+                                        Spacer(modifier = Modifier.width(12.dp))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(text = devName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                                Text(text = devName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                                 Spacer(modifier = Modifier.width(6.dp))
                                                 Text(
-                                                    text = "⚡ Prime v1.0",
+                                                    text = "Prime",
                                                     color = Color(0xFF00E676),
                                                     fontWeight = FontWeight.ExtraBold,
-                                                    fontSize = 9.sp,
+                                                    fontSize = 10.sp,
                                                     modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0x3300E676)).padding(horizontal = 4.dp, vertical = 2.dp)
                                                 )
                                             }
-                                            Text(text = "$devMac • Рядом", color = Color.White.copy(alpha=0.6f), fontSize = 10.sp)
+                                            Text(text = "$devMac$rssiText", color = Color.White.copy(alpha=0.65f), fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
                                         }
                                         Button(
                                             onClick = { isContactDialogVisible.value = false; navigateToChatPerson(devName, devMac, useExistingSocket = false) },
-                                            shape = RoundedCornerShape(10.dp),
+                                            shape = RoundedCornerShape(12.dp),
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676), contentColor = Color.Black),
-                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                            modifier = Modifier.height(26.dp)
+                                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                                            modifier = Modifier.height(36.dp)
                                         ) {
-                                            Text("Связь", fontWeight = FontWeight.ExtraBold, fontSize = 10.sp)
+                                            Text("Связь", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
                                         }
                                     }
                                 }
@@ -1083,29 +1154,29 @@ class ChatListActivity : AppCompatActivity() {
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 CachedAvatarView(name = devName, macAddress = devMac, modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)))
-                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Spacer(modifier = Modifier.width(10.dp))
                                                 Column(modifier = Modifier.weight(1f)) {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Text(text = devName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                                        Text(text = devName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                                         Spacer(modifier = Modifier.width(6.dp))
                                                         Text(
-                                                            text = "⚡ Сопряжено (Prime)",
+                                                            text = "Prime",
                                                             color = Color(0xFF00E676),
                                                             fontWeight = FontWeight.ExtraBold,
                                                             fontSize = 9.sp,
                                                             modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0x3300E676)).padding(horizontal = 4.dp, vertical = 2.dp)
                                                         )
                                                     }
-                                                    Text(text = "$devMac • Ранее сопряжено", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp)
+                                                    Text(text = "$devMac • Ранее сопряжено", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
                                                 }
                                                 Button(
                                                     onClick = { isContactDialogVisible.value = false; navigateToChatPerson(devName, devMac, useExistingSocket = false) },
-                                                    shape = RoundedCornerShape(8.dp),
+                                                    shape = RoundedCornerShape(12.dp),
                                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676), contentColor = Color.Black),
-                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                                    modifier = Modifier.height(26.dp)
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                                    modifier = Modifier.height(32.dp)
                                                 ) {
-                                                    Text("Связь", fontWeight = FontWeight.ExtraBold, fontSize = 10.sp)
+                                                    Text("Связь", fontWeight = FontWeight.ExtraBold, fontSize = 11.sp)
                                                 }
                                             }
                                         }
@@ -1135,19 +1206,19 @@ class ChatListActivity : AppCompatActivity() {
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 CachedAvatarView(name = devName, macAddress = devMac, modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)))
-                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Spacer(modifier = Modifier.width(10.dp))
                                                 Column(modifier = Modifier.weight(1f)) {
-                                                    Text(text = devName, color = Color.White.copy(alpha = 0.8f), fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                                                    Text(text = "$devMac • Ранее сопряжено", color = Color.White.copy(alpha = 0.45f), fontSize = 9.sp)
+                                                    Text(text = devName, color = Color.White.copy(alpha = 0.85f), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                                    Text(text = "$devMac • Ранее сопряжено", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
                                                 }
                                                 Button(
                                                     onClick = { isContactDialogVisible.value = false; navigateToChatPerson(devName, devMac, useExistingSocket = false) },
-                                                    shape = RoundedCornerShape(8.dp),
-                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0x22FFFFFF), contentColor = Color.White),
-                                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                                    modifier = Modifier.height(24.dp)
+                                                    shape = RoundedCornerShape(12.dp),
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0x33FFFFFF), contentColor = Color.White),
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                                                    modifier = Modifier.height(30.dp)
                                                 ) {
-                                                    Text("Проверить", fontWeight = FontWeight.Bold, fontSize = 9.sp)
+                                                    Text("Проверить", fontWeight = FontWeight.Bold, fontSize = 10.sp)
                                                 }
                                             }
                                         }
@@ -1177,19 +1248,19 @@ class ChatListActivity : AppCompatActivity() {
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 CachedAvatarView(name = devName, macAddress = devMac, modifier = Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)))
-                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Spacer(modifier = Modifier.width(10.dp))
                                                 Column(modifier = Modifier.weight(1f)) {
-                                                    Text(text = devName, color = Color.White.copy(alpha = 0.8f), fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                                                    Text(text = devMac, color = Color.White.copy(alpha = 0.45f), fontSize = 9.sp)
+                                                    Text(text = devName, color = Color.White.copy(alpha = 0.85f), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                                    Text(text = devMac, color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
                                                 }
                                                 Button(
                                                     onClick = { isContactDialogVisible.value = false; navigateToChatPerson(devName, devMac, useExistingSocket = false) },
-                                                    shape = RoundedCornerShape(8.dp),
-                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0x22FFFFFF), contentColor = Color.White),
-                                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                                    modifier = Modifier.height(24.dp)
+                                                    shape = RoundedCornerShape(12.dp),
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0x33FFFFFF), contentColor = Color.White),
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                                                    modifier = Modifier.height(30.dp)
                                                 ) {
-                                                    Text("Проверить", fontWeight = FontWeight.Bold, fontSize = 9.sp)
+                                                    Text("Проверить", fontWeight = FontWeight.Bold, fontSize = 10.sp)
                                                 }
                                             }
                                         }
@@ -1259,7 +1330,7 @@ class ChatListActivity : AppCompatActivity() {
                                     CachedAvatarView(
                                         name = incomingDeviceName,
                                         macAddress = incomingDeviceMac,
-                                        modifier = Modifier.size(64.dp).clip(CircleShape)
+                                        modifier = Modifier.size(64.dp).clip(RoundedCornerShape(18.dp))
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Text(
@@ -1359,7 +1430,7 @@ class ChatListActivity : AppCompatActivity() {
                                     CachedAvatarView(
                                         name = foundDeviceName,
                                         macAddress = foundDeviceMac,
-                                        modifier = Modifier.size(64.dp).clip(CircleShape)
+                                        modifier = Modifier.size(64.dp).clip(RoundedCornerShape(18.dp))
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Text(
@@ -1520,8 +1591,24 @@ class ChatListActivity : AppCompatActivity() {
                                 Button(
                                     onClick = {
                                         if (nameInput.isNotBlank()) {
-                                            sharedPrefs.edit { putString("${currentUser}_name", nameInput.trim()) }
-                                            runOnUiThread { refreshUserUi() }
+                                            val newName = nameInput.trim()
+                                            sharedPrefs.edit {
+                                                putString("my_name", newName)
+                                                putString("my_local_name", newName)
+                                                putString("current_user_name", newName)
+                                                if (currentUser.isNotEmpty()) {
+                                                    putString("${currentUser}_name", newName)
+                                                }
+                                            }
+                                            runOnUiThread {
+                                                refreshUserUi()
+                                                sendBroadcast(Intent("com.messenger.prime.NAME_CHANGED").setPackage(packageName))
+                                                try {
+                                                    BluetoothSocketHolder.notifyProfileChanged(this@ChatListActivity)
+                                                } catch (e: Exception) {
+                                                    e.printStackTrace()
+                                                }
+                                            }
                                             isNameEditDialogVisible.value = false
                                         }
                                     },
@@ -1707,30 +1794,57 @@ class ChatListActivity : AppCompatActivity() {
 
     private fun updateToolbarInitialUi(avatarUri: String?, name: String) {
         if (!::islandBinding.isInitialized) return
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val myName = sharedPrefs.getString("my_name", null)
+            ?: sharedPrefs.getString("my_local_name", null)
+            ?: sharedPrefs.getString("current_user_name", null)
+            ?: sharedPrefs.getString("${currentUser}_name", "Мой профиль") ?: "Мой профиль"
+        val myAvatar = avatarUri ?: sharedPrefs.getString("my_avatar", null)
+            ?: sharedPrefs.getString("my_local_avatar", null)
+            ?: sharedPrefs.getString("my_avatar_uri", null)
+            ?: sharedPrefs.getString("${currentUser}_avatar", null)
+
         var loaded = false
-        if (!avatarUri.isNullOrEmpty()) {
-            val uri = avatarUri.toUri()
-            val file = if (uri.scheme == "file") File(uri.path ?: "") else null
-            if (file == null || file.exists()) {
-                try {
-                    islandBinding.ivToolbarAvatar.setImageURI(uri)
-                    islandBinding.tvToolbarInitials.visibility = View.GONE
-                    islandBinding.ivToolbarAvatar.visibility = View.VISIBLE
-                    loaded = true
-                } catch (e: Exception) {
-                    loaded = false
+        if (!myAvatar.isNullOrEmpty()) {
+            try {
+                val uri = myAvatar.toUri()
+                val file = if ("file" == uri.scheme && uri.path != null) File(uri.path!!) else null
+                val isGif = myAvatar.lowercase().endsWith(".gif") || myAvatar.lowercase().contains("gif")
+                val radiusPx = (14 * resources.displayMetrics.density).toInt()
+                val signatureKey = ObjectKey(if (file != null && file.exists()) file.lastModified() else System.currentTimeMillis())
+                if (isGif) {
+                    Glide.with(this)
+                        .asGif()
+                        .load(uri)
+                        .centerCrop()
+                        .signature(signatureKey)
+                        .placeholder(R.drawable.ic_person)
+                        .into(islandBinding.ivToolbarAvatar)
+                } else {
+                    Glide.with(this)
+                        .load(uri)
+                        .transform(CenterCrop(), RoundedCorners(radiusPx))
+                        .signature(signatureKey)
+                        .placeholder(R.drawable.ic_person)
+                        .into(islandBinding.ivToolbarAvatar)
                 }
+                islandBinding.tvToolbarInitials.visibility = View.GONE
+                islandBinding.ivToolbarAvatar.visibility = View.VISIBLE
+                loaded = true
+            } catch (e: Exception) {
+                loaded = false
             }
         }
         if (!loaded) {
-            val initial = name.take(1).uppercase()
+            val initial = if (myName.isNotEmpty()) myName.take(1).uppercase() else "П"
             islandBinding.tvToolbarInitials.text = initial
             islandBinding.tvToolbarInitials.visibility = View.VISIBLE
             islandBinding.ivToolbarAvatar.visibility = View.INVISIBLE
-            val color = getAvatarColor(name)
+            val color = getAvatarColor(myName)
             val bg = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                cornerRadius = 15 * resources.displayMetrics.density
+                cornerRadius = 0.24f * 48 * resources.displayMetrics.density
                 setColor(color)
             }
             islandBinding.tvToolbarInitials.background = bg
@@ -1761,10 +1875,17 @@ class ChatListActivity : AppCompatActivity() {
         runOnUiThread { reloadChatsFromDb() }
     }
 
-    private val chatDeletedReceiver = object : BroadcastReceiver() {
+    private val avatarChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            reloadChatsFromDb()
-            ChatListNotifier.notifyChanged()
+            when (intent?.action) {
+                "com.messenger.prime.CHAT_DELETED" -> {
+                    reloadChatsFromDb()
+                    ChatListNotifier.notifyChanged()
+                }
+                "com.messenger.prime.AVATAR_CHANGED" -> {
+                    runOnUiThread { refreshUserUi() }
+                }
+            }
         }
     }
 
@@ -1772,8 +1893,11 @@ class ChatListActivity : AppCompatActivity() {
         super.onStart()
         ChatListNotifier.subscribe(onChatListChanged)
         try {
-            val filter = IntentFilter("com.messenger.prime.CHAT_DELETED")
-            ContextCompat.registerReceiver(this, chatDeletedReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+            val filter = IntentFilter().apply {
+                addAction("com.messenger.prime.CHAT_DELETED")
+                addAction("com.messenger.prime.AVATAR_CHANGED")
+            }
+            ContextCompat.registerReceiver(this, avatarChangedReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         } catch (_: Exception) {}
         reloadChatsFromDb()
     }
@@ -1786,7 +1910,7 @@ class ChatListActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         try {
-            unregisterReceiver(chatDeletedReceiver)
+            unregisterReceiver(avatarChangedReceiver)
         } catch (_: Exception) {}
         stopBluetoothScan()
         stopAcceptThread()
@@ -1848,17 +1972,23 @@ class ChatListActivity : AppCompatActivity() {
         if (!::binding.isInitialized || !::islandBinding.isInitialized) return
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        val avatar = sharedPrefs.getString("${currentUser}_avatar", null)
-        val name = sharedPrefs.getString("${currentUser}_name", "Пользователь") ?: "Пользователь"
+        val name = sharedPrefs.getString("my_name", null)
+            ?: sharedPrefs.getString("my_local_name", null)
+            ?: sharedPrefs.getString("current_user_name", null)
+            ?: sharedPrefs.getString("${currentUser}_name", "Мой профиль") ?: "Мой профиль"
+        val avatar = sharedPrefs.getString("my_avatar", null)
+            ?: sharedPrefs.getString("my_local_avatar", null)
+            ?: sharedPrefs.getString("my_avatar_uri", null)
+            ?: sharedPrefs.getString("${currentUser}_avatar", null)
         var loaded = false
 
         val possibleFiles = listOfNotNull(
-            File(filesDir, "avatar_$currentUser.gif"),
-            File(filesDir, "avatar_$currentUser.jpg"),
             if (!avatar.isNullOrEmpty()) {
                 val uri = avatar.toUri()
-                if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
-            } else null
+                if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else File(avatar)
+            } else null,
+            File(filesDir, "avatar_$currentUser.gif"),
+            File(filesDir, "avatar_$currentUser.jpg")
         )
 
         val avatarFile = possibleFiles.firstOrNull { it.exists() && it.length() > 0 }
@@ -1866,16 +1996,22 @@ class ChatListActivity : AppCompatActivity() {
         if (avatarFile != null && avatarFile.exists()) {
             try {
                 val isGif = avatarFile.name.lowercase().endsWith(".gif")
+                val radiusPx = (14 * resources.displayMetrics.density).toInt()
+                val signatureKey = ObjectKey(avatarFile.lastModified())
                 if (isGif) {
                     Glide.with(this)
                         .asGif()
                         .load(avatarFile)
-                        .circleCrop()
+                        .centerCrop()
+                        .signature(signatureKey)
+                        .placeholder(R.drawable.ic_person)
                         .into(islandBinding.ivToolbarAvatar)
                 } else {
                     Glide.with(this)
                         .load(avatarFile)
-                        .circleCrop()
+                        .transform(CenterCrop(), RoundedCorners(radiusPx))
+                        .signature(signatureKey)
+                        .placeholder(R.drawable.ic_person)
                         .into(islandBinding.ivToolbarAvatar)
                 }
                 islandBinding.tvToolbarInitials.visibility = View.GONE
@@ -1888,14 +2024,14 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         if (!loaded) {
-            val initial = name.take(1).uppercase()
+            val initial = if (name.isNotEmpty()) name.take(1).uppercase() else "П"
             islandBinding.tvToolbarInitials.text = initial
             islandBinding.tvToolbarInitials.visibility = View.VISIBLE
             islandBinding.ivToolbarAvatar.visibility = View.INVISIBLE
             val color = getAvatarColor(name)
             val bg = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                cornerRadius = 15 * resources.displayMetrics.density
+                cornerRadius = 0.24f * 48 * resources.displayMetrics.density
                 setColor(color)
             }
             islandBinding.tvToolbarInitials.background = bg
@@ -2075,28 +2211,47 @@ class ChatListActivity : AppCompatActivity() {
     }
     private fun loadContacts() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val myName = sharedPrefs.getString("my_name", null)
+            ?: sharedPrefs.getString("my_local_name", null)
+            ?: sharedPrefs.getString("current_user_name", null) ?: ""
+
         val json = sharedPrefs.getString("persisted_chats", null)
         val tempList = ArrayList<ChatModel>()
         if (!json.isNullOrEmpty() && json != "[]") {
             try {
                 val array = JSONArray(json)
+                val newArray = JSONArray()
                 val now = System.currentTimeMillis()
                 for (i in 0 until array.length()) {
                     try {
                         val item = array.opt(i)
                         if (item is JSONObject) {
+                            val idStr = item.optString("id", System.currentTimeMillis().toString() + i)
+                            val nameStr = item.optString("name", "Контакт")
+
+                            val savedName = sharedPrefs.getString("contact_name_$idStr", null)
+                                ?: sharedPrefs.getString("${idStr}_name", null)
+                            val finalName = if (!savedName.isNullOrEmpty() && savedName != "1") savedName else nameStr
+
+                            if (!myName.isEmpty() && finalName.equals(myName, ignoreCase = true)) {
+                                continue
+                            }
+                            newArray.put(item)
+
                             val rawAvatar = if (item.isNull("avatarUri")) null else item.optString("avatarUri")
                             val typingUntil = item.optLong("typingUntil", 0L)
                             val isTyping = typingUntil > now
                             val rawActState = item.optString("activityState", "IDLE")
                             val actState = if ("TYPING".equals(rawActState, ignoreCase = true) && !isTyping) "IDLE" else rawActState
-                            
-                            val idStr = item.optString("id", System.currentTimeMillis().toString() + i)
-                            val nameStr = item.optString("name", "Контакт")
+
+                            val savedAvatar = sharedPrefs.getString("contact_avatar_$idStr", null)
+                                ?: sharedPrefs.getString("${idStr}_avatar", null)
+                                ?: sharedPrefs.getString("${idStr}_avatarUri", null)
+                            val finalAvatar = if (!savedAvatar.isNullOrEmpty()) savedAvatar else (if (rawAvatar.isNullOrEmpty()) null else rawAvatar)
 
                             val isConnectedInManager = BluetoothConnectionManager.getInstance().isConnected(idStr) ||
-                                BluetoothConnectionManager.getInstance().isConnected(nameStr)
-                            val isSocketConnected = BluetoothSocketHolder.isConnectedWith(idStr, nameStr) || isConnectedInManager
+                                BluetoothConnectionManager.getInstance().isConnected(finalName)
+                            val isSocketConnected = BluetoothSocketHolder.isConnectedWith(idStr, finalName) || isConnectedInManager
 
                             val savedStatusStr = item.optString("onlineStatus", "OFFLINE")
                             val realOnlineStatus = if (isSocketConnected || ("ONLINE".equals(savedStatusStr, ignoreCase = true) && isConnectedInManager)) {
@@ -2107,10 +2262,10 @@ class ChatListActivity : AppCompatActivity() {
 
                             val chat = ChatModel(
                                 idStr,
-                                nameStr,
+                                finalName,
                                 item.optString("lastMessage", ""),
                                 item.optString("time", "сейчас"),
-                                if (rawAvatar.isNullOrEmpty()) null else rawAvatar,
+                                if (finalAvatar.isNullOrEmpty()) null else finalAvatar,
                                 realOnlineStatus,
                                 try { MessageStatus.valueOf(item.optString("messageStatus", "NONE")) } catch(e: Exception) { MessageStatus.NONE },
                                 item.optInt("unreadCount", 0),
@@ -2122,6 +2277,9 @@ class ChatListActivity : AppCompatActivity() {
                             tempList.add(chat)
                         }
                     } catch (e: Exception) { e.printStackTrace() }
+                }
+                if (newArray.length() != array.length()) {
+                    sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply()
                 }
             } catch (e: Exception) { e.printStackTrace() }
         }
@@ -2245,11 +2403,14 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         discoveredDevices.clear()
+        deviceRssiMap.clear()
         isScanningState.value = true
 
         if (!isReceiverRegistered) {
             val filter = IntentFilter().apply {
                 addAction(BluetoothDevice.ACTION_FOUND)
+                addAction(BluetoothDevice.ACTION_NAME_CHANGED)
+                addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
                 addAction(BluetoothDevice.ACTION_UUID)
                 addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
                 addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)

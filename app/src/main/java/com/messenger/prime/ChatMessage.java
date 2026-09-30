@@ -10,7 +10,33 @@ import java.util.UUID;
 public class ChatMessage {
 
     public enum MessageType {
-        TEXT, IMAGE, VIDEO, FILE
+        TEXT, IMAGE, VIDEO, FILE, VOICE
+    }
+
+    public static String getSummaryDescription(ChatMessage msg) {
+        if (msg == null) return "";
+        if (msg.isMultiMedia()) {
+            List<MediaItem> items = msg.getMediaItems();
+            int count = items.size();
+            boolean allVideo = true;
+            boolean allPhoto = true;
+            for (MediaItem item : items) {
+                if (item.isVideo) {
+                    allPhoto = false;
+                } else {
+                    allVideo = false;
+                }
+            }
+            if (allVideo) return "📹 Видео (" + count + ")";
+            if (allPhoto) return "🖼 Фото (" + count + ")";
+            return "Коллаж (" + count + ")";
+        }
+        MessageType type = msg.getMessageType();
+        if (type == MessageType.VIDEO) return "📹 Видео";
+        if (type == MessageType.FILE) return "📎 Файл";
+        if (type == MessageType.IMAGE) return "📷 Фотография";
+        if (type == MessageType.VOICE) return "🎤 Голосовое сообщение";
+        return msg.getText() != null ? msg.getText() : "";
     }
 
     public static class MediaItem {
@@ -175,7 +201,11 @@ public class ChatMessage {
             this.messageType = first.isVideo ? MessageType.VIDEO : MessageType.IMAGE;
         } else if (this.mediaItems.size() > 1) {
             this.imagePath = buildMultiMediaString(this.mediaItems);
-            this.messageType = MessageType.IMAGE;
+            boolean allVideo = true;
+            for (MediaItem mi : this.mediaItems) {
+                if (!mi.isVideo) { allVideo = false; break; }
+            }
+            this.messageType = allVideo ? MessageType.VIDEO : MessageType.IMAGE;
         }
     }
 
