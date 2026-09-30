@@ -74,10 +74,10 @@ public class ChatHistoryManager {
                 File[] files = appContext.getFilesDir().listFiles();
                 if (files != null) {
                     for (File f : files) {
-                        String name = f.getName().toLowerCase();
+                        String name = f.getName().toLowerCase(Locale.US);
                         for (String tKey : keysToDelete) {
-                            String lowerKey = tKey.toLowerCase();
-                            if (name.equals("avatar_" + lowerKey + ".jpg") || name.startsWith("rec_media_" + lowerKey) || name.startsWith("rec_photo_" + lowerKey)) {
+                            String lowerKey = tKey.toLowerCase(Locale.US);
+                            if (name.contains(lowerKey)) {
                                 f.delete();
                             }
                         }
@@ -89,10 +89,10 @@ public class ChatHistoryManager {
                 File[] cacheFiles = appContext.getCacheDir().listFiles();
                 if (cacheFiles != null) {
                     for (File f : cacheFiles) {
-                        String name = f.getName().toLowerCase();
+                        String name = f.getName().toLowerCase(Locale.US);
                         for (String tKey : keysToDelete) {
-                            String lowerKey = tKey.toLowerCase();
-                            if (name.equals("avatar_" + lowerKey + ".jpg") || name.startsWith("rec_media_" + lowerKey) || name.startsWith("rec_photo_" + lowerKey)) {
+                            String lowerKey = tKey.toLowerCase(Locale.US);
+                            if (name.contains(lowerKey)) {
                                 f.delete();
                             }
                         }
@@ -299,8 +299,18 @@ public class ChatHistoryManager {
         SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
 
         if (BluetoothAdapter.checkBluetoothAddress(clean.toUpperCase(Locale.US))) {
-            String mappedName = sp.getString(clean + "_name", null);
-            if (mappedName != null && !mappedName.trim().isEmpty()) {
+            String upperMac = clean.toUpperCase(Locale.US);
+            String mappedName = sp.getString("contact_name_" + upperMac, null);
+            if (mappedName == null || mappedName.trim().isEmpty()) {
+                mappedName = sp.getString("contact_name_" + clean, null);
+            }
+            if (mappedName == null || mappedName.trim().isEmpty()) {
+                mappedName = sp.getString(upperMac + "_name", null);
+            }
+            if (mappedName == null || mappedName.trim().isEmpty()) {
+                mappedName = sp.getString(clean + "_name", null);
+            }
+            if (mappedName != null && !mappedName.trim().isEmpty() && !BluetoothAdapter.checkBluetoothAddress(mappedName.trim())) {
                 return mappedName.trim();
             }
             try {
@@ -310,7 +320,7 @@ public class ChatHistoryManager {
                     JSONObject obj = array.getJSONObject(i);
                     String id = obj.optString("id", "");
                     String name = obj.optString("name", "");
-                    if (clean.equalsIgnoreCase(id) && !name.trim().isEmpty()) {
+                    if (clean.equalsIgnoreCase(id) && !name.trim().isEmpty() && !BluetoothAdapter.checkBluetoothAddress(name.trim())) {
                         return name.trim();
                     }
                 }
@@ -330,7 +340,12 @@ public class ChatHistoryManager {
     }
 
     public static String getDisplayNameForAddress(Context context, String addressOrName) {
-        return getStorageKey(context, addressOrName);
+        if (context == null || addressOrName == null || addressOrName.trim().isEmpty()) return "Собеседник";
+        String key = getStorageKey(context, addressOrName);
+        if (key == null || key.trim().isEmpty() || BluetoothAdapter.checkBluetoothAddress(key.trim().toUpperCase(Locale.US))) {
+            return "Собеседник";
+        }
+        return key;
     }
 
     public static List<ChatMessage> loadMessages(Context context, String targetUsername) {

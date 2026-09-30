@@ -186,7 +186,8 @@ class PersonInformationActivity : AppCompatActivity() {
         val contactName = if (targetAddr.isNotEmpty()) {
             sharedPrefs.getString("contact_name_$targetAddr", null) ?: targetUsername
         } else targetUsername
-        binding.tvUserNameWP.text = contactName
+        val displayContactName = if (BluetoothAdapter.checkBluetoothAddress(contactName)) "Собеседник" else contactName
+        binding.tvUserNameWP.text = displayContactName
 
         val contactAvatar = if (targetAddr.isNotEmpty()) {
             sharedPrefs.getString("contact_avatar_$targetAddr", null) ?: avatarUriStr
@@ -361,7 +362,8 @@ class PersonInformationActivity : AppCompatActivity() {
         val btnNo = dialogView.findViewById<View>(R.id.btnBlurDialogNo)
         val btnYes = dialogView.findViewById<View>(R.id.btnBlurDialogYes)
 
-        tvTitle.text = "Удалить чат с $targetUsername?"
+        val displayTitleName = if (BluetoothAdapter.checkBluetoothAddress(targetUsername)) "собеседником" else targetUsername
+        tvTitle.text = "Удалить чат с $displayTitleName?"
 
         val dialog = MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
             .setView(dialogView)

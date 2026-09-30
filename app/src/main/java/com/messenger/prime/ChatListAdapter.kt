@@ -1,5 +1,6 @@
 package com.messenger.prime
 
+import android.bluetooth.BluetoothAdapter
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -200,9 +201,9 @@ class ChatListAdapter(
 
         private fun updateTitle(animate: Boolean = true) {
             val textToSet = if (networkHint != "Прайм" && networkHint != "ПОИСК") {
-                networkHint
+                if (BluetoothAdapter.checkBluetoothAddress(networkHint)) "Прайм" else networkHint
             } else {
-                if (isShowingName) currentUserName else "Прайм"
+                if (isShowingName && !BluetoothAdapter.checkBluetoothAddress(currentUserName)) currentUserName else "Прайм"
             }
             
             if (currentlyShowingText != textToSet) {
@@ -288,7 +289,7 @@ class ChatListAdapter(
                 val now = System.currentTimeMillis()
                 val isCurrentlyTyping = "TYPING".equals(chat.activityState, ignoreCase = true) && chat.typingUntil > now
 
-                binding.tvContactName.text = chat.name
+                binding.tvContactName.text = if (BluetoothAdapter.checkBluetoothAddress(chat.name)) "Собеседник" else chat.name
                 if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true) || "SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
                     holder.startTypingAnimation("Отправка медиа")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
@@ -592,7 +593,7 @@ class ChatListAdapter(
     private fun loadAvatarFileIntoView(context: Context, file: File, imageView: ImageView) {
         val isGif = file.name.lowercase().endsWith(".gif")
         val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
-        val signatureKey = ObjectKey(if (file.exists()) file.lastModified() else System.currentTimeMillis())
+        val signatureKey = ObjectKey("${file.absolutePath}_${if (file.exists()) file.lastModified() else System.currentTimeMillis()}_${file.length()}")
         if (isGif) {
             Glide.with(context)
                 .asGif()
@@ -616,7 +617,7 @@ class ChatListAdapter(
         val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif")
         val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
         val file = if ("file" == uri.scheme && uri.path != null) File(uri.path!!) else null
-        val signatureKey = ObjectKey(if (file != null && file.exists()) file.lastModified() else System.currentTimeMillis())
+        val signatureKey = ObjectKey("${uri.toString()}_${if (file != null && file.exists()) "${file.lastModified()}_${file.length()}" else System.currentTimeMillis()}")
         if (isGif) {
             Glide.with(context)
                 .asGif()

@@ -1,5 +1,6 @@
 package com.messenger.prime
 
+import android.bluetooth.BluetoothAdapter
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -57,7 +58,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
                     ChatHistoryManager.saveMessage(context, targetUsername, msg)
 
-                    Toast.makeText(context, "Ответ отправлен $targetUsername", Toast.LENGTH_SHORT).show()
+                    val displayRecipient = if (BluetoothAdapter.checkBluetoothAddress(targetUsername)) "собеседнику" else targetUsername
+                    Toast.makeText(context, "Ответ отправлен $displayRecipient", Toast.LENGTH_SHORT).show()
                 }
 
                 nm?.cancel(notificationId)

@@ -1392,13 +1392,20 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
-    private static String getMimeType(String url) {
-        String type = null;
-        String extension = MimeTypeMap.getFileExtensionFromUrl(url);
-        if (extension != null) {
-            type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.toLowerCase());
+    private static String getMimeType(String filePath) {
+        if (filePath == null) return "*/*";
+        String ext = "";
+        int lastDot = filePath.lastIndexOf('.');
+        if (lastDot != -1 && lastDot < filePath.length() - 1) {
+            ext = filePath.substring(lastDot + 1).toLowerCase(Locale.US);
         }
-        return type != null ? type : "*/*";
+        if (!ext.isEmpty()) {
+            String type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
+            if (type != null && !type.isEmpty()) {
+                return type;
+            }
+        }
+        return "*/*";
     }
 
     class IncomingViewHolder extends RecyclerView.ViewHolder {

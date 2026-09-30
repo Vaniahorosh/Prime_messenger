@@ -67,9 +67,7 @@ public class NotificationReplyReceiver extends BroadcastReceiver {
             resetUnreadCountAndUpdateLastMessage(context, senderName, targetAddr, null);
         } else if ("com.messenger.prime.action.CANCEL_UPLOAD".equals(action)) {
             if (targetAddr != null && !targetAddr.isEmpty()) {
-                BluetoothConnectionManager.getInstance().disconnect(targetAddr);
-            } else {
-                BluetoothConnectionManager.getInstance().disconnect();
+                BluetoothConnectionManager.getInstance().cancelCurrentMediaSend(targetAddr);
             }
         }
 

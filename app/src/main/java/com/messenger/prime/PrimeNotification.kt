@@ -22,6 +22,7 @@ import android.widget.TextSwitcher
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import eightbitlab.com.blurview.BlurView as EightBitBlurView
+import java.lang.ref.WeakReference
 import kotlin.math.abs
 
 /**
@@ -31,16 +32,21 @@ import kotlin.math.abs
 object PrimeNotification {
 
     private const val DURATION = 3000L // 3 секунды
+    private var activeNotificationViewRef: WeakReference<View>? = null
 
     @JvmStatic
     @JvmOverloads
-    fun show(activity: Activity?, message: String, onUndo: (() -> Unit)? = null) {
+    fun show(activity: Activity?, message: String, onUndo: (() -> Unit)? = null, onClick: (() -> Unit)? = null) {
         if (activity == null || activity.isFinishing || activity.isDestroyed) return
         activity.runOnUiThread {
             try {
+                activeNotificationViewRef?.get()?.let { oldView ->
+                    dismiss(oldView, 0f, 0f)
+                }
                 val rootLayout = activity.findViewById<ViewGroup>(android.R.id.content) ?: return@runOnUiThread
                 val inflater = LayoutInflater.from(activity)
                 val notificationView = inflater.inflate(R.layout.layout_prime_notification, rootLayout, false)
+                activeNotificationViewRef = WeakReference(notificationView)
 
                 val textView = notificationView.findViewById<TextView>(R.id.tvNotificationText)
                 val layoutTimer = notificationView.findViewById<View>(R.id.layoutTimer)
@@ -202,6 +208,11 @@ object PrimeNotification {
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                             v.performClick()
                             if (!isDragging) {
+                                if (onClick != null) {
+                                    timerAnimator.cancel()
+                                    try { onClick.invoke() } catch (e: Exception) { e.printStackTrace() }
+                                    dismiss(v, 0f, 0f)
+                                }
                                 return@setOnTouchListener false
                             }
                             val dx = event.rawX - startX
@@ -231,6 +242,9 @@ object PrimeNotification {
     }
 
     private fun dismiss(view: View, directionX: Float, directionY: Float) {
+        if (activeNotificationViewRef?.get() == view) {
+            activeNotificationViewRef = null
+        }
         val animator = view.animate()
             .alpha(0f)
             .setDuration(300)

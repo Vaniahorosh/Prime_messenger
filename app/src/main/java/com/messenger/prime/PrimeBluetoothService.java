@@ -11,6 +11,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -21,7 +23,9 @@ import android.bluetooth.BluetoothDevice;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.Person;
 import androidx.core.app.RemoteInput;
+import androidx.core.graphics.drawable.IconCompat;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -49,6 +53,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     private PowerManager.WakeLock wakeLock;
     private final Handler reconnectHandler = new Handler(Looper.getMainLooper());
     private final ConcurrentHashMap<String, Integer> reconnectAttempts = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Runnable> pendingReconnects = new ConcurrentHashMap<>();
 
     @Override
     public void onCreate() {
@@ -97,11 +102,20 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     private void resetReconnectAttempts(String address) {
         if (address != null) {
             reconnectAttempts.remove(address);
+            Runnable old = pendingReconnects.remove(address);
+            if (old != null) {
+                reconnectHandler.removeCallbacks(old);
+            }
         }
     }
 
     private void scheduleReconnect(String address) {
         if (address == null || address.isEmpty() || !BluetoothAdapter.checkBluetoothAddress(address)) return;
+
+        Runnable existing = pendingReconnects.remove(address);
+        if (existing != null) {
+            reconnectHandler.removeCallbacks(existing);
+        }
 
         int attempts = reconnectAttempts.getOrDefault(address, 0) + 1;
         reconnectAttempts.put(address, attempts);
@@ -114,7 +128,8 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
         Log.d(TAG, "Scheduling exponential reconnect for " + address + " (Attempt #" + attempts + " in " + (delayMs/1000) + "s)");
 
-        reconnectHandler.postDelayed(() -> {
+        Runnable reconnectTask = () -> {
+            pendingReconnects.remove(address);
             if (!BluetoothConnectionManager.getInstance().isConnected(address)) {
                 BluetoothManager manager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
                 BluetoothAdapter adapter = manager != null ? manager.getAdapter() : null;
@@ -131,7 +146,10 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     }
                 }
             }
-        }, delayMs);
+        };
+
+        pendingReconnects.put(address, reconnectTask);
+        reconnectHandler.postDelayed(reconnectTask, delayMs);
     }
 
     @Override
@@ -291,6 +309,20 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
     public static final String MSG_CHANNEL_ID = "prime_messages_channel";
 
+    private static File getAvatarFileFor(Context context, String senderName, String deviceAddress) {
+        if (context == null) return null;
+        File[] candidates = new File[]{
+                deviceAddress != null ? new File(context.getFilesDir(), "rec_avatar_" + deviceAddress + ".jpg") : null,
+                deviceAddress != null ? new File(context.getFilesDir(), "avatar_" + deviceAddress + ".jpg") : null,
+                senderName != null ? new File(context.getFilesDir(), "rec_avatar_" + senderName + ".jpg") : null,
+                senderName != null ? new File(context.getFilesDir(), "avatar_" + senderName + ".jpg") : null
+        };
+        for (File f : candidates) {
+            if (f != null && f.exists() && f.length() > 0) return f;
+        }
+        return null;
+    }
+
     public static void showMessageNotification(Context context, String senderName, String messageText, String deviceAddress) {
         if (context == null) return;
         try {
@@ -322,6 +354,41 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     context, requestCode, chatIntent,
                     PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
             );
+
+            String displaySenderName = senderName;
+            if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                String savedName = sp.getString("contact_name_" + deviceAddress, null);
+                if (savedName == null || savedName.isEmpty()) {
+                    savedName = sp.getString(deviceAddress + "_name", null);
+                }
+                if (savedName != null && !savedName.isEmpty() && !BluetoothAdapter.checkBluetoothAddress(savedName)) {
+                    displaySenderName = savedName;
+                }
+            }
+            if (displaySenderName == null || displaySenderName.isEmpty() || BluetoothAdapter.checkBluetoothAddress(displaySenderName)) {
+                displaySenderName = "Prime Собеседник";
+            }
+
+            // Build Person & MessagingStyle
+            Person.Builder personBuilder = new Person.Builder()
+                    .setName(displaySenderName)
+                    .setKey(senderName != null ? senderName : "unknown");
+
+            File avatarFile = getAvatarFileFor(context, senderName, deviceAddress);
+            if (avatarFile != null && avatarFile.exists()) {
+                try {
+                    Bitmap bmp = BitmapFactory.decodeFile(avatarFile.getAbsolutePath());
+                    if (bmp != null) {
+                        personBuilder.setIcon(IconCompat.createWithBitmap(bmp));
+                    }
+                } catch (Throwable ignored) {}
+            }
+            Person senderPerson = personBuilder.build();
+
+            NotificationCompat.MessagingStyle messagingStyle = new NotificationCompat.MessagingStyle(senderPerson)
+                    .setConversationTitle(displaySenderName)
+                    .addMessage(messageText != null ? messageText : "Новое сообщение", System.currentTimeMillis(), senderPerson);
 
             // 1. RemoteInput Action: "Ответить"
             RemoteInput remoteInput = new RemoteInput.Builder("KEY_TEXT_REPLY")
@@ -369,8 +436,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
             Notification notification = new NotificationCompat.Builder(context, MSG_CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_prime_statusbar)
-                    .setContentTitle(senderName != null && !senderName.isEmpty() ? senderName : "Prime Messenger")
-                    .setContentText(messageText != null ? messageText : "Новое сообщение")
+                    .setStyle(messagingStyle)
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
                     .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                     .setContentIntent(pendingIntent)
@@ -410,7 +476,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm == null) return;
 
-            if (progress >= 100) {
+            if (progress >= 100 || progress < 0) {
                 nm.cancel(PROGRESS_NOTIFICATION_ID);
                 return;
             }
@@ -426,7 +492,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             );
 
             String peerName = ChatHistoryManager.getDisplayNameForAddress(this, deviceAddress);
-            if (peerName == null || peerName.isEmpty()) peerName = "Собеседнику";
+            if (peerName == null || peerName.isEmpty() || BluetoothAdapter.checkBluetoothAddress(peerName)) peerName = "Собеседнику";
 
             Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                     .setSmallIcon(android.R.drawable.stat_sys_upload)
@@ -453,8 +519,8 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         manageWakeLock();
         
         String displayName = ChatHistoryManager.getDisplayNameForAddress(this, fromAddress);
-        if (displayName == null || displayName.isEmpty() || displayName.equalsIgnoreCase(fromAddress)) {
-            displayName = fromAddress != null ? fromAddress : "Собеседник";
+        if (displayName == null || displayName.isEmpty() || displayName.equalsIgnoreCase(fromAddress) || BluetoothAdapter.checkBluetoothAddress(displayName)) {
+            displayName = "Собеседник";
         }
 
         try {
@@ -555,7 +621,8 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             if (updatedObj == null) {
                 updatedObj = new JSONObject();
                 updatedObj.put("id", deviceAddr != null ? deviceAddr : targetName);
-                updatedObj.put("name", targetName);
+                String saveName = (targetName != null && !BluetoothAdapter.checkBluetoothAddress(targetName)) ? targetName : "Собеседник";
+                updatedObj.put("name", saveName);
                 updatedObj.put("lastMessage", lastMsg);
                 updatedObj.put("time", timeStr);
                 updatedObj.put("onlineStatus", "ONLINE");
@@ -575,237 +642,245 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         if (fullPayload == null || fullPayload.length == 0) {
             return new ChatMessage("📷 Фотография", photoTime, sender, false, null, photoTs, null, null);
         }
-
-        String metaCheck = new String(fullPayload, 0, Math.min(fullPayload.length, 300), StandardCharsets.UTF_8);
-        if (metaCheck.contains(":::MULTI:")) {
-            int headerEndIdx = -1;
-            String headerEndTag = ":::HEADER_END:::";
-            byte[] tagBytes = headerEndTag.getBytes(StandardCharsets.UTF_8);
-            for (int i = 0; i <= fullPayload.length - tagBytes.length; i++) {
-                boolean match = true;
-                for (int j = 0; j < tagBytes.length; j++) {
-                    if (fullPayload[i + j] != tagBytes[j]) { match = false; break; }
-                }
-                if (match) { headerEndIdx = i; break; }
-            }
-
-            if (headerEndIdx != -1) {
-                String headerStr = new String(fullPayload, 0, headerEndIdx, StandardCharsets.UTF_8);
-                int bodyStart = headerEndIdx + tagBytes.length;
-
-                String photoMsgId = ChatPersonActivity.extractMsgId(headerStr);
-                String sizesPart = "";
-                int sizesIdx = headerStr.indexOf(":::SIZES:");
-                if (sizesIdx != -1) {
-                    sizesPart = headerStr.substring(sizesIdx + 9);
-                    int endSizes = sizesPart.indexOf(":::");
-                    if (endSizes != -1) sizesPart = sizesPart.substring(0, endSizes);
-                }
-
-                String captionText = "";
-                int multiIdx = headerStr.indexOf(":::MULTI:");
-                if (multiIdx != -1 && sizesIdx != -1 && sizesIdx > multiIdx) {
-                    String multiSub = headerStr.substring(multiIdx + 9, sizesIdx);
-                    int colonIdx = multiSub.indexOf(":::");
-                    if (colonIdx != -1) {
-                        captionText = multiSub.substring(colonIdx + 3);
+        try {
+            String metaCheck = new String(fullPayload, 0, Math.min(fullPayload.length, 300), StandardCharsets.UTF_8);
+            if (metaCheck.contains(":::MULTI:")) {
+                int headerEndIdx = -1;
+                String headerEndTag = ":::HEADER_END:::";
+                byte[] tagBytes = headerEndTag.getBytes(StandardCharsets.UTF_8);
+                for (int i = 0; i <= fullPayload.length - tagBytes.length; i++) {
+                    boolean match = true;
+                    for (int j = 0; j < tagBytes.length; j++) {
+                        if (fullPayload[i + j] != tagBytes[j]) { match = false; break; }
                     }
+                    if (match) { headerEndIdx = i; break; }
                 }
 
-                String[] itemMetas = sizesPart.split(",");
-                List<ChatMessage.MediaItem> recMediaItems = new ArrayList<>();
-                int currentOffset = bodyStart;
+                if (headerEndIdx != -1) {
+                    String headerStr = new String(fullPayload, 0, headerEndIdx, StandardCharsets.UTF_8);
+                    int bodyStart = headerEndIdx + tagBytes.length;
 
-                for (int idx = 0; idx < itemMetas.length; idx++) {
-                    try {
-                        String metaStr = itemMetas[idx].trim();
-                        String[] parts = metaStr.split("\\|");
-                        boolean isVideo = parts.length >= 1 && "1".equals(parts[0]);
-                        int pSize = parts.length >= 2 ? Integer.parseInt(parts[1]) : Integer.parseInt(parts[0]);
-                        String durStr = parts.length >= 3 ? parts[2] : "00:00";
-                        String ext = parts.length >= 4 ? parts[3] : (isVideo ? "mp4" : "jpg");
+                    String photoMsgId = ChatPersonActivity.extractMsgId(headerStr);
+                    String sizesPart = "";
+                    int sizesIdx = headerStr.indexOf(":::SIZES:");
+                    if (sizesIdx != -1) {
+                        sizesPart = headerStr.substring(sizesIdx + 9);
+                        int endSizes = sizesPart.indexOf(":::");
+                        if (endSizes != -1) sizesPart = sizesPart.substring(0, endSizes);
+                    }
 
-                        if (currentOffset + pSize <= fullPayload.length) {
-                            byte[] itemBytes = new byte[pSize];
-                            System.arraycopy(fullPayload, currentOffset, itemBytes, 0, pSize);
-                            currentOffset += pSize;
-
-                            File mediaFile = new File(context.getFilesDir(), "rec_media_" + (photoMsgId != null ? photoMsgId : photoTs) + "_" + idx + "." + ext);
-                            FileOutputStream fos = new FileOutputStream(mediaFile);
-                            fos.write(itemBytes);
-                            fos.flush();
-                            fos.close();
-
-                            recMediaItems.add(new ChatMessage.MediaItem(mediaFile.getAbsolutePath(), isVideo, durStr));
+                    String captionText = "";
+                    int multiIdx = headerStr.indexOf(":::MULTI:");
+                    if (multiIdx != -1 && sizesIdx != -1 && sizesIdx > multiIdx) {
+                        String multiSub = headerStr.substring(multiIdx + 9, sizesIdx);
+                        int colonIdx = multiSub.indexOf(":::");
+                        if (colonIdx != -1) {
+                            captionText = multiSub.substring(colonIdx + 3);
                         }
-                    } catch (Exception e) {
-                        Log.e("PrimeBluetoothService", "Failed to parse multi-media item " + idx, e);
+                    }
+
+                    String[] itemMetas = sizesPart.split(",");
+                    List<ChatMessage.MediaItem> recMediaItems = new ArrayList<>();
+                    int currentOffset = bodyStart;
+
+                    for (int idx = 0; idx < itemMetas.length; idx++) {
+                        try {
+                            String metaStr = itemMetas[idx].trim();
+                            String[] parts = metaStr.split("\\|");
+                            boolean isVideo = parts.length >= 1 && "1".equals(parts[0]);
+                            int pSize = parts.length >= 2 ? Integer.parseInt(parts[1]) : Integer.parseInt(parts[0]);
+                            String durStr = parts.length >= 3 ? parts[2] : "00:00";
+                            String ext = parts.length >= 4 ? parts[3] : (isVideo ? "mp4" : "jpg");
+
+                            if (currentOffset + pSize <= fullPayload.length) {
+                                byte[] itemBytes = new byte[pSize];
+                                System.arraycopy(fullPayload, currentOffset, itemBytes, 0, pSize);
+                                currentOffset += pSize;
+
+                                File mediaFile = new File(context.getFilesDir(), "rec_media_" + (photoMsgId != null ? photoMsgId : photoTs) + "_" + idx + "." + ext);
+                                FileOutputStream fos = new FileOutputStream(mediaFile);
+                                fos.write(itemBytes);
+                                fos.flush();
+                                fos.close();
+
+                                recMediaItems.add(new ChatMessage.MediaItem(mediaFile.getAbsolutePath(), isVideo, durStr));
+                            }
+                        } catch (Exception e) {
+                            Log.e("PrimeBluetoothService", "Failed to parse multi-media item " + idx, e);
+                        }
+                    }
+
+                    if (!recMediaItems.isEmpty()) {
+                        ChatMessage multiMsg = new ChatMessage(captionText, photoTime, sender, false, null, photoTs, null, photoMsgId);
+                        multiMsg.setMediaItems(recMediaItems);
+                        return multiMsg;
                     }
                 }
-
-                if (!recMediaItems.isEmpty()) {
-                    ChatMessage multiMsg = new ChatMessage(captionText, photoTime, sender, false, null, photoTs, null, photoMsgId);
-                    multiMsg.setMediaItems(recMediaItems);
-                    return multiMsg;
-                }
             }
-        }
 
-        String photoMsgId = null;
-        String captionText = null;
-        byte[] photoBytes = fullPayload;
-        int sepIdx = -1;
-        for (int i = 0; i < Math.min(fullPayload.length, 120); i++) {
-            if (fullPayload[i] == ':' && i + 2 < fullPayload.length && fullPayload[i+1] == ':' && fullPayload[i+2] == ':') {
-                sepIdx = i;
-                break;
-            }
-        }
-        if (sepIdx != -1) {
-            photoMsgId = new String(fullPayload, 0, sepIdx, StandardCharsets.UTF_8);
-            photoBytes = new byte[fullPayload.length - (sepIdx + 3)];
-            System.arraycopy(fullPayload, sepIdx + 3, photoBytes, 0, photoBytes.length);
-        }
-
-        if (photoBytes.length > 9) {
-            byte[] magic = "|PRM|".getBytes(StandardCharsets.UTF_8);
-            boolean hasMagic = true;
-            for (int i = 0; i < 5; i++) {
-                if (photoBytes[photoBytes.length - 5 + i] != magic[i]) {
-                    hasMagic = false;
+            String photoMsgId = null;
+            String captionText = null;
+            byte[] photoBytes = fullPayload;
+            int sepIdx = -1;
+            for (int i = 0; i < Math.min(fullPayload.length, 120); i++) {
+                if (fullPayload[i] == ':' && i + 2 < fullPayload.length && fullPayload[i+1] == ':' && fullPayload[i+2] == ':') {
+                    sepIdx = i;
                     break;
                 }
             }
-            if (hasMagic) {
-                int capLen = ((photoBytes[photoBytes.length - 9] & 0xFF) << 24) |
-                             ((photoBytes[photoBytes.length - 8] & 0xFF) << 16) |
-                             ((photoBytes[photoBytes.length - 7] & 0xFF) << 8) |
-                             (photoBytes[photoBytes.length - 6] & 0xFF);
-                if (capLen > 0 && capLen < photoBytes.length - 9) {
-                    captionText = new String(photoBytes, photoBytes.length - 9 - capLen, capLen, StandardCharsets.UTF_8);
-                    byte[] cleanPhoto = new byte[photoBytes.length - 9 - capLen];
-                    System.arraycopy(photoBytes, 0, cleanPhoto, 0, cleanPhoto.length);
-                    photoBytes = cleanPhoto;
+            if (sepIdx != -1) {
+                photoMsgId = new String(fullPayload, 0, sepIdx, StandardCharsets.UTF_8);
+                photoBytes = new byte[fullPayload.length - (sepIdx + 3)];
+                System.arraycopy(fullPayload, sepIdx + 3, photoBytes, 0, photoBytes.length);
+            }
+
+            if (photoBytes.length > 9) {
+                byte[] magic = "|PRM|".getBytes(StandardCharsets.UTF_8);
+                boolean hasMagic = true;
+                for (int i = 0; i < 5; i++) {
+                    if (photoBytes[photoBytes.length - 5 + i] != magic[i]) {
+                        hasMagic = false;
+                        break;
+                    }
+                }
+                if (hasMagic) {
+                    int capLen = ((photoBytes[photoBytes.length - 9] & 0xFF) << 24) |
+                                 ((photoBytes[photoBytes.length - 8] & 0xFF) << 16) |
+                                 ((photoBytes[photoBytes.length - 7] & 0xFF) << 8) |
+                                 (photoBytes[photoBytes.length - 6] & 0xFF);
+                    if (capLen > 0 && capLen < photoBytes.length - 9) {
+                        captionText = new String(photoBytes, photoBytes.length - 9 - capLen, capLen, StandardCharsets.UTF_8);
+                        byte[] cleanPhoto = new byte[photoBytes.length - 9 - capLen];
+                        System.arraycopy(photoBytes, 0, cleanPhoto, 0, cleanPhoto.length);
+                        photoBytes = cleanPhoto;
+                    }
                 }
             }
-        }
 
-        String savedPhotoPath = null;
-        if (photoBytes.length > 0) {
-            try {
-                boolean isGif = photoBytes.length > 3 && photoBytes[0] == (byte) 'G' && photoBytes[1] == (byte) 'I' && photoBytes[2] == (byte) 'F';
-                String ext = isGif ? ".gif" : ".jpg";
-                File photoFile = new File(context.getFilesDir(), "rec_photo_" + (photoMsgId != null ? photoMsgId : photoTs) + ext);
-                FileOutputStream fos = new FileOutputStream(photoFile);
-                fos.write(photoBytes);
-                fos.flush();
-                fos.close();
-                savedPhotoPath = photoFile.getAbsolutePath();
-            } catch (Exception e) {
-                Log.e("PrimeBluetoothService", "Failed to save received photo in background", e);
+            String savedPhotoPath = null;
+            if (photoBytes.length > 0) {
+                try {
+                    boolean isGif = photoBytes.length > 3 && photoBytes[0] == (byte) 'G' && photoBytes[1] == (byte) 'I' && photoBytes[2] == (byte) 'F';
+                    String ext = isGif ? ".gif" : ".jpg";
+                    File photoFile = new File(context.getFilesDir(), "rec_photo_" + (photoMsgId != null ? photoMsgId : photoTs) + ext);
+                    FileOutputStream fos = new FileOutputStream(photoFile);
+                    fos.write(photoBytes);
+                    fos.flush();
+                    fos.close();
+                    savedPhotoPath = photoFile.getAbsolutePath();
+                } catch (Exception e) {
+                    Log.e("PrimeBluetoothService", "Failed to save received photo in background", e);
+                }
             }
-        }
 
-        ChatMessage photoMsg = new ChatMessage(captionText, photoTime, sender, false, null, photoTs, savedPhotoPath, photoMsgId);
-        photoMsg.setMessageType(ChatMessage.MessageType.IMAGE);
-        return photoMsg;
+            ChatMessage photoMsg = new ChatMessage(captionText, photoTime, sender, false, null, photoTs, savedPhotoPath, photoMsgId);
+            photoMsg.setMessageType(ChatMessage.MessageType.IMAGE);
+            return photoMsg;
+        } catch (Throwable e) {
+            Log.e("PrimeBluetoothService", "Failed to parse background photo message", e);
+            return new ChatMessage("📷 Фотография", photoTime, sender, false, null, photoTs, null, null);
+        }
     }
 
     private static ChatMessage parseBackgroundFileMessage(Context context, byte[] fullPayload, String sender, long timestamp, String time) {
         if (fullPayload == null || fullPayload.length == 0) {
             return new ChatMessage("Файл", time, sender, false, null, timestamp, null, null);
         }
+        try {
+            int headerEndIdx = -1;
+            String headerEndTag = ":::HEADER_END:::";
+            byte[] tagBytes = headerEndTag.getBytes(StandardCharsets.UTF_8);
 
-        int headerEndIdx = -1;
-        String headerEndTag = ":::HEADER_END:::";
-        byte[] tagBytes = headerEndTag.getBytes(StandardCharsets.UTF_8);
-
-        for (int i = 0; i <= fullPayload.length - tagBytes.length; i++) {
-            boolean match = true;
-            for (int j = 0; j < tagBytes.length; j++) {
-                if (fullPayload[i + j] != tagBytes[j]) {
-                    match = false;
+            for (int i = 0; i <= fullPayload.length - tagBytes.length; i++) {
+                boolean match = true;
+                for (int j = 0; j < tagBytes.length; j++) {
+                    if (fullPayload[i + j] != tagBytes[j]) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    headerEndIdx = i;
                     break;
                 }
             }
-            if (match) {
-                headerEndIdx = i;
-                break;
+
+            String headerStr = "";
+            byte[] fileDataBytes = new byte[0];
+
+            if (headerEndIdx != -1) {
+                headerStr = new String(fullPayload, 0, headerEndIdx, StandardCharsets.UTF_8);
+                int bodyStart = headerEndIdx + tagBytes.length;
+                int bodyLen = fullPayload.length - bodyStart;
+                if (bodyLen > 0) {
+                    fileDataBytes = new byte[bodyLen];
+                    System.arraycopy(fullPayload, bodyStart, fileDataBytes, 0, bodyLen);
+                }
+            } else {
+                headerStr = new String(fullPayload, StandardCharsets.UTF_8);
             }
-        }
 
-        String headerStr = "";
-        byte[] fileDataBytes = new byte[0];
+            String msgId = null;
+            String fileName = "Файл";
+            long fileSize = 0L;
+            String text = "";
+            String videoDuration = null;
 
-        if (headerEndIdx != -1) {
-            headerStr = new String(fullPayload, 0, headerEndIdx, StandardCharsets.UTF_8);
-            int bodyStart = headerEndIdx + tagBytes.length;
-            int bodyLen = fullPayload.length - bodyStart;
-            if (bodyLen > 0) {
-                fileDataBytes = new byte[bodyLen];
-                System.arraycopy(fullPayload, bodyStart, fileDataBytes, 0, bodyLen);
+            BiFunction<String, String, String> extractTag = (header, tag) -> {
+                int idx = header.indexOf(tag);
+                if (idx == -1) return null;
+                int start = idx + tag.length();
+                int end = header.indexOf(":::", start);
+                if (end == -1) end = header.length();
+                return header.substring(start, end).trim();
+            };
+
+            videoDuration = extractTag.apply(headerStr, ":::DURATION:::");
+            String isVideoStr = extractTag.apply(headerStr, ":::IS_VIDEO:::");
+            boolean isVideoFlag = "1".equals(isVideoStr);
+
+            String[] parts = headerStr.split(":::");
+            if (parts.length >= 1) msgId = parts[0];
+            if (parts.length >= 2) fileName = parts[1];
+            if (parts.length >= 3) {
+                try { fileSize = Long.parseLong(parts[2]); } catch (Exception ignored) {}
             }
-        } else {
-            headerStr = new String(fullPayload, StandardCharsets.UTF_8);
-        }
+            if (parts.length >= 4) text = parts[3];
 
-        String msgId = null;
-        String fileName = "Файл";
-        long fileSize = 0L;
-        String text = "";
-        String videoDuration = null;
-
-        BiFunction<String, String, String> extractTag = (header, tag) -> {
-            int idx = header.indexOf(tag);
-            if (idx == -1) return null;
-            int start = idx + tag.length();
-            int end = header.indexOf(":::", start);
-            if (end == -1) end = header.length();
-            return header.substring(start, end).trim();
-        };
-
-        videoDuration = extractTag.apply(headerStr, ":::DURATION:::");
-        String isVideoStr = extractTag.apply(headerStr, ":::IS_VIDEO:::");
-        boolean isVideoFlag = "1".equals(isVideoStr);
-
-        String[] parts = headerStr.split(":::");
-        if (parts.length >= 1) msgId = parts[0];
-        if (parts.length >= 2) fileName = parts[1];
-        if (parts.length >= 3) {
-            try { fileSize = Long.parseLong(parts[2]); } catch (Exception ignored) {}
-        }
-        if (parts.length >= 4) text = parts[3];
-
-        String localSavedPath = null;
-        if (fileDataBytes.length > 0) {
-            try {
-                File localFile = new File(context.getFilesDir(), "rec_file_" + (msgId != null ? msgId : timestamp) + "_" + fileName);
-                FileOutputStream fos = new FileOutputStream(localFile);
-                fos.write(fileDataBytes);
-                fos.flush();
-                fos.close();
-                localSavedPath = localFile.getAbsolutePath();
-            } catch (Exception e) {
-                Log.e("PrimeBluetoothService", "Failed to save received file in background", e);
+            String localSavedPath = null;
+            if (fileDataBytes.length > 0) {
+                try {
+                    File localFile = new File(context.getFilesDir(), "rec_file_" + (msgId != null ? msgId : timestamp) + "_" + fileName);
+                    FileOutputStream fos = new FileOutputStream(localFile);
+                    fos.write(fileDataBytes);
+                    fos.flush();
+                    fos.close();
+                    localSavedPath = localFile.getAbsolutePath();
+                } catch (Exception e) {
+                    Log.e("PrimeBluetoothService", "Failed to save received file in background", e);
+                }
             }
+
+            ChatMessage msg = new ChatMessage(text, time, sender, false, null, timestamp, localSavedPath, msgId);
+
+            String lowerName = fileName.toLowerCase(Locale.US);
+            boolean isVideo = isVideoFlag || (videoDuration != null && !videoDuration.equals("00:00")) || lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".3gp") || lowerName.endsWith(".webm") || lowerName.endsWith(".mov") || lowerName.endsWith(".avi");
+
+            if (isVideo) {
+                msg.setMessageType(ChatMessage.MessageType.VIDEO);
+                msg.setVideoDuration(videoDuration != null ? videoDuration : "00:00");
+            } else {
+                msg.setMessageType(ChatMessage.MessageType.FILE);
+            }
+
+            msg.setFileName(fileName);
+            msg.setFileSize(fileSize > 0 ? fileSize : fileDataBytes.length);
+
+            return msg;
+        } catch (Throwable e) {
+            Log.e("PrimeBluetoothService", "Failed to parse background file message", e);
+            return new ChatMessage("Файл", time, sender, false, null, timestamp, null, null);
         }
-
-        ChatMessage msg = new ChatMessage(text, time, sender, false, null, timestamp, localSavedPath, msgId);
-
-        String lowerName = fileName.toLowerCase(Locale.US);
-        boolean isVideo = isVideoFlag || (videoDuration != null && !videoDuration.equals("00:00")) || lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".3gp") || lowerName.endsWith(".webm") || lowerName.endsWith(".mov") || lowerName.endsWith(".avi");
-
-        if (isVideo) {
-            msg.setMessageType(ChatMessage.MessageType.VIDEO);
-            msg.setVideoDuration(videoDuration != null ? videoDuration : "00:00");
-        } else {
-            msg.setMessageType(ChatMessage.MessageType.FILE);
-        }
-
-        msg.setFileName(fileName);
-        msg.setFileSize(fileSize > 0 ? fileSize : fileDataBytes.length);
-
-        return msg;
     }
 
     @Nullable
