@@ -15,19 +15,51 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import android.os.Build;
 
 public class ChatHistoryManager {
 
     private static final String PREF_NAME = "PrimeChatHistory";
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    public static File saveBytesToAtomicFile(Context context, String fileName, byte[] bytes) {
+        if (context == null || fileName == null || bytes == null || bytes.length == 0) return null;
+        try {
+            File targetFile = new File(context.getFilesDir(), fileName);
+            File tempFile = new File(context.getFilesDir(), "tmp_" + UUID.randomUUID().toString() + "_" + fileName);
+            try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                fos.write(bytes);
+                fos.flush();
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                try {
+                    Files.move(tempFile.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                    return targetFile;
+                } catch (Exception ignored) {}
+            }
+            if (targetFile.exists()) {
+                targetFile.delete();
+            }
+            if (tempFile.renameTo(targetFile)) {
+                return targetFile;
+            }
+            return tempFile;
+        } catch (Exception e) {
+            Log.e("AtomicFileSave", "Failed to save atomic file " + fileName, e);
+            return null;
+        }
+    }
 
     public static void deleteHistory(Context context, String targetUsername) {
         deleteHistoryCompletely(context, targetUsername, null);

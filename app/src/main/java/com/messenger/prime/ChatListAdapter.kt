@@ -48,6 +48,11 @@ class ChatListAdapter(
     private val onDeleteClick: (ChatModel, Int) -> Unit,
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
+    fun updateList(newChatList: List<ChatModel>) {
+        this.chatList = newChatList
+        notifyDataSetChanged()
+    }
+
     companion object {
         private const val TYPE_CHAT = 0
         private const val TYPE_FOOTER = 1
@@ -174,7 +179,7 @@ class ChatListAdapter(
             }
 
             binding.btnHeaderSearch.setOnClickListener { onSearchClick() }
-            
+
             if (binding.tsHeaderTitle.isEmpty()) {
                 binding.tsHeaderTitle.setFactory {
                     TextView(binding.root.context).apply {
@@ -590,56 +595,58 @@ class ChatListAdapter(
             .start()
     }
 
-    private fun loadAvatarFileIntoView(context: Context, file: File, imageView: ImageView) {
-        val isGif = file.name.lowercase().endsWith(".gif")
-        val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
-        val signatureKey = ObjectKey("${file.absolutePath}_${if (file.exists()) file.lastModified() else System.currentTimeMillis()}_${file.length()}")
-        if (isGif) {
-            Glide.with(context)
-                .asGif()
-                .load(file)
-                .centerCrop()
-                .signature(signatureKey)
-                .placeholder(R.drawable.ic_person)
-                .into(imageView)
-        } else {
-            Glide.with(context)
-                .load(file)
-                .transform(CenterCrop(), RoundedCorners(radiusPx))
-                .signature(signatureKey)
-                .placeholder(R.drawable.ic_person)
-                .into(imageView)
-        }
-    }
+}
 
-    private fun loadAvatarUriIntoView(context: Context, uri: Uri, imageView: ImageView) {
-        val uriStr = uri.toString().lowercase()
-        val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif")
-        val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
-        val file = if ("file" == uri.scheme && uri.path != null) File(uri.path!!) else null
-        val signatureKey = ObjectKey("${uri.toString()}_${if (file != null && file.exists()) "${file.lastModified()}_${file.length()}" else System.currentTimeMillis()}")
-        if (isGif) {
-            Glide.with(context)
-                .asGif()
-                .load(uri)
-                .centerCrop()
-                .signature(signatureKey)
-                .placeholder(R.drawable.ic_person)
-                .into(imageView)
-        } else {
-            Glide.with(context)
-                .load(uri)
-                .transform(CenterCrop(), RoundedCorners(radiusPx))
-                .signature(signatureKey)
-                .placeholder(R.drawable.ic_person)
-                .into(imageView)
-        }
-    }
-
-    private fun getAvatarColor(name: String): Int {
-        val colors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFEB3B", "#FFC107", "#FF9800", "#FF5722")
-        val hash = name.hashCode()
-        val index = (if (hash == Int.MIN_VALUE) 0 else Math.abs(hash)) % colors.size
-        return colors[index].toColorInt()
+fun loadAvatarFileIntoView(context: Context, file: File, imageView: ImageView) {
+    val isGif = file.name.lowercase().endsWith(".gif")
+    val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
+    val signatureKey = ObjectKey("${file.absolutePath}_${if (file.exists()) file.lastModified() else System.currentTimeMillis()}_${file.length()}")
+    if (isGif) {
+        Glide.with(context)
+            .asGif()
+            .load(file)
+            .centerCrop()
+            .signature(signatureKey)
+            .placeholder(R.drawable.ic_person)
+            .into(imageView)
+    } else {
+        Glide.with(context)
+            .load(file)
+            .transform(CenterCrop(), RoundedCorners(radiusPx))
+            .signature(signatureKey)
+            .placeholder(R.drawable.ic_person)
+            .into(imageView)
     }
 }
+
+fun loadAvatarUriIntoView(context: Context, uri: Uri, imageView: ImageView) {
+    val uriStr = uri.toString().lowercase()
+    val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif")
+    val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
+    val file = if ("file" == uri.scheme && uri.path != null) File(uri.path!!) else null
+    val signatureKey = ObjectKey("${uri.toString()}_${if (file != null && file.exists()) "${file.lastModified()}_${file.length()}" else System.currentTimeMillis()}")
+    if (isGif) {
+        Glide.with(context)
+            .asGif()
+            .load(uri)
+            .centerCrop()
+            .signature(signatureKey)
+            .placeholder(R.drawable.ic_person)
+            .into(imageView)
+    } else {
+        Glide.with(context)
+            .load(uri)
+            .transform(CenterCrop(), RoundedCorners(radiusPx))
+            .signature(signatureKey)
+            .placeholder(R.drawable.ic_person)
+            .into(imageView)
+    }
+}
+
+fun getAvatarColor(name: String): Int {
+    val colors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFEB3B", "#FFC107", "#FF9800", "#FF5722")
+    val hash = name.hashCode()
+    val index = (if (hash == Int.MIN_VALUE) 0 else Math.abs(hash)) % colors.size
+    return colors[index].toColorInt()
+}
+

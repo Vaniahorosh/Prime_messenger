@@ -604,7 +604,11 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 String user = obj.optString("name", "");
                 String id = obj.optString("id", "");
 
-                if (user.equalsIgnoreCase(targetName) || (deviceAddr != null && deviceAddr.equalsIgnoreCase(id))) {
+                boolean isGenericName = "Собеседник".equalsIgnoreCase(targetName) || "Prime Собеседник".equalsIgnoreCase(targetName) || "Контакт".equalsIgnoreCase(targetName);
+                boolean isMatch = (deviceAddr != null && !deviceAddr.isEmpty() && deviceAddr.equalsIgnoreCase(id))
+                        || (!isGenericName && user.equalsIgnoreCase(targetName) && !BluetoothAdapter.checkBluetoothAddress(user));
+
+                if (isMatch) {
                     obj.put("lastMessage", lastMsg);
                     obj.put("time", timeStr);
                     obj.put("onlineStatus", "ONLINE");

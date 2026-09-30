@@ -240,8 +240,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     );
 
     private boolean isDuplicatePacket(String msgId) {
-        if (msgId == null || msgId.isEmpty()) return false;
-        if (!processedIncomingMsgIds.add(msgId)) {
+        if (msgId == null || msgId.trim().isEmpty()) return false;
+        if (!processedIncomingMsgIds.add(msgId.trim())) {
             Log.w(TAG, "DDoS Guard: Duplicate packet dropped for msgId: " + msgId);
             return true;
         }
@@ -2079,6 +2079,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void updateOfflineLastSeenStatus(long ts) {
         if (targetUsername == null || targetUsername.isEmpty()) return;
         String lastSeenStr = formatLastSeen(ts);
+        if (!lastSeenStr.contains("Только чтение")) {
+            lastSeenStr = lastSeenStr + " (Только чтение)";
+        }
         setStatusWithAnimation(lastSeenStr, R.color.prime_text_secondary);
     }
 
@@ -2117,7 +2120,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         message.setReactionForUser(localUsername, reaction);
         chatAdapter.updateMessageReactionById(msgId, reaction, localUsername);
 
-        if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) {
+        if (isConnectionActive()) {
             String payloadStr = msgId + ":::" + (reaction != null ? reaction : "REMOVE") + ":::" + localUsername;
             sendPacket(TYPE_REACTION, payloadStr.getBytes(StandardCharsets.UTF_8));
         }
@@ -2737,7 +2740,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
 
         int radiusPx = (int) (14 * getResources().getDisplayMetrics().density);
-        long sigTime = System.currentTimeMillis();
+        long sigTime = foundFile != null ? foundFile.lastModified() : System.currentTimeMillis();
 
         if (foundFile != null) {
             boolean isGif = foundFile.getName().toLowerCase(Locale.US).endsWith(".gif");
@@ -3046,11 +3049,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             for (int i = 0; i < array.length(); i++) {
                 JSONObject obj = array.getJSONObject(i);
                 
+                boolean isGenericName = "Собеседник".equalsIgnoreCase(user) || "Prime Собеседник".equalsIgnoreCase(user) || "Контакт".equalsIgnoreCase(user);
                 boolean isMatch = false;
                 if (updatedObj == null) {
-                    if (deviceAddress != null && !deviceAddress.isEmpty() && user.equalsIgnoreCase(targetUsername) && deviceAddress.equalsIgnoreCase(obj.optString("id"))) {
+                    if (deviceAddress != null && !deviceAddress.isEmpty() && deviceAddress.equalsIgnoreCase(obj.optString("id"))) {
                         isMatch = true;
-                    } else if (user.equalsIgnoreCase(obj.optString("name"))) {
+                    } else if (!isGenericName && user.equalsIgnoreCase(obj.optString("name")) && !isValidMacAddress(user)) {
                         isMatch = true;
                     }
                 }
@@ -3137,11 +3141,17 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 String objId = obj.optString("id", "");
                 String objName = obj.optString("name", "");
 
-                boolean matches = (devAddress != null && !devAddress.isEmpty() && devAddress.equalsIgnoreCase(objId))
-                        || (oldName != null && !oldName.isEmpty() && oldName.equalsIgnoreCase(objName))
-                        || (devAddress != null && !devAddress.isEmpty() && devAddress.equalsIgnoreCase(objName))
-                        || (login != null && !login.isEmpty() && login.equalsIgnoreCase(objName))
-                        || newName.equalsIgnoreCase(objName);
+                boolean isGenericOldName = "Собеседник".equalsIgnoreCase(oldName) || "Prime Собеседник".equalsIgnoreCase(oldName) || "Контакт".equalsIgnoreCase(oldName);
+                boolean isGenericObjName = "Собеседник".equalsIgnoreCase(objName) || "Prime Собеседник".equalsIgnoreCase(objName) || "Контакт".equalsIgnoreCase(objName);
+
+                boolean matches = false;
+                if (devAddress != null && !devAddress.isEmpty() && devAddress.equalsIgnoreCase(objId)) {
+                    matches = true;
+                } else if (!isGenericOldName && oldName != null && !oldName.isEmpty() && oldName.equalsIgnoreCase(objName) && !isValidMacAddress(oldName)) {
+                    matches = true;
+                } else if (!isGenericObjName && newName != null && !newName.isEmpty() && newName.equalsIgnoreCase(objName) && !isValidMacAddress(newName)) {
+                    matches = true;
+                }
 
                 if (matches) {
                     obj.put("name", newName);
@@ -3297,7 +3307,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private void flushPendingMessages() {
-        if (BluetoothConnectionManager.getInstance().getState() != BluetoothConnectionManager.ConnectionState.CONNECTED) return;
+        if (!isConnectionActive()) return;
 
         while (!pendingMessageQueue.isEmpty()) {
             PendingMessage pm = pendingMessageQueue.poll();
@@ -3350,28 +3360,39 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
     }
 
+    private String resolveTargetAddress() {
+        if (deviceAddress != null && !deviceAddress.isEmpty() && isValidMacAddress(deviceAddress)) {
+            return deviceAddress;
+        }
+        if (targetUsername != null && isValidMacAddress(targetUsername)) {
+            return targetUsername;
+        }
+        String mac = findMacForTargetUsername(targetUsername);
+        if (mac != null && !mac.isEmpty() && isValidMacAddress(mac)) {
+            return mac;
+        }
+        return deviceAddress != null && !deviceAddress.isEmpty() ? deviceAddress : targetUsername;
+    }
+
+    private boolean isConnectionActive() {
+        String targetAddr = resolveTargetAddress();
+        if (BluetoothConnectionManager.getInstance().isConnected(targetAddr)) return true;
+        if (deviceAddress != null && BluetoothConnectionManager.getInstance().isConnected(deviceAddress)) return true;
+        if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) return true;
+        if (BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername)) return true;
+        if (BluetoothSocketHolder.hasAnyActiveConnection()) return true;
+        return false;
+    }
+
     private void sendPacket(byte type, byte[] payload) {
-        String targetAddr = deviceAddress != null && !deviceAddress.isEmpty() ? deviceAddress : targetUsername;
-        if (targetAddr == null || targetAddr.isEmpty() || !isValidMacAddress(targetAddr)) {
-            String mac = findMacForTargetUsername(targetUsername);
-            if (mac != null && !mac.isEmpty()) {
-                targetAddr = mac;
-            }
-        }
-        if (targetAddr == null || targetAddr.isEmpty()) {
-            targetAddr = targetUsername;
-        }
+        String targetAddr = resolveTargetAddress();
 
         if (type == TYPE_TEXT || type == TYPE_PHOTO || type == TYPE_FILE || type == TYPE_EDIT || type == TYPE_REACTION) {
-            boolean isConnected = BluetoothConnectionManager.getInstance().isConnected(targetAddr) ||
-                    (deviceAddress != null && BluetoothConnectionManager.getInstance().isConnected(deviceAddress)) ||
-                    BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED ||
-                    BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername);
-            if (!isConnected && !isRemoteUserOnline) {
-                PrimeNotification.INSTANCE.show(this, "Связь не установлена. Чтение доступно только в режиме просмотра", null);
+            if (!isConnectionActive() && !isRemoteUserOnline) {
                 return;
             }
         }
+
         BluetoothConnectionManager.getInstance().sendPacket(targetAddr, type, payload);
     }
 
@@ -3392,9 +3413,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             cancelReplyMode();
         }
 
-        String targetAddr = (deviceAddress != null && !deviceAddress.isEmpty()) ? deviceAddress : targetUsername;
-        boolean isConnected = BluetoothConnectionManager.getInstance().isConnected(targetAddr);
-        message.setMessageStatus(isConnected ? MessageStatus.SENT : MessageStatus.SENDING);
+        boolean isConnected = isConnectionActive();
+        message.setMessageStatus(isConnected ? MessageStatus.SENT : MessageStatus.ERROR);
 
         String packetContent = message.getMessageId() + ":::" + text;
         if (message.isReply()) {
@@ -3405,12 +3425,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (isConnected) {
             sendPacket(TYPE_TEXT, payload);
         } else {
-            pendingMessageQueue.add(new PendingMessage(TYPE_TEXT, payload));
-            startPrimeConnection();
+            message.setMessageStatus(MessageStatus.ERROR);
         }
         addMessageToUI(message);
         ChatHistoryManager.saveMessage(this, targetUsername, message);
-        saveLastMessageToChatList(text, MessageStatus.SENT, false, "ONLINE");
+        saveLastMessageToChatList(text, message.getMessageStatus(), false, isConnected ? "ONLINE" : "OFFLINE");
     }
 
     private void sendPhoto(Uri uri) {
@@ -3479,8 +3498,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
 
             currentSendingMessageId = messageId;
-            String targetAddr = (deviceAddress != null && !deviceAddress.isEmpty()) ? deviceAddress : targetUsername;
-            if (BluetoothConnectionManager.getInstance().isConnected(targetAddr)) {
+            if (isConnectionActive()) {
                 sendPacket(TYPE_PHOTO, fullPayload);
             } else {
                 pendingMessageQueue.add(new PendingMessage(TYPE_PHOTO, fullPayload));
@@ -3589,8 +3607,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 saveActivityStateToChatList(targetUsername, "SENDING_PHOTO");
                 sendActivityState("STATE:SENDING_PHOTO");
 
-                String targetAddr = (deviceAddress != null && !deviceAddress.isEmpty()) ? deviceAddress : targetUsername;
-                if (BluetoothConnectionManager.getInstance().isConnected(targetAddr)) {
+                if (isConnectionActive()) {
                     sendPacket(TYPE_PHOTO, fullPayload);
                 } else {
                     pendingMessageQueue.add(new PendingMessage(TYPE_PHOTO, fullPayload));
@@ -4233,11 +4250,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             try {
                                 boolean isGif = avatarPayload.length > 3 && avatarPayload[0] == (byte)'G' && avatarPayload[1] == (byte)'I' && avatarPayload[2] == (byte)'F';
                                 String ext = isGif ? ".gif" : ".jpg";
-                                File avatarFile = new File(getFilesDir(), "rec_avatar_" + targetUsername + ext);
-                                try (FileOutputStream fos = new FileOutputStream(avatarFile)) {
-                                    fos.write(avatarPayload);
-                                    fos.flush();
-                                }
+                                File avatarFile = ChatHistoryManager.saveBytesToAtomicFile(this, "rec_avatar_" + targetUsername + ext, avatarPayload);
+                                if (avatarFile == null) return;
                                 String avatarUri = Uri.fromFile(avatarFile).toString();
                                 SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
                                 SharedPreferences.Editor editor = sharedPrefs.edit();
@@ -4245,11 +4259,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                     editor.putString("contact_avatar_" + deviceAddress, avatarUri)
                                           .putString(deviceAddress + "_avatar", avatarUri)
                                           .putString(deviceAddress + "_avatarUri", avatarUri);
-                                    File macAvatarFile = new File(getFilesDir(), "rec_avatar_" + deviceAddress + ext);
-                                    try (FileOutputStream fos = new FileOutputStream(macAvatarFile)) {
-                                        fos.write(avatarPayload);
-                                        fos.flush();
-                                    } catch (Exception ignored) {}
+                                    ChatHistoryManager.saveBytesToAtomicFile(this, "rec_avatar_" + deviceAddress + ext, avatarPayload);
                                 }
                                 editor.putString("contact_avatar_" + targetUsername, avatarUri)
                                       .putString(targetUsername + "_avatar", avatarUri)
@@ -4347,36 +4357,26 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         runOnUiThread(() -> {
             if (layoutInput != null) {
                 layoutInput.animate().cancel();
-                if (connected) {
-                    layoutInput.setVisibility(View.VISIBLE);
-                    layoutInput.setAlpha(1.0f);
-                    layoutInput.bringToFront();
-                    
-                    View bottomContainer = findViewById(R.id.bottomContainer);
-                    if (bottomContainer != null) {
-                        bottomContainer.setVisibility(View.VISIBLE);
-                        bottomContainer.setAlpha(1.0f);
-                        bottomContainer.bringToFront();
-                    }
+                layoutInput.setVisibility(View.VISIBLE);
+                layoutInput.setAlpha(1.0f);
+                layoutInput.bringToFront();
+                
+                View bottomContainer = findViewById(R.id.bottomContainer);
+                if (bottomContainer != null) {
+                    bottomContainer.setVisibility(View.VISIBLE);
+                    bottomContainer.setAlpha(1.0f);
+                    bottomContainer.bringToFront();
+                }
 
-                    if (layoutConnectAction != null) {
-                        layoutConnectAction.setVisibility(View.GONE);
-                    }
-                } else {
-                    hideSoftKeyboard();
-                    closeAttachmentPanel();
-                    layoutInput.setVisibility(View.GONE);
-                    layoutInput.setAlpha(1.0f);
+                if (layoutConnectAction != null) {
+                    layoutConnectAction.setVisibility(View.GONE);
+                }
 
-                    boolean isConnecting = BluetoothConnectionManager.getInstance().getState(deviceAddress) == BluetoothConnectionManager.ConnectionState.CONNECTING
-                            || BluetoothConnectionManager.getInstance().getState(deviceAddress) == BluetoothConnectionManager.ConnectionState.LISTENING;
-
-                    if (layoutConnectAction != null) {
-                        layoutConnectAction.setVisibility(isConnecting ? View.GONE : View.VISIBLE);
-                        if (!isConnecting) {
-                            layoutConnectAction.setAlpha(1.0f);
-                            layoutConnectAction.bringToFront();
-                        }
+                if (etMessage != null) {
+                    if (connected) {
+                        etMessage.setHint("Сообщение...");
+                    } else {
+                        etMessage.setHint("Не в сети (Только чтение)");
                     }
                 }
             }
@@ -4626,6 +4626,20 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 bluetoothAdapter.cancelDiscovery();
             } catch (Exception ignored) {}
         }
+
+        Object threadObj = BluetoothSocketHolder.getConnectedThreadInstance();
+        if (threadObj instanceof ConnectedThread) {
+            ((ConnectedThread) threadObj).setUiHandler(null);
+        }
+        threadObj = BluetoothSocketHolder.getThreadFor(deviceAddress, targetUsername);
+        if (threadObj instanceof ConnectedThread) {
+            ((ConnectedThread) threadObj).setUiHandler(null);
+        }
+
+        isActivityForeground = false;
+        activeChatPersonAddress = null;
+        activeChatPersonName = null;
+        BluetoothConnectionManager.getInstance().removeCallback(this);
     }
 
     // --- Потоки Bluetooth ---
@@ -4994,11 +5008,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                     }
                                 }
                             } else {
-                                File avatarFile = new File(getFilesDir(), "rec_avatar_" + sender + ext);
-                                try (FileOutputStream fos = new FileOutputStream(avatarFile)) {
-                                    fos.write(payload);
-                                    fos.flush();
-                                }
+                                File avatarFile = ChatHistoryManager.saveBytesToAtomicFile(getApplicationContext(), "rec_avatar_" + sender + ext, payload);
+                                if (avatarFile == null) return;
 
                                 String newAvatarUri = Uri.fromFile(avatarFile).toString();
                                 SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
@@ -5007,13 +5018,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                     editor.putString("contact_avatar_" + deviceAddress, newAvatarUri)
                                           .putString(deviceAddress + "_avatar", newAvatarUri)
                                           .putString(deviceAddress + "_avatarUri", newAvatarUri);
-                                    try {
-                                        File devFile = new File(getFilesDir(), "rec_avatar_" + deviceAddress + ext);
-                                        try (FileOutputStream devFos = new FileOutputStream(devFile)) {
-                                            devFos.write(payload);
-                                            devFos.flush();
-                                        }
-                                    } catch (Exception ignored) {}
+                                    ChatHistoryManager.saveBytesToAtomicFile(getApplicationContext(), "rec_avatar_" + deviceAddress + ext, payload);
                                 }
                                 editor.putString("contact_avatar_" + sender, newAvatarUri)
                                       .putString(sender + "_avatar", newAvatarUri)
@@ -5552,101 +5557,114 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         senderTypingHandler.removeCallbacks(stopSenderTypingRunnable);
         sendActivityState("IDLE");
 
-        long timestamp = System.currentTimeMillis();
-        String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(timestamp));
-        String messageId = localUsername + "_" + timestamp + "_" + UUID.randomUUID().toString();
-
-        String mimeType = null;
-        try {
-            if (pending.uri != null) {
-                mimeType = getContentResolver().getType(pending.uri);
-            }
-        } catch (Exception ignored) {}
-
-        boolean isVideoMime = mimeType != null && mimeType.startsWith("video/");
-        boolean isVideo = pending.isVideo || isVideoMime || isVideoMimeOrPath(pending.uri, pending.path);
-        ChatMessage.MessageType type = isVideo ? ChatMessage.MessageType.VIDEO : ChatMessage.MessageType.FILE;
-
-        String fileName = pending.name != null ? pending.name : (isVideo ? "video.mp4" : "file.bin");
-        if (isVideo && !fileName.toLowerCase().matches(".*\\.(mp4|mkv|3gp|webm|mov|avi)$")) {
-            fileName = fileName + ".mp4";
-        }
-        long fileSize = pending.size;
-        String durStr = pending.durationStr != null ? pending.durationStr : "00:00";
-
-        byte[] fileBytes = getBytesFromPending(pending);
-
-        String localSavedPath = pending.path;
-        if (isVideo && pending.uri != null) {
-            if (localSavedPath == null || localSavedPath.startsWith("content://") || !new File(localSavedPath).exists()) {
-                try {
-                    File videoFile = new File(getFilesDir(), "sent_video_" + timestamp + "_" + fileName);
-                    InputStream is = getContentResolver().openInputStream(pending.uri);
-                    if (is != null) {
-                        FileOutputStream fos = new FileOutputStream(videoFile);
-                        byte[] buf = new byte[8192];
-                        int len;
-                        while ((len = is.read(buf)) > 0) {
-                            fos.write(buf, 0, len);
-                        }
-                        fos.flush();
-                        fos.close();
-                        is.close();
-                        localSavedPath = videoFile.getAbsolutePath();
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed to save sent video locally", e);
-                }
-            }
-        }
-
-        ChatMessage msg = new ChatMessage(text, time, localUsername, true, pending.thumbnail, timestamp, localSavedPath, messageId);
-        msg.setMessageType(type);
-        msg.setFileName(fileName);
-        msg.setFileSize(fileSize > 0 ? fileSize : fileBytes.length);
-        if (isVideo) msg.setVideoDuration(durStr);
-        msg.setMessageStatus(MessageStatus.SENDING);
-        msg.setSendingProgress(0);
-
-        if (replyingToMessage != null) {
-            msg.setReplyToMessageId(replyingToMessage.getMessageId());
-            msg.setReplyToSender(replyingToMessage.getSenderLogin());
-            String qText = replyingToText != null && !replyingToText.isEmpty() ? replyingToText : replyingToMessage.getText();
-            msg.setReplyToText(qText != null && !qText.isEmpty() ? qText : (isVideo ? "Видео" : "Файл"));
-            cancelReplyMode();
-        }
-
-        String header = messageId + ":::" + fileName + ":::" + msg.getFileSize() + ":::" + (text != null ? text : "") + ":::DURATION:::" + durStr + ":::IS_VIDEO:::" + (isVideo ? "1" : "0");
-        if (msg.isReply()) {
-            header += ":::REPLY:::" + msg.getReplyToMessageId() + ":::" + msg.getReplyToSender() + ":::" + msg.getReplyToText();
-        }
-        header += ":::HEADER_END:::";
-
-        byte[] headerBytes = header.getBytes(StandardCharsets.UTF_8);
-        byte[] fullPayload = new byte[headerBytes.length + fileBytes.length];
-        System.arraycopy(headerBytes, 0, fullPayload, 0, headerBytes.length);
-        if (fileBytes.length > 0) {
-            System.arraycopy(fileBytes, 0, fullPayload, headerBytes.length, fileBytes.length);
-        }
-
-        currentSendingMessageId = messageId;
         showSendingProgressUi(0);
 
-        String targetAddr = (deviceAddress != null && !deviceAddress.isEmpty()) ? deviceAddress : targetUsername;
-        if (BluetoothConnectionManager.getInstance().isConnected(targetAddr)) {
-            sendPacket(TYPE_FILE, fullPayload);
-        } else {
-            pendingMessageQueue.add(new PendingMessage(TYPE_FILE, fullPayload));
-            startPrimeConnection();
-        }
+        ioExecutor.execute(() -> {
+            try {
+                long timestamp = System.currentTimeMillis();
+                String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(timestamp));
+                String messageId = localUsername + "_" + timestamp + "_" + UUID.randomUUID().toString();
 
-        addMessageToUI(msg);
-        ChatHistoryManager.saveMessage(this, targetUsername, msg);
-        String summaryStr = ChatMessage.getSummaryDescription(msg);
-        saveLastMessageToChatList(summaryStr, MessageStatus.SENT, false, "ONLINE");
-        saveActivityStateToChatList(targetUsername, isVideo ? "SENDING_VIDEO" : "SENDING_FILE");
-        sendActivityState("STATE:" + (isVideo ? "SENDING_VIDEO" : "SENDING_FILE"));
-        clearPendingAttachment();
+                String mimeType = null;
+                try {
+                    if (pending.uri != null) {
+                        mimeType = getContentResolver().getType(pending.uri);
+                    }
+                } catch (Exception ignored) {}
+
+                boolean isVideoMime = mimeType != null && mimeType.startsWith("video/");
+                boolean isVideo = pending.isVideo || isVideoMime || isVideoMimeOrPath(pending.uri, pending.path);
+                ChatMessage.MessageType type = isVideo ? ChatMessage.MessageType.VIDEO : ChatMessage.MessageType.FILE;
+
+                String fileName = pending.name != null ? pending.name : (isVideo ? "video.mp4" : "file.bin");
+                if (isVideo && !fileName.toLowerCase(Locale.US).matches(".*\\.(mp4|mkv|3gp|webm|mov|avi)$")) {
+                    fileName = fileName + ".mp4";
+                }
+                long fileSize = pending.size;
+                String durStr = pending.durationStr != null ? pending.durationStr : "00:00";
+
+                byte[] fileBytes = getBytesFromPending(pending);
+
+                String localSavedPath = pending.path;
+                if (isVideo && pending.uri != null) {
+                    if (localSavedPath == null || localSavedPath.startsWith("content://") || !new File(localSavedPath).exists()) {
+                        try {
+                            File videoFile = new File(getFilesDir(), "sent_video_" + timestamp + "_" + fileName);
+                            try (InputStream is = getContentResolver().openInputStream(pending.uri)) {
+                                if (is != null) {
+                                    FileOutputStream fos = new FileOutputStream(videoFile);
+                                    byte[] buf = new byte[8192];
+                                    int len;
+                                    while ((len = is.read(buf)) > 0) {
+                                        fos.write(buf, 0, len);
+                                    }
+                                    fos.flush();
+                                    fos.close();
+                                    localSavedPath = videoFile.getAbsolutePath();
+                                }
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to save sent video locally", e);
+                        }
+                    }
+                }
+
+                ChatMessage msg = new ChatMessage(text, time, localUsername, true, pending.thumbnail, timestamp, localSavedPath, messageId);
+                msg.setMessageType(type);
+                msg.setFileName(fileName);
+                msg.setFileSize(fileSize > 0 ? fileSize : fileBytes.length);
+                if (isVideo) msg.setVideoDuration(durStr);
+                msg.setMessageStatus(MessageStatus.SENDING);
+                msg.setSendingProgress(0);
+
+                if (replyingToMessage != null) {
+                    msg.setReplyToMessageId(replyingToMessage.getMessageId());
+                    msg.setReplyToSender(replyingToMessage.getSenderLogin());
+                    String qText = replyingToText != null && !replyingToText.isEmpty() ? replyingToText : replyingToMessage.getText();
+                    msg.setReplyToText(qText != null && !qText.isEmpty() ? qText : (isVideo ? "Видео" : "Файл"));
+                    runOnUiThread(this::cancelReplyMode);
+                }
+
+                String header = messageId + ":::" + fileName + ":::" + msg.getFileSize() + ":::" + (text != null ? text : "") + ":::DURATION:::" + durStr + ":::IS_VIDEO:::" + (isVideo ? "1" : "0");
+                if (msg.isReply()) {
+                    header += ":::REPLY:::" + msg.getReplyToMessageId() + ":::" + msg.getReplyToSender() + ":::" + msg.getReplyToText();
+                }
+                header += ":::HEADER_END:::";
+
+                byte[] headerBytes = header.getBytes(StandardCharsets.UTF_8);
+                byte[] fullPayload = new byte[headerBytes.length + fileBytes.length];
+                System.arraycopy(headerBytes, 0, fullPayload, 0, headerBytes.length);
+                if (fileBytes.length > 0) {
+                    System.arraycopy(fileBytes, 0, fullPayload, headerBytes.length, fileBytes.length);
+                }
+
+                currentSendingMessageId = messageId;
+
+                if (isConnectionActive()) {
+                    sendPacket(TYPE_FILE, fullPayload);
+                } else {
+                    pendingMessageQueue.add(new PendingMessage(TYPE_FILE, fullPayload));
+                    startPrimeConnection();
+                }
+
+                runOnUiThread(() -> {
+                    showSendingProgressUi(0);
+                    addMessageToUI(msg);
+                    ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, msg);
+                    String summaryStr = ChatMessage.getSummaryDescription(msg);
+                    saveLastMessageToChatList(summaryStr, MessageStatus.SENT, false, "ONLINE");
+                    saveActivityStateToChatList(targetUsername, isVideo ? "SENDING_VIDEO" : "SENDING_FILE");
+                    sendActivityState("STATE:" + (isVideo ? "SENDING_VIDEO" : "SENDING_FILE"));
+                    clearPendingAttachment();
+                });
+            } catch (Throwable e) {
+                Log.e(TAG, "Error in sendVideoOrFile", e);
+                runOnUiThread(() -> {
+                    hideSendingProgressUi();
+                    PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Ошибка отправки файла", null);
+                });
+            }
+        });
     }
 
     // =========================================================================

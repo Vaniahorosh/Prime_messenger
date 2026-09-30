@@ -358,34 +358,37 @@ public class BluetoothConnectionManager {
         setState(devAddr, ConnectionState.CONNECTED, devName);
     }
 
-    public synchronized ConnectedThread getThreadFor(String deviceAddress) {
-        if (deviceAddress == null || deviceAddress.isEmpty()) {
-            if (!connectionPool.isEmpty()) {
+    public synchronized ConnectedThread getThreadFor(String addressOrName) {
+        if (addressOrName == null || addressOrName.isEmpty()) {
+            if (connectionPool.size() == 1) {
                 return connectionPool.values().iterator().next();
             }
             return null;
         }
-        String upperAddr = deviceAddress.toUpperCase(Locale.US);
+
+        String upperAddr = addressOrName.toUpperCase(Locale.US);
         ConnectedThread r = connectionPool.get(upperAddr);
         if (r != null && r.isAlive()) return r;
 
-        r = connectionPool.get(deviceAddress);
+        r = connectionPool.get(addressOrName);
         if (r != null && r.isAlive()) return r;
 
         for (ConnectedThread thread : connectionPool.values()) {
             if (thread != null && thread.isAlive()) {
-                if (deviceAddress.equalsIgnoreCase(thread.getThreadDeviceAddress()) ||
-                    deviceAddress.equalsIgnoreCase(thread.getThreadRemoteUsername())) {
+                if (addressOrName.equalsIgnoreCase(thread.getThreadDeviceAddress()) ||
+                    addressOrName.equalsIgnoreCase(thread.getThreadRemoteUsername())) {
                     return thread;
                 }
             }
         }
+
         if (connectionPool.size() == 1) {
             ConnectedThread singleThread = connectionPool.values().iterator().next();
             if (singleThread != null && singleThread.isAlive()) {
                 return singleThread;
             }
         }
+
         return null;
     }
 
@@ -395,16 +398,12 @@ public class BluetoothConnectionManager {
         if (t != null) {
             t.setThreadRemoteUsername(username);
         }
-        if (deviceAddress != null && !deviceAddress.isEmpty()) {
-            connectionPool.put(username.toLowerCase(Locale.US), t != null ? t : getThreadFor(null));
-        }
     }
 
     /**
      * Отправка пакета через активный сокет.
      */
     public synchronized void sendPacket(String deviceAddress, byte type, byte[] payload) {
-        if (deviceAddress == null) return;
         ConnectedThread r = getThreadFor(deviceAddress);
         if (r != null && r.isAlive()) {
             r.sendPacket(type, payload);
@@ -414,7 +413,6 @@ public class BluetoothConnectionManager {
     }
 
     public synchronized void cancelCurrentMediaSend(String deviceAddress) {
-        if (deviceAddress == null) return;
         ConnectedThread r = getThreadFor(deviceAddress);
         if (r != null) {
             r.cancelCurrentMediaSend();
@@ -694,36 +692,56 @@ public class BluetoothConnectionManager {
             }
         }
 
+        private final Handler keepAliveHandler = new Handler(Looper.getMainLooper());
+        private final Runnable keepAliveRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (isRunning && mmOutStream != null) {
+                    sendPacket((byte) 0x05, new byte[0]);
+                    keepAliveHandler.postDelayed(this, 3500L);
+                }
+            }
+        };
+
         public void run() {
             if (mmInStream == null) return;
-            while (isRunning) {
-                try {
-                    byte type = mmInStream.readByte();
-                    int length = mmInStream.readInt();
-
-                    if (length < 0 || length > 50 * 1024 * 1024) {
-                        throw new IOException("Invalid or excessive packet length: " + length);
-                    }
-
-                    byte[] payloadData;
+            keepAliveHandler.postDelayed(keepAliveRunnable, 3500L);
+            try {
+                while (isRunning) {
                     try {
-                        payloadData = new byte[length];
-                    } catch (OutOfMemoryError oom) {
-                        throw new IOException("OOM allocating payload buffer: " + length);
-                    }
+                        byte type = mmInStream.readByte();
+                        int length = mmInStream.readInt();
 
-                    if (length > 0) {
-                        mmInStream.readFully(payloadData);
-                    }
+                        if (length < 0 || length > 50 * 1024 * 1024) {
+                            throw new IOException("Invalid or excessive packet length: " + length);
+                        }
 
-                    notifyPacketReceived(threadDeviceAddress, type, payloadData);
-                } catch (IOException e) {
-                    if (isRunning) {
-                        Log.e(TAG, "Connection lost during read", e);
-                        handleThreadDisconnect("Соединение сброшено", false);
+                        byte[] payloadData;
+                        try {
+                            payloadData = new byte[length];
+                        } catch (OutOfMemoryError oom) {
+                            throw new IOException("OOM allocating payload buffer: " + length);
+                        }
+
+                        if (length > 0) {
+                            mmInStream.readFully(payloadData);
+                        }
+
+                        if (type == 0x05) { // TYPE_PING
+                            continue;
+                        }
+
+                        notifyPacketReceived(threadDeviceAddress, type, payloadData);
+                    } catch (IOException e) {
+                        if (isRunning) {
+                            Log.e(TAG, "Connection lost during read", e);
+                            handleThreadDisconnect("Соединение сброшено", false);
+                        }
+                        break;
                     }
-                    break;
                 }
+            } finally {
+                keepAliveHandler.removeCallbacks(keepAliveRunnable);
             }
         }
 
@@ -733,7 +751,7 @@ public class BluetoothConnectionManager {
 
         public void sendPacket(byte type, byte[] payload) {
             if (!isRunning || mmOutStream == null) return;
-            boolean isMediaPacket = (type == 0x02 || type == 0x07 || type == 0x0E); // TYPE_PHOTO, TYPE_AVATAR, TYPE_FILE
+            boolean isMediaPacket = (type == 0x02 || type == 0x0E); // TYPE_PHOTO (0x02), TYPE_FILE (0x0E)
             if (isMediaPacket) {
                 isMediaSendingCancelled = false;
             }
@@ -791,9 +809,7 @@ public class BluetoothConnectionManager {
         public void cancel() {
             isRunning = false;
             isDisconnectNotified.set(true);
-            writeExecutor.shutdownNow();
-            closeSocketQuietly(mmSocket);
-            connectionPool.remove(threadDeviceAddress);
+            keepAliveHandler.removeCallbacks(keepAliveRunnable);
             writeExecutor.shutdownNow();
             closeSocketQuietly(mmSocket);
             connectionPool.remove(threadDeviceAddress);
