@@ -4744,6 +4744,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     @SuppressLint("MissingPermission")
     @Override
     protected void onDestroy() {
+        if (currentSendingMessageId != null) {
+            cancelCurrentFileSending();
+        }
         super.onDestroy();
         try {
             if (ioExecutor != null) ioExecutor.shutdownNow();

@@ -463,8 +463,14 @@ public class ChatHistoryManager {
                     }
 
                     try {
-                        msg.setMessageStatus(MessageStatus.valueOf(msgStatusStr));
-                    } catch (Exception ignored) {}
+                        MessageStatus status = MessageStatus.valueOf(msgStatusStr);
+                        if (status == MessageStatus.SENDING) {
+                            status = MessageStatus.SENT;
+                        }
+                        msg.setMessageStatus(status);
+                    } catch (Exception ignored) {
+                        msg.setMessageStatus(MessageStatus.SENT);
+                    }
                     list.add(msg);
                 }
             } catch (Exception e) {

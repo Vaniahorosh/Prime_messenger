@@ -441,7 +441,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     TextView tvMessageProgressPercent = holder.itemView.findViewById(R.id.tvMessageProgressPercent);
 
                     if (layoutMessageProgress != null) {
-                        if (message.getMessageStatus() == MessageStatus.SENDING && message.getSendingProgress() < 100) {
+                        if (message.getMessageStatus() == MessageStatus.SENDING && message.getSendingProgress() > 0 && message.getSendingProgress() < 100) {
                             layoutMessageProgress.setVisibility(View.VISIBLE);
                             if (pbMessageProgress != null) pbMessageProgress.setProgress(message.getSendingProgress());
                             if (tvMessageProgressPercent != null) tvMessageProgressPercent.setText(message.getSendingProgress() + "%");
@@ -1798,7 +1798,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             ImageButton btnCancelMessageSending = itemView.findViewById(R.id.btnCancelMessageSending);
 
             if (layoutMessageProgress != null) {
-                if (message.getMessageStatus() == MessageStatus.SENDING && message.getSendingProgress() < 100) {
+                if (message.getMessageStatus() == MessageStatus.SENDING && message.getSendingProgress() > 0 && message.getSendingProgress() < 100) {
                     layoutMessageProgress.setVisibility(View.VISIBLE);
                     if (pbMessageProgress != null) pbMessageProgress.setProgress(message.getSendingProgress());
                     if (tvMessageProgressPercent != null) tvMessageProgressPercent.setText(message.getSendingProgress() + "%");
