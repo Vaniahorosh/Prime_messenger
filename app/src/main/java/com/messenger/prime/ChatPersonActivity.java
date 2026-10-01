@@ -1358,15 +1358,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                                     String savedPhotoPath = null;
                                     if (photoBytes.length > 0) {
-                                        try {
-                                            File photoFile = new File(getFilesDir(), "rec_photo_" + (photoMsgId != null ? photoMsgId : System.currentTimeMillis()) + ext);
-                                            FileOutputStream fos = new FileOutputStream(photoFile);
-                                            fos.write(photoBytes);
-                                            fos.flush();
-                                            fos.close();
+                                        File photoFile = ChatHistoryManager.saveBytesToAtomicFile(ChatPersonActivity.this, "rec_photo_" + (photoMsgId != null ? photoMsgId : System.currentTimeMillis()) + ext, photoBytes);
+                                        if (photoFile != null) {
                                             savedPhotoPath = photoFile.getAbsolutePath();
-                                        } catch (Exception e) {
-                                            Log.e(TAG, "Failed to save received photo to disk", e);
                                         }
                                     }
 
@@ -3638,15 +3632,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                 String ext = isGif ? ".gif" : ".jpg";
                 String savedPhotoPath = null;
-                try {
-                    File photoFile = new File(getFilesDir(), "sent_photo_" + timestamp + "_" + UUID.randomUUID().toString().substring(0, 4) + ext);
-                    try (FileOutputStream fos = new FileOutputStream(photoFile)) {
-                        fos.write(photoBytes);
-                        fos.flush();
-                    }
+                File photoFile = ChatHistoryManager.saveBytesToAtomicFile(this, "sent_photo_" + timestamp + "_" + UUID.randomUUID().toString().substring(0, 4) + ext, photoBytes);
+                if (photoFile != null) {
                     savedPhotoPath = photoFile.getAbsolutePath();
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed to save sent photo to disk", e);
                 }
 
                 byte[] captionBytes = null;
@@ -5354,13 +5342,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                     System.arraycopy(fullPayload, currentOffset, itemBytes, 0, pSize);
                                     currentOffset += pSize;
 
-                                    File mediaFile = new File(getFilesDir(), "rec_media_" + (photoMsgId != null ? photoMsgId : photoTs) + "_" + idx + "." + ext);
-                                    FileOutputStream fos = new FileOutputStream(mediaFile);
-                                    fos.write(itemBytes);
-                                    fos.flush();
-                                    fos.close();
-
-                                    recMediaItems.add(new ChatMessage.MediaItem(mediaFile.getAbsolutePath(), isVideo, durStr));
+                                    File mediaFile = ChatHistoryManager.saveBytesToAtomicFile(ChatPersonActivity.this, "rec_media_" + (photoMsgId != null ? photoMsgId : photoTs) + "_" + idx + "." + ext, itemBytes);
+                                    if (mediaFile != null) {
+                                        recMediaItems.add(new ChatMessage.MediaItem(mediaFile.getAbsolutePath(), isVideo, durStr));
+                                    }
                                 }
                             } catch (Exception e) {
                                 Log.e(TAG, "Failed to parse multi-media item " + idx, e);
@@ -5425,15 +5410,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                 String savedPhotoPath = null;
                 if (photoBytes.length > 0) {
-                    try {
-                        File photoFile = new File(getFilesDir(), "rec_photo_" + (photoMsgId != null ? photoMsgId : System.currentTimeMillis()) + ".jpg");
-                        FileOutputStream fos = new FileOutputStream(photoFile);
-                        fos.write(photoBytes);
-                        fos.flush();
-                        fos.close();
+                    File photoFile = ChatHistoryManager.saveBytesToAtomicFile(ChatPersonActivity.this, "rec_photo_" + (photoMsgId != null ? photoMsgId : System.currentTimeMillis()) + ".jpg", photoBytes);
+                    if (photoFile != null) {
                         savedPhotoPath = photoFile.getAbsolutePath();
-                    } catch (Exception e) {
-                        Log.e(TAG, "Failed to save background photo to disk", e);
                     }
                 }
 
@@ -5664,15 +5643,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         String localSavedPath = null;
         if (fileDataBytes.length > 0) {
-            try {
-                File localFile = new File(getFilesDir(), "rec_file_" + (msgId != null ? msgId : timestamp) + "_" + fileName);
-                FileOutputStream fos = new FileOutputStream(localFile);
-                fos.write(fileDataBytes);
-                fos.flush();
-                fos.close();
+            File localFile = ChatHistoryManager.saveBytesToAtomicFile(this, "rec_file_" + (msgId != null ? msgId : timestamp) + "_" + fileName, fileDataBytes);
+            if (localFile != null) {
                 localSavedPath = localFile.getAbsolutePath();
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to save received file to disk", e);
             }
         }
 

@@ -819,13 +819,10 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                                 System.arraycopy(fullPayload, currentOffset, itemBytes, 0, pSize);
                                 currentOffset += pSize;
 
-                                File mediaFile = new File(context.getFilesDir(), "rec_media_" + (photoMsgId != null ? photoMsgId : photoTs) + "_" + idx + "." + ext);
-                                FileOutputStream fos = new FileOutputStream(mediaFile);
-                                fos.write(itemBytes);
-                                fos.flush();
-                                fos.close();
-
-                                recMediaItems.add(new ChatMessage.MediaItem(mediaFile.getAbsolutePath(), isVideo, durStr));
+                                File mediaFile = ChatHistoryManager.saveBytesToAtomicFile(context, "rec_media_" + (photoMsgId != null ? photoMsgId : photoTs) + "_" + idx + "." + ext, itemBytes);
+                                if (mediaFile != null) {
+                                    recMediaItems.add(new ChatMessage.MediaItem(mediaFile.getAbsolutePath(), isVideo, durStr));
+                                }
                             }
                         } catch (Exception e) {
                             Log.e("PrimeBluetoothService", "Failed to parse multi-media item " + idx, e);
@@ -884,12 +881,10 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 try {
                     boolean isGif = photoBytes.length > 3 && photoBytes[0] == (byte) 'G' && photoBytes[1] == (byte) 'I' && photoBytes[2] == (byte) 'F';
                     String ext = isGif ? ".gif" : ".jpg";
-                    File photoFile = new File(context.getFilesDir(), "rec_photo_" + (photoMsgId != null ? photoMsgId : photoTs) + ext);
-                    FileOutputStream fos = new FileOutputStream(photoFile);
-                    fos.write(photoBytes);
-                    fos.flush();
-                    fos.close();
-                    savedPhotoPath = photoFile.getAbsolutePath();
+                    File photoFile = ChatHistoryManager.saveBytesToAtomicFile(context, "rec_photo_" + (photoMsgId != null ? photoMsgId : photoTs) + ext, photoBytes);
+                    if (photoFile != null) {
+                        savedPhotoPath = photoFile.getAbsolutePath();
+                    }
                 } catch (Exception e) {
                     Log.e("PrimeBluetoothService", "Failed to save received photo in background", e);
                 }
@@ -972,12 +967,10 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             String localSavedPath = null;
             if (fileDataBytes.length > 0) {
                 try {
-                    File localFile = new File(context.getFilesDir(), "rec_file_" + (msgId != null ? msgId : timestamp) + "_" + fileName);
-                    FileOutputStream fos = new FileOutputStream(localFile);
-                    fos.write(fileDataBytes);
-                    fos.flush();
-                    fos.close();
-                    localSavedPath = localFile.getAbsolutePath();
+                    File localFile = ChatHistoryManager.saveBytesToAtomicFile(context, "rec_file_" + (msgId != null ? msgId : timestamp) + "_" + fileName, fileDataBytes);
+                    if (localFile != null) {
+                        localSavedPath = localFile.getAbsolutePath();
+                    }
                 } catch (Exception e) {
                     Log.e("PrimeBluetoothService", "Failed to save received file in background", e);
                 }
