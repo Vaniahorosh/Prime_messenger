@@ -515,6 +515,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private final ActivityResultLauncher<PickVisualMediaRequest> pickSystemGalleryLauncher =
             registerForActivityResult(new ActivityResultContracts.PickMultipleVisualMedia(20), uris -> {
                 if (uris != null && !uris.isEmpty()) {
+                    for (Uri u : uris) {
+                        try {
+                            getContentResolver().takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        } catch (Throwable ignored) {}
+                    }
                     setPendingAttachmentFromUris(uris);
                 }
             });
@@ -522,6 +527,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private final ActivityResultLauncher<String> pickSystemFileLauncher =
             registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
                 if (uri != null) {
+                    try {
+                        getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    } catch (Throwable ignored) {}
                     setPendingAttachmentFromUri(uri, isVideoMimeOrPath(uri, getPathFromUri(uri)), "Файл из менеджера");
                 }
             });
@@ -6730,16 +6738,17 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private Bitmap getPhotoThumbnail(Uri uri, String path) {
         try {
             if (path != null && new File(path).exists()) {
-                return BitmapFactory.decodeFile(path);
+                BitmapFactory.Options options = new BitmapFactory.Options();
+                options.inJustDecodeBounds = true;
+                BitmapFactory.decodeFile(path, options);
+                options.inSampleSize = calculateInSampleSize(options, 512, 512);
+                options.inJustDecodeBounds = false;
+                return BitmapFactory.decodeFile(path, options);
             }
             if (uri != null) {
-                try (InputStream is = getContentResolver().openInputStream(uri)) {
-                    if (is != null) {
-                        return BitmapFactory.decodeStream(is);
-                    }
-                }
+                return decodeSampledBitmapFromUri(uri, 512, 512);
             }
-        } catch (Exception ignored) {}
+        } catch (Throwable ignored) {}
         return null;
     }
 

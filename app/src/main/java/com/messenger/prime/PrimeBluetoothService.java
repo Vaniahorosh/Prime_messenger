@@ -241,8 +241,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     try {
                         startForeground(NOTIFICATION_ID, notification);
                     } catch (Throwable t2) {
-                        Log.e(TAG, "Standard startForeground also failed, calling stopSelf() to prevent crash", t2);
-                        stopSelf();
+                        Log.e(TAG, "Standard startForeground also failed", t2);
                     }
                 }
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -256,18 +255,18 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     try {
                         startForeground(NOTIFICATION_ID, notification);
                     } catch (Throwable t2) {
-                        stopSelf();
+                        Log.e(TAG, "Standard startForeground also failed", t2);
                     }
                 }
             } else {
                 try {
                     startForeground(NOTIFICATION_ID, notification);
                 } catch (Throwable t) {
-                    stopSelf();
+                    Log.e(TAG, "startForeground failed", t);
                 }
             }
         } catch (Throwable e) {
-            Log.e(TAG, "Fatal failure in promoteToForeground, stopping service to prevent crash", e);
+            Log.e(TAG, "Fatal failure in promoteToForeground", e);
             try {
                 Notification emptyNotification = new NotificationCompat.Builder(this, CHANNEL_ID)
                         .setSmallIcon(R.drawable.ic_prime_statusbar)
@@ -275,7 +274,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                         .build();
                 startForeground(NOTIFICATION_ID, emptyNotification);
             } catch (Throwable t) {
-                stopSelf();
+                Log.e(TAG, "Failed fallback startForeground", t);
             }
         }
     }
