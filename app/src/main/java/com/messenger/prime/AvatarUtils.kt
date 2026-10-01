@@ -36,7 +36,7 @@ fun loadAvatarUriIntoView(context: Context, uri: Uri, imageView: ImageView) {
     val uriStr = uri.toString().lowercase()
     val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif")
     val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
-    val file = if ("file" == uri.scheme && uri.path != null) File(uri.path!!) else null
+    val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
     val signatureKey = ObjectKey(if (file != null && file.exists()) file.lastModified() else System.currentTimeMillis())
     if (isGif) {
         Glide.with(context)

@@ -12,11 +12,11 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -189,19 +189,23 @@ private fun getDarkPalette(): List<Color> {
 
 @Composable
 fun PrimeTheme(
-    darkTheme: Boolean = androidx.compose.foundation.isSystemInDarkTheme(),
+    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+    val accentColorInt = ColorAccentManager.getCurrentAccentColor(context)
+    val accentColor = Color(accentColorInt)
+
     val colorScheme = if (darkTheme) {
-        androidx.compose.material3.darkColorScheme(
-            primary = Color(0xFF64B5F6),
+        darkColorScheme(
+            primary = accentColor,
             background = Color(0xFF1E293B),
             surface = Color(0xFF334155)
         )
     } else {
         androidx.compose.material3.lightColorScheme(
-            primary = Color(0xFF154B87),
-            background = Color(0xFF154B87),
+            primary = accentColor,
+            background = accentColor,
             surface = Color(0xFFF1F5F9)
         )
     }
@@ -225,7 +229,8 @@ fun AnimatedBackground(
     val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
     val isLowRam = activityManager?.isLowRamDevice == true
     
-    val bgColor = if (darkTheme) Color(0xFF1E293B) else Color(0xFF154B87)
+    val accentColorInt = ColorAccentManager.getCurrentAccentColor(context)
+    val bgColor = if (darkTheme) Color(0xFF1E293B) else Color(accentColorInt)
     
     // If not ignoring toggle AND setting is off, OR if it's a weak device -> show static background
     if ((!ignoreSettingsToggle && !isEnabled) || isLowRam) {

@@ -61,4 +61,47 @@
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:navigationBarColor">@android:color/black</item>
     </style>
+
+    <!-- Theme Overlays for Custom Color Accents (Dark Theme) -->
+    <style name="ThemeOverlay.Prime.Emerald" parent="">
+        <item name="colorPrimary">#26A69A</item>
+        <item name="colorAccent">#26A69A</item>
+        <item name="colorPrimaryContainer">#CC26A69A</item>
+        <item name="colorSecondary">#26A69A</item>
+    </style>
+
+    <style name="ThemeOverlay.Prime.Purple" parent="">
+        <item name="colorPrimary">#B388FF</item>
+        <item name="colorAccent">#B388FF</item>
+        <item name="colorPrimaryContainer">#CCB388FF</item>
+        <item name="colorSecondary">#B388FF</item>
+    </style>
+
+    <style name="ThemeOverlay.Prime.Amber" parent="">
+        <item name="colorPrimary">#FFB74D</item>
+        <item name="colorAccent">#FFB74D</item>
+        <item name="colorPrimaryContainer">#CCFFB74D</item>
+        <item name="colorSecondary">#FFB74D</item>
+    </style>
+
+    <style name="ThemeOverlay.Prime.Ruby" parent="">
+        <item name="colorPrimary">#FF5252</item>
+        <item name="colorAccent">#FF5252</item>
+        <item name="colorPrimaryContainer">#CCFF5252</item>
+        <item name="colorSecondary">#FF5252</item>
+    </style>
+
+    <style name="ThemeOverlay.Prime.Cyan" parent="">
+        <item name="colorPrimary">#4DD0E1</item>
+        <item name="colorAccent">#4DD0E1</item>
+        <item name="colorPrimaryContainer">#CC4DD0E1</item>
+        <item name="colorSecondary">#4DD0E1</item>
+    </style>
+
+    <style name="ThemeOverlay.Prime.Pink" parent="">
+        <item name="colorPrimary">#FF4081</item>
+        <item name="colorAccent">#FF4081</item>
+        <item name="colorPrimaryContainer">#CCFF4081</item>
+        <item name="colorSecondary">#FF4081</item>
+    </style>
 </resources>

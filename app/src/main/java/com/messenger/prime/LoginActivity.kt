@@ -4,6 +4,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.MotionEvent
 import android.view.View
@@ -43,22 +44,9 @@ class LoginActivity : AppCompatActivity() {
     private var isPasswordState = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
-        
-        if (android.os.Build.VERSION.SDK_INT >= 34) {
-            // Forward transition to Register (if happens)
-            overrideActivityTransition(
-                OVERRIDE_TRANSITION_OPEN,
-                R.anim.fade_in_slow,
-                R.anim.stay_slow
-            )
-            // Back transition to Hi
-            overrideActivityTransition(
-                OVERRIDE_TRANSITION_CLOSE,
-                R.anim.slide_in_left,
-                R.anim.slide_out_right
-            )
-        }
+        PrimeTransitions.setupActivityTransitions(this)
         
         setupEdgeToEdge()
 
@@ -157,7 +145,7 @@ class LoginActivity : AppCompatActivity() {
                                         val intent = Intent(this@LoginActivity, RegisterActivity::class.java)
                                         intent.putExtra("EXTRA_LOGIN", login)
                                         startActivity(intent)
-                                        overridePendingTransition(R.anim.fade_in_slow, R.anim.stay_slow)
+                                        PrimeTransitions.applyOpenTransition(this@LoginActivity)
                                     }
                                 } else {
                                     val password = b.etPassword.text.toString()
@@ -170,7 +158,7 @@ class LoginActivity : AppCompatActivity() {
                                             apply()
                                         }
                                         startActivity(Intent(this@LoginActivity, ChatListActivity::class.java))
-                                        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                                        PrimeTransitions.applyOpenTransition(this@LoginActivity)
                                         finishAffinity()
                                     } else {
                                         b.tvError.visibility = View.VISIBLE
@@ -202,10 +190,7 @@ class LoginActivity : AppCompatActivity() {
             }
         }
 
-        val slidrConfig = SlidrConfig.Builder()
-            .position(SlidrPosition.LEFT)
-            .build()
-        Slidr.attach(this, slidrConfig)
+        PrimeTransitions.attachSlidr(this)
     }
 
     private fun setupContrastColors(b: ActivityLoginContentBinding, darkTheme: Boolean) {
@@ -276,8 +261,10 @@ class LoginActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         LavaBackgroundState.onActivityResumed()
-        // Восстанавливаем видимость контента (после fadeOut при переходе вперед)
-        binding?.root?.alpha = 1f
+        binding?.root?.let {
+            ColorAccentManager.tintViewTree(it, ColorAccentManager.getCurrentAccentColor(this))
+            it.alpha = 1f
+        }
     }
 
     override fun onDestroy() {
@@ -288,6 +275,6 @@ class LoginActivity : AppCompatActivity() {
     override fun finish() {
         LavaBackgroundState.onTransitionStart()
         super.finish()
-        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+        PrimeTransitions.applyCloseTransition(this)
     }
 }

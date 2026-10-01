@@ -13,7 +13,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 class SplashActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
+        PrimeTransitions.setupActivityTransitions(this)
         
         setupEdgeToEdge()
 
@@ -64,7 +66,7 @@ class SplashActivity : AppCompatActivity() {
         }
 
         startActivity(nextIntent)
-        overridePendingTransition(R.anim.fade_in_slow, R.anim.stay_slow)
+        PrimeTransitions.applyOpenTransition(this)
         finish()
     }
 }

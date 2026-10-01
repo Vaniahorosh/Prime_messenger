@@ -19,17 +19,36 @@ import java.io.FileOutputStream
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.content.res.ColorStateList
+import android.graphics.drawable.ColorDrawable
+import android.text.Editable
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.TextPaint
+import android.text.TextWatcher
+import android.text.method.LinkMovementMethod
+import android.text.style.ClickableSpan
+import android.view.WindowManager
+import android.widget.LinearLayout
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.messenger.prime.databinding.DialogColorAccentBinding
+import com.messenger.prime.databinding.DialogColorPickerBinding
+import eightbitlab.com.blurview.BlurView
 import android.transition.AutoTransition
 import android.transition.TransitionManager
+import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
@@ -106,6 +125,7 @@ class SettingsActivity : AppCompatActivity() {
                 val ext = if (isGif) ".gif" else ".jpg"
 
                 val permanentAvatar = File(filesDir, "my_profile_avatar$ext")
+                val tempAvatar = File(filesDir, "tmp_my_profile_avatar$ext")
                 try {
                     val srcUri = Uri.parse(uriStr)
                     val inputStream = try {
@@ -114,10 +134,15 @@ class SettingsActivity : AppCompatActivity() {
                         ?: if (srcUri.scheme == "file" && srcUri.path != null) FileInputStream(File(srcUri.path!!))
                            else FileInputStream(File(uriStr.removePrefix("file://")))
 
-                    inputStream.use { input ->
-                        FileOutputStream(permanentAvatar).use { output ->
+                    inputStream?.use { input ->
+                        FileOutputStream(tempAvatar).use { output ->
                             input.copyTo(output)
+                            output.flush()
                         }
+                    }
+                    if (tempAvatar.exists() && tempAvatar.length() > 0) {
+                        if (permanentAvatar.exists()) permanentAvatar.delete()
+                        tempAvatar.renameTo(permanentAvatar)
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -158,11 +183,17 @@ class SettingsActivity : AppCompatActivity() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         val permanentAvatar = File(filesDir, "my_profile_avatar.gif")
+        val tempAvatar = File(filesDir, "tmp_my_profile_avatar.gif")
         try {
             contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(permanentAvatar).use { output ->
+                FileOutputStream(tempAvatar).use { output ->
                     input.copyTo(output)
+                    output.flush()
                 }
+            }
+            if (tempAvatar.exists() && tempAvatar.length() > 0) {
+                if (permanentAvatar.exists()) permanentAvatar.delete()
+                tempAvatar.renameTo(permanentAvatar)
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -206,7 +237,7 @@ class SettingsActivity : AppCompatActivity() {
                     putExtra("IS_PROFILE_PHOTO", true)
                 }
                 photoEditorLauncher.launch(intent)
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                PrimeTransitions.applyOpenTransition(this)
             }
         }
     }
@@ -229,20 +260,9 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
-        
-        if (android.os.Build.VERSION.SDK_INT >= 34) {
-            overrideActivityTransition(
-                android.app.Activity.OVERRIDE_TRANSITION_OPEN,
-                R.anim.slide_in_right,
-                R.anim.slide_out_left
-            )
-            overrideActivityTransition(
-                android.app.Activity.OVERRIDE_TRANSITION_CLOSE,
-                R.anim.slide_in_left,
-                R.anim.slide_out_right
-            )
-        }
+        PrimeTransitions.setupActivityTransitions(this)
         
         setContentView(R.layout.activity_settings)
 
@@ -461,10 +481,7 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        val slidrConfig = SlidrConfig.Builder()
-            .position(SlidrPosition.LEFT)
-            .build()
-        Slidr.attach(this, slidrConfig)
+        PrimeTransitions.attachSlidr(this)
 
         onBackPressedDispatcher.addCallback(this, backCallback)
     }
@@ -595,6 +612,389 @@ class SettingsActivity : AppCompatActivity() {
                 e.printStackTrace()
             }
         }
+
+        updateAccentUi(b)
+        b.cardColorAccent.setOnClickListener { showColorAccentDialog(b) }
+
+        setupThanksCard(b)
+    }
+
+    private fun setupThanksCard(b: ActivitySettingsContentBinding) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        var heartCount = sharedPrefs.getInt("thanks_heart_count", 0)
+
+        val updateHeartBadge = {
+            if (heartCount > 0) {
+                b.layoutHeartBadge.visibility = View.VISIBLE
+                b.tvHeartCount.text = heartCount.toString()
+            } else {
+                b.layoutHeartBadge.visibility = View.GONE
+            }
+        }
+        updateHeartBadge()
+
+        val devPrefix = "Главный разработчик: "
+        val devName = "Vaniahorosh"
+        val spannable = SpannableString(devPrefix + devName)
+        val brandColor = ColorAccentManager.getCurrentAccentColor(this)
+
+        val clickableSpan = object : ClickableSpan() {
+            override fun onClick(widget: View) {
+                openGithubDev()
+            }
+
+            override fun updateDrawState(ds: TextPaint) {
+                super.updateDrawState(ds)
+                ds.color = brandColor
+                ds.isUnderlineText = true
+                ds.isFakeBoldText = true
+            }
+        }
+
+        val startIdx = devPrefix.length
+        val endIdx = startIdx + devName.length
+        spannable.setSpan(clickableSpan, startIdx, endIdx, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+        b.tvThanksMainDev.text = spannable
+        b.tvThanksMainDev.movementMethod = LinkMovementMethod.getInstance()
+
+        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                heartCount++
+                sharedPrefs.edit().putInt("thanks_heart_count", heartCount).apply()
+                updateHeartBadge()
+
+                b.layoutHeartBadge.animate().cancel()
+                b.layoutHeartBadge.scaleX = 1.3f
+                b.layoutHeartBadge.scaleY = 1.3f
+                b.layoutHeartBadge.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(200)
+                    .start()
+
+                b.cardThanks.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+
+                spawnFloatingHeart(b, e.x, e.y)
+                return true
+            }
+
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                val devRect = Rect()
+                b.tvThanksMainDev.getGlobalVisibleRect(devRect)
+                val cardRect = Rect()
+                b.cardThanks.getGlobalVisibleRect(cardRect)
+                val rawX = cardRect.left + e.x.toInt()
+                val rawY = cardRect.top + e.y.toInt()
+
+                if (devRect.contains(rawX, rawY)) {
+                    openGithubDev()
+                }
+                return true
+            }
+        })
+
+        b.cardThanks.setOnTouchListener { v, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                v.performClick()
+            }
+            gestureDetector.onTouchEvent(event)
+            true
+        }
+    }
+
+    private fun openGithubDev() {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Vaniahorosh"))
+            startActivity(intent)
+            PrimeTransitions.applyOpenTransition(this)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun spawnFloatingHeart(b: ActivitySettingsContentBinding, x: Float, y: Float) {
+        val density = resources.displayMetrics.density
+        val heartSize = (48 * density).toInt()
+        val heartView = ImageView(this).apply {
+            setImageResource(R.drawable.ic_heart)
+            layoutParams = FrameLayout.LayoutParams(heartSize, heartSize)
+            this.x = (x - heartSize / 2f).coerceAtLeast(0f)
+            this.y = (y - heartSize / 2f).coerceAtLeast(0f)
+            scaleX = 0.3f
+            scaleY = 0.3f
+            alpha = 1.0f
+            rotation = (-20..20).random().toFloat()
+        }
+
+        b.overlayHeartsContainer.addView(heartView)
+
+        val targetY = heartView.y - (120 * density)
+
+        heartView.animate()
+            .scaleX(1.2f)
+            .scaleY(1.2f)
+            .translationYBy(-40 * density)
+            .setDuration(200)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                heartView.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .y(targetY)
+                    .alpha(0f)
+                    .setDuration(600)
+                    .setInterpolator(AccelerateInterpolator())
+                    .withEndAction {
+                        b.overlayHeartsContainer.removeView(heartView)
+                    }
+                    .start()
+            }
+            .start()
+    }
+
+    private fun updateAccentUi(b: ActivitySettingsContentBinding) {
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        b.tvAccentSummary.text = ColorAccentManager.getAccentSummary(this)
+        b.vAccentColorPreview.backgroundTintList = ColorStateList.valueOf(accentColor)
+        ColorAccentManager.tintViewTree(b.root, accentColor)
+    }
+
+    private fun showColorAccentDialog(b: ActivitySettingsContentBinding) {
+        val dialogBinding = DialogColorAccentBinding.inflate(layoutInflater)
+        dialogBinding.root.setViewTreeLifecycleOwner(this)
+        dialogBinding.root.setViewTreeSavedStateRegistryOwner(this)
+
+        val blurCard = dialogBinding.root.findViewById<BlurView>(R.id.blurDialogCard)
+        if (blurCard != null) {
+            val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
+            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val overlayColor = if (isDark) android.graphics.Color.parseColor("#400F172A") else android.graphics.Color.parseColor("#40154B87")
+            blurCard.setupBlur(rootView, 16f, overlayColor, window.decorView.background)
+        }
+
+        val dialog = MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
+            .setView(dialogBinding.root)
+            .create()
+
+        dialog.window?.let { win ->
+            win.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    win.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                    win.attributes = win.attributes.apply { blurBehindRadius = 60 }
+                } catch (e: Throwable) {
+                    e.printStackTrace()
+                }
+            }
+        }
+
+        val isMonetSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        dialogBinding.layoutMonetSwitch.visibility = if (isMonetSupported) View.VISIBLE else View.GONE
+        val currentType = ColorAccentManager.getAccentType(this)
+
+        dialogBinding.switchMonetAccent.setOnCheckedChangeListener(null)
+        dialogBinding.switchMonetAccent.isChecked = (currentType == ColorAccentManager.ACCENT_TYPE_SYSTEM)
+
+        val updateControlsState = { isMonetOn: Boolean ->
+            dialogBinding.scrollPalette.alpha = if (isMonetOn) 0.5f else 1.0f
+            dialogBinding.btnCustomPicker.alpha = if (isMonetOn) 0.5f else 1.0f
+            for (i in 0 until dialogBinding.layoutSwatches.childCount) {
+                dialogBinding.layoutSwatches.getChildAt(i).isEnabled = !isMonetOn
+            }
+            dialogBinding.btnCustomPicker.isEnabled = !isMonetOn
+        }
+
+        updateControlsState(dialogBinding.switchMonetAccent.isChecked)
+
+        dialogBinding.switchMonetAccent.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                ColorAccentManager.setAccentSystem(this)
+                updateAccentUi(b)
+                sendBroadcast(Intent("com.messenger.prime.ACCENT_CHANGED").setPackage(packageName))
+                dialog.dismiss()
+                restartApp()
+            } else {
+                ColorAccentManager.setAccentDefault(this)
+                updateAccentUi(b)
+                updateControlsState(false)
+                sendBroadcast(Intent("com.messenger.prime.ACCENT_CHANGED").setPackage(packageName))
+                restartApp()
+            }
+        }
+
+        dialogBinding.layoutSwatches.removeAllViews()
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val currentColor = ColorAccentManager.getCurrentAccentColor(this)
+
+        ColorAccentManager.PRESET_COLORS.forEach { preset ->
+            val colorInt = if (isDark) preset.darkColor else preset.lightColor
+            val swatch = View(this).apply {
+                val sizePx = (36 * resources.displayMetrics.density).toInt()
+                val marginPx = (8 * resources.displayMetrics.density).toInt()
+                layoutParams = LinearLayout.LayoutParams(sizePx, sizePx).apply {
+                    setMargins(marginPx, marginPx, marginPx, marginPx)
+                }
+                background = ContextCompat.getDrawable(this@SettingsActivity, R.drawable.bg_brush_preview)
+                backgroundTintList = ColorStateList.valueOf(colorInt)
+                elevation = 4f
+
+                if (colorInt == currentColor && currentType != ColorAccentManager.ACCENT_TYPE_SYSTEM) {
+                    alpha = 1.0f
+                    scaleX = 1.2f
+                    scaleY = 1.2f
+                } else {
+                    alpha = 0.85f
+                }
+
+                setOnClickListener {
+                    ColorAccentManager.setAccentCustom(this@SettingsActivity, colorInt)
+                    updateAccentUi(b)
+                    sendBroadcast(Intent("com.messenger.prime.ACCENT_CHANGED").setPackage(packageName))
+                    dialog.dismiss()
+                    restartApp()
+                }
+            }
+            dialogBinding.layoutSwatches.addView(swatch)
+        }
+
+        dialogBinding.btnCustomPicker.setOnClickListener {
+            dialog.dismiss()
+            showCustomColorSpectrumPicker(b)
+        }
+
+        dialogBinding.btnResetDefault.setOnClickListener {
+            ColorAccentManager.setAccentDefault(this)
+            updateAccentUi(b)
+            sendBroadcast(Intent("com.messenger.prime.ACCENT_CHANGED").setPackage(packageName))
+            dialog.dismiss()
+            restartApp()
+        }
+
+        dialog.show()
+    }
+
+    private fun showCustomColorSpectrumPicker(b: ActivitySettingsContentBinding) {
+        val dialogBinding = DialogColorPickerBinding.inflate(layoutInflater)
+        dialogBinding.root.setViewTreeLifecycleOwner(this)
+        dialogBinding.root.setViewTreeSavedStateRegistryOwner(this)
+
+        dialogBinding.btnPipette.visibility = View.GONE
+
+        val blurCard = dialogBinding.root.findViewById<BlurView>(R.id.blurDialogCard)
+        if (blurCard != null) {
+            val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
+            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val overlayColor = if (isDark) android.graphics.Color.parseColor("#400F172A") else android.graphics.Color.parseColor("#40154B87")
+            blurCard.setupBlur(rootView, 16f, overlayColor, window.decorView.background)
+        }
+
+        val dialog = MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
+            .setView(dialogBinding.root)
+            .create()
+
+        dialog.window?.let { win ->
+            win.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    win.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                    win.attributes = win.attributes.apply { blurBehindRadius = 60 }
+                } catch (e: Throwable) {
+                    e.printStackTrace()
+                }
+            }
+        }
+
+        var selectedColorInt = ColorAccentManager.getCurrentAccentColor(this)
+
+        var isInternalChange = false
+        fun updateDialogColors(color: Int) {
+            if (isInternalChange) return
+            isInternalChange = true
+            try {
+                dialogBinding.viewColorPreview.backgroundTintList = ColorStateList.valueOf(color)
+                val hexStr = String.format("#%06X", (0xFFFFFF and color))
+                if (dialogBinding.etHex.text?.toString() != hexStr) dialogBinding.etHex.setText(hexStr)
+                val rStr = android.graphics.Color.red(color).toString()
+                if (dialogBinding.etR.text?.toString() != rStr) dialogBinding.etR.setText(rStr)
+                val gStr = android.graphics.Color.green(color).toString()
+                if (dialogBinding.etG.text?.toString() != gStr) dialogBinding.etG.setText(gStr)
+                val bStr = android.graphics.Color.blue(color).toString()
+                if (dialogBinding.etB.text?.toString() != bStr) dialogBinding.etB.setText(bStr)
+            } catch (_: Exception) {
+            } finally {
+                isInternalChange = false
+            }
+        }
+
+        updateDialogColors(selectedColorInt)
+
+        dialogBinding.spectrumView.setOnColorChangedListener { color ->
+            selectedColorInt = color
+            updateDialogColors(color)
+        }
+
+        val rgbWatcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                if (isInternalChange) return
+                try {
+                    val r = dialogBinding.etR.text.toString().toInt().coerceIn(0, 255)
+                    val g = dialogBinding.etG.text.toString().toInt().coerceIn(0, 255)
+                    val bVal = dialogBinding.etB.text.toString().toInt().coerceIn(0, 255)
+                    val color = android.graphics.Color.rgb(r, g, bVal)
+                    selectedColorInt = color
+                    isInternalChange = true
+                    dialogBinding.etHex.setText(String.format("#%06X", (0xFFFFFF and color)))
+                    dialogBinding.viewColorPreview.backgroundTintList = ColorStateList.valueOf(color)
+                } catch (_: Exception) {
+                } finally {
+                    isInternalChange = false
+                }
+            }
+        }
+
+        val hexWatcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                if (isInternalChange) return
+                try {
+                    val color = android.graphics.Color.parseColor(s.toString())
+                    selectedColorInt = color
+                    isInternalChange = true
+                    dialogBinding.etR.setText(android.graphics.Color.red(color).toString())
+                    dialogBinding.etG.setText(android.graphics.Color.green(color).toString())
+                    dialogBinding.etB.setText(android.graphics.Color.blue(color).toString())
+                    dialogBinding.viewColorPreview.backgroundTintList = ColorStateList.valueOf(color)
+                } catch (_: Exception) {
+                } finally {
+                    isInternalChange = false
+                }
+            }
+        }
+
+        dialogBinding.etHex.addTextChangedListener(hexWatcher)
+        dialogBinding.etR.addTextChangedListener(rgbWatcher)
+        dialogBinding.etG.addTextChangedListener(rgbWatcher)
+        dialogBinding.etB.addTextChangedListener(rgbWatcher)
+
+        dialogBinding.btnApplyColor.setOnClickListener {
+            try {
+                var hex = dialogBinding.etHex.text.toString().trim()
+                if (!hex.startsWith("#")) hex = "#$hex"
+                selectedColorInt = android.graphics.Color.parseColor(hex)
+            } catch (_: Exception) {}
+
+            ColorAccentManager.setAccentCustom(this, selectedColorInt)
+            updateAccentUi(b)
+            sendBroadcast(Intent("com.messenger.prime.ACCENT_CHANGED").setPackage(packageName))
+            dialog.dismiss()
+            restartApp()
+        }
+
+        dialog.show()
     }
 
     private fun togglePhotoMenuMode(enable: Boolean) {
@@ -730,9 +1130,7 @@ class SettingsActivity : AppCompatActivity() {
     override fun finish() {
         LavaBackgroundState.onTransitionStart()
         super.finish()
-        if (android.os.Build.VERSION.SDK_INT < 34) {
-            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
-        }
+        PrimeTransitions.applyCloseTransition(this)
     }
 
     private fun applyAvatarState(avatarUri: String?) {
@@ -779,6 +1177,7 @@ class SettingsActivity : AppCompatActivity() {
         MediaPlayerActivity.setSharedMediaList(listOf(msg), 0)
         val intent = Intent(this, MediaPlayerActivity::class.java)
         startActivity(intent)
+        PrimeTransitions.applyOpenTransition(this)
     }
 
     private fun toggleAccountCollapsible(b: ActivitySettingsContentBinding) {
@@ -1086,6 +1485,7 @@ class SettingsActivity : AppCompatActivity() {
                 }
                 getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).edit().putBoolean("is_logged_in", false).apply()
                 startActivity(Intent(this, LoginActivity::class.java))
+                PrimeTransitions.applyOpenTransition(this)
                 finishAffinity()
             }
         )
@@ -1145,6 +1545,7 @@ class SettingsActivity : AppCompatActivity() {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         }
         startActivity(intent)
+        PrimeTransitions.applyOpenTransition(this)
         finishAffinity()
     }
 

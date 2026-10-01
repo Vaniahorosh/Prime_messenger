@@ -5,7 +5,6 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
-import android.app.Dialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -1729,6 +1728,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
 
         void bind(ChatMessage message, boolean showDateHeader, OnMessageLongClickListener listener, int position) {
+            if (layoutOutgoingBubble != null) {
+                layoutOutgoingBubble.setBackground(ColorAccentManager.createOutgoingBubbleDrawable(itemView.getContext()));
+            }
+
             if (showDateHeader && message.getTimestamp() > 0) {
                 tvDateHeader.setVisibility(View.VISIBLE);
                 tvDateHeader.setText(getDateHeaderString(message.getTimestamp()));

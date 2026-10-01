@@ -140,22 +140,11 @@ class PhotoEditorActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
+        PrimeTransitions.setupActivityTransitions(this)
         onBackPressedDispatcher.addCallback(this, backCallback)
         setupEdgeToEdge()
-        
-        if (android.os.Build.VERSION.SDK_INT >= 34) {
-            overrideActivityTransition(
-                android.app.Activity.OVERRIDE_TRANSITION_OPEN,
-                R.anim.slide_in_right,
-                R.anim.slide_out_left
-            )
-            overrideActivityTransition(
-                android.app.Activity.OVERRIDE_TRANSITION_CLOSE,
-                R.anim.slide_in_left,
-                R.anim.slide_out_right
-            )
-        }
         
         setContentView(R.layout.activity_photo_editor)
 
@@ -745,7 +734,7 @@ class PhotoEditorActivity : AppCompatActivity() {
             }
             setResult(RESULT_OK, resultIntent)
             finish()
-            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+            PrimeTransitions.applyCloseTransition(this)
         } catch (e: Exception) {
             e.printStackTrace()
             finish()
@@ -771,7 +760,7 @@ class PhotoEditorActivity : AppCompatActivity() {
             }
             setResult(RESULT_OK, resultIntent)
             finish()
-            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+            PrimeTransitions.applyCloseTransition(this)
         } catch (e: Exception) { finish() }
     }
 
@@ -1015,7 +1004,7 @@ class PhotoEditorActivity : AppCompatActivity() {
             }
             setResult(RESULT_OK, resultIntent)
             finish()
-            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+            PrimeTransitions.applyCloseTransition(this)
         } catch (e: Exception) { finish() }
     }
 
@@ -1116,6 +1105,6 @@ class PhotoEditorActivity : AppCompatActivity() {
 
     override fun finish() {
         super.finish()
-        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+        PrimeTransitions.applyCloseTransition(this)
     }
 }

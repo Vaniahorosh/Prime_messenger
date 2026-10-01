@@ -10,6 +10,7 @@ import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
 import android.app.Activity
 import android.os.Bundle
+import com.google.android.material.color.DynamicColors
 import java.lang.ref.WeakReference
 
 class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
@@ -22,6 +23,9 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
             "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
             "dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        }
+        if (ColorAccentManager.getAccentType(this) == ColorAccentManager.ACCENT_TYPE_SYSTEM) {
+            DynamicColors.applyToActivitiesIfAvailable(this)
         }
         createNotificationChannels()
     }
@@ -81,11 +85,23 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         var currentActiveChatName: String? = null
         
         @JvmStatic
-        fun isChatActive(address: String?): Boolean {
+        @JvmOverloads
+        fun isChatActive(address: String?, name: String? = null): Boolean {
             if (!isAppInForeground) return false
-            if (address.isNullOrEmpty()) return true // default to true if no address provided
-            return (currentActiveChatAddress?.equals(address, ignoreCase = true) == true) ||
-                   (currentActiveChatName?.equals(address, ignoreCase = true) == true)
+            val activeAddr = currentActiveChatAddress
+            val activeName = currentActiveChatName
+            if (activeAddr.isNullOrEmpty() && activeName.isNullOrEmpty()) return false
+
+            val matchAddr = !address.isNullOrEmpty() && (
+                activeAddr?.equals(address, ignoreCase = true) == true ||
+                activeName?.equals(address, ignoreCase = true) == true
+            )
+            val matchName = !name.isNullOrEmpty() && (
+                activeAddr?.equals(name, ignoreCase = true) == true ||
+                activeName?.equals(name, ignoreCase = true) == true
+            )
+
+            return matchAddr || matchName
         }
         
         @JvmStatic
@@ -95,7 +111,9 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
     private var activityReferences = 0
     private var isActivityChangingConfigurations = false
 
-    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+        ColorAccentManager.applyAccentToActivity(activity)
+    }
     override fun onActivityStarted(activity: Activity) {
         if (++activityReferences == 1 && !isActivityChangingConfigurations) {
             isAppInForeground = true

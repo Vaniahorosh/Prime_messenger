@@ -327,6 +327,10 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
     public static void showMessageNotification(Context context, String senderName, String messageText, String deviceAddress) {
         if (context == null) return;
+        if (PrimeApplication.isAppInForeground() && PrimeApplication.isChatActive(deviceAddress, senderName)) {
+            Log.d(TAG, "Message notification suppressed: user is actively viewing chat with " + senderName + " / " + deviceAddress);
+            return;
+        }
         try {
             NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm == null) return;
@@ -754,15 +758,22 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 String user = obj.optString("name", "");
                 String id = obj.optString("id", "");
 
-                boolean isGenericName = "Собеседник".equalsIgnoreCase(targetName) || "Prime Собеседник".equalsIgnoreCase(targetName) || "Контакт".equalsIgnoreCase(targetName);
-                boolean isMatch = (deviceAddr != null && !deviceAddr.isEmpty() && deviceAddr.equalsIgnoreCase(id))
-                        || (targetName != null && !targetName.isEmpty() && targetName.equalsIgnoreCase(id))
-                        || (!isGenericName && user.equalsIgnoreCase(targetName) && !BluetoothAdapter.checkBluetoothAddress(user));
+                boolean isMatch = false;
+                if (deviceAddr != null && !deviceAddr.isEmpty() && deviceAddr.equalsIgnoreCase(id)) {
+                    isMatch = true;
+                } else if (targetName.equalsIgnoreCase(id) || targetName.equalsIgnoreCase(user)) {
+                    isMatch = true;
+                }
 
                 if (isMatch) {
                     obj.put("lastMessage", lastMsg);
                     obj.put("time", timeStr);
                     obj.put("onlineStatus", "ONLINE");
+                    if (targetName != null && !targetName.isEmpty() && !BluetoothAdapter.checkBluetoothAddress(targetName)) {
+                        if ("Собеседник".equalsIgnoreCase(user) || "Контакт".equalsIgnoreCase(user) || "Prime Собеседник".equalsIgnoreCase(user)) {
+                            obj.put("name", targetName);
+                        }
+                    }
                     
                     int currentUnread = obj.optInt("unreadCount", 0);
                     obj.put("unreadCount", currentUnread + 1);
@@ -775,7 +786,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
             if (updatedObj == null) {
                 updatedObj = new JSONObject();
-                updatedObj.put("id", deviceAddr != null ? deviceAddr : targetName);
+                updatedObj.put("id", deviceAddr != null && !deviceAddr.isEmpty() ? deviceAddr : targetName);
                 String saveName = (targetName != null && !BluetoothAdapter.checkBluetoothAddress(targetName)) ? targetName : "Собеседник";
                 updatedObj.put("name", saveName);
                 updatedObj.put("lastMessage", lastMsg);
@@ -784,9 +795,14 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 updatedObj.put("messageStatus", "NONE");
                 updatedObj.put("unreadCount", 1);
             }
-            newArray.put(updatedObj);
 
-            sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply();
+            JSONArray finalArray = new JSONArray();
+            finalArray.put(updatedObj);
+            for (int i = 0; i < newArray.length(); i++) {
+                finalArray.put(newArray.get(i));
+            }
+
+            sharedPrefs.edit().putString("persisted_chats", finalArray.toString()).apply();
             ChatListNotifier.INSTANCE.notifyChanged();
         } catch (Throwable e) {
             Log.e(TAG, "Failed to save background last message", e);

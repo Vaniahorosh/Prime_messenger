@@ -4,6 +4,7 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -63,14 +64,14 @@ class RegisterActivity : AppCompatActivity() {
 
             if (isGif) {
                 try {
-                    val destFile = File(filesDir, "avatar_${userLogin}.gif")
+                    val destFile = File(filesDir, "avatar_$userLogin.gif")
                     contentResolver.openInputStream(uri)?.use { input ->
                         FileOutputStream(destFile).use { output ->
                             input.copyTo(output)
                         }
                     }
                     avatarUri = Uri.fromFile(destFile)
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     avatarUri = uri
                 }
                 binding?.ivSelectedAvatar?.let { iv ->
@@ -85,28 +86,15 @@ class RegisterActivity : AppCompatActivity() {
                 val intent = Intent(this, PhotoEditorActivity::class.java)
                 intent.putExtra("EXTRA_IMAGE_URI", uri.toString())
                 photoEditorLauncher.launch(intent)
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                PrimeTransitions.applyOpenTransition(this)
             }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
-        
-        if (android.os.Build.VERSION.SDK_INT >= 34) {
-            // Incoming from Login
-            overrideActivityTransition(
-                OVERRIDE_TRANSITION_OPEN,
-                R.anim.fade_in_slow,
-                R.anim.stay_slow
-            )
-            // Back to Login
-            overrideActivityTransition(
-                OVERRIDE_TRANSITION_CLOSE,
-                R.anim.slide_in_left,
-                R.anim.slide_out_right
-            )
-        }
+        PrimeTransitions.setupActivityTransitions(this)
         
         setupEdgeToEdge()
         userLogin = intent.getStringExtra("EXTRA_LOGIN") ?: ""
@@ -208,7 +196,7 @@ class RegisterActivity : AppCompatActivity() {
                                     b.inputLayoutPassword.error = null
                                 }
 
-                                val sharedPreferences = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                                val sharedPreferences = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
                                 sharedPreferences.edit().apply {
                                     putString(userLogin, password)
                                     putString("${userLogin}_name", name)
@@ -218,7 +206,7 @@ class RegisterActivity : AppCompatActivity() {
                                     apply()
                                 }
                                 startActivity(Intent(this@RegisterActivity, ChatListActivity::class.java))
-                                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                                PrimeTransitions.applyOpenTransition(this@RegisterActivity)
                                 finishAffinity()
                             }
                             
@@ -244,11 +232,7 @@ class RegisterActivity : AppCompatActivity() {
             }
         }
 
-        // Возвращаем Slidr для всех версий
-        val slidrConfig = SlidrConfig.Builder()
-            .position(SlidrPosition.LEFT)
-            .build()
-        Slidr.attach(this, slidrConfig)
+        PrimeTransitions.attachSlidr(this)
     }
 
     private fun setupContrastColors(b: ActivityRegisterContentBinding, darkTheme: Boolean) {
@@ -263,6 +247,9 @@ class RegisterActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         LavaBackgroundState.onActivityResumed()
+        binding?.root?.let {
+            ColorAccentManager.tintViewTree(it, ColorAccentManager.getCurrentAccentColor(this))
+        }
     }
 
     override fun onDestroy() {
@@ -273,6 +260,6 @@ class RegisterActivity : AppCompatActivity() {
     override fun finish() {
         LavaBackgroundState.onTransitionStart()
         super.finish()
-        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+        PrimeTransitions.applyCloseTransition(this)
     }
 }

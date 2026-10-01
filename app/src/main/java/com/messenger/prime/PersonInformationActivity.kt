@@ -3,7 +3,6 @@ package com.messenger.prime
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -81,7 +80,9 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
+        PrimeTransitions.setupActivityTransitions(this)
 
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         setupEdgeToEdge(isDarkIcons = !isDark)
@@ -120,11 +121,7 @@ class PersonInformationActivity : AppCompatActivity() {
         ViewCompat.setTransitionName(binding.ivPhotoCard, "transition_avatar")
         ViewCompat.setTransitionName(binding.tvUserNameWP, "transition_name")
 
-        // Attach Slidr for left-to-right swipe dismiss
-        val slidrConfig = SlidrConfig.Builder()
-            .position(SlidrPosition.LEFT)
-            .build()
-        Slidr.attach(this, slidrConfig)
+        PrimeTransitions.attachSlidr(this)
 
         val filter = IntentFilter().apply {
             addAction("com.messenger.prime.STATUS_UPDATED")
@@ -146,6 +143,9 @@ class PersonInformationActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (::binding.isInitialized) {
+            ColorAccentManager.tintViewTree(binding.root, ColorAccentManager.getCurrentAccentColor(this))
+        }
         setupHeaderUi()
     }
 
@@ -198,7 +198,7 @@ class PersonInformationActivity : AppCompatActivity() {
         if (!avatarUriStr.isNullOrEmpty()) {
             try {
                 val uri = Uri.parse(avatarUriStr)
-                val file = if ("file" == uri.scheme && uri.path != null) File(uri.path!!) else null
+                val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
                 val signatureKey = ObjectKey(if (file != null && file.exists()) file.lastModified() else System.currentTimeMillis())
                 val isGif = avatarUriStr!!.lowercase().contains(".gif")
 
@@ -307,6 +307,7 @@ class PersonInformationActivity : AppCompatActivity() {
             MediaPlayerActivity.setSharedMediaList(listOf(msg), 0)
             val intent = Intent(this, MediaPlayerActivity::class.java)
             startActivity(intent)
+            PrimeTransitions.applyOpenTransition(this)
         } else {
             Toast.makeText(this, "Фотография не установлена", Toast.LENGTH_SHORT).show()
         }
@@ -350,7 +351,7 @@ class PersonInformationActivity : AppCompatActivity() {
     private fun setupLeftColumnButtons() {
         // 1. Назад
         binding.btnBack.setOnClickListener {
-            supportFinishAfterTransition()
+            onBackPressedDispatcher.onBackPressed()
         }
 
         // 2. Просмотр фото
@@ -475,7 +476,13 @@ class PersonInformationActivity : AppCompatActivity() {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         startActivity(mainIntent)
+        PrimeTransitions.applyOpenTransition(this)
         finish()
+    }
+
+    override fun finish() {
+        super.finish()
+        PrimeTransitions.applyCloseTransition(this)
     }
 
     private fun formatDateSection(timestamp: Long): String {

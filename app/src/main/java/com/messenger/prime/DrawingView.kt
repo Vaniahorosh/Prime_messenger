@@ -5,6 +5,7 @@ import android.graphics.*
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import kotlin.math.abs
 
 class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) {
 
@@ -88,8 +89,8 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
                 onDrawingStateListener?.invoke(true)
             }
             MotionEvent.ACTION_MOVE -> {
-                val dx = Math.abs(touchX - lastTouchX)
-                val dy = Math.abs(touchY - lastTouchY)
+                val dx = abs(touchX - lastTouchX)
+                val dy = abs(touchY - lastTouchY)
                 if (dx >= 4 || dy >= 4) {
                     drawPath.quadTo(lastTouchX, lastTouchY, (touchX + lastTouchX) / 2f, (touchY + lastTouchY) / 2f)
                     lastTouchX = touchX

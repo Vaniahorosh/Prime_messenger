@@ -89,7 +89,7 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
             baseAlpha = 22 // ~8% opacity
         } else {
             // Brand color for light theme (subtle translucent)
-            baseColor = ContextCompat.getColor(context, R.color.prime_brand)
+            baseColor = ColorAccentManager.getCurrentAccentColor(context)
             baseAlpha = 32 // ~12% opacity
         }
 
@@ -263,8 +263,8 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                     path.reset()
                     for (i in 0 until 5) {
                         val angle = (i * 2 * Math.PI / 5 - Math.PI / 2).toFloat()
-                        val x = (radius * cos(angle)).toFloat()
-                        val y = (radius * sin(angle)).toFloat()
+                        val x = radius * cos(angle)
+                        val y = radius * sin(angle)
                         if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
                     }
                     path.close()

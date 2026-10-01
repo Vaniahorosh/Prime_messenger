@@ -16,7 +16,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Locale;
-import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -65,9 +64,6 @@ public class BluetoothConnectionManager {
     // MAC Address DDoS & Flood Guard
     // =========================================================================
 
-    private final ConcurrentHashMap<String, Long> blockedMacAddresses = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, CopyOnWriteArrayList<Long>> macConnHistory = new ConcurrentHashMap<>();
-
     public boolean isMacBlocked(String macAddress) {
         return false;
     }
@@ -78,10 +74,6 @@ public class BluetoothConnectionManager {
 
     public void unblockMacAddress(String macAddress) {
         // No-op
-    }
-
-    private boolean isMacConnectionSpamming(String macAddress) {
-        return false;
     }
 
     public static synchronized BluetoothConnectionManager getInstance() {

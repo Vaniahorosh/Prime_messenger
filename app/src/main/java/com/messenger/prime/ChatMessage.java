@@ -213,10 +213,6 @@ public class ChatMessage {
         return getMediaItems().size() > 1;
     }
 
-    public int getMediaCount() {
-        return getMediaItems().size();
-    }
-
     public static String buildMultiMediaString(List<MediaItem> items) {
         if (items == null || items.isEmpty()) return "";
         StringBuilder sb = new StringBuilder("MULTI:");

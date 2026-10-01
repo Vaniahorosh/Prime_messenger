@@ -23,6 +23,7 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import eightbitlab.com.blurview.BlurView as EightBitBlurView
 import kotlin.math.abs
+import kotlin.math.ceil
 
 /**
  * Кастомная система уведомлений ("островков"), заменяющая Toast.
@@ -131,7 +132,7 @@ object PrimeNotification {
                         pbTimer.progress = progress
 
                         // Обновление секунд (3..2..1)
-                        val secondsLeft = Math.ceil(progress.toDouble() * DURATION / 1000000.0).toInt().coerceAtLeast(1)
+                        val secondsLeft = ceil(progress.toDouble() * DURATION / 1000000.0).toInt().coerceAtLeast(1)
                         if (secondsLeft != lastSecond) {
                             lastSecond = secondsLeft
                             tsSeconds.setText(secondsLeft.toString())

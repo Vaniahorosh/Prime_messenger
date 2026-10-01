@@ -1,0 +1,44 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Head / Face Circle -->
+    <path
+        android:fillColor="#4C9DFF"
+        android:pathData="M 50,16 A 38,38 0 1,0 88,54 A 38,38 0 0,0 50,16 Z" />
+
+    <!-- Neutral Eyes -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 36,45 A 5,5 0 1,0 36,55 A 5,5 0 0,0 36,45 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 64,45 A 5,5 0 1,0 64,55 A 5,5 0 0,0 64,45 Z" />
+
+    <!-- Neutral Mouth -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M 39,72 L 61,72" />
+
+    <!-- Salute Arm Outline Gap (cutout/border) -->
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="5"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M 86,84 C 86,55 80,36 67,27 L 44,26 C 39.5,26 36,29.5 36,34 C 36,38.5 39.5,42 44,42 L 62,42 C 69,42 74,52 74,74 L 74,84 Z" />
+
+    <!-- Salute Arm Hand -->
+    <path
+        android:fillColor="#4C9DFF"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:pathData="M 86,84 C 86,55 80,36 67,27 L 44,26 C 39.5,26 36,29.5 36,34 C 36,38.5 39.5,42 44,42 L 62,42 C 69,42 74,52 74,74 L 74,84 Z" />
+</vector>

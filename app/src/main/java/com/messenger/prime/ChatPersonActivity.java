@@ -11,7 +11,6 @@ import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
-import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -548,6 +547,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         try {
+            ColorAccentManager.applyAccentToActivity(this);
             super.onCreate(savedInstanceState);
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -567,25 +567,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 controller.setAppearanceLightNavigationBars(!isDarkTheme);
             }
 
-            if (Build.VERSION.SDK_INT >= 34) {
-                overrideActivityTransition(
-                    OVERRIDE_TRANSITION_OPEN,
-                    R.anim.slide_in_right,
-                    R.anim.slide_out_left
-                );
-                overrideActivityTransition(
-                    OVERRIDE_TRANSITION_CLOSE,
-                    R.anim.slide_in_left,
-                    R.anim.slide_out_right
-                );
-            }
+            PrimeTransitions.setupActivityTransitions(this);
 
         setContentView(R.layout.activity_chat_person_content);
 
-        SlidrConfig slidrConfig = new SlidrConfig.Builder()
-                .position(SlidrPosition.LEFT)
-                .build();
-        Slidr.attach(this, slidrConfig);
+        PrimeTransitions.attachSlidr(this);
 
         chatPersonBackCallback = new OnBackPressedCallback(false) {
             @Override
@@ -1777,6 +1763,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 String contactAvatar = (deviceAddress != null && !deviceAddress.isEmpty()) ? prefs.getString("contact_avatar_" + deviceAddress, null) : null;
                 if (contactAvatar == null) contactAvatar = remoteAvatarUri;
                 updateAvatarUi(contactAvatar, targetUsername);
+            } else if ("com.messenger.prime.ACCENT_CHANGED".equals(action)) {
+                recreate();
             } else if (BluetoothDevice.ACTION_FOUND.equals(action) || BluetoothDevice.ACTION_UUID.equals(action)) {
                 BluetoothDevice dev = null;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -1870,9 +1858,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     @Override
     protected void onResume() {
         super.onResume();
+        ColorAccentManager.tintViewTree(getWindow().getDecorView(), ColorAccentManager.getCurrentAccentColor(this));
         isActivityForeground = true;
         activeChatPersonAddress = deviceAddress;
         activeChatPersonName = targetUsername;
+        PrimeApplication.currentActiveChatAddress = deviceAddress;
+        PrimeApplication.currentActiveChatName = targetUsername;
         boolean wasSubActivity = isOpeningSubActivity;
         isOpeningSubActivity = false;
 
@@ -1885,6 +1876,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             filter.addAction("com.messenger.prime.CHAT_DELETED");
             filter.addAction("com.messenger.prime.AVATAR_CHANGED");
             filter.addAction("com.messenger.prime.NAME_CHANGED");
+            filter.addAction("com.messenger.prime.ACCENT_CHANGED");
             ContextCompat.registerReceiver(this, screenReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
         } catch (Exception ignored) {}
 
@@ -1959,6 +1951,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         isActivityForeground = false;
         activeChatPersonAddress = null;
         activeChatPersonName = null;
+        PrimeApplication.currentActiveChatAddress = null;
+        PrimeApplication.currentActiveChatName = null;
         if (bluetoothAdapter != null) {
             try {
                 bluetoothAdapter.cancelDiscovery();
@@ -2804,6 +2798,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 pairs.toArray(new Pair[0])
         );
         startActivity(intent, options.toBundle());
+        PrimeTransitions.applyOpenTransition(this);
     }
 
     private void showSearchDialog() {
@@ -2882,6 +2877,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         Intent mainIntent = new Intent(this, ChatListActivity.class);
         mainIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(mainIntent);
+        PrimeTransitions.applyOpenTransition(this);
         finish();
     }
 
@@ -4324,20 +4320,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     @Override
     public void finish() {
         super.finish();
-        if (Build.VERSION.SDK_INT >= 34) {
-            overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, R.anim.slide_in_left, R.anim.slide_out_right);
-        } else {
-            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
-        }
+        PrimeTransitions.applyCloseTransition(this);
     }
 
     private void showBackgroundNotification(String title, String message) {
-        Activity currentActivity = PrimeApplication.getCurrentActivity();
-        if (currentActivity instanceof ChatPersonActivity) {
-            ChatPersonActivity cpa = (ChatPersonActivity) currentActivity;
-            if (Objects.equals(cpa.targetUsername, title)) {
-                return; // Уже находимся в этом чате, ничего не показываем
-            }
+        if (PrimeApplication.isAppInForeground() && PrimeApplication.isChatActive(deviceAddress, title)) {
+            Log.d(TAG, "Notification suppressed: user is actively viewing chat with " + title + " / " + deviceAddress);
+            return;
         }
 
         try {
@@ -6141,7 +6130,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         currentAttachmentMode = newMode;
 
-        int activeBrand = ContextCompat.getColor(this, R.color.prime_brand);
+        int activeBrand = ColorAccentManager.getCurrentAccentColor(this);
         int idleSecondary = ContextCompat.getColor(this, R.color.prime_text_secondary);
 
         if (vModeCameraBg != null) vModeCameraBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);

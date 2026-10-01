@@ -100,15 +100,9 @@ class HiActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
-
-        if (Build.VERSION.SDK_INT >= 34) {
-            overrideActivityTransition(
-                OVERRIDE_TRANSITION_OPEN,
-                R.anim.fade_in_slow,
-                R.anim.stay_slow
-            )
-        }
+        PrimeTransitions.setupActivityTransitions(this)
 
         val sharedPreferences = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val isLoggedIn = sharedPreferences.getBoolean("is_logged_in", false)
@@ -356,12 +350,12 @@ class HiActivity : AppCompatActivity() {
 
         val intent = Intent(this, LoginActivity::class.java)
         startActivity(intent)
-        overridePendingTransition(R.anim.fade_in_slow, R.anim.stay_slow)
+        PrimeTransitions.applyOpenTransition(this)
     }
 
     override fun finish() {
         LavaBackgroundState.onTransitionStart()
         super.finish()
-        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+        PrimeTransitions.applyCloseTransition(this)
     }
 }

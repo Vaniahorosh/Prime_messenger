@@ -762,6 +762,67 @@
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
+                    <!-- Цветовой акцент -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardColorAccent"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:cardBackgroundColor="@color/prime_surface"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:padding="20dp">
+
+                            <ImageView
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_marginEnd="16dp"
+                                android:src="@drawable/ic_pipette"
+                                app:tint="@color/prime_brand" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="Цветовой акцент"
+                                    android:textColor="@color/prime_brand"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/tvAccentSummary"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="Фирменный"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+
+                            <View
+                                android:id="@+id/vAccentColorPreview"
+                                android:layout_width="28dp"
+                                android:layout_height="28dp"
+                                android:layout_marginStart="12dp"
+                                android:background="@drawable/bg_brush_preview"
+                                android:backgroundTint="@color/prime_brand" />
+
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
                     <!-- Живой фон -->
                     <com.google.android.material.card.MaterialCardView
                         android:id="@+id/cardLavaBg"
@@ -806,7 +867,7 @@
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="4dp"
-                                    android:text="Анимированные фигуры на фоне экрана настроек"
+                                    android:text="Анимированные фигуры на фоне экрана настроек и в информациях о собеседнике"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="12sp" />
                             </LinearLayout>
@@ -968,6 +1029,166 @@
                                     android:textSize="12sp" />
                             </LinearLayout>
                         </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Благодарности -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardThanks"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:cardBackgroundColor="@color/prime_surface"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:padding="20dp">
+
+                                <!-- Шапка карточки -->
+                                <androidx.constraintlayout.widget.ConstraintLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginBottom="12dp">
+
+                                    <ImageView
+                                        android:id="@+id/ivThanksIcon"
+                                        android:layout_width="40dp"
+                                        android:layout_height="40dp"
+                                        android:src="@drawable/thanks"
+                                        app:layout_constraintStart_toStartOf="parent"
+                                        app:layout_constraintTop_toTopOf="parent"
+                                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                                    <TextView
+                                        android:id="@+id/tvThanksTitle"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="12dp"
+                                        android:layout_marginEnd="8dp"
+                                        android:text="Благодарности"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="16sp"
+                                        android:textStyle="bold"
+                                        app:layout_constraintStart_toEndOf="@id/ivThanksIcon"
+                                        app:layout_constraintEnd_toStartOf="@id/layoutHeartBadge"
+                                        app:layout_constraintTop_toTopOf="parent"
+                                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                                    <!-- Значок сердечек (счетчик) -->
+                                    <LinearLayout
+                                        android:id="@+id/layoutHeartBadge"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:gravity="center_vertical"
+                                        android:orientation="horizontal"
+                                        android:background="@drawable/bg_glass_button"
+                                        android:backgroundTint="#1AFF2A55"
+                                        android:paddingHorizontal="10dp"
+                                        android:paddingVertical="4dp"
+                                        android:visibility="gone"
+                                        app:layout_constraintEnd_toEndOf="parent"
+                                        app:layout_constraintTop_toTopOf="parent"
+                                        app:layout_constraintBottom_toBottomOf="parent">
+
+                                        <ImageView
+                                            android:layout_width="16dp"
+                                            android:layout_height="16dp"
+                                            android:src="@drawable/ic_heart" />
+
+                                        <TextView
+                                            android:id="@+id/tvHeartCount"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginStart="4dp"
+                                            android:text="0"
+                                            android:textColor="#FF2A55"
+                                            android:textSize="13sp"
+                                            android:textStyle="bold" />
+                                    </LinearLayout>
+
+                                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                                <View
+                                    android:layout_width="match_parent"
+                                    android:layout_height="1dp"
+                                    android:layout_marginBottom="12dp"
+                                    android:background="@color/prime_divider" />
+
+                                <!-- Основной текст благодарностей -->
+                                <TextView
+                                    android:id="@+id/tvThanksMainDev"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="13sp"
+                                    android:layout_marginBottom="4dp" />
+
+                                <TextView
+                                    android:id="@+id/tvThanksIdeaAuthor"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="Автор идеи: Sora 2"
+                                    android:textColor="#154B87"
+                                    android:textSize="13sp"
+                                    android:layout_marginBottom="4dp" />
+
+                                <TextView
+                                    android:id="@+id/tvThanksVisualAuthor"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="Автор Визуализации: Sora 2 / Vaniahorosh"
+                                    android:textColor="#154B87"
+                                    android:textSize="13sp"
+                                    android:layout_marginBottom="4dp" />
+
+                                <TextView
+                                    android:id="@+id/tvThanksServerAuthor"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="Автор Серверной части: ?"
+                                    android:textColor="#154B87"
+                                    android:textSize="13sp"
+                                    android:layout_marginBottom="12dp" />
+
+                                <TextView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="Прочие благодарности:"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginBottom="4dp" />
+
+                                <TextView
+                                    android:id="@+id/tvThanksOthersList"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="• Григорий Хрюнов\n• Креветки с акулами и круто\n• Бочке регенератор\n• Финский снайпер\n• Тупейший сынище\n• Умнейший сынище\n• Леха Тайлер\n• Сургута не существует\n• Сырники\n• Игра на виолончели\n• Разгон ксеон"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="12sp"
+                                    android:lineSpacingExtra="3dp" />
+
+                            </LinearLayout>
+
+                            <!-- Контейнер для вылетающих анимированных сердечек -->
+                            <FrameLayout
+                                android:id="@+id/overlayHeartsContainer"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:clipChildren="false"
+                                android:clipToPadding="false" />
+
+                        </FrameLayout>
                     </com.google.android.material.card.MaterialCardView>
 
                 </LinearLayout>

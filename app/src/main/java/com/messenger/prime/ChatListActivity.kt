@@ -18,7 +18,6 @@ import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
@@ -243,7 +242,7 @@ fun CachedAvatarView(name: String, macAddress: String, modifier: Modifier = Modi
     }
 }
 
-class ChatListActivity : AppCompatActivity() {
+class ChatListActivity : AppCompatActivity(), BluetoothConnectionManager.ConnectionCallback {
 
     private lateinit var binding: ActivityChatListContentBinding
     private lateinit var islandBinding: LayoutIslandBinding
@@ -407,6 +406,8 @@ class ChatListActivity : AppCompatActivity() {
         }
         lastChatLaunchTime = now
 
+        ensureContactExists(if (deviceAddress.isNotEmpty()) deviceAddress else targetName, targetName)
+
         // 1. Immediately cancel Bluetooth discovery synchronously to free radio module!
         try {
             val bManager = getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager
@@ -462,16 +463,7 @@ class ChatListActivity : AppCompatActivity() {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
             startActivity(chatIntent)
-            if (Build.VERSION.SDK_INT >= 34) {
-                overrideActivityTransition(
-                    OVERRIDE_TRANSITION_OPEN,
-                    R.anim.slide_in_right,
-                    R.anim.slide_out_left
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-            }
+            PrimeTransitions.applyOpenTransition(this)
         }
     }
 
@@ -657,11 +649,15 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
+    private var isSelfSaving = false
+
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == "my_name" || key == "my_avatar" || key == "my_local_name" || key == "my_local_avatar" || key == "current_user" || key?.endsWith("_name") == true || key?.endsWith("_avatar") == true) {
             runOnUiThread { refreshUserUi() }
         } else if (key == "persisted_chats") {
-            runOnUiThread { reloadChatsFromDb() }
+            if (!isSelfSaving) {
+                runOnUiThread { reloadChatsFromDb() }
+            }
         }
     }
 
@@ -705,16 +701,7 @@ class ChatListActivity : AppCompatActivity() {
                             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
                         }
                         startActivity(intent)
-                        if (Build.VERSION.SDK_INT >= 34) {
-                overrideActivityTransition(
-                    OVERRIDE_TRANSITION_OPEN,
-                    R.anim.slide_in_right,
-                    R.anim.slide_out_left
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-            }
+                        PrimeTransitions.applyOpenTransition(this)
                         
                         binding.recyclerViewChats.postDelayed({
                             resetPullUiInstant()
@@ -795,16 +782,25 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        
-        if (android.os.Build.VERSION.SDK_INT >= 34) {
-            overrideActivityTransition(
-                android.app.Activity.OVERRIDE_TRANSITION_CLOSE,
-                R.anim.slide_in_left,
-                R.anim.slide_out_right
-            )
+    private val accentChangedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if ("com.messenger.prime.ACCENT_CHANGED" == intent?.action) {
+                recreate()
+            }
         }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        ColorAccentManager.applyAccentToActivity(this)
+        super.onCreate(savedInstanceState)
+        PrimeTransitions.setupActivityTransitions(this)
+
+        ContextCompat.registerReceiver(
+            this,
+            accentChangedReceiver,
+            IntentFilter("com.messenger.prime.ACCENT_CHANGED"),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
 
         val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
         setupEdgeToEdge(isDarkIcons = !isDark)
@@ -842,16 +838,7 @@ class ChatListActivity : AppCompatActivity() {
                         flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
                     }
                     startActivity(intent)
-                    if (Build.VERSION.SDK_INT >= 34) {
-                        overrideActivityTransition(
-                            OVERRIDE_TRANSITION_OPEN,
-                            R.anim.slide_in_right,
-                            R.anim.slide_out_left
-                        )
-                    } else {
-                        @Suppress("DEPRECATION")
-                        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-                    }
+                    PrimeTransitions.applyOpenTransition(this)
                 }
             },
             onAvatarLongClick = {
@@ -884,16 +871,7 @@ class ChatListActivity : AppCompatActivity() {
                                 putExtra("EXTRA_UNIT", unit)
                             }
                             startActivity(intent)
-                            if (android.os.Build.VERSION.SDK_INT >= 34) {
-                overrideActivityTransition(
-                    OVERRIDE_TRANSITION_OPEN,
-                    R.anim.slide_in_right,
-                    R.anim.slide_out_left
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-            }
+                            PrimeTransitions.applyOpenTransition(this)
                         }
                     }
                 } else {
@@ -1844,6 +1822,7 @@ class ChatListActivity : AppCompatActivity() {
         islandBinding.btnSearchClear.setOnClickListener {
             animateHideSearchClear()
             islandBinding.etSearch.text?.clear()
+            filterContacts("")
             hideKeyboardAndClearFocus()
         }
 
@@ -1865,16 +1844,7 @@ class ChatListActivity : AppCompatActivity() {
                     flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }
                 startActivity(intent)
-                if (Build.VERSION.SDK_INT >= 34) {
-                    overrideActivityTransition(
-                        OVERRIDE_TRANSITION_OPEN,
-                        R.anim.slide_in_right,
-                        R.anim.slide_out_left
-                    )
-                } else {
-                    @Suppress("DEPRECATION")
-                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-                }
+                PrimeTransitions.applyOpenTransition(this)
             }
         }
         islandBinding.tvToolbarInitials.setOnClickListener {
@@ -1903,31 +1873,17 @@ class ChatListActivity : AppCompatActivity() {
             }
 
             override fun afterTextChanged(s: Editable?) {
-                val query = s.toString().trim().lowercase()
+                val query = s.toString().trim()
                 if (query == "/blocktestme") {
                     adapter.setSearchActive(true)
                     backCallback.isEnabled = true
                     showIsland()
                     val testContact = ChatModel("block_test_contact", "Тестирование активити блока", "Нажмите, чтобы протестировать", "сейчас", null, OnlineStatus.ONLINE)
-                    adapter.updateList(listOf(testContact))
+                    adapter.updateList(listOf(testContact), notify = true)
                     return
                 }
 
-                if (query.isEmpty()) {
-                    adapter.setSearchActive(false)
-                    backCallback.isEnabled = false
-                    val mainList = ArrayList(chatListState)
-                    allChats = mainList
-                    adapter.updateList(mainList)
-                    val layoutManager = binding.recyclerViewChats.layoutManager as? LinearLayoutManager
-                    if (layoutManager?.findFirstVisibleItemPosition() == 0) hideIsland()
-                } else {
-                    adapter.setSearchActive(true)
-                    backCallback.isEnabled = true
-                    showIsland()
-                    val filtered = chatListState.filter { it.name.lowercase().contains(query) || it.lastMessage.lowercase().contains(query) }
-                    adapter.updateList(filtered)
-                }
+                filterContacts(query)
             }
         })
     }
@@ -2031,6 +1987,7 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        BluetoothConnectionManager.getInstance().registerCallback(this)
         ChatListNotifier.subscribe(onChatListChanged)
         try {
             val filter = IntentFilter().apply {
@@ -2049,6 +2006,7 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        BluetoothConnectionManager.getInstance().unregisterCallback(this)
         try {
             unregisterReceiver(avatarChangedReceiver)
         } catch (_: Exception) {}
@@ -2058,6 +2016,54 @@ class ChatListActivity : AppCompatActivity() {
         ChatListNotifier.unsubscribe(onChatListChanged)
     }
 
+    override fun onStateChanged(deviceAddress: String?, state: BluetoothConnectionManager.ConnectionState?, deviceName: String?) {
+        if (deviceAddress.isNullOrEmpty()) return
+        val isOnline = state == BluetoothConnectionManager.ConnectionState.CONNECTED
+        runOnUiThread {
+            var updated = false
+            for (i in chatListState.indices) {
+                val chat = chatListState[i]
+                if (chat.id.equals(deviceAddress, ignoreCase = true) || chat.name.equals(deviceName, ignoreCase = true)) {
+                    val newStatus = if (isOnline) OnlineStatus.ONLINE else OnlineStatus.OFFLINE
+                    if (chat.onlineStatus != newStatus) {
+                        chatListState[i] = chat.copy(onlineStatus = newStatus)
+                        updated = true
+                    }
+                }
+            }
+            if (updated) {
+                allChats = ArrayList(chatListState)
+                val query = if (::islandBinding.isInitialized) islandBinding.etSearch.text.toString() else ""
+                filterContacts(query)
+            }
+        }
+    }
+
+    override fun onPacketReceived(fromAddress: String?, type: Byte, payload: ByteArray?) {}
+
+    override fun onError(deviceAddress: String?, errorMessage: String?) {
+        if (deviceAddress.isNullOrEmpty()) return
+        runOnUiThread {
+            var updated = false
+            for (i in chatListState.indices) {
+                val chat = chatListState[i]
+                if (chat.id.equals(deviceAddress, ignoreCase = true)) {
+                    if (chat.onlineStatus != OnlineStatus.OFFLINE) {
+                        chatListState[i] = chat.copy(onlineStatus = OnlineStatus.OFFLINE)
+                        updated = true
+                    }
+                }
+            }
+            if (updated) {
+                allChats = ArrayList(chatListState)
+                val query = if (::islandBinding.isInitialized) islandBinding.etSearch.text.toString() else ""
+                filterContacts(query)
+            }
+        }
+    }
+
+    override fun onSendProgress(deviceAddress: String?, progress: Int) {}
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -2066,6 +2072,9 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (::binding.isInitialized) {
+            ColorAccentManager.tintViewTree(binding.root, ColorAccentManager.getCurrentAccentColor(this))
+        }
         refreshUserUi()
         reloadChatsFromDb()
         isPulling = false; isThresholdCrossed = false
@@ -2088,21 +2097,97 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
+    private fun filterContacts(query: String) {
+        if (!::adapter.isInitialized) return
+        val q = query.trim().lowercase()
+        allChats = ArrayList(chatListState)
+
+        if (q.isEmpty()) {
+            adapter.setSearchActive(false)
+            backCallback.isEnabled = false
+            adapter.updateList(allChats, notify = true)
+            updateEmptyState()
+            if (::binding.isInitialized) {
+                val layoutManager = binding.recyclerViewChats.layoutManager as? LinearLayoutManager
+                if (layoutManager?.findFirstVisibleItemPosition() == 0) hideIsland()
+            }
+        } else {
+            adapter.setSearchActive(true)
+            backCallback.isEnabled = true
+            showIsland()
+            val filtered = allChats.filter { contact ->
+                contact.name.lowercase().contains(q) ||
+                contact.lastMessage.lowercase().contains(q) ||
+                contact.id.lowercase().contains(q) ||
+                (contact.avatarUri != null && contact.avatarUri.lowercase().contains(q))
+            }
+            adapter.updateList(filtered, notify = true)
+            updateEmptyState()
+        }
+    }
+
+    @Synchronized
+    private fun ensureContactExists(id: String, name: String, avatarUri: String? = null) {
+        if (id.isEmpty()) return
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        val myName = sharedPrefs.getString("my_name", null)
+            ?: sharedPrefs.getString("my_local_name", null)
+            ?: sharedPrefs.getString("current_user_name", null) ?: ""
+
+        if (myName.isNotEmpty() && name.equals(myName, ignoreCase = true)) {
+            return
+        }
+
+        val existingIndex = chatListState.indexOfFirst {
+            it.id.equals(id, ignoreCase = true) || it.name.equals(name, ignoreCase = true)
+        }
+
+        if (existingIndex == -1) {
+            val newChat = ChatModel(
+                id = id,
+                name = name,
+                lastMessage = "",
+                time = "сейчас",
+                avatarUri = avatarUri,
+                onlineStatus = OnlineStatus.OFFLINE,
+                messageStatus = MessageStatus.NONE,
+                unreadCount = 0,
+                isMuted = false,
+                isTyping = false,
+                typingUntil = 0L,
+                activityState = "IDLE"
+            )
+            chatListState.add(0, newChat)
+        } else {
+            val existing = chatListState[existingIndex]
+            val updatedAvatar = if (!avatarUri.isNullOrEmpty()) avatarUri else existing.avatarUri
+            val updatedName = if (name.isNotEmpty() && name != "1") name else existing.name
+            chatListState[existingIndex] = existing.copy(name = updatedName, avatarUri = updatedAvatar)
+        }
+
+        sharedPrefs.edit {
+            putString("contact_name_$id", name)
+            if (!avatarUri.isNullOrEmpty()) putString("contact_avatar_$id", avatarUri)
+        }
+
+        saveContacts()
+        allChats = ArrayList(chatListState)
+
+        runOnUiThread {
+            if (::adapter.isInitialized) {
+                val query = if (::islandBinding.isInitialized) islandBinding.etSearch.text.toString() else ""
+                filterContacts(query)
+            }
+        }
+        ChatListNotifier.notifyChanged()
+    }
+
     private fun reloadChatsFromDb() {
         loadContacts()
         allChats = ArrayList(chatListState)
         if (::adapter.isInitialized) {
-            if (adapter.isSearchActive && ::islandBinding.isInitialized) {
-                val query = islandBinding.etSearch.text.toString().trim().lowercase()
-                if (query.isNotEmpty()) {
-                    val filtered = allChats.filter { it.name.lowercase().contains(query) || it.lastMessage.lowercase().contains(query) }
-                    adapter.updateList(filtered)
-                } else {
-                    adapter.updateList(allChats)
-                }
-            } else {
-                adapter.updateList(allChats)
-            }
+            val query = if (::islandBinding.isInitialized) islandBinding.etSearch.text.toString() else ""
+            filterContacts(query)
         }
         updateEmptyState()
         scheduleTypingExpiration()
@@ -2196,34 +2281,34 @@ class ChatListActivity : AppCompatActivity() {
                     .putBoolean("is_logged_in", false)
                     .apply()
                 startActivity(Intent(this, LoginActivity::class.java))
+                PrimeTransitions.applyOpenTransition(this)
                 finishAffinity()
-                if (android.os.Build.VERSION.SDK_INT >= 34) {
-                overrideActivityTransition(
-                    OVERRIDE_TRANSITION_OPEN,
-                    R.anim.slide_in_left,
-                    R.anim.slide_out_right
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
-            }
             }
             .setNegativeButton("Нет", null)
             .show()
     }
 
     private fun deleteContact(contact: ChatModel) {
-        val index = chatListState.indexOfFirst { it.id == contact.id || it.name.equals(contact.name, ignoreCase = true) }
-        if (index == -1) return
-        
-        val targetName = chatListState[index].name
-        val targetId = chatListState[index].id
-        chatListState.removeAt(index)
-        allChats = ArrayList(chatListState)
-        
+        val targetName = contact.name
+        val targetId = contact.id
+
+        chatListState.removeAll { it.id.equals(targetId, ignoreCase = true) || it.name.equals(targetName, ignoreCase = true) }
+
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        sharedPrefs.edit {
+            remove("contact_name_$targetId")
+            remove("${targetId}_name")
+            remove("contact_avatar_$targetId")
+            remove("${targetId}_avatar")
+            remove("contact_name_$targetName")
+            remove("${targetName}_name")
+            remove("contact_avatar_$targetName")
+            remove("${targetName}_avatar")
+        }
+
         try {
-            val currentUser = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("current_user", "") ?: ""
-            val myDisplayName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${currentUser}_name", currentUser) ?: currentUser
+            val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+            val myDisplayName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: currentUser
             val payload = "DELETE_CHAT:login=$myDisplayName;name=$myDisplayName".toByteArray(Charsets.UTF_8)
             BluetoothConnectionManager.getInstance().sendPacket(targetId, 8.toByte(), payload)
             Thread.sleep(80)
@@ -2233,8 +2318,7 @@ class ChatListActivity : AppCompatActivity() {
 
         BluetoothConnectionManager.getInstance().stopAll()
         BluetoothSocketHolder.removeConnection(contact.id, contact.name)
-        
-        // Completely forget the device (unpair/removeBond) if it's a Bluetooth MAC address
+
         try {
             val bManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
             val bAdapter = bManager.adapter
@@ -2246,20 +2330,17 @@ class ChatListActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.w("ChatListActivity", "Remove bond ignored: ${e.message}")
         }
-        
+
         ChatHistoryManager.deleteHistoryCompletely(this, targetName, targetId)
         saveContacts()
-        
+        allChats = ArrayList(chatListState)
+
         if (::adapter.isInitialized) {
-            if (adapter.isSearchActive && ::islandBinding.isInitialized) {
-                val query = islandBinding.etSearch.text.toString().trim().lowercase()
-                val filtered = allChats.filter { it.name.lowercase().contains(query) || it.lastMessage.lowercase().contains(query) }
-                adapter.updateList(filtered, notify = true)
-            } else {
-                adapter.updateList(allChats, notify = true)
-            }
+            val query = if (::islandBinding.isInitialized) islandBinding.etSearch.text.toString() else ""
+            filterContacts(query)
         }
         updateEmptyState()
+        ChatListNotifier.notifyChanged()
         binding.recyclerViewChats.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
     }
 
@@ -2296,12 +2377,10 @@ class ChatListActivity : AppCompatActivity() {
                     val paint = android.graphics.Paint()
                     val cornerRadius = 24.dpToPx()
                     
-                    // При свайпе показываем только красный фон (удаление)
-                    paint.color = androidx.core.content.ContextCompat.getColor(this@ChatListActivity, R.color.prime_danger)
-                    val background = android.graphics.RectF(itemView.right.toFloat() + dX, itemView.top.toFloat() + 6.dpToPx(), itemView.right.toFloat(), itemView.bottom.toFloat() - 6.dpToPx())
+                    paint.color = ContextCompat.getColor(this@ChatListActivity, R.color.prime_danger)
+                    val background = RectF(itemView.right.toFloat() + dX, itemView.top.toFloat() + 6.dpToPx(), itemView.right.toFloat(), itemView.bottom.toFloat() - 6.dpToPx())
                     c.drawRoundRect(background, cornerRadius, cornerRadius, paint)
 
-                    // Иконка корзины (всегда справа)
                     val icon = androidx.core.content.ContextCompat.getDrawable(this@ChatListActivity, R.drawable.ic_cancel)
                     icon?.let {
                         val iconMargin = (itemHeight - it.intrinsicHeight) / 2
@@ -2328,27 +2407,35 @@ class ChatListActivity : AppCompatActivity() {
             binding.layoutEmptyState.visibility = if (chatListState.isEmpty()) View.VISIBLE else View.GONE
         }
     }
+
+    @Synchronized
     private fun saveContacts() {
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val array = JSONArray()
-        chatListState.forEach { chat ->
-            val obj = JSONObject().apply {
-                put("id", chat.id)
-                put("name", chat.name)
-                put("lastMessage", chat.lastMessage)
-                put("time", chat.time)
-                put("avatarUri", chat.avatarUri)
-                put("onlineStatus", chat.onlineStatus.name)
-                put("messageStatus", chat.messageStatus.name)
-                put("unreadCount", chat.unreadCount)
-                put("isMuted", chat.isMuted)
-                put("typingUntil", chat.typingUntil)
-                put("activityState", chat.activityState)
+        isSelfSaving = true
+        try {
+            val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+            val array = JSONArray()
+            chatListState.forEach { chat ->
+                val obj = JSONObject().apply {
+                    put("id", chat.id)
+                    put("name", chat.name)
+                    put("lastMessage", chat.lastMessage)
+                    put("time", chat.time)
+                    put("avatarUri", chat.avatarUri)
+                    put("onlineStatus", chat.onlineStatus.name)
+                    put("messageStatus", chat.messageStatus.name)
+                    put("unreadCount", chat.unreadCount)
+                    put("isMuted", chat.isMuted)
+                    put("typingUntil", chat.typingUntil)
+                    put("activityState", chat.activityState)
+                }
+                array.put(obj)
             }
-            array.put(obj)
+            sharedPrefs.edit().putString("persisted_chats", array.toString()).apply()
+        } finally {
+            isSelfSaving = false
         }
-        sharedPrefs.edit().putString("persisted_chats", array.toString()).apply()
     }
+
     private fun loadContacts() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val myName = sharedPrefs.getString("my_name", null)
@@ -2357,6 +2444,8 @@ class ChatListActivity : AppCompatActivity() {
 
         val json = sharedPrefs.getString("persisted_chats", null)
         val tempList = ArrayList<ChatModel>()
+        val existingIds = HashSet<String>()
+
         if (!json.isNullOrEmpty() && json != "[]") {
             try {
                 val array = JSONArray(json)
@@ -2373,7 +2462,7 @@ class ChatListActivity : AppCompatActivity() {
                                 ?: sharedPrefs.getString("${idStr}_name", null)
                             val finalName = if (!savedName.isNullOrEmpty() && savedName != "1") savedName else nameStr
 
-                            if (!myName.isEmpty() && finalName.equals(myName, ignoreCase = true)) {
+                            if (myName.isNotEmpty() && finalName.equals(myName, ignoreCase = true)) {
                                 continue
                             }
                             newArray.put(item)
@@ -2415,6 +2504,8 @@ class ChatListActivity : AppCompatActivity() {
                                 actState
                             )
                             tempList.add(chat)
+                            existingIds.add(idStr.lowercase())
+                            existingIds.add(finalName.lowercase())
                         }
                     } catch (e: Exception) { e.printStackTrace() }
                 }
@@ -2423,8 +2514,45 @@ class ChatListActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) { e.printStackTrace() }
         }
+
+        val allPrefs = sharedPrefs.all
+        var discoveredNew = false
+        for ((key, value) in allPrefs) {
+            if (key.startsWith("contact_name_") && value is String && value.isNotEmpty()) {
+                val idStr = key.removePrefix("contact_name_")
+                val nameStr = value
+                if (idStr.isNotEmpty() && !existingIds.contains(idStr.lowercase()) && !existingIds.contains(nameStr.lowercase())) {
+                    if (myName.isNotEmpty() && nameStr.equals(myName, ignoreCase = true)) continue
+                    val savedAvatar = sharedPrefs.getString("contact_avatar_$idStr", null)
+                        ?: sharedPrefs.getString("${idStr}_avatar", null)
+                    val newChat = ChatModel(
+                        idStr,
+                        nameStr,
+                        "",
+                        "сейчас",
+                        savedAvatar,
+                        OnlineStatus.OFFLINE,
+                        MessageStatus.NONE,
+                        0,
+                        false,
+                        false,
+                        0L,
+                        "IDLE"
+                    )
+                    tempList.add(newChat)
+                    existingIds.add(idStr.lowercase())
+                    existingIds.add(nameStr.lowercase())
+                    discoveredNew = true
+                }
+            }
+        }
+
         chatListState.clear()
         chatListState.addAll(tempList)
+
+        if (discoveredNew) {
+            saveContacts()
+        }
     }
     private fun showIsland() { isIslandVisibleState.value = true }
     private fun hideIsland() { isIslandVisibleState.value = false }
@@ -2462,8 +2590,9 @@ class ChatListActivity : AppCompatActivity() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(islandBinding.etSearch.windowToken, 0)
         if (islandBinding.etSearch.text.isNullOrEmpty()) {
-            adapter.setSearchActive(false); backCallback.isEnabled = false
-            if (!binding.recyclerViewChats.canScrollVertically(-1)) hideIsland()
+            if (::adapter.isInitialized) adapter.setSearchActive(false)
+            backCallback.isEnabled = false
+            if (::binding.isInitialized && !binding.recyclerViewChats.canScrollVertically(-1)) hideIsland()
             animateHideSearchClear()
         }
     }
@@ -2659,6 +2788,7 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        try { unregisterReceiver(accentChangedReceiver) } catch (_: Exception) {}
         stopBluetoothScan()
         stopAcceptThread()
         typingExpireHandler.removeCallbacksAndMessages(null)
@@ -2667,16 +2797,7 @@ class ChatListActivity : AppCompatActivity() {
     }
     override fun finish() {
         super.finish()
-        if (Build.VERSION.SDK_INT >= 34) {
-            overrideActivityTransition(
-                OVERRIDE_TRANSITION_CLOSE,
-                R.anim.slide_in_left,
-                R.anim.slide_out_right
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
-        }
+        PrimeTransitions.applyCloseTransition(this)
     }
     private fun formatRssiSignal(rssi: Short?, isPaired: Boolean): String {
         if (rssi == null) {

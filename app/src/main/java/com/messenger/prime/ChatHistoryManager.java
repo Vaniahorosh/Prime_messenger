@@ -27,7 +27,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import android.os.Build;
 
 public class ChatHistoryManager {
 
@@ -43,12 +42,10 @@ public class ChatHistoryManager {
                 fos.write(bytes);
                 fos.flush();
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                try {
-                    Files.move(tempFile.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-                    return targetFile;
-                } catch (Exception ignored) {}
-            }
+            try {
+                Files.move(tempFile.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                return targetFile;
+            } catch (Exception ignored) {}
             if (targetFile.exists()) {
                 targetFile.delete();
             }

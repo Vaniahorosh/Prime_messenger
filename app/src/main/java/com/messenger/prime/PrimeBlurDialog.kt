@@ -87,11 +87,12 @@ object PrimeBlurDialog {
             btnPositive.setTextColor(Color.WHITE)
         } else {
             val isDark = (activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val accentColor = ColorAccentManager.getCurrentAccentColor(activity)
             if (isDark) {
                 btnPositive.backgroundTintList = ColorStateList.valueOf(Color.WHITE)
-                btnPositive.setTextColor(ContextCompat.getColor(activity, R.color.prime_brand))
+                btnPositive.setTextColor(accentColor)
             } else {
-                btnPositive.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(activity, R.color.prime_brand))
+                btnPositive.backgroundTintList = ColorStateList.valueOf(accentColor)
                 btnPositive.setTextColor(Color.WHITE)
             }
         }

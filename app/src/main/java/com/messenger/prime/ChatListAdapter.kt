@@ -12,7 +12,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import android.annotation.SuppressLint
@@ -469,7 +468,7 @@ class ChatListAdapter(
                         binding.ivMessageStatus.visibility = View.VISIBLE
                         binding.ivMessageStatus.setImageResource(R.drawable.ic_done_all)
                         binding.ivMessageStatus.imageTintList = ColorStateList.valueOf(
-                            ContextCompat.getColor(context, R.color.prime_brand)
+                            ColorAccentManager.getCurrentAccentColor(context)
                         )
                     }
                     MessageStatus.ERROR -> {
@@ -490,7 +489,7 @@ class ChatListAdapter(
                     binding.tvUnreadCounter.visibility = View.VISIBLE
                     binding.tvUnreadCounter.text = if (chat.unreadCount > 99) "99+" else chat.unreadCount.toString()
                     val counterBg = GradientDrawable().apply { cornerRadius = 100f }
-                    counterBg.setColor(if (chat.isMuted) ContextCompat.getColor(context, R.color.prime_text_secondary) else ContextCompat.getColor(context, R.color.prime_info))
+                    counterBg.setColor(if (chat.isMuted) ContextCompat.getColor(context, R.color.prime_text_secondary) else ColorAccentManager.getCurrentAccentColor(context))
                     binding.tvUnreadCounter.background = counterBg
                 } else {
                     binding.tvUnreadCounter.visibility = View.GONE

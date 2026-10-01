@@ -29,6 +29,7 @@ import androidx.graphics.shapes.CornerRounding
 import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.graphics.shapes.star
+import kotlin.math.min
 
 // --- M3 Expressive Shapes Setup ---
 private object M3ExpressiveShapes {
@@ -253,7 +254,7 @@ class M3ExpressiveLoadingView @JvmOverloads constructor(
         val h = height.toFloat()
         if (w <= 0 || h <= 0) return
 
-        val radius = Math.min(w, h) * 0.38f
+        val radius = min(w, h) * 0.38f
 
         val totalMorphs = M3ExpressiveShapes.morphs.size
         val currentSegment = animProgress.toInt().coerceIn(0, totalMorphs - 1)

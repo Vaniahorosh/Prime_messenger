@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="16dp">
+
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/blurDialogCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="26dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Цветовой акцент"
+                android:textColor="@color/white"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_marginBottom="20dp" />
+
+            <!-- Тумблер Системный цвет / Monet (Android 12+) -->
+            <LinearLayout
+                android:id="@+id/layoutMonetSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:background="@drawable/bg_settings_block_gray"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Системный цвет (Monet)"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Динамические цвета из системы (Android 12+)"
+                        android:textColor="#B0FFFFFF"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchMonetAccent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:showText="false" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvPaletteTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Готовые палитры"
+                android:textColor="#B0FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Горизонтальная палитра -->
+            <HorizontalScrollView
+                android:id="@+id/scrollPalette"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:overScrollMode="never"
+                android:scrollbars="none"
+                android:layout_marginBottom="20dp">
+
+                <LinearLayout
+                    android:id="@+id/layoutSwatches"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical" />
+            </HorizontalScrollView>
+
+            <!-- Кнопка вызова точного спектра -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCustomPicker"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="Свой цвет (Спектр)"
+                android:textColor="@color/white"
+                android:textAllCaps="false"
+                android:textStyle="bold"
+                app:cornerRadius="16dp"
+                app:strokeColor="#60FFFFFF"
+                app:icon="@drawable/ic_pipette"
+                app:iconTint="@color/white"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Кнопка сброса в фирменный -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnResetDefault"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="Вернуть фирменный цвет"
+                android:textColor="@color/white"
+                android:textAllCaps="false"
+                android:textStyle="bold"
+                app:backgroundTint="@color/prime_brand"
+                app:cornerRadius="16dp" />
+
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
+</FrameLayout>

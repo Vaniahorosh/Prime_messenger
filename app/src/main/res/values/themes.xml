@@ -143,4 +143,47 @@
         <item name="android:padding">12dp</item>
         <item name="android:scaleType">fitCenter</item>
     </style>
+
+    <!-- Theme Overlays for Custom Color Accents -->
+    <style name="ThemeOverlay.Prime.Emerald" parent="">
+        <item name="colorPrimary">#00897B</item>
+        <item name="colorAccent">#00897B</item>
+        <item name="colorPrimaryContainer">#CC00897B</item>
+        <item name="colorSecondary">#00897B</item>
+    </style>
+
+    <style name="ThemeOverlay.Prime.Purple" parent="">
+        <item name="colorPrimary">#7C4DFF</item>
+        <item name="colorAccent">#7C4DFF</item>
+        <item name="colorPrimaryContainer">#CC7C4DFF</item>
+        <item name="colorSecondary">#7C4DFF</item>
+    </style>
+
+    <style name="ThemeOverlay.Prime.Amber" parent="">
+        <item name="colorPrimary">#FB8C00</item>
+        <item name="colorAccent">#FB8C00</item>
+        <item name="colorPrimaryContainer">#CCFB8C00</item>
+        <item name="colorSecondary">#FB8C00</item>
+    </style>
+
+    <style name="ThemeOverlay.Prime.Ruby" parent="">
+        <item name="colorPrimary">#E53935</item>
+        <item name="colorAccent">#E53935</item>
+        <item name="colorPrimaryContainer">#CCE53935</item>
+        <item name="colorSecondary">#E53935</item>
+    </style>
+
+    <style name="ThemeOverlay.Prime.Cyan" parent="">
+        <item name="colorPrimary">#00ACC1</item>
+        <item name="colorAccent">#00ACC1</item>
+        <item name="colorPrimaryContainer">#CC00ACC1</item>
+        <item name="colorSecondary">#00ACC1</item>
+    </style>
+
+    <style name="ThemeOverlay.Prime.Pink" parent="">
+        <item name="colorPrimary">#E91E63</item>
+        <item name="colorAccent">#E91E63</item>
+        <item name="colorPrimaryContainer">#CCE91E63</item>
+        <item name="colorSecondary">#E91E63</item>
+    </style>
 </resources>
