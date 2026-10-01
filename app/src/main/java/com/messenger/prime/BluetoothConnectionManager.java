@@ -763,7 +763,7 @@ public class BluetoothConnectionManager {
                         mmOutStream.writeInt(len);
                         if (len > 0 && payload != null) {
                             int offset = 0;
-                            int chunkSize = 32768; // 32 KB оптимальный размер чанка для Bluetooth RFCOMM
+                            int chunkSize = 65536; // 64 KB (ускорено, чтобы забивать весь буфер за раз)
                             long lastProgressReportTime = 0L;
                             int lastReportedProgress = -1;
 
@@ -782,7 +782,8 @@ public class BluetoothConnectionManager {
                                 if (isMediaPacket) {
                                     int progress = (int) ((offset * 100L) / len);
                                     long now = SystemClock.elapsedRealtime();
-                                    if (progress != lastReportedProgress && (now - lastProgressReportTime > 250L || progress == 100)) {
+                                    // Репорты только раз в 150мс для снижения нагрузки на UI
+                                    if (progress != lastReportedProgress && (now - lastProgressReportTime > 150L || progress == 100)) {
                                         lastReportedProgress = progress;
                                         lastProgressReportTime = now;
                                         notifySendProgress(threadDeviceAddress, progress);

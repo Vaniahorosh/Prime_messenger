@@ -4,9 +4,13 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.app.Activity
+import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -15,6 +19,7 @@ import android.view.ViewGroup
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ProgressBar
@@ -31,7 +36,7 @@ import kotlin.math.abs
  */
 object PrimeNotification {
 
-    private const val DURATION = 3000L // 3 секунды
+    private const val DURATION = 2000L // Ускорено до 2 секунд для динамики
     private var activeNotificationViewRef: WeakReference<View>? = null
 
     @JvmStatic
@@ -40,6 +45,15 @@ object PrimeNotification {
         if (activity == null || activity.isFinishing || activity.isDestroyed) return
         activity.runOnUiThread {
             try {
+                // Тактильный отклик для уведомления
+                val vibrator = activity.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(30)
+                }
+
                 activeNotificationViewRef?.get()?.let { oldView ->
                     dismiss(oldView, 0f, 0f)
                 }
@@ -108,8 +122,8 @@ object PrimeNotification {
                 notificationView.animate()
                     .alpha(1f)
                     .translationY(0f)
-                    .setDuration(400)
-                    .setInterpolator(DecelerateInterpolator())
+                    .setDuration(250) // Быстрый и упругий вход
+                    .setInterpolator(OvershootInterpolator(1.1f))
                     .start()
 
                 // --- ЛОГИКА ТАЙМЕРА ---

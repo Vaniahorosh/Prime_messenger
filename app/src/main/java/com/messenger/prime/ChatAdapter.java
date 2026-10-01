@@ -291,18 +291,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
         }
 
-        boolean changed = false;
         for (int i = 0; i <= targetIndex && i < messages.size(); i++) {
             ChatMessage m = messages.get(i);
             if (m != null && m.isOutgoing() && m.getMessageStatus() != MessageStatus.READ) {
                 m.setMessageStatus(MessageStatus.READ);
-                notifyItemChanged(i);
-                changed = true;
+                notifyItemChanged(i, "STATUS_UPDATE");
             }
-        }
-
-        if (changed) {
-            notifyDataSetChanged();
         }
     }
 
