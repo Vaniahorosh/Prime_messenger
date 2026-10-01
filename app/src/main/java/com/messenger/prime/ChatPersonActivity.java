@@ -3088,9 +3088,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 boolean isGenericName = "Собеседник".equalsIgnoreCase(user) || "Prime Собеседник".equalsIgnoreCase(user) || "Контакт".equalsIgnoreCase(user);
                 boolean isMatch = false;
                 if (updatedObj == null) {
-                    if (deviceAddress != null && !deviceAddress.isEmpty() && deviceAddress.equalsIgnoreCase(obj.optString("id"))) {
+                    String objId = obj.optString("id", "");
+                    String objName = obj.optString("name", "");
+                    if (deviceAddress != null && !deviceAddress.isEmpty() && deviceAddress.equalsIgnoreCase(objId)) {
                         isMatch = true;
-                    } else if (!isGenericName && user.equalsIgnoreCase(obj.optString("name")) && !isValidMacAddress(user)) {
+                    } else if (user != null && !user.isEmpty() && user.equalsIgnoreCase(objId)) {
+                        isMatch = true;
+                    } else if (!isGenericName && user != null && !user.isEmpty() && user.equalsIgnoreCase(objName) && !isValidMacAddress(user)) {
                         isMatch = true;
                     }
                 }
@@ -3132,10 +3136,22 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
 
             if (updatedObj == null) {
+                String actualLastMsg = lastMsg;
+                if (actualLastMsg == null) {
+                    List<ChatMessage> history = ChatHistoryManager.loadMessages(this, user);
+                    if (history != null && !history.isEmpty()) {
+                        ChatMessage lastHistoryMsg = history.get(history.size() - 1);
+                        actualLastMsg = lastHistoryMsg.getText();
+                        if (actualLastMsg == null || actualLastMsg.isEmpty()) {
+                            actualLastMsg = ChatMessage.getSummaryDescription(lastHistoryMsg);
+                        }
+                    }
+                }
+
                 updatedObj = new JSONObject();
-                updatedObj.put("id", user.equalsIgnoreCase(targetUsername) && deviceAddress != null ? deviceAddress : System.currentTimeMillis() + "");
+                updatedObj.put("id", (user.equalsIgnoreCase(targetUsername) && deviceAddress != null && !deviceAddress.isEmpty()) ? deviceAddress : user);
                 updatedObj.put("name", user);
-                updatedObj.put("lastMessage", lastMsg != null ? lastMsg : "");
+                updatedObj.put("lastMessage", actualLastMsg != null ? actualLastMsg : "");
                 updatedObj.put("time", timeStr);
                 updatedObj.put("avatarUri", avatarUriToUse != null ? avatarUriToUse : "");
                 updatedObj.put("onlineStatus", onlineStatusStr != null ? onlineStatusStr : "ONLINE");

@@ -723,6 +723,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
                 boolean isGenericName = "Собеседник".equalsIgnoreCase(targetName) || "Prime Собеседник".equalsIgnoreCase(targetName) || "Контакт".equalsIgnoreCase(targetName);
                 boolean isMatch = (deviceAddr != null && !deviceAddr.isEmpty() && deviceAddr.equalsIgnoreCase(id))
+                        || (targetName != null && !targetName.isEmpty() && targetName.equalsIgnoreCase(id))
                         || (!isGenericName && user.equalsIgnoreCase(targetName) && !BluetoothAdapter.checkBluetoothAddress(user));
 
                 if (isMatch) {

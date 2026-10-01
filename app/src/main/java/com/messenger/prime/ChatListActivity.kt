@@ -157,6 +157,9 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners
 import com.bumptech.glide.signature.ObjectKey
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.abs
 
 @Composable
@@ -2349,10 +2352,36 @@ class ChatListActivity : AppCompatActivity() {
                                 OnlineStatus.OFFLINE
                             }
 
+                            val rawLastMsg = item.optString("lastMessage", "")
+                            val finalLastMsg = if (rawLastMsg.isNotBlank()) {
+                                rawLastMsg
+                            } else {
+                                var restoredMsg = ""
+                                try {
+                                    val history = ChatHistoryManager.loadMessages(this@ChatListActivity, finalName)
+                                    val lastMsgObj = if (history.isNotEmpty()) history.last() else {
+                                        val historyById = ChatHistoryManager.loadMessages(this@ChatListActivity, idStr)
+                                        if (historyById.isNotEmpty()) historyById.last() else null
+                                    }
+                                    if (lastMsgObj != null) {
+                                        val txt = lastMsgObj.text
+                                        restoredMsg = if (!txt.isNullOrEmpty()) txt else ChatMessage.getSummaryDescription(lastMsgObj)
+                                        item.put("lastMessage", restoredMsg)
+                                        if (lastMsgObj.timestamp > 0) {
+                                            val restoredTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(
+                                                Date(lastMsgObj.timestamp)
+                                            )
+                                            item.put("time", restoredTime)
+                                        }
+                                    }
+                                } catch (_: Exception) {}
+                                restoredMsg
+                            }
+
                             val chat = ChatModel(
                                 idStr,
                                 finalName,
-                                item.optString("lastMessage", ""),
+                                finalLastMsg,
                                 item.optString("time", "сейчас"),
                                 if (finalAvatar.isNullOrEmpty()) null else finalAvatar,
                                 realOnlineStatus,
