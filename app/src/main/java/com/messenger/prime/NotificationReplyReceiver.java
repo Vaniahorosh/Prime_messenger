@@ -9,6 +9,8 @@ import android.os.Bundle;
 import android.util.Log;
 import androidx.core.app.RemoteInput;
 
+import com.messenger.prime.events.ChatEvent;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -105,7 +107,7 @@ public class NotificationReplyReceiver extends BroadcastReceiver {
             }
 
             sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply();
-            ChatListNotifier.INSTANCE.notifyChanged();
+            ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
         } catch (Exception e) {
             Log.e(TAG, "Failed to update chat list from NotificationReplyReceiver", e);
         }

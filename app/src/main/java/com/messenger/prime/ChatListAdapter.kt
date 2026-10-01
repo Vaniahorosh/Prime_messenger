@@ -1,6 +1,5 @@
 package com.messenger.prime
 
-import android.bluetooth.BluetoothAdapter
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -27,7 +26,6 @@ import com.messenger.prime.databinding.ItemChatBinding
 import com.messenger.prime.databinding.ItemChatFooterBinding
 import com.messenger.prime.databinding.ItemChatIslandHeaderBinding
 import android.graphics.BitmapFactory
-import android.view.animation.OvershootInterpolator
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListUpdateCallback
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
@@ -48,29 +46,6 @@ class ChatListAdapter(
     private val onChatClick: (ChatModel) -> Unit,
     private val onDeleteClick: (ChatModel, Int) -> Unit,
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-
-    fun updateList(newChatList: List<ChatModel>) {
-        val diffCallback = object : DiffUtil.Callback() {
-            override fun getOldListSize(): Int = chatList.size
-            override fun getNewListSize(): Int = newChatList.size
-
-            override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-                val oldItem = chatList[oldItemPosition]
-                val newItem = newChatList[newItemPosition]
-                return oldItem.id == newItem.id && oldItem.name == newItem.name
-            }
-
-            override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-                val oldItem = chatList[oldItemPosition]
-                val newItem = newChatList[newItemPosition]
-                return oldItem == newItem
-            }
-        }
-
-        val diffResult = DiffUtil.calculateDiff(diffCallback)
-        this.chatList = newChatList
-        diffResult.dispatchUpdatesTo(this)
-    }
 
     companion object {
         private const val TYPE_CHAT = 0
@@ -198,7 +173,7 @@ class ChatListAdapter(
             }
 
             binding.btnHeaderSearch.setOnClickListener { onSearchClick() }
-
+            
             if (binding.tsHeaderTitle.isEmpty()) {
                 binding.tsHeaderTitle.setFactory {
                     TextView(binding.root.context).apply {
@@ -225,9 +200,9 @@ class ChatListAdapter(
 
         private fun updateTitle(animate: Boolean = true) {
             val textToSet = if (networkHint != "Прайм" && networkHint != "ПОИСК") {
-                if (BluetoothAdapter.checkBluetoothAddress(networkHint)) "Прайм" else networkHint
+                networkHint
             } else {
-                if (isShowingName && !BluetoothAdapter.checkBluetoothAddress(currentUserName)) currentUserName else "Прайм"
+                if (isShowingName) currentUserName else "Прайм"
             }
             
             if (currentlyShowingText != textToSet) {
@@ -311,9 +286,9 @@ class ChatListAdapter(
                 binding.ivUserAvatar.visibility = View.INVISIBLE
 
                 val now = System.currentTimeMillis()
-                val isCurrentlyTyping = chat.isTyping || "TYPING".equals(chat.activityState, ignoreCase = true) || (chat.typingUntil > 0 && chat.typingUntil > now)
+                val isCurrentlyTyping = "TYPING".equals(chat.activityState, ignoreCase = true) && chat.typingUntil > now
 
-                binding.tvContactName.text = if (BluetoothAdapter.checkBluetoothAddress(chat.name)) "Собеседник" else chat.name
+                binding.tvContactName.text = chat.name
                 if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true) || "SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
                     holder.startTypingAnimation("Отправка медиа")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
@@ -333,7 +308,7 @@ class ChatListAdapter(
                     binding.tvLastMessage.text = "Смотрит файл"
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
-                } else if (isCurrentlyTyping) {
+                } else if (isCurrentlyTyping || (chat.isTyping && chat.typingUntil > now)) {
                     holder.startTypingAnimation("Печатает")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
@@ -504,7 +479,7 @@ class ChatListAdapter(
                     binding.tvUnreadCounter.visibility = View.VISIBLE
                     binding.tvUnreadCounter.text = if (chat.unreadCount > 99) "99+" else chat.unreadCount.toString()
                     val counterBg = GradientDrawable().apply { cornerRadius = 100f }
-                    counterBg.setColor(if (chat.isMuted) ContextCompat.getColor(context, R.color.prime_text_secondary) else ContextCompat.getColor(context, R.color.prime_brand))
+                    counterBg.setColor(if (chat.isMuted) ContextCompat.getColor(context, R.color.prime_text_secondary) else ContextCompat.getColor(context, R.color.prime_info))
                     binding.tvUnreadCounter.background = counterBg
                 } else {
                     binding.tvUnreadCounter.visibility = View.GONE
@@ -613,63 +588,4 @@ class ChatListAdapter(
             }
             .start()
     }
-
 }
-
-fun loadAvatarFileIntoView(context: Context, file: File, imageView: ImageView) {
-    val isGif = file.name.lowercase().endsWith(".gif")
-    val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
-    val signatureKey = ObjectKey("${file.absolutePath}_${if (file.exists()) file.lastModified() else System.currentTimeMillis()}_${file.length()}")
-    if (isGif) {
-        Glide.with(context)
-            .asGif()
-            .load(file)
-            .override(200, 200)
-            .centerCrop()
-            .signature(signatureKey)
-            .placeholder(R.drawable.ic_person)
-            .into(imageView)
-    } else {
-        Glide.with(context)
-            .load(file)
-            .override(200, 200)
-            .transform(CenterCrop(), RoundedCorners(radiusPx))
-            .signature(signatureKey)
-            .placeholder(R.drawable.ic_person)
-            .into(imageView)
-    }
-}
-
-fun loadAvatarUriIntoView(context: Context, uri: Uri, imageView: ImageView) {
-    val uriStr = uri.toString().lowercase()
-    val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif")
-    val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
-    val file = if ("file" == uri.scheme && uri.path != null) File(uri.path!!) else null
-    val signatureKey = ObjectKey("${uri.toString()}_${if (file != null && file.exists()) "${file.lastModified()}_${file.length()}" else System.currentTimeMillis()}")
-    if (isGif) {
-        Glide.with(context)
-            .asGif()
-            .load(uri)
-            .override(200, 200)
-            .centerCrop()
-            .signature(signatureKey)
-            .placeholder(R.drawable.ic_person)
-            .into(imageView)
-    } else {
-        Glide.with(context)
-            .load(uri)
-            .override(200, 200)
-            .transform(CenterCrop(), RoundedCorners(radiusPx))
-            .signature(signatureKey)
-            .placeholder(R.drawable.ic_person)
-            .into(imageView)
-    }
-}
-
-fun getAvatarColor(name: String): Int {
-    val colors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFEB3B", "#FFC107", "#FF9800", "#FF5722")
-    val hash = name.hashCode()
-    val index = (if (hash == Int.MIN_VALUE) 0 else Math.abs(hash)) % colors.size
-    return colors[index].toColorInt()
-}
-

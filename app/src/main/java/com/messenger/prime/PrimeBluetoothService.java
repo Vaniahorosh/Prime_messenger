@@ -1,5 +1,7 @@
 package com.messenger.prime;
 
+import com.messenger.prime.events.ChatEvent;
+
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -41,6 +43,7 @@ import java.util.Objects;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 
 public class PrimeBluetoothService extends Service implements BluetoothConnectionManager.ConnectionCallback {
@@ -459,6 +462,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         boolean isConnected = (state == BluetoothConnectionManager.ConnectionState.CONNECTED);
         if (isConnected) {
             resetReconnectAttempts(deviceAddress);
+            flushOutboxQueue(deviceAddress);
         } else if (state == BluetoothConnectionManager.ConnectionState.DISCONNECTED) {
             scheduleReconnect(deviceAddress);
         }
@@ -572,6 +576,30 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         }
     }
 
+    private void flushOutboxQueue(String deviceAddress) {
+        if (deviceAddress == null || deviceAddress.isEmpty()) return;
+        Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                String storageKey = ChatHistoryManager.getStorageKey(this, deviceAddress);
+                List<ChatMessage> history = ChatHistoryManager.loadMessages(this, storageKey);
+                if (history.isEmpty()) return;
+
+                for (ChatMessage msg : history) {
+                    if (msg.isOutgoing() && (msg.getMessageStatus() == MessageStatus.SENDING || msg.getMessageStatus() == MessageStatus.NONE)) {
+                        byte[] payload = msg.getText() != null ? msg.getText().getBytes(StandardCharsets.UTF_8) : new byte[0];
+                        BluetoothConnectionManager bcm = BluetoothConnectionManager.getInstance();
+                        if (bcm.isConnected(deviceAddress) || bcm.isConnected(storageKey)) {
+                            bcm.sendPacket(deviceAddress, (byte) 0x01, payload);
+                            ChatHistoryManager.updateMessageStatus(this, storageKey, msg.getMessageId(), MessageStatus.SENT);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error flushing outbox queue", e);
+            }
+        });
+    }
+
     public static final int PROGRESS_NOTIFICATION_ID = 1002;
 
     @Override
@@ -626,20 +654,19 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         resetReconnectAttempts(fromAddress);
         manageWakeLock();
         
+        if (wakeLock != null && !wakeLock.isHeld()) {
+            try {
+                wakeLock.acquire(3000);
+            } catch (Exception ignored) {}
+        }
+        
         String displayName = ChatHistoryManager.getDisplayNameForAddress(this, fromAddress);
         if (displayName == null || displayName.isEmpty() || displayName.equalsIgnoreCase(fromAddress) || BluetoothAdapter.checkBluetoothAddress(displayName)) {
             displayName = "Собеседник";
         }
 
         try {
-            if (ChatPersonActivity.isForegroundWithAddress(fromAddress)) {
-                // Если чат открыт на экране, он сам обработает и сохранит все пакеты,
-                // поэтому фоновому сервису не нужно дублировать работу и ломать файлы.
-                if (type == 0x08) {
-                    ChatListNotifier.INSTANCE.notifyChanged();
-                }
-                return;
-            }
+            boolean isChatActive = PrimeApplication.isChatActive(fromAddress) || PrimeApplication.isChatActive(displayName);
 
             if (type == 0x01) { // TYPE_TEXT
                 String textData = new String(payload, StandardCharsets.UTF_8);
@@ -651,7 +678,9 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     
                     ChatHistoryManager.saveMessage(this, displayName, msg);
                     saveBackgroundLastMessageToChatList(displayName, fromAddress, parsed.realText);
-                    showMessageNotification(this, displayName, parsed.realText, fromAddress);
+                    if (!isChatActive) {
+                        showMessageNotification(this, displayName, parsed.realText, fromAddress);
+                    }
                 }
             } else if (type == 0x02) { // TYPE_PHOTO
                 long ts = System.currentTimeMillis();
@@ -661,7 +690,9 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
                 String summaryStr = ChatMessage.getSummaryDescription(msg);
                 saveBackgroundLastMessageToChatList(displayName, fromAddress, summaryStr);
-                showMessageNotification(this, displayName, summaryStr, fromAddress);
+                if (!isChatActive) {
+                    showMessageNotification(this, displayName, summaryStr, fromAddress);
+                }
             } else if (type == 0x0E) { // TYPE_FILE
                 long ts = System.currentTimeMillis();
                 String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(ts));
@@ -670,13 +701,16 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
                 String summaryStr = ChatMessage.getSummaryDescription(msg);
                 saveBackgroundLastMessageToChatList(displayName, fromAddress, summaryStr);
-                showMessageNotification(this, displayName, summaryStr, fromAddress);
+                if (!isChatActive) {
+                    showMessageNotification(this, displayName, summaryStr, fromAddress);
+                }
             } else if (type == 0x04) { // TYPE_TYPING
                 String textData = new String(payload, StandardCharsets.UTF_8);
                 saveBackgroundTypingStateToChatList(displayName, fromAddress, textData);
             } else if (type == 0x03) { // TYPE_READ_RECEIPT
                 String readMsgId = new String(payload, StandardCharsets.UTF_8);
                 saveBackgroundReadReceiptToChatList(displayName, fromAddress, readMsgId);
+                ChatHistoryManager.markOutgoingMessagesAsRead(this, displayName, readMsgId);
             } else if (type == 0x07) { // TYPE_PRESENCE
                 saveBackgroundPresenceToChatList(displayName, fromAddress, true);
             } else if (type == 0x08) { // TYPE_CHAT_DELETED

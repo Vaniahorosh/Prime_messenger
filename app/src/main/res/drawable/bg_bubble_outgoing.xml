@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="@color/chat_bubble_outgoing_bg" />
+    <gradient
+        android:startColor="@color/chat_bubble_outgoing_start"
+        android:endColor="@color/chat_bubble_outgoing_end"
+        android:angle="135" />
     <corners
         android:topLeftRadius="18dp"
         android:topRightRadius="18dp"
         android:bottomRightRadius="4dp"
         android:bottomLeftRadius="18dp" />
+    <stroke
+        android:width="0.5dp"
+        android:color="#33FFFFFF" />
 </shape>

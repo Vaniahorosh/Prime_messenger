@@ -74,6 +74,20 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         @JvmStatic
         private var currentActivityRef: WeakReference<Activity>? = null
         
+        @JvmField
+        var currentActiveChatAddress: String? = null
+        
+        @JvmField
+        var currentActiveChatName: String? = null
+        
+        @JvmStatic
+        fun isChatActive(address: String?): Boolean {
+            if (!isAppInForeground) return false
+            if (address.isNullOrEmpty()) return true // default to true if no address provided
+            return (currentActiveChatAddress?.equals(address, ignoreCase = true) == true) ||
+                   (currentActiveChatName?.equals(address, ignoreCase = true) == true)
+        }
+        
         @JvmStatic
         fun getCurrentActivity(): Activity? = currentActivityRef?.get()
     }

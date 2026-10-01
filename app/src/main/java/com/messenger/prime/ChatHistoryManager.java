@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.util.Log;
 
+import com.messenger.prime.events.ChatEvent;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -237,6 +238,7 @@ public class ChatHistoryManager {
             }
             if (removed) {
                 saveHistoryList(appContext, targetUsername, history);
+                ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
             }
         });
     }
@@ -268,6 +270,13 @@ public class ChatHistoryManager {
             }
 
             saveHistoryList(appContext, targetUsername, history);
+            
+            // Emit corresponding event
+            if (message.isOutgoing()) {
+                ChatListNotifier.emitEvent(new ChatEvent.MessageSent(targetUsername, message));
+            } else {
+                ChatListNotifier.emitEvent(new ChatEvent.MessageReceived(targetUsername, message));
+            }
         });
     }
 
@@ -301,6 +310,7 @@ public class ChatHistoryManager {
 
             if (changed) {
                 saveHistoryList(appContext, targetUsername, history);
+                ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
             }
         });
     }
@@ -320,6 +330,7 @@ public class ChatHistoryManager {
             }
             if (changed) {
                 saveHistoryList(appContext, targetUsername, history);
+                ChatListNotifier.emitEvent(new ChatEvent.MessageStatusChanged(targetUsername, messageId, newStatus));
             }
         });
     }
