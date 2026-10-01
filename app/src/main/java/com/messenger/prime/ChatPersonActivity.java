@@ -36,6 +36,7 @@ import android.os.Message;
 import android.os.Vibrator;
 import android.os.VibrationEffect;
 import android.view.ViewConfiguration;
+import android.view.animation.OvershootInterpolator;
 import android.view.inputmethod.EditorInfo;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.resource.bitmap.CenterCrop;
@@ -997,7 +998,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 }
 
                 if (!isCurrentlyActive) {
-                    bubble.animate().translationX(0f).setDuration(220).setInterpolator(new DecelerateInterpolator()).start();
+                    bubble.animate()
+                            .translationX(0f)
+                            .setDuration(280)
+                            .setInterpolator(new OvershootInterpolator(1.2f))
+                            .start();
                 }
             }
         };
@@ -2245,13 +2250,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         if (layoutReplyBar != null) {
             layoutReplyBar.setVisibility(View.VISIBLE);
-            layoutReplyBar.setTranslationY(-30f);
+            layoutReplyBar.setTranslationY(20f);
             layoutReplyBar.setAlpha(0f);
             layoutReplyBar.animate()
                     .translationY(0f)
                     .alpha(1f)
-                    .setDuration(220)
-                    .setInterpolator(new DecelerateInterpolator())
+                    .setDuration(260)
+                    .setInterpolator(new OvershootInterpolator(1.1f))
                     .withEndAction(this::updateMessageListPadding)
                     .start();
         }
@@ -2287,13 +2292,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         if (layoutReplyBar != null) {
             layoutReplyBar.setVisibility(View.VISIBLE);
-            layoutReplyBar.setTranslationY(-30f);
+            layoutReplyBar.setTranslationY(20f);
             layoutReplyBar.setAlpha(0f);
             layoutReplyBar.animate()
                     .translationY(0f)
                     .alpha(1f)
-                    .setDuration(220)
-                    .setInterpolator(new DecelerateInterpolator())
+                    .setDuration(260)
+                    .setInterpolator(new OvershootInterpolator(1.1f))
                     .withEndAction(this::updateMessageListPadding)
                     .start();
         }
@@ -2320,11 +2325,26 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void cancelReplyMode() {
         replyingToMessage = null;
         replyingToText = null;
-        if (layoutReplyBar != null) {
-            beginLayoutTransition((ViewGroup) layoutReplyBar.getParent());
-            layoutReplyBar.setVisibility(View.GONE);
+        if (layoutReplyBar != null && layoutReplyBar.getVisibility() == View.VISIBLE) {
+            layoutReplyBar.animate()
+                    .alpha(0f)
+                    .translationY(-20f)
+                    .setDuration(180)
+                    .setInterpolator(new AccelerateInterpolator())
+                    .setListener(new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationEnd(Animator animation) {
+                            if (layoutReplyBar != null) {
+                                layoutReplyBar.setVisibility(View.GONE);
+                                layoutReplyBar.setAlpha(1f);
+                                layoutReplyBar.setTranslationY(0f);
+                                updateMessageListPadding();
+                            }
+                        }
+                    }).start();
+        } else {
+            updateMessageListPadding();
         }
-        updateMessageListPadding();
     }
 
     private void showForwardDialog(ChatMessage messageToForward) {

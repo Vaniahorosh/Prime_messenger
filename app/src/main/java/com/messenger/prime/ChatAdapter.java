@@ -212,14 +212,35 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public void deleteMessageAnimated(View itemView, int position, Runnable onComplete) {
-        if (position >= 0 && position < messages.size()) {
-            messages.remove(position);
-            notifyItemRemoved(position);
+        if (position < 0 || position >= messages.size()) {
+            if (onComplete != null) onComplete.run();
+            return;
         }
+
         if (itemView != null) {
             itemView.animate().cancel();
+            itemView.animate()
+                    .alpha(0f)
+                    .translationX(-itemView.getWidth() * 0.4f)
+                    .setDuration(200)
+                    .setInterpolator(new AccelerateInterpolator())
+                    .setListener(new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationEnd(Animator animation) {
+                            itemView.setAlpha(1f);
+                            itemView.setTranslationX(0f);
+                            if (position >= 0 && position < messages.size()) {
+                                messages.remove(position);
+                                notifyItemRemoved(position);
+                            }
+                            if (onComplete != null) onComplete.run();
+                        }
+                    }).start();
+        } else {
+            messages.remove(position);
+            notifyItemRemoved(position);
+            if (onComplete != null) onComplete.run();
         }
-        if (onComplete != null) onComplete.run();
     }
 
     public void deleteMessageByIdAnimated(RecyclerView recyclerView, String messageId, Runnable onComplete) {
@@ -381,15 +402,17 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         if (message.isOutgoing() && message.getMessageId() != null && message.getMessageId().equals(newlyAnimatedMessageId)) {
             newlyAnimatedMessageId = null;
-            v.setTranslationY(30f * v.getResources().getDisplayMetrics().density);
-            v.setAlpha(0.3f);
-            v.setScaleX(1f);
-            v.setScaleY(1f);
+            v.setTranslationY(40f * v.getResources().getDisplayMetrics().density);
+            v.setAlpha(0f);
+            v.setScaleX(0.92f);
+            v.setScaleY(0.92f);
             v.animate()
                     .translationY(0f)
                     .alpha(1.0f)
-                    .setDuration(220)
-                    .setInterpolator(new DecelerateInterpolator())
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(280)
+                    .setInterpolator(new OvershootInterpolator(1.1f))
                     .start();
         } else {
             v.setAlpha(1f);
@@ -410,7 +433,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 flicker.setDuration(1200);
                 flicker.setInterpolator(new AccelerateDecelerateInterpolator());
                 flicker.start();
-            } else if (payloads.contains("PROGRESS")) {
+            } else if (payloads.contains("PROGRESS") || payloads.contains("STATUS_UPDATE")) {
                 if (position >= 0 && position < messages.size()) {
                     ChatMessage message = messages.get(position);
                     View layoutMessageProgress = holder.itemView.findViewById(R.id.layoutMessageProgress);
@@ -435,12 +458,15 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         } else if (message.getMessageStatus() == MessageStatus.READ) {
                             ivMessageStatus.setVisibility(View.VISIBLE);
                             ivMessageStatus.setImageResource(R.drawable.ic_done_all);
+                            ivMessageStatus.setColorFilter(Color.parseColor("#00E676")); // Зеленый для прочитанных
                         } else if (message.getMessageStatus() == MessageStatus.SENT) {
                             ivMessageStatus.setVisibility(View.VISIBLE);
                             ivMessageStatus.setImageResource(R.drawable.ic_done);
+                            ivMessageStatus.clearColorFilter();
                         } else if (message.getMessageStatus() == MessageStatus.ERROR) {
                             ivMessageStatus.setVisibility(View.VISIBLE);
                             ivMessageStatus.setImageResource(R.drawable.ic_error);
+                            ivMessageStatus.clearColorFilter();
                         } else {
                             ivMessageStatus.setVisibility(View.GONE);
                         }
