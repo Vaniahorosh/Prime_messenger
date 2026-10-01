@@ -11,6 +11,7 @@ import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Rect
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
@@ -28,6 +29,7 @@ import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.ImageView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
@@ -209,16 +211,20 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    private val backCallback = object : OnBackPressedCallback(true) {
+    private fun updateBackCallbackState() {
+        val b = binding
+        backCallback.isEnabled = isPhotoMenuMode.value || (b != null && b.layoutAccountCollapsible.visibility == View.VISIBLE)
+    }
+
+    private val backCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
             val b = binding
             if (isPhotoMenuMode.value) {
                 togglePhotoMenuMode(false)
             } else if (b != null && b.layoutAccountCollapsible.visibility == View.VISIBLE) {
                 toggleAccountCollapsible(b)
-            } else {
-                finish()
             }
+            updateBackCallbackState()
         }
     }
 
@@ -599,6 +605,7 @@ class SettingsActivity : AppCompatActivity() {
         
         if (enable) {
             b.btnBackWP.setIconResource(R.drawable.ic_cancel)
+            b.btnBackWP.setIconTintResource(R.color.white)
             b.tvBackLabelWP.text = "Закрыть"
             
             b.btnLogoutWP.setIconResource(R.drawable.ic_person)
@@ -614,6 +621,7 @@ class SettingsActivity : AppCompatActivity() {
             startWobbling(b)
         } else {
             b.btnBackWP.setIconResource(R.drawable.ic_arrow_back)
+            b.btnBackWP.setIconTintResource(R.color.white)
             b.tvBackLabelWP.text = "Назад"
             
             b.btnLogoutWP.setIconResource(R.drawable.ic_exit_to_app)
@@ -628,6 +636,7 @@ class SettingsActivity : AppCompatActivity() {
             
             stopWobbling()
         }
+        updateBackCallbackState()
     }
 
     private fun flipView(view: View, label: View, onHalfway: () -> Unit) {
@@ -780,6 +789,7 @@ class SettingsActivity : AppCompatActivity() {
         b.ivAccountArrow.animate().rotation(if (isExpanded) 90f else -90f).setDuration(200).start()
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         sharedPrefs.edit().putBoolean("settings_account_expanded", !isExpanded).apply()
+        updateBackCallbackState()
     }
 
     private fun setupAccountCollapsible(b: ActivitySettingsContentBinding) {
@@ -946,8 +956,16 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) {
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            currentFocus?.let { focusedView -> imm.hideSoftInputFromWindow(focusedView.windowToken, 0); focusedView.clearFocus() }
+            val v = currentFocus
+            if (v is EditText) {
+                val outRect = Rect()
+                v.getGlobalVisibleRect(outRect)
+                if (!outRect.contains(event.rawX.toInt(), event.rawY.toInt())) {
+                    v.clearFocus()
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(v.windowToken, 0)
+                }
+            }
         }
         return super.dispatchTouchEvent(event)
     }

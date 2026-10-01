@@ -242,6 +242,14 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private ImageButton btnCloseEditBar;
     private View layoutEditBar;
 
+    private OnBackPressedCallback chatPersonBackCallback;
+
+    private void updateBackCallbackState() {
+        if (chatPersonBackCallback != null) {
+            chatPersonBackCallback.setEnabled(isAttachmentPanelOpen || isEditMode);
+        }
+    }
+
     private View layoutPullIndicator;
     private ProgressBar pbPullProgress;
     private TextView tvPullStatus;
@@ -579,18 +587,18 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 .build();
         Slidr.attach(this, slidrConfig);
 
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+        chatPersonBackCallback = new OnBackPressedCallback(false) {
             @Override
             public void handleOnBackPressed() {
                 if (isAttachmentPanelOpen) {
                     closeAttachmentPanel();
                 } else if (isEditMode) {
                     exitEditMode();
-                } else {
-                    finish();
                 }
+                updateBackCallbackState();
             }
-        });
+        };
+        getOnBackPressedDispatcher().addCallback(this, chatPersonBackCallback);
         
         UIExtensionsKt.setupEdgeToEdge(this, !isDarkTheme);
         setupChatBlurViews();
@@ -2131,6 +2139,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             layoutEditBar.setVisibility(View.VISIBLE);
         }
         updateMessageListPadding();
+        updateBackCallbackState();
     }
 
     private void exitEditMode() {
@@ -2143,6 +2152,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
 
         if (btnCancelEdit != null) btnCancelEdit.setVisibility(View.GONE);
+        updateBackCallbackState();
         if (btnAttach != null) btnAttach.setVisibility(View.VISIBLE);
 
         if (etMessage != null) {
@@ -6092,6 +6102,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 .start();
 
         switchAttachmentMode(currentAttachmentMode);
+        updateBackCallbackState();
     }
 
     private void closeAttachmentPanel() {
@@ -6110,8 +6121,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 .withEndAction(() -> {
                     layoutAttachmentPanel.setVisibility(View.GONE);
                     layoutAttachmentPanel.setTranslationY(0f);
+                    updateBackCallbackState();
                 })
                 .start();
+        updateBackCallbackState();
     }
 
     private View getSectionViewForMode(int mode) {

@@ -727,15 +727,15 @@ class MediaPlayerActivity : AppCompatActivity() {
             areControlsVisible = true
 
             topOverlay.visibility = View.VISIBLE
-            topOverlay.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
+            topOverlay.animate().setListener(null).alpha(1f).translationY(0f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
 
             if (isCurrentVideo) {
                 btnPlayPause.visibility = View.VISIBLE
-                btnPlayPause.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
+                btnPlayPause.animate().setListener(null).alpha(1f).scaleX(1f).scaleY(1f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
             }
 
             bottomOverlay.visibility = View.VISIBLE
-            bottomOverlay.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
+            bottomOverlay.animate().setListener(null).alpha(1f).translationY(0f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
 
             navBarProgressBar.animate().alpha(0f).setDuration(200)
                 .setListener(object : AnimatorListenerAdapter() {

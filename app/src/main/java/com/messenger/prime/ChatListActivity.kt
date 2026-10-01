@@ -111,9 +111,11 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -179,12 +181,12 @@ fun RadarAnimation() {
                 .fillMaxSize()
                 .scale(scale)
                 .alpha(alpha)
-                .border(2.dp, Color(0xFF00E676), CircleShape)
+                .border(2.dp, Color(0xFF38BDF8), CircleShape)
         )
         Icon(
             painter = painterResource(id = R.drawable.ic_prime_statusbar),
             contentDescription = null,
-            tint = Color(0xFF00E676),
+            tint = Color(0xFF38BDF8),
             modifier = Modifier.size(36.dp)
         )
     }
@@ -699,7 +701,9 @@ class ChatListActivity : AppCompatActivity() {
                 if (isPulling) {
                     if (isThresholdCrossed && !isTransitioning) {
                         isTransitioning = true
-                        val intent = Intent(this, SettingsActivity::class.java)
+                        val intent = Intent(this, SettingsActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        }
                         startActivity(intent)
                         if (Build.VERSION.SDK_INT >= 34) {
                 overrideActivityTransition(
@@ -746,24 +750,48 @@ class ChatListActivity : AppCompatActivity() {
         isThresholdCrossed = false
     }
 
-    private val backCallback = object : OnBackPressedCallback(true) {
+    private fun updateBackCallbackState() {
+        backCallback.isEnabled = isContactDialogVisible.value ||
+                isIncomingConnectionDialogVisible.value ||
+                isFoundDeviceDialogVisible.value ||
+                isNameEditDialogVisible.value ||
+                (::adapter.isInitialized && adapter.isSearchActive)
+    }
+
+    private val backCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
             if (isContactDialogVisible.value) {
                 isContactDialogVisible.value = false
                 stopBluetoothScan()
+                updateBackCallbackState()
                 return
             }
-            if (adapter.isSearchActive) {
+            if (isIncomingConnectionDialogVisible.value) {
+                isIncomingConnectionDialogVisible.value = false
+                updateBackCallbackState()
+                return
+            }
+            if (isFoundDeviceDialogVisible.value) {
+                isFoundDeviceDialogVisible.value = false
+                updateBackCallbackState()
+                return
+            }
+            if (isNameEditDialogVisible.value) {
+                isNameEditDialogVisible.value = false
+                updateBackCallbackState()
+                return
+            }
+            if (::adapter.isInitialized && adapter.isSearchActive) {
                 if (::islandBinding.isInitialized && islandBinding.etSearch.hasFocus()) {
                     hideKeyboardAndClearFocus()
                 } else if (::islandBinding.isInitialized) {
                     islandBinding.etSearch.text?.clear()
                     hideKeyboardAndClearFocus()
                 }
+                updateBackCallbackState()
                 return
             }
-            isEnabled = false
-            onBackPressedDispatcher.onBackPressed()
+            updateBackCallbackState()
         }
     }
 
@@ -807,18 +835,24 @@ class ChatListActivity : AppCompatActivity() {
             allChats, savedAvatarUri, savedName,
             onStartChatClick = { onStartChatClicked() },
             onAvatarClick = {
-                val intent = Intent(this, SettingsActivity::class.java)
-                startActivity(intent)
-                if (android.os.Build.VERSION.SDK_INT >= 34) {
-                overrideActivityTransition(
-                    OVERRIDE_TRANSITION_OPEN,
-                    R.anim.slide_in_right,
-                    R.anim.slide_out_left
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-            }
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastChatLaunchTime >= 1000L) {
+                    lastChatLaunchTime = now
+                    val intent = Intent(this, SettingsActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    }
+                    startActivity(intent)
+                    if (Build.VERSION.SDK_INT >= 34) {
+                        overrideActivityTransition(
+                            OVERRIDE_TRANSITION_OPEN,
+                            R.anim.slide_in_right,
+                            R.anim.slide_out_left
+                        )
+                    } else {
+                        @Suppress("DEPRECATION")
+                        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                    }
+                }
             },
             onAvatarLongClick = {
                 showLogoutDialog()
@@ -986,15 +1020,40 @@ class ChatListActivity : AppCompatActivity() {
                             }
                             val myVerCode = try { ChatPersonActivity.getAppVersionCode(this@ChatListActivity) } catch (e: Exception) { 1 }
 
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(Brush.linearGradient(listOf(Color(0xFF1E88E5), Color(0xFF154B87)))),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_search),
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Поиск собеседников",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                             Text(
-                                text = "Поиск собеседников поблизости",
-                                color = Color.White,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
+                                text = "Автоматическое обнаружение собеседников Prime поблизости",
+                                color = Color.White.copy(alpha = 0.65f),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
                             val rawAllDevices = (pairedDevices.map { it to true } + discoveredDevices.map { it to false })
                                 .distinctBy { it.first.address }
                                 .filter { (device, _) ->
@@ -1064,26 +1123,33 @@ class ChatListActivity : AppCompatActivity() {
 
                             var showOtherDevices by remember { mutableStateOf(true) }
                             var showPairedDevices by remember { mutableStateOf(true) }
-                            var showPairedOther by remember { mutableStateOf(true) }
 
                             if (isScanningState.value) {
                                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().height(90.dp)) {
                                     RadarAnimation()
                                     Text(
-                                        text = if (primeOnlyDevices.isEmpty()) "Поиск Prime-пользователей..." else "Найдено Prime: ${primeOnlyDevices.size}",
-                                        color = Color.White.copy(alpha = 0.8f),
+                                        text = if (primeOnlyDevices.isEmpty()) "Сканирование эфира..." else "Найдено Prime: ${primeOnlyDevices.size}",
+                                        color = Color(0xFF38BDF8),
                                         fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
                                         modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp)
                                     )
                                 }
                             } else {
                                 Button(
                                     onClick = { startUnifiedSearchAndDiscoverable() },
-                                    modifier = Modifier.fillMaxWidth().height(40.dp),
+                                    modifier = Modifier.fillMaxWidth().height(42.dp),
                                     shape = RoundedCornerShape(14.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676), contentColor = Color.Black)
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF154B87), contentColor = Color.White)
                                 ) {
-                                    Text("⚡ Поиск и авто-видимость", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_search),
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Обновить поиск и видимость", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
                             }
                             
@@ -1105,14 +1171,14 @@ class ChatListActivity : AppCompatActivity() {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(Color(0x2200E676))
-                                            .border(1.dp, Color(0x6600E676), RoundedCornerShape(16.dp))
+                                            .clip(RoundedCornerShape(18.dp))
+                                            .background(Brush.horizontalGradient(listOf(Color(0x281A5EA8), Color(0x1F154B87))))
+                                            .border(1.dp, Color(0x5538BDF8), RoundedCornerShape(18.dp))
                                             .clickable {
                                                 isContactDialogVisible.value = false
                                                 navigateToChatPerson(devName, devMac, useExistingSocket = false)
                                             }
-                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            .padding(horizontal = 14.dp, vertical = 11.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         CachedAvatarView(name = devName, macAddress = devMac, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)))
@@ -1122,11 +1188,11 @@ class ChatListActivity : AppCompatActivity() {
                                                 Text(text = devName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                                 Spacer(modifier = Modifier.width(6.dp))
                                                 Text(
-                                                    text = "Prime",
-                                                    color = Color(0xFF00E676),
+                                                    text = "PRIME",
+                                                    color = Color(0xFF38BDF8),
                                                     fontWeight = FontWeight.ExtraBold,
-                                                    fontSize = 10.sp,
-                                                    modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0x3300E676)).padding(horizontal = 5.dp, vertical = 2.dp)
+                                                    fontSize = 9.sp,
+                                                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0x3338BDF8)).padding(horizontal = 6.dp, vertical = 2.dp)
                                                 )
                                             }
                                             Text(text = signalStatus, color = Color.White.copy(alpha=0.7f), fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
@@ -1137,134 +1203,141 @@ class ChatListActivity : AppCompatActivity() {
                                                 navigateToChatPerson(devName, devMac, useExistingSocket = false)
                                             },
                                             shape = RoundedCornerShape(12.dp),
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676), contentColor = Color.Black),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF154B87), contentColor = Color.White),
                                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
                                             modifier = Modifier.height(36.dp)
                                         ) {
-                                            Text("Написать", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                            Text("Написать", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                         }
                                     }
                                 }
 
-                                // 2. Paired Prime Devices Section
-                                if (pairedPrimeList.isNotEmpty()) {
+                                // 2. Paired Devices Horizontal Section
+                                val allPairedList = pairedPrimeList + pairedOtherList
+                                if (allPairedList.isNotEmpty()) {
                                     item {
                                         Row(
-                                            modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp).clip(RoundedCornerShape(8.dp)).clickable { showPairedDevices = !showPairedDevices }.padding(horizontal = 4.dp, vertical = 4.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 4.dp, bottom = 2.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable { showPairedDevices = !showPairedDevices }
+                                                .padding(horizontal = 4.dp, vertical = 4.dp),
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(text = "🔗 Сопряженные Prime (${pairedPrimeList.size})", color = Color(0xFF00E676), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                            Text(text = if (showPairedDevices) "Скрыть" else "Показать", color = Color(0xFF00E676), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                text = "🔗 Сопряженные устройства (${allPairedList.size})",
+                                                color = Color(0xFF38BDF8),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = if (showPairedDevices) "Скрыть" else "Показать",
+                                                color = Color(0xFF38BDF8),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
                                         }
                                     }
 
                                     if (showPairedDevices) {
-                                        items(pairedPrimeList, key = { "paired_prime_" + it.first.address }) { (device, _) ->
-                                            val devMac = device.address
-                                            val rawName = try { @Suppress("MissingPermission") device.name } catch (_: Exception) { null }
-                                            val knownContact = chatListState.find { it.id == devMac }
-                                            val devName = knownContact?.name ?: getDeviceDisplayName(rawName, devMac)
-                                            val rssi = deviceRssiMap[devMac]
-                                            val signalStatus = formatRssiSignal(rssi, isPaired = true)
-
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(16.dp))
-                                                    .background(Color(0x1A00E676))
-                                                    .border(1.dp, Color(0x4400E676), RoundedCornerShape(16.dp))
-                                                    .clickable {
-                                                        isContactDialogVisible.value = false
-                                                        navigateToChatPerson(devName, devMac, useExistingSocket = false)
-                                                    }
-                                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                                verticalAlignment = Alignment.CenterVertically
+                                        item {
+                                            LazyRow(
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp),
+                                                modifier = Modifier.fillMaxWidth()
                                             ) {
-                                                CachedAvatarView(name = devName, macAddress = devMac, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)))
-                                                Spacer(modifier = Modifier.width(12.dp))
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Text(text = devName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                items(allPairedList, key = { "paired_tile_" + it.first.address }) { (device, _) ->
+                                                    val devMac = device.address
+                                                    val rawName = try { @Suppress("MissingPermission") device.name } catch (_: Exception) { null }
+                                                    val knownContact = chatListState.find { it.id == devMac }
+                                                    val devName = knownContact?.name ?: getDeviceDisplayName(rawName, devMac)
+                                                    val isPrime = pairedPrimeList.any { it.first.address == devMac }
+                                                    val rssi = deviceRssiMap[devMac]
+                                                    val signalStatus = formatRssiSignal(rssi, isPaired = true)
+
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .width(135.dp)
+                                                            .clip(RoundedCornerShape(18.dp))
+                                                            .background(
+                                                                if (isPrime) Brush.verticalGradient(listOf(Color(0x281A5EA8), Color(0x1F154B87)))
+                                                                else Brush.verticalGradient(listOf(Color(0x1AFFFFFF), Color(0x10FFFFFF)))
+                                                            )
+                                                            .border(
+                                                                1.dp,
+                                                                if (isPrime) Color(0x4438BDF8) else Color(0x22FFFFFF),
+                                                                RoundedCornerShape(18.dp)
+                                                            )
+                                                            .clickable {
+                                                                isContactDialogVisible.value = false
+                                                                navigateToChatPerson(devName, devMac, useExistingSocket = false)
+                                                            }
+                                                            .padding(12.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                    ) {
+                                                        Box(contentAlignment = Alignment.TopEnd) {
+                                                            CachedAvatarView(
+                                                                name = devName,
+                                                                macAddress = devMac,
+                                                                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))
+                                                            )
+                                                            if (isPrime) {
+                                                                Text(
+                                                                    text = "P",
+                                                                    color = Color.White,
+                                                                    fontWeight = FontWeight.Black,
+                                                                    fontSize = 8.sp,
+                                                                    modifier = Modifier
+                                                                        .clip(CircleShape)
+                                                                        .background(Color(0xFF38BDF8))
+                                                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                                                )
+                                                            }
+                                                        }
+
+                                                        Spacer(modifier = Modifier.height(8.dp))
+
                                                         Text(
-                                                            text = "Prime",
-                                                            color = Color(0xFF00E676),
-                                                            fontWeight = FontWeight.ExtraBold,
-                                                            fontSize = 9.sp,
-                                                            modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0x3300E676)).padding(horizontal = 4.dp, vertical = 2.dp)
+                                                            text = devName,
+                                                            color = Color.White,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 13.sp,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            textAlign = TextAlign.Center
                                                         )
+
+                                                        Text(
+                                                            text = if (isPrime) "Prime • $signalStatus" else signalStatus,
+                                                            color = if (isPrime) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.6f),
+                                                            fontSize = 10.sp,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
+                                                        )
+
+                                                        Button(
+                                                            onClick = {
+                                                                isContactDialogVisible.value = false
+                                                                navigateToChatPerson(devName, devMac, useExistingSocket = false)
+                                                            },
+                                                            shape = RoundedCornerShape(12.dp),
+                                                            colors = ButtonDefaults.buttonColors(
+                                                                containerColor = if (isPrime) Color(0xFF154B87) else Color(0x33FFFFFF),
+                                                                contentColor = Color.White
+                                                            ),
+                                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                                            modifier = Modifier.fillMaxWidth().height(30.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = if (isPrime) "Написать" else "Открыть",
+                                                                fontWeight = FontWeight.Bold,
+                                                                fontSize = 11.sp
+                                                            )
+                                                        }
                                                     }
-                                                    Text(text = signalStatus, color = Color.White.copy(alpha = 0.65f), fontSize = 11.sp, modifier = Modifier.padding(top = 1.dp))
-                                                }
-                                                Button(
-                                                    onClick = {
-                                                        isContactDialogVisible.value = false
-                                                        navigateToChatPerson(devName, devMac, useExistingSocket = false)
-                                                    },
-                                                    shape = RoundedCornerShape(12.dp),
-                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676), contentColor = Color.Black),
-                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                                    modifier = Modifier.height(34.dp)
-                                                ) {
-                                                    Text("Написать", fontWeight = FontWeight.ExtraBold, fontSize = 11.sp)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // 3. Paired Other Devices Section
-                                if (pairedOtherList.isNotEmpty()) {
-                                    item {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp).clip(RoundedCornerShape(8.dp)).clickable { showPairedOther = !showPairedOther }.padding(horizontal = 4.dp, vertical = 4.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(text = "🔗 Другие сопряженные (${pairedOtherList.size})", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                            Text(text = if (showPairedOther) "Скрыть" else "Показать", color = Color(0xFF81D4FA), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-
-                                    if (showPairedOther) {
-                                        items(pairedOtherList, key = { "paired_other_" + it.first.address }) { (device, _) ->
-                                            val devMac = device.address
-                                            val rawName = try { @Suppress("MissingPermission") device.name } catch (_: Exception) { null }
-                                            val devName = getDeviceDisplayName(rawName, devMac)
-                                            val rssi = deviceRssiMap[devMac]
-                                            val signalStatus = formatRssiSignal(rssi, isPaired = true)
-
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(16.dp))
-                                                    .background(Color(0x14FFFFFF))
-                                                    .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(16.dp))
-                                                    .clickable {
-                                                        isContactDialogVisible.value = false
-                                                        navigateToChatPerson(devName, devMac, useExistingSocket = false)
-                                                    }
-                                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                CachedAvatarView(name = devName, macAddress = devMac, modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)))
-                                                Spacer(modifier = Modifier.width(12.dp))
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(text = devName, color = Color.White.copy(alpha = 0.9f), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                                    Text(text = signalStatus, color = Color.White.copy(alpha = 0.55f), fontSize = 11.sp, modifier = Modifier.padding(top = 1.dp))
-                                                }
-                                                Button(
-                                                    onClick = {
-                                                        isContactDialogVisible.value = false
-                                                        navigateToChatPerson(devName, devMac, useExistingSocket = false)
-                                                    },
-                                                    shape = RoundedCornerShape(12.dp),
-                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0x33FFFFFF), contentColor = Color.White),
-                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                                    modifier = Modifier.height(32.dp)
-                                                ) {
-                                                    Text("Подключить", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                                                 }
                                             }
                                         }
@@ -1785,17 +1858,23 @@ class ChatListActivity : AppCompatActivity() {
         })
 
         islandBinding.ivToolbarAvatar.setOnClickListener {
-            val intent = Intent(this, SettingsActivity::class.java)
-            startActivity(intent)
-            if (android.os.Build.VERSION.SDK_INT >= 34) {
-                overrideActivityTransition(
-                    OVERRIDE_TRANSITION_OPEN,
-                    R.anim.slide_in_right,
-                    R.anim.slide_out_left
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastChatLaunchTime >= 1000L) {
+                lastChatLaunchTime = now
+                val intent = Intent(this, SettingsActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                startActivity(intent)
+                if (Build.VERSION.SDK_INT >= 34) {
+                    overrideActivityTransition(
+                        OVERRIDE_TRANSITION_OPEN,
+                        R.anim.slide_in_right,
+                        R.anim.slide_out_left
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                }
             }
         }
         islandBinding.tvToolbarInitials.setOnClickListener {
@@ -2363,6 +2442,7 @@ class ChatListActivity : AppCompatActivity() {
 
     private fun animateShowSearchClear() {
         if (!::islandBinding.isInitialized) return
+        islandBinding.btnSearchClear.animate().cancel()
         if (islandBinding.btnSearchClear.isVisible && islandBinding.btnSearchClear.alpha == 1f) return
         islandBinding.btnSearchClear.visibility = View.VISIBLE; islandBinding.btnSearchClear.alpha = 0f
         islandBinding.btnSearchClear.translationY = 50f * resources.displayMetrics.density
@@ -2371,6 +2451,7 @@ class ChatListActivity : AppCompatActivity() {
     private fun animateHideSearchClear() {
         if (!::islandBinding.isInitialized) return
         if (islandBinding.btnSearchClear.visibility != View.VISIBLE) return
+        islandBinding.btnSearchClear.animate().cancel()
         islandBinding.btnSearchClear.animate().translationY(50f * resources.displayMetrics.density).alpha(0f).setDuration(300).setInterpolator(android.view.animation.AccelerateInterpolator()).withEndAction {
             islandBinding.btnSearchClear.visibility = View.INVISIBLE; islandBinding.btnSearchClear.translationY = 0f
         }.start()

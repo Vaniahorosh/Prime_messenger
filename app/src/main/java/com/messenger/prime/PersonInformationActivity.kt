@@ -126,12 +126,6 @@ class PersonInformationActivity : AppCompatActivity() {
             .build()
         Slidr.attach(this, slidrConfig)
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                supportFinishAfterTransition()
-            }
-        })
-
         val filter = IntentFilter().apply {
             addAction("com.messenger.prime.STATUS_UPDATED")
             addAction("com.messenger.prime.AVATAR_UPDATED")

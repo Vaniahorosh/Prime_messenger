@@ -17,6 +17,7 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.ColorStateList
 import com.bumptech.glide.Glide
 import androidx.core.view.isEmpty
 import androidx.core.net.toUri
@@ -455,18 +456,28 @@ class ChatListAdapter(
                     MessageStatus.SENDING -> {
                         binding.ivMessageStatus.visibility = View.VISIBLE
                         binding.ivMessageStatus.setImageResource(R.drawable.ic_clock)
+                        binding.ivMessageStatus.imageTintList = null
                     }
                     MessageStatus.SENT -> {
                         binding.ivMessageStatus.visibility = View.VISIBLE
-                        binding.ivMessageStatus.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.ic_done))
+                        binding.ivMessageStatus.setImageResource(R.drawable.ic_done)
+                        binding.ivMessageStatus.imageTintList = ColorStateList.valueOf(
+                            ContextCompat.getColor(context, R.color.prime_text_secondary)
+                        )
                     }
                     MessageStatus.READ -> {
                         binding.ivMessageStatus.visibility = View.VISIBLE
                         binding.ivMessageStatus.setImageResource(R.drawable.ic_done_all)
+                        binding.ivMessageStatus.imageTintList = ColorStateList.valueOf(
+                            ContextCompat.getColor(context, R.color.prime_brand)
+                        )
                     }
                     MessageStatus.ERROR -> {
                         binding.ivMessageStatus.visibility = View.VISIBLE
                         binding.ivMessageStatus.setImageResource(R.drawable.ic_error)
+                        binding.ivMessageStatus.imageTintList = ColorStateList.valueOf(
+                            ContextCompat.getColor(context, R.color.prime_danger)
+                        )
                     }
                     MessageStatus.NONE -> {
                         binding.ivMessageStatus.visibility = View.GONE

@@ -110,8 +110,38 @@ class PhotoEditorActivity : AppCompatActivity() {
     private var isGifMode = false
     private var originalUri: Uri? = null
 
+    private fun updateBackCallbackState() {
+        backCallback.isEnabled = (currentToolIndex != -1 || mode == PIPETTE)
+    }
+
+    private val backCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            if (mode == PIPETTE) {
+                mode = NONE
+                updateBackCallbackState()
+                return
+            }
+            if (currentToolIndex != -1) {
+                binding?.let { b ->
+                    val activeGroup = when (currentToolIndex) {
+                        0 -> b.layoutGroupLight
+                        1 -> b.layoutGroupGeometry
+                        2 -> b.layoutGroupBrush
+                        else -> null
+                    }
+                    if (activeGroup != null) {
+                        toggleToolGroup(b, activeGroup, "Редактор")
+                    }
+                }
+                updateBackCallbackState()
+                return
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        onBackPressedDispatcher.addCallback(this, backCallback)
         setupEdgeToEdge()
         
         if (android.os.Build.VERSION.SDK_INT >= 34) {
@@ -578,6 +608,7 @@ class PhotoEditorActivity : AppCompatActivity() {
                 showOriginalLayout(b)
                 b.drawingView.visibility = View.GONE
                 currentToolIndex = -1
+                updateBackCallbackState()
             }
         } else {
             val activeGroup = when {
@@ -589,6 +620,8 @@ class PhotoEditorActivity : AppCompatActivity() {
 
             if (activeGroup != null) {
                 val isForward = newIndex > currentToolIndex
+                b.groupSlidersContainer.alpha = 1f
+                b.groupSlidersContainer.visibility = View.VISIBLE
                 animateHorizontalTransition(b, activeGroup, group, isForward)
                 b.tsEditorTitle.setText(title)
                 b.drawingView.visibility = if (group == b.layoutGroupBrush) View.VISIBLE else View.GONE
@@ -600,6 +633,7 @@ class PhotoEditorActivity : AppCompatActivity() {
                 
                 group.visibility = View.VISIBLE
                 b.groupSlidersContainer.visibility = View.VISIBLE
+                b.groupSlidersContainer.alpha = 1f
                 b.tsEditorTitle.setText(title)
                 b.layoutSetOriginal.visibility = View.GONE
                 b.drawingView.visibility = if (group == b.layoutGroupBrush) View.VISIBLE else View.GONE
@@ -607,6 +641,7 @@ class PhotoEditorActivity : AppCompatActivity() {
                 animateShowToolGroup(b)
             }
         }
+        updateBackCallbackState()
     }
 
     private fun animateHorizontalTransition(b: ActivityPhotoEditorContentBinding, oldView: View, newView: View, isForward: Boolean) {
@@ -659,6 +694,7 @@ class PhotoEditorActivity : AppCompatActivity() {
             .withEndAction {
                 onEnd()
                 b.groupSlidersContainer.translationY = 0f
+                b.groupSlidersContainer.alpha = 1f
             }
             .start()
     }
