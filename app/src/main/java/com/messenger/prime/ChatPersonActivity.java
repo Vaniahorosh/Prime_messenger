@@ -3295,25 +3295,41 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
             String json = sharedPrefs.getString("persisted_chats", "[]");
             JSONArray array = new JSONArray(json);
+            boolean updated = false;
 
             for (int i = 0; i < array.length(); i++) {
                 JSONObject obj = array.getJSONObject(i);
-                if (targetName.equalsIgnoreCase(obj.optString("name"))) {
+                boolean isGenericName = "Собеседник".equalsIgnoreCase(targetName) || "Prime Собеседник".equalsIgnoreCase(targetName) || "Контакт".equalsIgnoreCase(targetName);
+                boolean isMatch = false;
+                if (deviceAddress != null && !deviceAddress.isEmpty() && deviceAddress.equalsIgnoreCase(obj.optString("id"))) {
+                    isMatch = true;
+                } else if (!isGenericName && targetName.equalsIgnoreCase(obj.optString("name")) && !isValidMacAddress(targetName)) {
+                    isMatch = true;
+                } else if (targetName.equalsIgnoreCase(obj.optString("id"))) {
+                    isMatch = true;
+                }
+
+                if (isMatch) {
                     obj.put("activityState", state != null ? state : "IDLE");
-                    if ("TYPING".equalsIgnoreCase(state)) {
-                        obj.put("typingUntil", System.currentTimeMillis() + 3500L);
+                    if ("TYPING".equalsIgnoreCase(state) || "SENDING_PHOTO".equalsIgnoreCase(state) || "RECORDING".equalsIgnoreCase(state)) {
+                        obj.put("typingUntil", System.currentTimeMillis() + 4500L);
+                        obj.put("isTyping", true);
                     } else {
                         obj.put("typingUntil", 0L);
+                        obj.put("isTyping", false);
                     }
+                    updated = true;
                     break;
                 }
             }
-            sharedPrefs.edit().putString("persisted_chats", array.toString()).apply();
-            ChatListNotifier.INSTANCE.notifyChanged();
+            if (updated) {
+                sharedPrefs.edit().putString("persisted_chats", array.toString()).apply();
+                ChatListNotifier.INSTANCE.notifyChanged();
+            }
 
-            if ("TYPING".equalsIgnoreCase(state)) {
+            if ("TYPING".equalsIgnoreCase(state) || "SENDING_PHOTO".equalsIgnoreCase(state)) {
                 typingResetHandler.removeCallbacks(clearChatListTypingRunnable);
-                typingResetHandler.postDelayed(clearChatListTypingRunnable, 3600L);
+                typingResetHandler.postDelayed(clearChatListTypingRunnable, 4600L);
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to save activity state to chat list", e);

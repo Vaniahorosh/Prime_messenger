@@ -721,7 +721,8 @@ class ChatListActivity : AppCompatActivity() {
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == "my_name" || key == "my_avatar" || key == "my_local_name" || key == "my_local_avatar" || key == "current_user" || key?.endsWith("_name") == true || key?.endsWith("_avatar") == true) {
             runOnUiThread { refreshUserUi() }
-        } else if (key == "persisted_chats") {
+        }
+        if (key == "persisted_chats" || key?.startsWith("contact_") == true || key?.startsWith("chat_") == true) {
             runOnUiThread { reloadChatsFromDb() }
         }
     }

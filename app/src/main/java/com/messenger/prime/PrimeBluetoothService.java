@@ -457,10 +457,119 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         manageWakeLock();
         promoteToForeground();
 
-        if (state == BluetoothConnectionManager.ConnectionState.CONNECTED) {
+        boolean isConnected = (state == BluetoothConnectionManager.ConnectionState.CONNECTED);
+        if (isConnected) {
             resetReconnectAttempts(deviceAddress);
         } else if (state == BluetoothConnectionManager.ConnectionState.DISCONNECTED) {
             scheduleReconnect(deviceAddress);
+        }
+
+        saveBackgroundPresenceToChatList(deviceName, deviceAddress, isConnected);
+    }
+
+    private void saveBackgroundTypingStateToChatList(String targetName, String deviceAddr, String textData) {
+        if (targetName == null || targetName.isEmpty()) return;
+        try {
+            SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
+            String json = sharedPrefs.getString("persisted_chats", "[]");
+            JSONArray array = new JSONArray(json);
+            JSONArray newArray = new JSONArray();
+            boolean updated = false;
+
+            boolean isTyping = textData != null && (textData.contains("TYPING") || textData.contains("SENDING_PHOTO") || textData.contains("RECORDING"));
+            long typingUntil = isTyping ? (System.currentTimeMillis() + 6000L) : 0L;
+            String actState = textData != null && textData.startsWith("STATE:") ? textData.substring(6) : (isTyping ? "TYPING" : "IDLE");
+
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject obj = array.getJSONObject(i);
+                String user = obj.optString("name", "");
+                String id = obj.optString("id", "");
+
+                boolean isMatch = (deviceAddr != null && !deviceAddr.isEmpty() && deviceAddr.equalsIgnoreCase(id))
+                        || (user.equalsIgnoreCase(targetName) && !BluetoothAdapter.checkBluetoothAddress(user));
+
+                if (isMatch) {
+                    obj.put("isTyping", isTyping);
+                    obj.put("typingUntil", typingUntil);
+                    obj.put("activityState", actState);
+                    updated = true;
+                }
+                newArray.put(obj);
+            }
+
+            if (updated) {
+                sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply();
+                ChatListNotifier.INSTANCE.notifyChanged();
+            }
+        } catch (Throwable e) {
+            Log.e(TAG, "Failed to save background typing state", e);
+        }
+    }
+
+    private void saveBackgroundReadReceiptToChatList(String targetName, String deviceAddr, String readMsgId) {
+        if (targetName == null || targetName.isEmpty()) return;
+        try {
+            SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
+            String json = sharedPrefs.getString("persisted_chats", "[]");
+            JSONArray array = new JSONArray(json);
+            JSONArray newArray = new JSONArray();
+            boolean updated = false;
+
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject obj = array.getJSONObject(i);
+                String user = obj.optString("name", "");
+                String id = obj.optString("id", "");
+
+                boolean isMatch = (deviceAddr != null && !deviceAddr.isEmpty() && deviceAddr.equalsIgnoreCase(id))
+                        || (user.equalsIgnoreCase(targetName) && !BluetoothAdapter.checkBluetoothAddress(user));
+
+                if (isMatch) {
+                    obj.put("messageStatus", "READ");
+                    obj.put("unreadCount", 0);
+                    updated = true;
+                }
+                newArray.put(obj);
+            }
+
+            if (updated) {
+                sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply();
+                ChatListNotifier.INSTANCE.notifyChanged();
+            }
+        } catch (Throwable e) {
+            Log.e(TAG, "Failed to save background read receipt", e);
+        }
+    }
+
+    private void saveBackgroundPresenceToChatList(String targetName, String deviceAddr, boolean isOnline) {
+        if (targetName == null || targetName.isEmpty()) return;
+        try {
+            SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
+            String json = sharedPrefs.getString("persisted_chats", "[]");
+            JSONArray array = new JSONArray(json);
+            JSONArray newArray = new JSONArray();
+            boolean updated = false;
+
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject obj = array.getJSONObject(i);
+                String user = obj.optString("name", "");
+                String id = obj.optString("id", "");
+
+                boolean isMatch = (deviceAddr != null && !deviceAddr.isEmpty() && deviceAddr.equalsIgnoreCase(id))
+                        || (user.equalsIgnoreCase(targetName) && !BluetoothAdapter.checkBluetoothAddress(user));
+
+                if (isMatch) {
+                    obj.put("onlineStatus", isOnline ? "ONLINE" : "OFFLINE");
+                    updated = true;
+                }
+                newArray.put(obj);
+            }
+
+            if (updated) {
+                sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply();
+                ChatListNotifier.INSTANCE.notifyChanged();
+            }
+        } catch (Throwable e) {
+            Log.e(TAG, "Failed to save background presence", e);
         }
     }
 
@@ -563,6 +672,14 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 String summaryStr = ChatMessage.getSummaryDescription(msg);
                 saveBackgroundLastMessageToChatList(displayName, fromAddress, summaryStr);
                 showMessageNotification(this, displayName, summaryStr, fromAddress);
+            } else if (type == 0x04) { // TYPE_TYPING
+                String textData = new String(payload, StandardCharsets.UTF_8);
+                saveBackgroundTypingStateToChatList(displayName, fromAddress, textData);
+            } else if (type == 0x03) { // TYPE_READ_RECEIPT
+                String readMsgId = new String(payload, StandardCharsets.UTF_8);
+                saveBackgroundReadReceiptToChatList(displayName, fromAddress, readMsgId);
+            } else if (type == 0x07) { // TYPE_PRESENCE
+                saveBackgroundPresenceToChatList(displayName, fromAddress, true);
             } else if (type == 0x08) { // TYPE_CHAT_DELETED
                 ChatHistoryManager.deleteHistoryCompletely(this, displayName, fromAddress);
                 ChatListNotifier.INSTANCE.notifyChanged();

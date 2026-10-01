@@ -311,7 +311,7 @@ class ChatListAdapter(
                 binding.ivUserAvatar.visibility = View.INVISIBLE
 
                 val now = System.currentTimeMillis()
-                val isCurrentlyTyping = "TYPING".equals(chat.activityState, ignoreCase = true) && chat.typingUntil > now
+                val isCurrentlyTyping = chat.isTyping || "TYPING".equals(chat.activityState, ignoreCase = true) || (chat.typingUntil > 0 && chat.typingUntil > now)
 
                 binding.tvContactName.text = if (BluetoothAdapter.checkBluetoothAddress(chat.name)) "Собеседник" else chat.name
                 if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true) || "SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
@@ -333,7 +333,7 @@ class ChatListAdapter(
                     binding.tvLastMessage.text = "Смотрит файл"
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
-                } else if (isCurrentlyTyping || (chat.isTyping && chat.typingUntil > now)) {
+                } else if (isCurrentlyTyping) {
                     holder.startTypingAnimation("Печатает")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
