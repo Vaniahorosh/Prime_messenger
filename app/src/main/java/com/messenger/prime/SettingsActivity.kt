@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import java.io.ByteArrayOutputStream
@@ -22,6 +23,7 @@ import android.transition.TransitionManager
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.EditorInfo
@@ -73,21 +75,11 @@ class SettingsActivity : AppCompatActivity() {
 
     private var binding: ActivitySettingsContentBinding? = null
 
-    private var isHeaderExpanded = false
-    private var isHeaderMoving = false
-    private var isAnimating = false
-    private var pullStartY = 0f
-    private val PULL_THRESHOLD = 250f
-    private var currentAnimator: ValueAnimator? = null
-    private var isVibrated = false
     private var isClosing = false
     private val isPhotoMenuMode = mutableStateOf(false)
     private val wobbleAnimators = mutableListOf<Animator>()
 
     private val isThemeDialogVisible = mutableStateOf(false)
-
-    private val backLabelAlpha = mutableFloatStateOf(1f)
-    private val backLabelTranslationX = mutableFloatStateOf(0f)
 
     private var currentAvatarUri: String? = null
 
@@ -224,8 +216,6 @@ class SettingsActivity : AppCompatActivity() {
                 togglePhotoMenuMode(false)
             } else if (b != null && b.layoutAccountCollapsible.visibility == View.VISIBLE) {
                 toggleAccountCollapsible(b)
-            } else if (isHeaderExpanded) {
-                b?.let { animateHeaderState(it, false) }
             } else {
                 finish()
             }
@@ -253,7 +243,8 @@ class SettingsActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
 
-        setupEdgeToEdge(isDarkIcons = true)
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        setupEdgeToEdge(isDarkIcons = !isDark)
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
@@ -335,12 +326,7 @@ class SettingsActivity : AppCompatActivity() {
                                 }
                             }
 
-                            val bgColorInt = if (darkTheme) {
-                                android.graphics.Color.parseColor("#1E293B")
-                            } else {
-                                android.graphics.Color.parseColor("#F1F5F9")
-                            }
-                            b.nestedScrollView.setBackgroundColor(bgColorInt)
+                            b.nestedScrollView.setBackgroundColor(ContextCompat.getColor(this@SettingsActivity, R.color.prime_base))
                             b.headerStaticBlock.clipChildren = true
 
                             val sysDensity = resources.displayMetrics.density
@@ -480,8 +466,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupComposePhoto(b: ActivitySettingsContentBinding) {
         b.ivPhotoCard.apply {
             setOnClickListener {
-                if (!isHeaderExpanded && currentAvatarUri != null) togglePhotoMenuMode(true)
-                else if (currentAvatarUri != null) openFullPhoto()
+                if (currentAvatarUri != null) togglePhotoMenuMode(!isPhotoMenuMode.value)
                 else pickImage.launch("image/*")
             }
             profileImageView = this
@@ -547,8 +532,7 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
         b.photoCard.setOnClickListener {
-            if (!isHeaderExpanded && currentAvatarUri != null) togglePhotoMenuMode(true)
-            else if (currentAvatarUri != null) openFullPhoto()
+            if (currentAvatarUri != null) togglePhotoMenuMode(!isPhotoMenuMode.value)
             else pickImage.launch("image/*")
         }
         b.photoCard.setOnLongClickListener {
@@ -586,12 +570,6 @@ class SettingsActivity : AppCompatActivity() {
             else -> "Системная"
         }
         b.cardTheme.setOnClickListener { showThemeDialog(b) }
-        b.switchAnimations.setOnCheckedChangeListener(null)
-        b.switchAnimations.isChecked = sharedPrefs.getBoolean("settings_animations", true)
-        b.switchAnimations.setOnCheckedChangeListener { _, isChecked ->
-            sharedPrefs.edit().putBoolean("settings_animations", isChecked).apply()
-            restartApp()
-        }
 
         b.switchLavaBg.setOnCheckedChangeListener(null)
         b.switchLavaBg.isChecked = sharedPrefs.getBoolean("settings_lava_bg", true)
@@ -599,22 +577,18 @@ class SettingsActivity : AppCompatActivity() {
             sharedPrefs.edit().putBoolean("settings_lava_bg", isChecked).apply()
             restartApp()
         }
-
-        b.switchBlocked.setOnCheckedChangeListener(null)
-        b.switchBlocked.isChecked = sharedPrefs.getBoolean("settings_show_blocked", false)
-        b.switchBlocked.setOnCheckedChangeListener { _, isChecked ->
-            sharedPrefs.edit().putBoolean("settings_show_blocked", isChecked).apply()
-            restartApp()
+        b.cardLavaBg.setOnClickListener {
+            b.switchLavaBg.isChecked = !b.switchLavaBg.isChecked
         }
 
-        b.switchSearch.setOnCheckedChangeListener(null)
-        b.switchSearch.isChecked = sharedPrefs.getBoolean("settings_hide_search", false)
-        b.switchSearch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPrefs.edit().putBoolean("settings_hide_search", isChecked).apply()
-            restartApp()
+        b.cardGithub.setOnClickListener {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Vaniahorosh/Prime_messenger"))
+                startActivity(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
-
-        setupHeaderExpansion(b)
     }
 
     private fun togglePhotoMenuMode(enable: Boolean) {
@@ -745,10 +719,6 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun finish() {
-        if (isHeaderExpanded) {
-            binding?.let { updateHeaderAnimation(it, 0f) }
-            isHeaderExpanded = false
-        }
         LavaBackgroundState.onTransitionStart()
         super.finish()
         if (android.os.Build.VERSION.SDK_INT < 34) {
@@ -762,231 +732,20 @@ class SettingsActivity : AppCompatActivity() {
             b.layoutWithPhoto.visibility = View.VISIBLE
             b.layoutNoPhoto.visibility = View.GONE
             b.headerStaticBlock.minimumHeight = (320 * resources.displayMetrics.density).toInt()
-
-            b.layoutAccountData.visibility = View.GONE
-            b.layoutAccountData.alpha = 0f
-            b.layoutAccountData.translationY = 0f
-            b.layoutSettingsHeader.translationY = 0f
-            b.layoutSwitches.translationY = 0f
-            b.tvAppVersion.translationY = 0f
         } else {
             b.layoutWithPhoto.visibility = View.GONE
             b.layoutNoPhoto.visibility = View.VISIBLE
             b.headerStaticBlock.minimumHeight = 0
             if (isPhotoMenuMode.value) togglePhotoMenuMode(false)
-
-            b.layoutAccountData.visibility = View.VISIBLE
-            b.layoutAccountData.alpha = 1f
-            b.layoutAccountData.translationY = 0f
-            b.layoutSettingsHeader.translationY = 0f
-            b.layoutSwitches.translationY = 0f
-            b.tvAppVersion.translationY = 0f
         }
+        b.layoutAccountData.visibility = View.VISIBLE
+        b.layoutAccountData.alpha = 1f
+        b.layoutAccountData.translationY = 0f
+        b.layoutSettingsHeader.translationY = 0f
+        b.layoutSwitches.translationY = 0f
+        b.layoutInfoHeader.translationY = 0f
+        b.layoutInfoBlock.translationY = 0f
         updatePhotoCardImage(b)
-    }
-
-    private fun setupHeaderExpansion(b: ActivitySettingsContentBinding) {
-        b.nestedScrollView.setOnTouchListener { v, event ->
-            if (isAnimating) return@setOnTouchListener true
-            if (event.action == MotionEvent.ACTION_UP) {
-                v.performClick()
-            }
-            
-            val isKeyboardVisible = ViewCompat.getRootWindowInsets(b.root)?.isVisible(WindowInsetsCompat.Type.ime()) == true
-            val isAccountExpanded = b.layoutAccountCollapsible.visibility == View.VISIBLE
-            if (isKeyboardVisible || isAccountExpanded) return@setOnTouchListener false
-
-            if (b.nestedScrollView.scrollY > 0 && !isHeaderExpanded) {
-                pullStartY = -1f
-                return@setOnTouchListener false
-            }
-            if (currentAvatarUri == null) return@setOnTouchListener false
-
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    val headerHeight = b.headerStaticBlock.height
-                    if (event.y > headerHeight && !isHeaderExpanded) {
-                        pullStartY = -1f
-                    } else {
-                        pullStartY = event.y
-                    }
-                    isVibrated = false
-                    isHeaderMoving = false
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (pullStartY == -1f) {
-                        pullStartY = event.y
-                        return@setOnTouchListener false
-                    }
-                    val dy = event.y - pullStartY
-                    if (!isHeaderExpanded) {
-                        if (dy > 20f && b.nestedScrollView.scrollY == 0) {
-                            if (!isHeaderMoving) {
-                                isHeaderMoving = true
-                                v.parent.requestDisallowInterceptTouchEvent(true)
-                            }
-                            val progress = (dy / PULL_THRESHOLD).coerceIn(0f, 1.2f)
-                            updateHeaderAnimation(b, progress)
-                            if (progress >= 1f && !isVibrated) {
-                                b.root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                isVibrated = true
-                            }
-                            return@setOnTouchListener true
-                        }
-                    } else {
-                        if (dy < -20f) {
-                            if (!isHeaderMoving) {
-                                isHeaderMoving = true
-                                v.parent.requestDisallowInterceptTouchEvent(true)
-                            }
-                            val progress = (1f - (Math.abs(dy) / PULL_THRESHOLD)).coerceIn(0f, 1f)
-                            updateHeaderAnimation(b, progress)
-                            if (progress <= 0f) {
-                                isHeaderExpanded = false
-                                isHeaderMoving = false
-                                v.parent.requestDisallowInterceptTouchEvent(false)
-                                return@setOnTouchListener false 
-                            }
-                            return@setOnTouchListener true
-                        } else if (dy > 150f && !isClosing) {
-                            openFullPhoto()
-                            pullStartY = event.y
-                            return@setOnTouchListener true
-                        }
-                    }
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (pullStartY != -1f && isHeaderMoving) {
-                        val dy = event.y - pullStartY
-                        if (!isHeaderExpanded) {
-                            if (dy > PULL_THRESHOLD / 2) animateHeaderState(b, true)
-                            else animateHeaderState(b, false)
-                        } else {
-                            if (dy < -PULL_THRESHOLD / 3) animateHeaderState(b, false)
-                            else animateHeaderState(b, true)
-                        }
-                    }
-                    pullStartY = -1f
-                    isHeaderMoving = false
-                    v.parent.requestDisallowInterceptTouchEvent(false)
-                }
-            }
-            false
-        }
-    }
-
-    private fun updateHeaderAnimation(b: ActivitySettingsContentBinding, progress: Float) {
-        val density = resources.displayMetrics.density
-        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
-        val leftColWidth = b.layoutLeftColumn.width.toFloat()
-        val cardWidth = b.photoCard.width.toFloat()
-        val cardHeight = b.photoCard.height.toFloat()
-        val headerHeight = b.headerStaticBlock.height.toFloat()
-
-        if (leftColWidth == 0f || cardWidth == 0f || headerHeight == 0f) return
-
-        val totalOffsetUp = b.layoutWithPhoto.paddingTop.toFloat()
-
-        val targetScaleX = screenWidth / cardWidth
-        val targetScaleY = (headerHeight + totalOffsetUp) / cardHeight 
-        
-        val currentScaleX = 1f + (targetScaleX - 1f) * progress
-        val currentScaleY = 1f + (targetScaleY - 1f) * progress
-        
-        b.photoCard.scaleX = currentScaleX
-        b.photoCard.scaleY = currentScaleY
-        
-        b.layoutPhotoInternal.scaleX = 1f / currentScaleX
-        b.layoutPhotoInternal.scaleY = 1f / currentScaleY
-        b.layoutPhotoInternal.pivotX = 0f
-        b.layoutPhotoInternal.pivotY = cardHeight
-        
-        val extraPadding = (16 * progress * density)
-        b.tvUserNameWP.translationX = extraPadding
-        b.tvUserNameWP.translationY = -extraPadding
-
-        b.tvStatusWP.text = "в сети"
-        b.tvStatusWP.alpha = 1f
-        b.tvStatusWP.translationX = extraPadding
-        b.tvStatusWP.translationY = -extraPadding
-
-        val gradView = b.viewPhotoInfoGradient
-        gradView.pivotX = 0f
-        gradView.pivotY = gradView.height.toFloat()
-        gradView.scaleY = 1f / currentScaleY
-        gradView.scaleX = 1f
-
-        val otherAlpha = (1f - progress * 2.5f).coerceIn(0f, 1f)
-        val otherTranslationX = -leftColWidth * progress
-
-        backLabelAlpha.floatValue = otherAlpha
-        backLabelTranslationX.floatValue = otherTranslationX
-
-        b.btnBackWP.alpha = (1f - progress * 0.6f).coerceIn(0.4f, 1f)
-        b.tvBackLabelWP.alpha = otherAlpha
-        b.tvBackLabelWP.translationX = otherTranslationX
-
-        b.btnBackWPLayout.translationZ = 10f * density * progress
-        b.layoutLeftColumn.alpha = otherAlpha
-        b.layoutLeftColumn.translationX = otherTranslationX
-
-        b.photoCard.pivotX = 0f
-        b.photoCard.pivotY = 0f
-        b.photoCard.translationX = -(leftColWidth * progress)
-        b.photoCard.translationY = -(totalOffsetUp * progress)
-
-        b.photoCard.radius = (24 * (1f - progress)).coerceAtLeast(0f) * density
-        b.photoCard.cardElevation = (8 * (1f - progress)).coerceAtLeast(0f) * density
-        
-        if (currentAvatarUri != null) {
-            if (progress > 0.01f) {
-                b.layoutAccountData.visibility = View.VISIBLE
-                val accountHeight = b.layoutAccountData.height.toFloat().takeIf { it > 0 } ?: (120f * density)
-                val shift = -accountHeight * (1f - progress)
-
-                b.layoutAccountData.alpha = (progress * 2.5f - 0.2f).coerceIn(0f, 1f)
-                b.layoutAccountData.translationY = shift
-                b.layoutSettingsHeader.translationY = shift
-                b.layoutSwitches.translationY = shift
-                b.tvAppVersion.translationY = shift
-            } else {
-                b.layoutAccountData.visibility = View.GONE
-                b.layoutAccountData.alpha = 0f
-                b.layoutAccountData.translationY = 0f
-                b.layoutSettingsHeader.translationY = 0f
-                b.layoutSwitches.translationY = 0f
-                b.tvAppVersion.translationY = 0f
-            }
-        } else {
-            b.layoutAccountData.visibility = View.VISIBLE
-            b.layoutAccountData.alpha = 1f
-            b.layoutAccountData.translationY = 0f
-            b.layoutSettingsHeader.translationY = 0f
-            b.layoutSwitches.translationY = 0f
-            b.tvAppVersion.translationY = 0f
-        }
-    }
-
-    private fun animateHeaderState(b: ActivitySettingsContentBinding, expand: Boolean) {
-        currentAnimator?.cancel()
-        isAnimating = true
-        val cardWidth = b.photoCard.width
-        if (cardWidth == 0) return
-        val currentProgress = (b.photoCard.scaleX - 1f) / ((resources.displayMetrics.widthPixels.toFloat() / cardWidth) - 1f)
-        val startVal = if (currentProgress.isNaN()) 0f else currentProgress.coerceIn(0f, 1f)
-        val animator = ValueAnimator.ofFloat(startVal, if (expand) 1f else 0f)
-        currentAnimator = animator
-        animator.addUpdateListener { anim -> updateHeaderAnimation(b, anim.animatedValue as Float) }
-        animator.duration = 300
-        animator.interpolator = DecelerateInterpolator()
-        animator.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                isHeaderExpanded = expand
-                isAnimating = false
-                currentAnimator = null
-            }
-        })
-        animator.start()
     }
 
     private fun openFullPhoto() {
@@ -996,10 +755,20 @@ class SettingsActivity : AppCompatActivity() {
             return
         }
         if (isClosing) return
-        val intent = Intent(this, PhotoViewActivity::class.java).apply {
-            putExtra("EXTRA_URI", avatarUri)
-            putExtra("EXTRA_PHOTO_URI", avatarUri)
-        }
+
+        val myName = currentNameInDB.ifEmpty { "Я" }
+        val msg = ChatMessage(
+            "Аватар профиля",
+            "Это вы",
+            myName,
+            true,
+            null,
+            0L,
+            avatarUri,
+            "my_avatar_preview"
+        )
+        MediaPlayerActivity.setSharedMediaList(listOf(msg), 0)
+        val intent = Intent(this, MediaPlayerActivity::class.java)
         startActivity(intent)
     }
 

@@ -43,6 +43,7 @@ dependencies {
     implementation(libs.material)
     implementation("com.r0adkll:slidableactivity:2.1.0")
     implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation("jp.wasabeef:glide-transformations:4.3.0")
     
     // Compose & BlurView
     implementation("androidx.compose.ui:ui:1.6.8")

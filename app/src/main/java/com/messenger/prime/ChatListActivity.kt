@@ -48,9 +48,14 @@ import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
+import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.ImageView
+import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -2062,6 +2067,7 @@ class ChatListActivity : AppCompatActivity() {
                     Glide.with(this)
                         .asGif()
                         .load(avatarFile)
+                        .override(200, 200)
                         .centerCrop()
                         .signature(signatureKey)
                         .placeholder(R.drawable.ic_person)
@@ -2069,6 +2075,7 @@ class ChatListActivity : AppCompatActivity() {
                 } else {
                     Glide.with(this)
                         .load(avatarFile)
+                        .override(200, 200)
                         .transform(CenterCrop(), RoundedCorners(radiusPx))
                         .signature(signatureKey)
                         .placeholder(R.drawable.ic_person)
@@ -2145,14 +2152,22 @@ class ChatListActivity : AppCompatActivity() {
             val currentUser = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("current_user", "") ?: ""
             val myDisplayName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${currentUser}_name", currentUser) ?: currentUser
             val payload = "DELETE_CHAT:login=$myDisplayName;name=$myDisplayName".toByteArray(Charsets.UTF_8)
-            BluetoothConnectionManager.getInstance().sendPacket(targetId, 8.toByte(), payload)
-            Thread.sleep(80)
+            
+            // Execute Bluetooth packet send and disconnect in background to avoid dropping frames
+            Thread {
+                try {
+                    BluetoothConnectionManager.getInstance().sendPacket(targetId, 8.toByte(), payload)
+                    Thread.sleep(80)
+                } catch (e: Exception) {
+                    Log.e("ChatListActivity", "Error sending deletion packet", e)
+                } finally {
+                    BluetoothConnectionManager.getInstance().stopAll()
+                    BluetoothSocketHolder.removeConnection(contact.id, contact.name)
+                }
+            }.start()
         } catch (e: Exception) {
-            Log.e("ChatListActivity", "Error sending deletion packet", e)
+            Log.e("ChatListActivity", "Error setting up deletion thread", e)
         }
-
-        BluetoothConnectionManager.getInstance().stopAll()
-        BluetoothSocketHolder.removeConnection(contact.id, contact.name)
         
         // Completely forget the device (unpair/removeBond) if it's a Bluetooth MAC address
         try {

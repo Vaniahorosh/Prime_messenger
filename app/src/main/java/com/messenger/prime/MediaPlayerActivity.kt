@@ -51,6 +51,8 @@ import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.bumptech.glide.Glide
+import com.bumptech.glide.request.RequestOptions
+import jp.wasabeef.glide.transformations.BlurTransformation
 import eightbitlab.com.blurview.BlurView
 import java.io.File
 import java.text.SimpleDateFormat
@@ -576,12 +578,41 @@ class MediaPlayerActivity : AppCompatActivity() {
             tvTimestamp.alpha = 1f
         }
 
+        val isAvatarPreview = item.messageId?.contains("avatar_preview") == true
+                || item.text == "Аватар профиля"
+                || item.time == "Это вы"
+                || item.time == "В прайме!"
+                || item.imagePath?.lowercase()?.contains("avatar") == true
+
         val caption = item.text
-        if (!caption.isNullOrEmpty() && caption != "Фото" && caption != "Фотография") {
+        if (!isAvatarPreview && !caption.isNullOrEmpty() && caption != "Фото" && caption != "Фотография" && caption != "Аватар профиля") {
             tvCaption.visibility = View.VISIBLE
             tvCaption.text = caption
         } else {
             tvCaption.visibility = View.GONE
+        }
+
+        val path = item.imagePath ?: ""
+        val isGif = path.lowercase().endsWith(".gif") || path.lowercase().contains("gif")
+        if (path.isNotEmpty()) {
+            val model: Any = if (path.startsWith("content://") || path.startsWith("file://") || path.startsWith("http")) {
+                Uri.parse(path)
+            } else {
+                val file = File(path)
+                if (file.exists()) file else Uri.parse(path)
+            }
+            if (isGif) {
+                Glide.with(this)
+                    .asGif()
+                    .load(model)
+                    .apply(RequestOptions.bitmapTransform(BlurTransformation(25, 3)))
+                    .into(ivBlurredBackground)
+            } else {
+                Glide.with(this)
+                    .load(model)
+                    .apply(RequestOptions.bitmapTransform(BlurTransformation(25, 3)))
+                    .into(ivBlurredBackground)
+            }
         }
 
         isCurrentVideo = item.isVideo || item.messageType == ChatMessage.MessageType.VIDEO
@@ -1091,30 +1122,30 @@ class MediaPlayerActivity : AppCompatActivity() {
                 val path = item.imagePath ?: ""
                 val isGif = path.lowercase().endsWith(".gif") || path.lowercase().contains("gif")
 
-                if (isGif && path.isNotEmpty()) {
-                    val target = if (path.startsWith("content://")) Uri.parse(path) else File(path)
+                val model: Any? = if (path.isNotEmpty()) {
+                    if (path.startsWith("content://") || path.startsWith("file://") || path.startsWith("http")) {
+                        Uri.parse(path)
+                    } else {
+                        val file = File(path)
+                        if (file.exists()) file else Uri.parse(path)
+                    }
+                } else null
+
+                if (isGif && model != null) {
                     Glide.with(itemView.context)
                         .asGif()
-                        .load(target)
+                        .load(model)
+                        .placeholder(R.drawable.ic_photo)
+                        .error(R.drawable.ic_person)
                         .into(imageView)
                 } else if (item.imageBitmap != null) {
                     imageView.setImageBitmap(item.imageBitmap)
-                } else if (path.isNotEmpty()) {
-                    if (path.startsWith("content://")) {
-                        Glide.with(itemView.context).load(Uri.parse(path)).error(R.drawable.ic_person).into(imageView)
-                    } else {
-                        val file = File(path)
-                        if (file.exists()) {
-                            val bmp = BitmapFactory.decodeFile(file.absolutePath)
-                            if (bmp != null) {
-                                imageView.setImageBitmap(bmp)
-                            } else {
-                                imageView.setImageURI(Uri.fromFile(file))
-                            }
-                        } else {
-                            imageView.setImageURI(Uri.parse(path))
-                        }
-                    }
+                } else if (model != null) {
+                    Glide.with(itemView.context)
+                        .load(model)
+                        .placeholder(R.drawable.ic_photo)
+                        .error(R.drawable.ic_person)
+                        .into(imageView)
                 } else {
                     imageView.setImageResource(R.drawable.ic_person)
                 }

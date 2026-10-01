@@ -1,6 +1,7 @@
 package com.messenger.prime
 
 import android.animation.ValueAnimator
+import android.app.ActivityManager
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Camera
@@ -99,6 +100,15 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         if (w > 0 && h > 0) {
+            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            val isLowRam = activityManager?.isLowRamDevice == true
+
+            if (isLowRam) {
+                shapes.clear() // Не генерируем тяжелые фоновые фигуры для слабых устройств
+                invalidate()
+                return
+            }
+
             generateGridShapes(w, h)
             startEntranceAnimation()
         }

@@ -256,8 +256,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private ChatAdapter chatAdapter;
     private Handler handler;
 
-    private View layoutConnectAction;
-    private Button btnPrimeConnect;
     private View layoutInput;
     private ImageButton btnAttach;
     private ImageButton btnCancelEdit;
@@ -767,11 +765,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             });
         }
         
-        layoutConnectAction = findViewById(R.id.layoutConnectAction);
-        if (layoutConnectAction != null) {
-            layoutConnectAction.setVisibility(View.GONE);
-        }
-        btnPrimeConnect = findViewById(R.id.btnPrimeConnect);
         layoutInput = findViewById(R.id.layoutInput);
         btnAttach = findViewById(R.id.btnAttach);
         btnCancelEdit = findViewById(R.id.btnCancelEdit);
@@ -1769,17 +1762,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             public void afterTextChanged(Editable s) {}
         });
 
-        if (btnPrimeConnect != null) {
-            btnPrimeConnect.setOnClickListener(v -> {
-                isManuallyDisconnected = false;
-                startPrimeConnection(true);
-                if (layoutConnectAction != null) {
-                    layoutConnectAction.setVisibility(View.GONE);
-                }
-                startAnimatingStatus("Установка связи", R.color.prime_accent);
-            });
-        }
-
         // Настройка Bluetooth
         BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         bluetoothAdapter = bluetoothManager.getAdapter();
@@ -1830,6 +1812,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             } else if ("com.messenger.prime.AVATAR_CHANGED".equals(action) || "com.messenger.prime.NAME_CHANGED".equals(action)) {
                 reloadLocalProfileFromSettings();
                 SharedPreferences prefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                String updatedContactName = (deviceAddress != null && !deviceAddress.isEmpty()) ? prefs.getString("contact_name_" + deviceAddress, null) : null;
+                if (updatedContactName != null && !updatedContactName.isEmpty()) {
+                    targetUsername = updatedContactName;
+                    if (tvChatName != null) tvChatName.setText(formatDisplayName(targetUsername));
+                }
                 String contactAvatar = (deviceAddress != null && !deviceAddress.isEmpty()) ? prefs.getString("contact_avatar_" + deviceAddress, null) : null;
                 if (contactAvatar == null) contactAvatar = remoteAvatarUri;
                 updateAvatarUi(contactAvatar, targetUsername);
@@ -1899,10 +1886,42 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     this.deviceAddress = newAddress;
                 }
 
+                activeChatPersonAddress = this.deviceAddress;
+                activeChatPersonName = this.targetUsername;
+
+                BluetoothSocketHolder.setActiveDeviceAddress(this.deviceAddress);
+                BluetoothSocketHolder.setActiveTargetUsername(this.targetUsername);
+
+                SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                String resolvedName = (this.deviceAddress != null && !this.deviceAddress.isEmpty()) ?
+                    sharedPrefs.getString("contact_name_" + this.deviceAddress, this.targetUsername) : this.targetUsername;
+                if (resolvedName != null && !resolvedName.isEmpty()) {
+                    this.targetUsername = resolvedName;
+                }
+
+                if (tvChatName != null) {
+                    tvChatName.setText(formatDisplayName(this.targetUsername));
+                }
+
+                String contactAvatar = (this.deviceAddress != null && !this.deviceAddress.isEmpty()) ?
+                    sharedPrefs.getString("contact_avatar_" + this.deviceAddress, null) : null;
+                if (contactAvatar == null) contactAvatar = remoteAvatarUri;
+                updateAvatarUi(contactAvatar, this.targetUsername);
+
                 reloadMessagesFromHistory();
+                sendReadReceiptsForUnreadMessages();
+
+                if (isConnectionActive()) {
+                    isRemoteUserOnline = true;
+                    stopAnimatingStatus();
+                    setStatusWithAnimation("В сети", R.color.prime_success);
+                    updateInputVisibility(true);
+                } else {
+                    updateInputVisibility(false);
+                    updateOfflineLastSeenStatus();
+                }
 
                 try {
-                    SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
                     String json = sharedPrefs.getString("persisted_chats", "[]");
                     JSONArray array = new JSONArray(json);
                     for (int i = 0; i < array.length(); i++) {
@@ -2079,9 +2098,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void updateOfflineLastSeenStatus(long ts) {
         if (targetUsername == null || targetUsername.isEmpty()) return;
         String lastSeenStr = formatLastSeen(ts);
-        if (!lastSeenStr.contains("Только чтение")) {
-            lastSeenStr = lastSeenStr + " (Только чтение)";
-        }
         setStatusWithAnimation(lastSeenStr, R.color.prime_text_secondary);
     }
 
@@ -3079,8 +3095,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     if (avatarUriToUse != null && !avatarUriToUse.isEmpty()) {
                         obj.put("avatarUri", avatarUriToUse);
                     }
-                    if (user != null && !user.isEmpty()) {
-                        obj.put("name", user);
+                    String nameToSave = user;
+                    if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                        String mappedName = sharedPrefs.getString("contact_name_" + deviceAddress, null);
+                        if (mappedName != null && !mappedName.isEmpty() && !mappedName.equals("1")) {
+                            nameToSave = mappedName;
+                        }
+                    }
+                    if (nameToSave != null && !nameToSave.isEmpty()) {
+                        obj.put("name", nameToSave);
                     }
                     updatedObj = obj;
                 } else {
@@ -3145,11 +3168,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 boolean isGenericObjName = "Собеседник".equalsIgnoreCase(objName) || "Prime Собеседник".equalsIgnoreCase(objName) || "Контакт".equalsIgnoreCase(objName);
 
                 boolean matches = false;
-                if (devAddress != null && !devAddress.isEmpty() && devAddress.equalsIgnoreCase(objId)) {
+                if (devAddress != null && !devAddress.isEmpty() && (devAddress.equalsIgnoreCase(objId) || devAddress.equalsIgnoreCase(objName))) {
                     matches = true;
-                } else if (!isGenericOldName && oldName != null && !oldName.isEmpty() && oldName.equalsIgnoreCase(objName) && !isValidMacAddress(oldName)) {
+                } else if (!isGenericOldName && oldName != null && !oldName.isEmpty() && (oldName.equalsIgnoreCase(objName) || oldName.equalsIgnoreCase(objId))) {
                     matches = true;
-                } else if (!isGenericObjName && newName != null && !newName.isEmpty() && newName.equalsIgnoreCase(objName) && !isValidMacAddress(newName)) {
+                } else if (!isGenericObjName && newName != null && !newName.isEmpty() && (newName.equalsIgnoreCase(objName) || newName.equalsIgnoreCase(objId))) {
                     matches = true;
                 }
 
@@ -4122,6 +4145,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             remoteName = data;
                         }
                         if (remoteName != null && !remoteName.trim().isEmpty() && !remoteName.equals("1")) {
+                            String oldName = this.targetUsername;
                             this.targetUsername = remoteName;
                             BluetoothConnectionManager.getInstance().setRemoteUsername(deviceAddress, remoteName);
                             if (tvChatName != null) tvChatName.setText(formatDisplayName(remoteName));
@@ -4132,11 +4156,24 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                 ed.putString("contact_name_" + deviceAddress, remoteName);
                                 ed.putString(deviceAddress + "_name", remoteName);
                             }
+                            if (oldName != null && !oldName.isEmpty()) {
+                                ed.putString("contact_name_" + oldName, remoteName);
+                                ed.putString(oldName + "_name", remoteName);
+                            }
+                            if (remoteLogin != null && !remoteLogin.isEmpty()) {
+                                ed.putString("contact_name_" + remoteLogin, remoteName);
+                                ed.putString(remoteLogin + "_name", remoteName);
+                            }
                             ed.apply();
 
-                            updatePersistedChatUser(deviceAddress, null, remoteName, remoteLogin);
+                            if (oldName != null && !oldName.equalsIgnoreCase(remoteName) && !isValidMacAddress(oldName)) {
+                                migrateHistoryIfNeeded(oldName, remoteName);
+                            }
+
+                            updatePersistedChatUser(deviceAddress, oldName, remoteName, remoteLogin);
                             saveLastMessageToChatList(null, null, false, "ONLINE");
                             ChatListNotifier.INSTANCE.notifyChanged();
+                            sendBroadcast(new Intent("com.messenger.prime.NAME_CHANGED").setPackage(getPackageName()));
                         }
                         handler.sendEmptyMessage(HANDSHAKE_SUCCESS);
 
@@ -4169,6 +4206,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             remoteName = data;
                         }
                         if (remoteName != null && !remoteName.trim().isEmpty() && !remoteName.equals("1")) {
+                            String oldName = this.targetUsername;
                             this.targetUsername = remoteName;
                             BluetoothConnectionManager.getInstance().setRemoteUsername(deviceAddress, remoteName);
                             if (tvChatName != null) tvChatName.setText(formatDisplayName(remoteName));
@@ -4179,11 +4217,20 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                 ed.putString("contact_name_" + deviceAddress, remoteName);
                                 ed.putString(deviceAddress + "_name", remoteName);
                             }
+                            if (oldName != null && !oldName.isEmpty()) {
+                                ed.putString("contact_name_" + oldName, remoteName);
+                                ed.putString(oldName + "_name", remoteName);
+                            }
                             ed.apply();
 
-                            updatePersistedChatUser(deviceAddress, null, remoteName, null);
+                            if (oldName != null && !oldName.equalsIgnoreCase(remoteName) && !isValidMacAddress(oldName)) {
+                                migrateHistoryIfNeeded(oldName, remoteName);
+                            }
+
+                            updatePersistedChatUser(deviceAddress, oldName, remoteName, null);
                             saveLastMessageToChatList(null, null, false, "ONLINE");
                             ChatListNotifier.INSTANCE.notifyChanged();
+                            sendBroadcast(new Intent("com.messenger.prime.NAME_CHANGED").setPackage(getPackageName()));
                         }
                         handler.sendEmptyMessage(HANDSHAKE_SUCCESS);
                         sendLocalAvatar(false);
@@ -4320,19 +4367,44 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     if (profileData.startsWith("HANDSHAKE:")) {
                         String data = profileData.substring(10).trim();
                         String remoteName = targetUsername;
-                        if (data.contains("name=")) {
+                        String remoteLogin = "";
+                        if (data.contains("login=") || data.contains("name=")) {
                             for (String p : data.split(";")) {
                                 if (p.startsWith("name=")) remoteName = p.substring(5);
+                                else if (p.startsWith("login=")) remoteLogin = p.substring(6);
                             }
                         } else {
                             remoteName = data;
                         }
-                        if (!remoteName.isEmpty() && !remoteName.equals(targetUsername)) {
+                        if (remoteName != null && !remoteName.trim().isEmpty() && !remoteName.equals("1")) {
                             String oldName = targetUsername;
                             targetUsername = remoteName;
-                            migrateHistoryIfNeeded(oldName, remoteName);
                             if (tvChatName != null) tvChatName.setText(formatDisplayName(remoteName));
+
+                            SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                            SharedPreferences.Editor ed = sp.edit();
+                            if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                                ed.putString("contact_name_" + deviceAddress, remoteName);
+                                ed.putString(deviceAddress + "_name", remoteName);
+                            }
+                            if (oldName != null && !oldName.isEmpty()) {
+                                ed.putString("contact_name_" + oldName, remoteName);
+                                ed.putString(oldName + "_name", remoteName);
+                            }
+                            if (remoteLogin != null && !remoteLogin.isEmpty()) {
+                                ed.putString("contact_name_" + remoteLogin, remoteName);
+                                ed.putString(remoteLogin + "_name", remoteName);
+                            }
+                            ed.apply();
+
+                            if (oldName != null && !oldName.equalsIgnoreCase(remoteName) && !isValidMacAddress(oldName)) {
+                                migrateHistoryIfNeeded(oldName, remoteName);
+                            }
+
+                            updatePersistedChatUser(deviceAddress, oldName, remoteName, remoteLogin);
                             saveLastMessageToChatList(null, null, false, "ONLINE");
+                            ChatListNotifier.INSTANCE.notifyChanged();
+                            sendBroadcast(new Intent("com.messenger.prime.NAME_CHANGED").setPackage(getPackageName()));
                         }
                     }
                     break;
@@ -4368,16 +4440,33 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     bottomContainer.bringToFront();
                 }
 
-                if (layoutConnectAction != null) {
-                    layoutConnectAction.setVisibility(View.GONE);
-                }
-
                 if (etMessage != null) {
+                    etMessage.setEnabled(connected);
+                    etMessage.setFocusable(connected);
+                    etMessage.setFocusableInTouchMode(connected);
                     if (connected) {
                         etMessage.setHint("Сообщение...");
+                        etMessage.setAlpha(1.0f);
                     } else {
-                        etMessage.setHint("Не в сети (Только чтение)");
+                        etMessage.setHint("Не в сети");
+                        etMessage.setAlpha(0.5f);
+                        etMessage.clearFocus();
+                        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                        if (imm != null) {
+                            imm.hideSoftInputFromWindow(etMessage.getWindowToken(), 0);
+                        }
                     }
+                }
+
+                ImageButton btnSend = findViewById(R.id.btnSend);
+                if (btnSend != null) {
+                    btnSend.setEnabled(connected);
+                    btnSend.setAlpha(connected ? 1.0f : 0.4f);
+                }
+
+                if (btnAttach != null) {
+                    btnAttach.setEnabled(connected);
+                    btnAttach.setAlpha(connected ? 1.0f : 0.4f);
                 }
             }
         });
@@ -4930,16 +5019,18 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         if (receivedData.startsWith("HANDSHAKE:")) {
                             String data = receivedData.substring(10).trim();
                             String remoteName = targetUsername;
+                            String remoteLogin = "";
                             if (data.contains("login=") || data.contains("name=")) {
                                 String[] parts = data.split(";");
                                 for (String p : parts) {
                                     if (p.startsWith("name=")) remoteName = p.substring(5);
+                                    else if (p.startsWith("login=")) remoteLogin = p.substring(6);
                                 }
                             } else {
                                 remoteName = data;
                             }
                             
-                            if (!remoteName.isEmpty() && !Objects.equals(remoteName, targetUsername)) {
+                            if (remoteName != null && !remoteName.trim().isEmpty() && !remoteName.equals("1") && !Objects.equals(remoteName, targetUsername)) {
                                 String oldTarget = targetUsername;
                                 targetUsername = remoteName;
                                 try {
@@ -4948,30 +5039,36 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                 
                                 BluetoothSocketHolder.setActiveTargetUsername(remoteName);
                                 BluetoothSocketHolder.registerConnection(deviceAddress, remoteName, mmSocket, this);
+
+                                SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                                SharedPreferences.Editor ed = sharedPrefs.edit();
+                                if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                                    ed.putString("contact_name_" + deviceAddress, remoteName);
+                                    ed.putString(deviceAddress + "_name", remoteName);
+                                }
+                                if (oldTarget != null && !oldTarget.isEmpty()) {
+                                    ed.putString("contact_name_" + oldTarget, remoteName);
+                                    ed.putString(oldTarget + "_name", remoteName);
+                                }
+                                if (remoteLogin != null && !remoteLogin.isEmpty()) {
+                                    ed.putString("contact_name_" + remoteLogin, remoteName);
+                                    ed.putString(remoteLogin + "_name", remoteName);
+                                }
+                                ed.apply();
                                 
-                                migrateHistoryIfNeeded(oldTarget, remoteName);
+                                if (oldTarget != null && !oldTarget.equalsIgnoreCase(remoteName) && !isValidMacAddress(oldTarget)) {
+                                    migrateHistoryIfNeeded(oldTarget, remoteName);
+                                }
                                 if (deviceAddress != null) {
                                     migrateHistoryIfNeeded(deviceAddress, remoteName);
                                 }
                                 
-                                try {
-                                    SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-                                    String jsonChats = sharedPrefs.getString("persisted_chats", "[]");
-                                    JSONArray chatArray = new JSONArray(jsonChats);
-                                    for (int i = 0; i < chatArray.length(); i++) {
-                                        JSONObject obj = chatArray.getJSONObject(i);
-                                        if (oldTarget.equalsIgnoreCase(obj.optString("name")) || (deviceAddress != null && deviceAddress.equalsIgnoreCase(obj.optString("id")))) {
-                                            obj.put("name", remoteName);
-                                            break;
-                                        }
-                                    }
-                                    sharedPrefs.edit().putString("persisted_chats", chatArray.toString()).apply();
-                                } catch (Exception e) {
-                                    Log.e(TAG, "Failed to rename chat in persisted_chats", e);
-                                }
+                                updatePersistedChatUser(deviceAddress, oldTarget, remoteName, remoteLogin);
 
                                 final String finalName = remoteName;
-                                saveLastMessageToChatList(null);
+                                saveLastMessageToChatList(null, null, false, "ONLINE");
+                                ChatListNotifier.INSTANCE.notifyChanged();
+                                sendBroadcast(new Intent("com.messenger.prime.NAME_CHANGED").setPackage(getPackageName()));
 
                                 if (activeUiHandler != null) {
                                     activeUiHandler.post(() -> {

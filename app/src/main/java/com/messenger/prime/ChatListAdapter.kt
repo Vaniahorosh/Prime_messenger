@@ -27,6 +27,7 @@ import com.messenger.prime.databinding.ItemChatBinding
 import com.messenger.prime.databinding.ItemChatFooterBinding
 import com.messenger.prime.databinding.ItemChatIslandHeaderBinding
 import android.graphics.BitmapFactory
+import android.view.animation.OvershootInterpolator
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListUpdateCallback
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
@@ -49,8 +50,26 @@ class ChatListAdapter(
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     fun updateList(newChatList: List<ChatModel>) {
+        val diffCallback = object : DiffUtil.Callback() {
+            override fun getOldListSize(): Int = chatList.size
+            override fun getNewListSize(): Int = newChatList.size
+
+            override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+                val oldItem = chatList[oldItemPosition]
+                val newItem = newChatList[newItemPosition]
+                return oldItem.id == newItem.id && oldItem.name == newItem.name
+            }
+
+            override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+                val oldItem = chatList[oldItemPosition]
+                val newItem = newChatList[newItemPosition]
+                return oldItem == newItem
+            }
+        }
+
+        val diffResult = DiffUtil.calculateDiff(diffCallback)
         this.chatList = newChatList
-        notifyDataSetChanged()
+        diffResult.dispatchUpdatesTo(this)
     }
 
     companion object {
@@ -485,7 +504,7 @@ class ChatListAdapter(
                     binding.tvUnreadCounter.visibility = View.VISIBLE
                     binding.tvUnreadCounter.text = if (chat.unreadCount > 99) "99+" else chat.unreadCount.toString()
                     val counterBg = GradientDrawable().apply { cornerRadius = 100f }
-                    counterBg.setColor(if (chat.isMuted) ContextCompat.getColor(context, R.color.prime_text_secondary) else ContextCompat.getColor(context, R.color.prime_info))
+                    counterBg.setColor(if (chat.isMuted) ContextCompat.getColor(context, R.color.prime_text_secondary) else ContextCompat.getColor(context, R.color.prime_brand))
                     binding.tvUnreadCounter.background = counterBg
                 } else {
                     binding.tvUnreadCounter.visibility = View.GONE
@@ -605,6 +624,7 @@ fun loadAvatarFileIntoView(context: Context, file: File, imageView: ImageView) {
         Glide.with(context)
             .asGif()
             .load(file)
+            .override(200, 200)
             .centerCrop()
             .signature(signatureKey)
             .placeholder(R.drawable.ic_person)
@@ -612,6 +632,7 @@ fun loadAvatarFileIntoView(context: Context, file: File, imageView: ImageView) {
     } else {
         Glide.with(context)
             .load(file)
+            .override(200, 200)
             .transform(CenterCrop(), RoundedCorners(radiusPx))
             .signature(signatureKey)
             .placeholder(R.drawable.ic_person)
@@ -629,6 +650,7 @@ fun loadAvatarUriIntoView(context: Context, uri: Uri, imageView: ImageView) {
         Glide.with(context)
             .asGif()
             .load(uri)
+            .override(200, 200)
             .centerCrop()
             .signature(signatureKey)
             .placeholder(R.drawable.ic_person)
@@ -636,6 +658,7 @@ fun loadAvatarUriIntoView(context: Context, uri: Uri, imageView: ImageView) {
     } else {
         Glide.with(context)
             .load(uri)
+            .override(200, 200)
             .transform(CenterCrop(), RoundedCorners(radiusPx))
             .signature(signatureKey)
             .placeholder(R.drawable.ic_person)

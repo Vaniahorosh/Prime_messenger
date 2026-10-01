@@ -3,6 +3,7 @@ package com.messenger.prime
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
@@ -75,7 +76,8 @@ class BanActivity : AppCompatActivity() {
         }
         
         setContentView(R.layout.activity_ban)
-        setupEdgeToEdge()
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        setupEdgeToEdge(isDarkIcons = !isDark)
 
         // Параметры из интента
         val userName = intent.getStringExtra("EXTRA_USER_NAME") ?: "Пользователь"

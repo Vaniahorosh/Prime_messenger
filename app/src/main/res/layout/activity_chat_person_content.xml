@@ -90,7 +90,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Профиль"
-                    android:textColor="@color/white"
+                    android:textColor="@color/prime_text_primary"
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
@@ -285,30 +285,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <!-- Кнопка подключения (устарела, убрана из интерфейса) -->
-        <eightbitlab.com.blurview.BlurView
-            android:id="@+id/layoutConnectAction"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_floating_island"
-            android:outlineProvider="background"
-            android:clipToOutline="true"
-            android:padding="8dp"
-            android:visibility="gone">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnPrimeConnect"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:backgroundTint="@color/prime_brand"
-                android:text="⚡ Соединиться"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                app:cornerRadius="22dp" />
-        </eightbitlab.com.blurview.BlurView>
-
-        <!-- Строка ввода (отображается только при активном подключении) -->
+        <!-- Строка ввода -->
         <eightbitlab.com.blurview.BlurView
             android:id="@+id/layoutInput"
             android:layout_width="match_parent"

@@ -1,0 +1,37 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+
+
+    <!-- 2. Капсула (слева вверху) -->
+    <path
+        android:fillColor="#3CAEA3"
+        android:pathData="M 20,15
+                          H 42
+                          A 8.5,8.5 0 0 1 42,32
+                          H 20
+                          A 8.5,8.5 0 0 1 20,15 Z" />
+
+    <!-- 3. Круг (справа вверху) -->
+    <path
+        android:fillColor="#3CAEA3"
+        android:pathData="M 76,14
+                          A 9.5,9.5 0 1 1 75.99,14 Z" />
+
+    <!-- 4. Печенька M3 (снизу по центру) -->
+    <path
+        android:fillColor="#3CAEA3"
+        android:pathData="M 45,55
+                          A 7,7 0 0 1 55,55
+                          A 7,7 0 0 1 65,65
+                          A 7,7 0 0 1 65,75
+                          A 7,7 0 0 1 55,85
+                          A 7,7 0 0 1 45,85
+                          A 7,7 0 0 1 35,75
+                          A 7,7 0 0 1 35,65
+                          Z" />
+
+</vector>

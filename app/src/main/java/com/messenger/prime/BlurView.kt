@@ -2,6 +2,7 @@ package com.messenger.prime
 
 import android.R
 import android.app.Activity
+import android.app.ActivityManager
 import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.RenderEffect
@@ -69,20 +70,28 @@ fun BlurView(
 
                             if (targetRootView != null && targetRootView != this) {
                                 val windowBackground = activity?.window?.decorView?.background
-                                val algorithm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                    RenderEffectBlur()
-                                } else {
-                                    RenderScriptBlur(ctx)
-                                }
+                                val activityManager = ctx.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+                                val isLowRam = activityManager?.isLowRamDevice == true
 
-                                setupWith(targetRootView, algorithm)
-                                    .setBlurRadius(blurRadius.value)
-                                    .setOverlayColor(overlayColorInt)
-                                    .apply {
-                                        if (windowBackground != null) {
-                                            setFrameClearDrawable(windowBackground)
-                                        }
+                                if (isLowRam) {
+                                    setBlurEnabled(false)
+                                    setBackgroundColor(overlayColorInt)
+                                } else {
+                                    val algorithm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                        RenderEffectBlur()
+                                    } else {
+                                        RenderScriptBlur(ctx)
                                     }
+
+                                    setupWith(targetRootView, algorithm)
+                                        .setBlurRadius(blurRadius.value)
+                                        .setOverlayColor(overlayColorInt)
+                                        .apply {
+                                            if (windowBackground != null) {
+                                                setFrameClearDrawable(windowBackground)
+                                            }
+                                        }
+                                }
                             } else {
                                 setBackgroundColor(overlayColorInt)
                             }
@@ -125,11 +134,20 @@ private fun findActivity(context: Context): Activity? {
 fun EightBitBlurView.setupBlur(
     rootView: ViewGroup,
     blurRadius: Float = 16f,
-    overlayColor: Int = android.graphics.Color.parseColor("#40154B87"),
+    tintColor: Int = android.graphics.Color.parseColor("#40154B87"),
     frameClearDrawable: Drawable? = null
 ) {
     outlineProvider = ViewOutlineProvider.BACKGROUND
     clipToOutline = true
+
+    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+    val isLowRam = activityManager?.isLowRamDevice == true
+
+    if (isLowRam) {
+        this.setBackgroundColor(tintColor)
+        this.setBlurEnabled(false)
+        return
+    }
 
     doOnPreDraw { view ->
         if (view.width <= 0 || view.height <= 0 || !view.isAttachedToWindow) return@doOnPreDraw
@@ -142,7 +160,7 @@ fun EightBitBlurView.setupBlur(
 
             val facade = setupWith(rootView, algorithm)
                 .setBlurRadius(blurRadius)
-                .setOverlayColor(overlayColor)
+                .setOverlayColor(tintColor)
                 .setBlurAutoUpdate(true)
 
             if (frameClearDrawable != null) {
@@ -150,7 +168,7 @@ fun EightBitBlurView.setupBlur(
             }
         } catch (e: Throwable) {
             e.printStackTrace()
-            setBackgroundColor(overlayColor)
+            setBackgroundColor(tintColor)
         }
     }
 }

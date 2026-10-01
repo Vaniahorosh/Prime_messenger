@@ -2,6 +2,8 @@ package com.messenger.prime
 
 import android.content.Context
 import android.os.SystemClock
+import androidx.compose.ui.platform.LocalContext
+import android.app.ActivityManager
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -220,10 +222,13 @@ fun AnimatedBackground(
     val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
     val isEnabled = sharedPrefs.getBoolean("settings_lava_bg", true)
     
+    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+    val isLowRam = activityManager?.isLowRamDevice == true
+    
     val bgColor = if (darkTheme) Color(0xFF1E293B) else Color(0xFF154B87)
     
-    // If not ignoring toggle AND setting is off -> show static background
-    if (!ignoreSettingsToggle && !isEnabled) {
+    // If not ignoring toggle AND setting is off, OR if it's a weak device -> show static background
+    if ((!ignoreSettingsToggle && !isEnabled) || isLowRam) {
         Box(modifier = modifier.fillMaxSize().background(bgColor))
         return
     }

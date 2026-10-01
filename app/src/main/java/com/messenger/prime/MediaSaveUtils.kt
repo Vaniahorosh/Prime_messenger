@@ -27,12 +27,25 @@ object MediaSaveUtils {
             } ?: return false
 
             val timeStamp = System.currentTimeMillis()
-            val displayName = if (isVideo) "PRIME_VID_$timeStamp.mp4" else "PRIME_IMG_$timeStamp.jpg"
+            val uriStr = mediaUri.toString().lowercase()
+            val isGif = !isVideo && (uriStr.endsWith(".gif") || uriStr.contains(".gif") || uriStr.contains("gif"))
+
+            val displayName = when {
+                isVideo -> "PRIME_VID_$timeStamp.mp4"
+                isGif -> "PRIME_GIF_$timeStamp.gif"
+                else -> "PRIME_IMG_$timeStamp.jpg"
+            }
+
+            val mimeType = when {
+                isVideo -> "video/mp4"
+                isGif -> "image/gif"
+                else -> "image/jpeg"
+            }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val contentValues = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
-                    put(MediaStore.MediaColumns.MIME_TYPE, if (isVideo) "video/mp4" else "image/jpeg")
+                    put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
                     put(
                         MediaStore.MediaColumns.RELATIVE_PATH,
                         if (isVideo) Environment.DIRECTORY_MOVIES + "/Prime" else Environment.DIRECTORY_PICTURES + "/Prime"
@@ -75,7 +88,7 @@ object MediaSaveUtils {
                 MediaScannerConnection.scanFile(
                     context,
                     arrayOf(targetFile.absolutePath),
-                    arrayOf(if (isVideo) "video/mp4" else "image/jpeg"),
+                    arrayOf(mimeType),
                     null
                 )
                 return true

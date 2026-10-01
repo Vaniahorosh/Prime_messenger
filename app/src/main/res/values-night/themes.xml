@@ -10,19 +10,27 @@
         <item name="colorPrimary">@color/prime_brand</item>
         <item name="colorAccent">@color/prime_brand</item>
         <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">@color/prime_brand_alpha_80</item>
+        <item name="colorOnPrimaryContainer">@color/white</item>
         <item name="colorSecondary">@color/prime_brand</item>
         <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSecondaryContainer">@color/prime_search_bg</item>
+        <item name="colorOnSecondaryContainer">@color/prime_text_primary</item>
         <item name="android:windowBackground">@color/prime_base</item>
         <item name="android:colorBackground">@color/prime_base</item>
         <item name="colorSurface">@color/prime_base</item>
         <item name="colorOnSurface">@color/prime_text_primary</item>
         <item name="colorSurfaceVariant">@color/prime_surface</item>
         <item name="colorOnSurfaceVariant">@color/prime_text_secondary</item>
+        <item name="colorSurfaceContainerHigh">@color/chat_island_bg</item>
+        <item name="colorOutline">@color/prime_divider</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
         <item name="materialCardViewStyle">@style/Widget.Material3.CardView.Elevated.Custom</item>
+        <item name="materialAlertDialogTheme">@style/Theme.Prime.AlertDialog</item>
     </style>
 
     <style name="Widget.MaterialComponents.TextInputLayout.OutlinedBox" parent="Widget.Material3.TextInputLayout.OutlinedBox">

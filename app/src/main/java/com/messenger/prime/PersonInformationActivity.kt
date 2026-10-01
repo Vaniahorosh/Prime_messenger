@@ -1,5 +1,6 @@
 package com.messenger.prime
 
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
@@ -82,7 +83,8 @@ class PersonInformationActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        setupEdgeToEdge()
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        setupEdgeToEdge(isDarkIcons = !isDark)
 
         binding = ActivityPersonInformationBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -169,6 +171,7 @@ class PersonInformationActivity : AppCompatActivity() {
             else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         }
 
+        binding.nestedScrollView.setBackgroundColor(ContextCompat.getColor(this, R.color.prime_base))
         binding.composeHeaderBackground.apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
@@ -276,15 +279,39 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     private fun openAvatarInMediaPlayer() {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        val targetAddr = deviceAddress ?: ""
+        val contactName = if (targetAddr.isNotEmpty()) {
+            sharedPrefs.getString("contact_name_$targetAddr", null) ?: targetUsername
+        } else targetUsername
+
         val uriToPass = avatarUriStr ?: run {
-            val file = File(filesDir, "rec_avatar_${targetUsername}.jpg")
-            if (file.exists()) Uri.fromFile(file).toString() else null
+            val possibleFiles = listOfNotNull(
+                deviceAddress?.let { File(filesDir, "rec_avatar_${it}.gif") },
+                deviceAddress?.let { File(filesDir, "rec_avatar_${it}.jpg") },
+                File(filesDir, "rec_avatar_${contactName}.gif"),
+                File(filesDir, "rec_avatar_${contactName}.jpg"),
+                File(filesDir, "rec_avatar_${targetUsername}.gif"),
+                File(filesDir, "rec_avatar_${targetUsername}.jpg")
+            )
+            possibleFiles.firstOrNull { it.exists() }?.let { Uri.fromFile(it).toString() }
         }
+
         if (uriToPass != null) {
-            val intent = Intent(this, PhotoViewActivity::class.java).apply {
-                putExtra("EXTRA_URI", uriToPass)
-                putExtra("EXTRA_PHOTO_URI", uriToPass)
-            }
+            val displayContactName = if (BluetoothAdapter.checkBluetoothAddress(contactName)) "Собеседник" else contactName
+
+            val msg = ChatMessage(
+                "Аватар профиля",
+                "В прайме!",
+                displayContactName,
+                false,
+                null,
+                0L,
+                uriToPass,
+                "contact_avatar_preview"
+            )
+            MediaPlayerActivity.setSharedMediaList(listOf(msg), 0)
+            val intent = Intent(this, MediaPlayerActivity::class.java)
             startActivity(intent)
         } else {
             Toast.makeText(this, "Фотография не установлена", Toast.LENGTH_SHORT).show()
@@ -414,6 +441,7 @@ class PersonInformationActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private fun finalizeChatDeletion() {
         val targetAddr = deviceAddress ?: targetUsername
 
