@@ -1204,12 +1204,19 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             imageView.setImageResource(R.drawable.ic_photo);
             return;
         }
-        boolean isGif = pathOrUri.toLowerCase(Locale.US).endsWith(".gif") || pathOrUri.toLowerCase(Locale.US).contains("gif");
-        Uri uri = pathOrUri.startsWith("content://") ? Uri.parse(pathOrUri) : Uri.fromFile(new File(pathOrUri));
-        if (isGif) {
-            Glide.with(context).asGif().load(uri).centerCrop().placeholder(R.drawable.ic_photo).into(imageView);
-        } else {
-            Glide.with(context).load(uri).centerCrop().placeholder(R.drawable.ic_photo).into(imageView);
+        try {
+            Uri uri = pathOrUri.startsWith("content://") || pathOrUri.startsWith("file://") || pathOrUri.startsWith("http")
+                    ? Uri.parse(pathOrUri)
+                    : Uri.fromFile(new File(pathOrUri));
+
+            Glide.with(context)
+                    .load(uri)
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_photo)
+                    .error(R.drawable.ic_photo)
+                    .into(imageView);
+        } catch (Throwable e) {
+            imageView.setImageResource(R.drawable.ic_photo);
         }
     }
 

@@ -6100,31 +6100,34 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         PrimeNotification.INSTANCE.show(this, "Загрузка GIF...", null);
         ioExecutor.execute(() -> {
             try {
-                File gifFile = new File(getCacheDir(), "sent_gif_" + System.currentTimeMillis() + ".gif");
                 URL url = new URL(item.fullUrl);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setConnectTimeout(10000);
                 conn.setReadTimeout(10000);
                 if (conn.getResponseCode() == 200) {
+                    byte[] gifBytes;
                     try (InputStream is = conn.getInputStream();
-                         FileOutputStream fos = new FileOutputStream(gifFile)) {
+                         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                         byte[] buffer = new byte[8192];
                         int len;
                         while ((len = is.read(buffer)) != -1) {
-                            fos.write(buffer, 0, len);
+                            baos.write(buffer, 0, len);
                         }
-                        fos.flush();
+                        gifBytes = baos.toByteArray();
                     }
 
-                    Uri gifUri = Uri.fromFile(gifFile);
-                    runOnUiThread(() -> {
-                        sendPhoto(gifUri, null);
-                        closeAttachmentPanel();
-                    });
+                    File gifFile = ChatHistoryManager.saveBytesToAtomicFile(ChatPersonActivity.this, "sent_gif_" + System.currentTimeMillis() + ".gif", gifBytes);
+                    if (gifFile != null) {
+                        Uri gifUri = Uri.fromFile(gifFile);
+                        runOnUiThread(() -> {
+                            sendPhoto(gifUri, null);
+                            closeAttachmentPanel();
+                        });
+                    }
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Failed to download and send GIF", e);
-                runOnUiThread(() -> PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Ошибка загрузки GIF", null));
+                runOnUiThread(() -> PrimeNotification.show(ChatPersonActivity.this, "Ошибка загрузки GIF", null));
             }
         });
     }
