@@ -14,8 +14,10 @@
 
     <FrameLayout
         android:id="@+id/layoutHeaderAvatarContainer"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginStart="6dp"
+        android:clipChildren="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -25,7 +27,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:scaleType="centerCrop"
-            android:background="@color/glass_white_10"
             android:src="@drawable/ic_person"
             app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
 
@@ -42,17 +43,22 @@
             tools:visibility="visible" />
     </FrameLayout>
 
-    <TextSwitcher
-        android:id="@+id/tsHeaderTitle"
+    <TextView
+        android:id="@+id/tvHeaderTitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="12dp"
-        android:inAnimation="@anim/slide_in_top_alpha"
-        android:outAnimation="@anim/slide_out_bottom"
+        android:textColor="@color/white"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:gravity="center_vertical|start"
+        android:ellipsize="end"
+        android:maxLines="1"
         app:layout_constraintBottom_toBottomOf="@+id/layoutHeaderAvatarContainer"
         app:layout_constraintEnd_toStartOf="@+id/btnHeaderSearch"
         app:layout_constraintStart_toEndOf="@+id/layoutHeaderAvatarContainer"
-        app:layout_constraintTop_toTopOf="@+id/layoutHeaderAvatarContainer" />
+        app:layout_constraintTop_toTopOf="@+id/layoutHeaderAvatarContainer"
+        tools:text="Прайм" />
 
     <ImageButton
         android:id="@+id/btnHeaderSearch"
