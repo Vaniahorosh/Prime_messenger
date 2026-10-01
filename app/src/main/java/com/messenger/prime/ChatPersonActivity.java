@@ -3598,7 +3598,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
 
             byte[] photoBytes = null;
-            Bitmap scaledBitmapForMsg = null;
 
             if (isGif) {
                 try (InputStream is = getContentResolver().openInputStream(uri);
@@ -3615,13 +3614,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             } else {
                 Bitmap bitmap = decodeSampledBitmapFromUri(uri, 1024, 1024);
                 if (bitmap != null) {
-                    scaledBitmapForMsg = scaleBitmapDown(bitmap, 1024);
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    scaledBitmapForMsg.compress(Bitmap.CompressFormat.JPEG, 75, baos);
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos);
                     photoBytes = baos.toByteArray();
-                    if (scaledBitmapForMsg != bitmap) {
-                        bitmap.recycle();
-                    }
                 }
             }
 
@@ -3677,7 +3672,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     startPrimeConnection();
                 }
 
-                ChatMessage photoMsg = new ChatMessage(captionText, time, localUsername, true, scaledBitmapForMsg, timestamp, savedPhotoPath, messageId);
+                ChatMessage photoMsg = new ChatMessage(captionText, time, localUsername, true, null, timestamp, savedPhotoPath, messageId);
                 photoMsg.setMessageType(ChatMessage.MessageType.IMAGE);
                 photoMsg.setMessageStatus(MessageStatus.SENDING);
                 photoMsg.setSendingProgress(0);
