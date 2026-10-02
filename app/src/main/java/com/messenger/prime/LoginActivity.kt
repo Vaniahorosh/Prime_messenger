@@ -157,6 +157,7 @@ class LoginActivity : AppCompatActivity() {
                                             putString("current_user", login)
                                             apply()
                                         }
+                                        LavaBackgroundState.onTransitionStart()
                                         startActivity(Intent(this@LoginActivity, ChatListActivity::class.java))
                                         PrimeTransitions.applyOpenTransition(this@LoginActivity)
                                         finishAffinity()

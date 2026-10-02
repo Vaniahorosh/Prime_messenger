@@ -1,21 +1,38 @@
 package com.messenger.prime
 
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.unit.dp
+import android.graphics.Color
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
+import android.view.View
+import androidx.recyclerview.widget.RecyclerView
 
 object HazeHelper {
-    @JvmStatic
-    @JvmOverloads
-    fun setupHaze(composeView: ComposeView?, tintColor: Color = Color(0x33154B87)) {
-        composeView?.setContent {
-            BlurView(
-                modifier = Modifier.fillMaxSize(),
-                blurRadius = 24.dp,
-                tint = tintColor
-            )
+    
+    fun applyHardwareBlur(view: View, radius: Float = 32f, disableEffect: Boolean = false) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (disableEffect) {
+                view.setRenderEffect(null)
+            } else {
+                view.setRenderEffect(
+                    RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
+                )
+            }
+        } else {
+            view.setBackgroundColor(Color.parseColor("#99000000"))
         }
+    }
+
+    fun attachScrollThrottler(recyclerView: RecyclerView, blurView: View) {
+        applyHardwareBlur(blurView, disableEffect = false)
+
+        recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                val isScrolling = newState == RecyclerView.SCROLL_STATE_DRAGGING || 
+                                  newState == RecyclerView.SCROLL_STATE_SETTLING
+                
+                applyHardwareBlur(blurView, disableEffect = isScrolling)
+            }
+        })
     }
 }

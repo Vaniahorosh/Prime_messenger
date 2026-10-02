@@ -15,6 +15,7 @@ import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -177,6 +178,30 @@ public class BluetoothConnectionManager {
 
     private void notifyPacketReceived(String deviceAddress, byte type, byte[] payload) {
         final byte[] data = payload != null ? payload : new byte[0];
+        if (type == 0x01 && data.length > 0) { // TYPE_TEXT
+            try {
+                String str = new String(data, StandardCharsets.UTF_8);
+                String remoteName = null;
+                if (str.startsWith("HANDSHAKE:")) {
+                    String sub = str.substring(10).trim();
+                    if (sub.contains("name=")) {
+                        for (String p : sub.split(";")) {
+                            if (p.startsWith("name=")) remoteName = p.substring(5);
+                        }
+                    } else if (!sub.isEmpty()) remoteName = sub;
+                } else if (str.startsWith("HANDSHAKE_ACK:")) {
+                    String sub = str.substring(14).trim();
+                    if (sub.contains("name=")) {
+                        for (String p : sub.split(";")) {
+                            if (p.startsWith("name=")) remoteName = p.substring(5);
+                        }
+                    } else if (!sub.isEmpty()) remoteName = sub;
+                }
+                if (remoteName != null && !remoteName.isEmpty()) {
+                    setRemoteUsername(deviceAddress, remoteName);
+                }
+            } catch (Exception ignored) {}
+        }
         mainHandler.post(() -> {
             for (ConnectionCallback cb : callbacks) {
                 try {
@@ -769,13 +794,13 @@ public class BluetoothConnectionManager {
                                 }
                                 int bytesToWrite = Math.min(chunkSize, len - offset);
                                 mmOutStream.write(payload, offset, bytesToWrite);
+                                mmOutStream.flush();
                                 offset += bytesToWrite;
 
                                 if (isMediaPacket) {
                                     int progress = (int) ((offset * 100L) / len);
                                     long now = SystemClock.elapsedRealtime();
-                                    // Репорты только раз в 150мс для снижения нагрузки на UI
-                                    if (progress != lastReportedProgress && (now - lastProgressReportTime > 150L || progress == 100)) {
+                                    if (progress != lastReportedProgress && (now - lastProgressReportTime > 80L || progress == 100)) {
                                         lastReportedProgress = progress;
                                         lastProgressReportTime = now;
                                         notifySendProgress(threadDeviceAddress, progress);

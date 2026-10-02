@@ -9,18 +9,30 @@
     android:clipChildren="false"
     tools:context=".ChatListActivity">
 
+    <!-- Top Pinned Island Header (Always Visible & Accent Colored) -->
+    <include
+        android:id="@+id/layoutIslandHeader"
+        layout="@layout/item_chat_island_header"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewChats"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:clipToPadding="false"
-        android:paddingTop="32dp"
-        android:paddingBottom="120dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="100dp"
         android:overScrollMode="never"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/layoutIslandHeader"
         tools:listitem="@layout/item_chat" />
 
 
@@ -34,7 +46,7 @@
         android:paddingHorizontal="48dp"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toBottomOf="@+id/layoutIslandHeader">
 
         <TextView
             android:id="@+id/tvEmptyState"
@@ -46,25 +58,6 @@
             android:textColor="@color/prime_text_secondary"
             android:textSize="18sp"
             android:textStyle="bold" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnStartChatEmpty"
-            android:layout_width="wrap_content"
-            android:layout_height="64dp"
-            android:layout_marginTop="24dp"
-            android:backgroundTint="@color/prime_brand"
-            android:paddingHorizontal="32dp"
-            tools:ignore="HardcodedText"
-            android:text="Начать общение"
-            android:textColor="@color/white"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            app:cornerRadius="20dp"
-            app:elevation="0dp"
-            app:icon="@drawable/ic_add"
-            app:iconGravity="textStart"
-            app:iconSize="24dp"
-            app:iconTint="@color/white" />
     </LinearLayout>
 
     <FrameLayout

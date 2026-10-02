@@ -625,11 +625,16 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         
         resetReconnectAttempts(fromAddress);
         manageWakeLock();
-        
-        String displayName = ChatHistoryManager.getDisplayNameForAddress(this, fromAddress);
-        if (displayName == null || displayName.isEmpty() || displayName.equalsIgnoreCase(fromAddress) || BluetoothAdapter.checkBluetoothAddress(displayName)) {
-            displayName = "Собеседник";
+
+        if (type == 0x01) { // TYPE_TEXT
+            String textData = new String(payload, StandardCharsets.UTF_8);
+            if (textData.startsWith("HANDSHAKE:") || textData.startsWith("HANDSHAKE_ACK:")) {
+                processBackgroundHandshake(fromAddress, textData);
+                return;
+            }
         }
+        
+        String displayName = resolveBackgroundDisplayName(fromAddress);
 
         try {
             if (ChatPersonActivity.isForegroundWithAddress(fromAddress)) {
@@ -643,21 +648,25 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
             if (type == 0x01) { // TYPE_TEXT
                 String textData = new String(payload, StandardCharsets.UTF_8);
-                if (!textData.startsWith("HANDSHAKE:") && !textData.startsWith("HANDSHAKE_ACK:")) {
-                    ChatPersonActivity.ParsedMessagePayload parsed = ChatPersonActivity.ParsedMessagePayload.parse(textData);
-                    long ts = System.currentTimeMillis();
-                    String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(ts));
-                    ChatMessage msg = new ChatMessage(parsed.realText, time, displayName, false, null, ts, null, parsed.msgId);
-                    
-                    ChatHistoryManager.saveMessage(this, displayName, msg);
-                    saveBackgroundLastMessageToChatList(displayName, fromAddress, parsed.realText);
-                    showMessageNotification(this, displayName, parsed.realText, fromAddress);
+                ChatPersonActivity.ParsedMessagePayload parsed = ChatPersonActivity.ParsedMessagePayload.parse(textData);
+                long ts = System.currentTimeMillis();
+                String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(ts));
+                ChatMessage msg = new ChatMessage(parsed.realText, time, displayName, false, null, ts, null, parsed.msgId);
+                
+                ChatHistoryManager.saveMessage(this, displayName, msg);
+                if (fromAddress != null && !fromAddress.isEmpty() && !fromAddress.equalsIgnoreCase(displayName)) {
+                    ChatHistoryManager.saveMessage(this, fromAddress, msg);
                 }
+                saveBackgroundLastMessageToChatList(displayName, fromAddress, parsed.realText);
+                showMessageNotification(this, displayName, parsed.realText, fromAddress);
             } else if (type == 0x02) { // TYPE_PHOTO
                 long ts = System.currentTimeMillis();
                 String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(ts));
                 ChatMessage msg = parseBackgroundPhotoMessage(this, payload, displayName, ts, time);
                 ChatHistoryManager.saveMessage(this, displayName, msg);
+                if (fromAddress != null && !fromAddress.isEmpty() && !fromAddress.equalsIgnoreCase(displayName)) {
+                    ChatHistoryManager.saveMessage(this, fromAddress, msg);
+                }
 
                 String summaryStr = ChatMessage.getSummaryDescription(msg);
                 saveBackgroundLastMessageToChatList(displayName, fromAddress, summaryStr);
@@ -667,6 +676,9 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(ts));
                 ChatMessage msg = parseBackgroundFileMessage(this, payload, displayName, ts, time);
                 ChatHistoryManager.saveMessage(this, displayName, msg);
+                if (fromAddress != null && !fromAddress.isEmpty() && !fromAddress.equalsIgnoreCase(displayName)) {
+                    ChatHistoryManager.saveMessage(this, fromAddress, msg);
+                }
 
                 String summaryStr = ChatMessage.getSummaryDescription(msg);
                 saveBackgroundLastMessageToChatList(displayName, fromAddress, summaryStr);
@@ -674,14 +686,53 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             } else if (type == 0x04) { // TYPE_TYPING
                 String textData = new String(payload, StandardCharsets.UTF_8);
                 saveBackgroundTypingStateToChatList(displayName, fromAddress, textData);
-            } else if (type == 0x03) { // TYPE_READ_RECEIPT
-                String readMsgId = new String(payload, StandardCharsets.UTF_8);
-                saveBackgroundReadReceiptToChatList(displayName, fromAddress, readMsgId);
-            } else if (type == 0x07) { // TYPE_PRESENCE
-                saveBackgroundPresenceToChatList(displayName, fromAddress, true);
+            } else if (type == 0x05) { // TYPE_EDIT
+                String editData = new String(payload, StandardCharsets.UTF_8);
+                int editSep = editData.indexOf(":::");
+                if (editSep != -1) {
+                    String editMsgId = editData.substring(0, editSep);
+                    String updatedText = editData.substring(editSep + 3);
+                    List<ChatMessage> history = ChatHistoryManager.loadMessages(this, displayName);
+                    for (ChatMessage m : history) {
+                        if (Objects.equals(editMsgId, m.getMessageId())) {
+                            m.setEdited(true);
+                            m.setText(updatedText);
+                            ChatHistoryManager.saveMessage(this, displayName, m);
+                            break;
+                        }
+                    }
+                    saveBackgroundLastMessageToChatList(displayName, fromAddress, updatedText);
+                }
             } else if (type == 0x08) { // TYPE_CHAT_DELETED
                 ChatHistoryManager.deleteHistoryCompletely(this, displayName, fromAddress);
                 ChatListNotifier.INSTANCE.notifyChanged();
+            } else if (type == 0x0A) { // TYPE_READ_RECEIPT
+                String readMsgId = new String(payload, StandardCharsets.UTF_8);
+                ChatHistoryManager.markOutgoingMessagesAsRead(this, displayName, readMsgId);
+                saveBackgroundReadReceiptToChatList(displayName, fromAddress, readMsgId);
+            } else if (type == 0x0B) { // TYPE_DELETE_MSG
+                String deletedMsgId = new String(payload, StandardCharsets.UTF_8);
+                ChatHistoryManager.deleteSingleMessage(this, displayName, deletedMsgId);
+            } else if (type == 0x0C) { // TYPE_PRESENCE
+                String pData = new String(payload, StandardCharsets.UTF_8);
+                saveBackgroundPresenceToChatList(displayName, fromAddress, pData.startsWith("ONLINE"));
+            } else if (type == 0x0D) { // TYPE_REACTION
+                String rxData = new String(payload, StandardCharsets.UTF_8);
+                String[] rxParts = rxData.split(":::");
+                if (rxParts.length >= 2) {
+                    String rxMsgId = rxParts[0];
+                    String reactionStr = rxParts[1];
+                    String authorLogin = rxParts.length >= 3 ? rxParts[2] : displayName;
+                    String finalReaction = "REMOVE".equalsIgnoreCase(reactionStr) ? null : reactionStr;
+                    List<ChatMessage> history = ChatHistoryManager.loadMessages(this, displayName);
+                    for (ChatMessage m : history) {
+                        if (Objects.equals(rxMsgId, m.getMessageId())) {
+                            m.setReactionForUser(authorLogin, finalReaction);
+                            ChatHistoryManager.saveMessage(this, displayName, m);
+                            break;
+                        }
+                    }
+                }
             }
         } catch (Throwable e) {
             Log.e(TAG, "Error handling background packet in PrimeBluetoothService", e);
@@ -697,16 +748,78 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         } catch (Throwable ignored) {}
     }
 
+    private String resolveBackgroundDisplayName(String fromAddress) {
+        if (fromAddress == null || fromAddress.isEmpty()) return "Собеседник";
+        SharedPreferences sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
+        String name = sp.getString("contact_name_" + fromAddress, null);
+        if (name == null || name.isEmpty()) name = sp.getString(fromAddress + "_name", null);
+        if (name != null && !name.isEmpty() && !BluetoothAdapter.checkBluetoothAddress(name)) {
+            return name;
+        }
+        String hName = ChatHistoryManager.getDisplayNameForAddress(this, fromAddress);
+        if (hName != null && !hName.isEmpty() && !BluetoothAdapter.checkBluetoothAddress(hName)) {
+            return hName;
+        }
+        return "Собеседник";
+    }
+
+    private void processBackgroundHandshake(String fromAddress, String textData) {
+        try {
+            boolean isAck = textData.startsWith("HANDSHAKE_ACK:");
+            String data = textData.substring(isAck ? 14 : 10).trim();
+            String remoteName = null;
+            String remoteLogin = null;
+
+            if (data.contains("login=") || data.contains("name=")) {
+                String[] parts = data.split(";");
+                for (String p : parts) {
+                    if (p.startsWith("login=")) remoteLogin = p.substring(6);
+                    else if (p.startsWith("name=")) remoteName = p.substring(5);
+                }
+            } else {
+                remoteName = data;
+            }
+
+            if (remoteName != null && !remoteName.trim().isEmpty() && !remoteName.equals("1")) {
+                SharedPreferences sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
+                SharedPreferences.Editor ed = sp.edit();
+                if (fromAddress != null && !fromAddress.isEmpty()) {
+                    ed.putString("contact_name_" + fromAddress, remoteName);
+                    ed.putString(fromAddress + "_name", remoteName);
+                    ed.putString(remoteName + "_mac", fromAddress);
+                }
+                if (remoteLogin != null && !remoteLogin.isEmpty()) {
+                    ed.putString("contact_name_" + remoteLogin, remoteName);
+                    ed.putString(remoteLogin + "_name", remoteName);
+                }
+                ed.apply();
+
+                BluetoothConnectionManager.getInstance().setRemoteUsername(fromAddress, remoteName);
+
+                if (!isAck) {
+                    String currentUser = sp.getString("current_user", "");
+                    String myName = sp.getString("my_name", null);
+                    if (myName == null || myName.isEmpty()) myName = sp.getString("my_local_name", null);
+                    if (myName == null || myName.isEmpty()) myName = sp.getString("current_user_name", null);
+                    if (myName == null || myName.isEmpty()) myName = sp.getString(currentUser + "_name", currentUser);
+                    if (myName == null || myName.isEmpty()) myName = "Prime User";
+
+                    String ackStr = "HANDSHAKE_ACK:name=" + myName;
+                    BluetoothConnectionManager.getInstance().sendPacket(fromAddress, (byte) 0x01, ackStr.getBytes(StandardCharsets.UTF_8));
+                }
+
+                saveBackgroundPresenceToChatList(remoteName, fromAddress, true);
+                ChatListNotifier.INSTANCE.notifyChanged();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error processing background handshake", e);
+        }
+    }
+
     private void saveBackgroundLastMessageToChatList(String targetName, String deviceAddr, String lastMsg) {
         if (targetName == null || targetName.isEmpty()) return;
         try {
             SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
-            String myName = sharedPrefs.getString("my_name", null);
-            if (myName == null || myName.isEmpty()) myName = sharedPrefs.getString("my_local_name", null);
-            if (myName == null || myName.isEmpty()) myName = sharedPrefs.getString("current_user_name", null);
-            if (myName != null && !myName.isEmpty() && targetName.equalsIgnoreCase(myName)) {
-                return;
-            }
 
             String json = sharedPrefs.getString("persisted_chats", "[]");
             JSONArray array = new JSONArray(json);

@@ -172,7 +172,9 @@ class MediaPlayerActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
+        PrimeTransitions.setupActivityTransitions(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_media_player)
 
@@ -236,6 +238,11 @@ class MediaPlayerActivity : AppCompatActivity() {
                 startExitAnimation()
             }
         })
+    }
+
+    override fun finish() {
+        super.finish()
+        PrimeTransitions.applyCloseTransition(this)
     }
 
     private fun startEnterAnimation() {
@@ -1003,19 +1010,26 @@ class MediaPlayerActivity : AppCompatActivity() {
                                 handler.removeCallbacks(holdRunnable)
                             }
                         }
-                        if (dy > dx && dy > 30 && !isClosing) {
+                        if (dy > dx && dy > 40 && !isClosing && scaleFactor <= 1.05f) {
                             val rawDragY = event.rawY - startRawY
-                            val dragY = rawDragY * 0.88f
+                            val screenH = resources.displayMetrics.heightPixels.toFloat()
+                            val progress = (Math.abs(rawDragY) / screenH).coerceIn(0f, 1f)
+                            
+                            val dampingFactor = 0.5f // Смягчение тяги для эластичного ощущения
+                            val dragY = rawDragY * dampingFactor
                             viewPager.translationY = dragY
 
-                            val progress = (Math.abs(dragY) / 1000f).coerceIn(0f, 1f)
-                            val dragScale = 1.0f - (progress * 0.15f)
+                            val dragScale = 1.0f - (progress * 0.35f) // Плавное масштабирование
                             viewPager.scaleX = dragScale
                             viewPager.scaleY = dragScale
 
-                            ivBlurredBackground.alpha = (0.6f * (1f - progress)).coerceIn(0f, 0.6f)
-                            topOverlay.alpha = (1f - progress * 1.4f).coerceIn(0f, 1f)
-                            bottomOverlay.alpha = (1f - progress * 1.4f).coerceIn(0f, 1f)
+                            ivBlurredBackground.alpha = (0.6f * (1f - progress * 1.5f)).coerceIn(0f, 0.6f)
+                            topOverlay.alpha = (1f - progress * 3f).coerceIn(0f, 1f)
+                            bottomOverlay.alpha = (1f - progress * 3f).coerceIn(0f, 1f)
+                            
+                            if (topOverlay.visibility == View.VISIBLE) {
+                                toggleControls() // Плавно скрыть UI при начале свайпа вниз
+                            }
                         }
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -1023,19 +1037,19 @@ class MediaPlayerActivity : AppCompatActivity() {
                         if (isHolding) {
                             isHolding = false
                             listener.onLongPressEnd()
-                        } else if (Math.abs(viewPager.translationY) > 200f && !isClosing) {
+                        } else if (Math.abs(viewPager.translationY) > resources.displayMetrics.heightPixels.toFloat() * 0.15f && !isClosing) {
                             startExitAnimation()
                         } else if (viewPager.translationY != 0f) {
                             viewPager.animate()
                                 .translationY(0f)
                                 .scaleX(1.0f)
                                 .scaleY(1.0f)
-                                .setDuration(260)
-                                .setInterpolator(emphasizedDecelerate)
+                                .setDuration(300)
+                                .setInterpolator(androidx.interpolator.view.animation.FastOutSlowInInterpolator())
                                 .start()
                             ivBlurredBackground.animate()
                                 .alpha(0.6f)
-                                .setDuration(260)
+                                .setDuration(300)
                                 .setInterpolator(emphasizedDecelerate)
                                 .start()
                             topOverlay.animate()

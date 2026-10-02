@@ -66,6 +66,7 @@ public class NotificationReplyReceiver extends BroadcastReceiver {
             String readReceiptPayload = "READ_ALL:::MARK_READ";
             BluetoothConnectionManager.getInstance().sendPacket(targetAddr, (byte) 0x0A, readReceiptPayload.getBytes(StandardCharsets.UTF_8));
 
+            ChatHistoryManager.markIncomingMessagesAsRead(context, senderName, "READ_ALL");
             resetUnreadCountAndUpdateLastMessage(context, senderName, targetAddr, null);
         } else if ("com.messenger.prime.action.CANCEL_UPLOAD".equals(action)) {
             if (targetAddr != null && !targetAddr.isEmpty()) {

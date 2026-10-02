@@ -96,6 +96,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         void onJumpToMessage(String messageId);
         void onJumpToMessage(String messageId, String quotedText);
         void onCancelSending(ChatMessage message, int position);
+        void onRetryMessage(ChatMessage message, int position);
     }
 
     private List<ChatMessage> messages = new ArrayList<>();
@@ -139,15 +140,33 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private String newlyAnimatedMessageId = null;
 
     public void addMessage(ChatMessage message) {
+        if (message == null) return;
+        String msgId = message.getMessageId();
+        if (msgId != null && !msgId.isEmpty()) {
+            int pos = findPositionByMessageId(msgId);
+            if (pos != -1) {
+                messages.set(pos, message);
+                notifyItemChanged(pos);
+                return;
+            }
+        }
         messages.add(message);
         notifyItemInserted(messages.size() - 1);
     }
 
     public void addMessageAnimated(ChatMessage message) {
-        messages.add(message);
-        if (message != null) {
-            newlyAnimatedMessageId = message.getMessageId();
+        if (message == null) return;
+        String msgId = message.getMessageId();
+        if (msgId != null && !msgId.isEmpty()) {
+            int pos = findPositionByMessageId(msgId);
+            if (pos != -1) {
+                messages.set(pos, message);
+                notifyItemChanged(pos);
+                return;
+            }
         }
+        messages.add(message);
+        newlyAnimatedMessageId = msgId;
         notifyItemInserted(messages.size() - 1);
     }
 
@@ -301,11 +320,15 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public void markOutgoingMessagesAsReadUpTo(String readMsgId) {
         if (messages == null || messages.isEmpty()) return;
 
-        boolean markAll = (readMsgId == null || readMsgId.isEmpty() || readMsgId.startsWith("READ_ALL"));
-        int targetIndex = messages.size() - 1;
+        String cleanId = readMsgId;
+        boolean markAll = (readMsgId == null || readMsgId.isEmpty() || "READ_ALL".equalsIgnoreCase(readMsgId));
+        if (readMsgId != null && readMsgId.startsWith("READ_ALL:::")) {
+            cleanId = readMsgId.substring(11);
+        }
 
-        if (!markAll) {
-            int foundIdx = findPositionByMessageId(readMsgId);
+        int targetIndex = messages.size() - 1;
+        if (!markAll && cleanId != null && !cleanId.isEmpty()) {
+            int foundIdx = findPositionByMessageId(cleanId);
             if (foundIdx != -1) {
                 targetIndex = foundIdx;
             }
@@ -320,14 +343,54 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
+    public void markIncomingMessagesAsReadUpTo(String readMsgId) {
+        if (messages == null || messages.isEmpty()) return;
+
+        String cleanId = readMsgId;
+        boolean markAll = (readMsgId == null || readMsgId.isEmpty() || "READ_ALL".equalsIgnoreCase(readMsgId));
+        if (readMsgId != null && readMsgId.startsWith("READ_ALL:::")) {
+            cleanId = readMsgId.substring(11);
+        }
+
+        int targetIndex = messages.size() - 1;
+        if (!markAll && cleanId != null && !cleanId.isEmpty()) {
+            int foundIdx = findPositionByMessageId(cleanId);
+            if (foundIdx != -1) {
+                targetIndex = foundIdx;
+            }
+        }
+
+        for (int i = 0; i <= targetIndex && i < messages.size(); i++) {
+            ChatMessage m = messages.get(i);
+            if (m != null && !m.isOutgoing() && m.getMessageStatus() != MessageStatus.READ) {
+                m.setMessageStatus(MessageStatus.READ);
+                notifyItemChanged(i, "STATUS_UPDATE");
+            }
+        }
+    }
+
     public void updateMessageTextById(String messageId, String newText) {
         if (messageId == null || messageId.isEmpty()) return;
+        boolean found = false;
         for (int i = 0; i < messages.size(); i++) {
-            if (messageId.equals(messages.get(i).getMessageId())) {
-                messages.get(i).setEdited(true);
-                messages.get(i).setText(newText);
+            ChatMessage m = messages.get(i);
+            if (messageId.equals(m.getMessageId())) {
+                m.setEdited(true);
+                m.setText(newText);
                 notifyItemChanged(i);
+                found = true;
                 break;
+            }
+        }
+        if (!found) {
+            for (int i = messages.size() - 1; i >= 0; i--) {
+                ChatMessage m = messages.get(i);
+                if (!Objects.equals(m.getText(), newText)) {
+                    m.setEdited(true);
+                    m.setText(newText);
+                    notifyItemChanged(i);
+                    break;
+                }
             }
         }
     }
@@ -399,26 +462,70 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             ((IncomingViewHolder) holder).bind(message, showDateHeader, longClickListener, position);
         }
 
-        if (message.isOutgoing() && message.getMessageId() != null && message.getMessageId().equals(newlyAnimatedMessageId)) {
+        if (message.getMessageId() != null && message.getMessageId().equals(newlyAnimatedMessageId)) {
             newlyAnimatedMessageId = null;
-            v.setTranslationY(40f * v.getResources().getDisplayMetrics().density);
-            v.setAlpha(0f);
-            v.setScaleX(0.92f);
-            v.setScaleY(0.92f);
-            v.animate()
-                    .translationY(0f)
-                    .alpha(1.0f)
-                    .scaleX(1.0f)
-                    .scaleY(1.0f)
-                    .setDuration(280)
-                    .setInterpolator(new OvershootInterpolator(1.1f))
-                    .start();
+            
+            View bubble = null;
+            if (holder instanceof OutgoingViewHolder) {
+                bubble = ((OutgoingViewHolder) holder).itemView.findViewById(R.id.layoutOutgoingBubble);
+            } else if (holder instanceof IncomingViewHolder) {
+                bubble = ((IncomingViewHolder) holder).itemView.findViewById(R.id.layoutIncomingBubble);
+            }
+
+            if (bubble != null) {
+                // Анимируем только сам пузырек, чтобы избежать искажения на всю ширину
+                float density = v.getResources().getDisplayMetrics().density;
+                
+                // Устанавливаем точку масштабирования (pivot) к краю экрана
+                if (holder instanceof OutgoingViewHolder) {
+                    bubble.setPivotX(bubble.getWidth() > 0 ? bubble.getWidth() : 1000f);
+                } else {
+                    bubble.setPivotX(0f);
+                }
+                bubble.setPivotY(bubble.getHeight() > 0 ? bubble.getHeight() : 100f);
+
+                bubble.setTranslationY(20f * density);
+                bubble.setAlpha(0f);
+                bubble.setScaleX(0.8f);
+                bubble.setScaleY(0.8f);
+
+                bubble.animate()
+                        .translationY(0f)
+                        .alpha(1.0f)
+                        .scaleX(1.0f)
+                        .scaleY(1.0f)
+                        .setDuration(280)
+                        .setInterpolator(new DecelerateInterpolator(1.5f))
+                        .start();
+            } else {
+                // Fallback, если пузырек не найден
+                v.setTranslationY(20f * v.getResources().getDisplayMetrics().density);
+                v.setAlpha(0f);
+                v.animate()
+                        .translationY(0f)
+                        .alpha(1.0f)
+                        .setDuration(280)
+                        .setInterpolator(new DecelerateInterpolator(1.5f))
+                        .start();
+            }
         } else {
             v.setAlpha(1f);
             v.setTranslationY(0f);
             v.setTranslationX(0f);
-            v.setScaleX(1f);
-            v.setScaleY(1f);
+            
+            View bubble = null;
+            if (holder instanceof OutgoingViewHolder) {
+                bubble = ((OutgoingViewHolder) holder).itemView.findViewById(R.id.layoutOutgoingBubble);
+            } else if (holder instanceof IncomingViewHolder) {
+                bubble = ((IncomingViewHolder) holder).itemView.findViewById(R.id.layoutIncomingBubble);
+            }
+            if (bubble != null) {
+                bubble.animate().cancel();
+                bubble.setAlpha(1f);
+                bubble.setTranslationY(0f);
+                bubble.setScaleX(1f);
+                bubble.setScaleY(1f);
+            }
         }
     }
 
@@ -519,10 +626,25 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         super.onViewRecycled(holder);
         holder.itemView.animate().cancel();
         holder.itemView.setAlpha(1f);
-        holder.itemView.setScaleX(1f);
-        holder.itemView.setScaleY(1f);
         holder.itemView.setTranslationY(0f);
         holder.itemView.setTranslationX(0f);
+
+        View bubble = null;
+        if (holder instanceof OutgoingViewHolder) {
+            bubble = holder.itemView.findViewById(R.id.layoutOutgoingBubble);
+        } else if (holder instanceof IncomingViewHolder) {
+            bubble = holder.itemView.findViewById(R.id.layoutIncomingBubble);
+        }
+
+        if (bubble != null) {
+            bubble.animate().cancel();
+            bubble.setAlpha(1f);
+            bubble.setTranslationY(0f);
+            bubble.setTranslationX(0f);
+            bubble.setScaleX(1f);
+            bubble.setScaleY(1f);
+        }
+
         if (holder instanceof IncomingViewHolder) {
             if (((IncomingViewHolder) holder).videoMessagePreview != null) {
                 ((IncomingViewHolder) holder).videoMessagePreview.stopPlayback();
@@ -1546,6 +1668,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 tvMessageText.setTextIsSelectable(true);
                 setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
                 bindLinkPreview(itemView, text);
+                tvMessageText.setOnClickListener(v -> toggleActionPanel(itemView, message, position, layoutIncomingBubble, layoutMessageActions, listener));
             } else {
                 tvMessageText.setVisibility(View.GONE);
                 View layoutLinkPreview = itemView.findViewById(R.id.layoutLinkPreview);
@@ -1610,46 +1733,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 return false;
             });
 
+            View.OnClickListener bubbleClickListener = v -> {
+                toggleActionPanel(itemView, message, position, layoutIncomingBubble, layoutMessageActions, listener);
+            };
+
+            if (layoutIncomingBubble != null) {
+                layoutIncomingBubble.setOnClickListener(bubbleClickListener);
+            }
+
             itemView.setOnLongClickListener(v -> {
-                if (!isConnectionActive) {
-                    Activity act = getActivityFromContext(v.getContext());
-                    if (act != null) {
-                        PrimeNotification.INSTANCE.show(act, "Действие недоступно без подключения", null);
-                    }
-                    return true;
-                }
-
-                View shakeView = layoutIncomingBubble != null ? layoutIncomingBubble : itemView;
-                ObjectAnimator animator = ObjectAnimator.ofFloat(shakeView, "translationX", 0f, -12f, 12f, -8f, 8f, -4f, 4f, 0f);
-                animator.setDuration(350);
-                animator.start();
-
-                if (layoutMessageActions != null) {
-                    View layoutDefaultActions = itemView.findViewById(R.id.layoutDefaultActions);
-                    View layoutSelectionActions = itemView.findViewById(R.id.layoutSelectionActions);
-                    if (layoutDefaultActions != null) layoutDefaultActions.setVisibility(View.VISIBLE);
-                    if (layoutSelectionActions != null) layoutSelectionActions.setVisibility(View.GONE);
-
-                    if (layoutMessageActions.getVisibility() == View.VISIBLE) {
-                        layoutMessageActions.setVisibility(View.GONE);
-                    } else {
-                        layoutMessageActions.setVisibility(View.VISIBLE);
-                        layoutMessageActions.setAlpha(0f);
-                        layoutMessageActions.setScaleX(0.7f);
-                        layoutMessageActions.setScaleY(0.7f);
-                        layoutMessageActions.animate()
-                                .alpha(1f)
-                                .scaleX(1f)
-                                .scaleY(1f)
-                                .setDuration(220)
-                                .setInterpolator(new OvershootInterpolator())
-                                .start();
-                    }
-                }
-
-                if (listener != null) {
-                    listener.onMessageLongClick(message, position);
-                }
+                toggleActionPanel(itemView, message, position, layoutIncomingBubble, layoutMessageActions, listener);
                 return true;
             });
         }
@@ -1772,6 +1865,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 tvMessageText.setTextIsSelectable(true);
                 setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
                 bindLinkPreview(itemView, text);
+                tvMessageText.setOnClickListener(v -> toggleActionPanel(itemView, message, position, layoutOutgoingBubble, layoutMessageActions, listener));
             } else {
                 tvMessageText.setVisibility(View.GONE);
                 View layoutLinkPreview = itemView.findViewById(R.id.layoutLinkPreview);
@@ -1788,17 +1882,26 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 if (message.getMessageStatus() == MessageStatus.SENDING) {
                     ivMessageStatus.setVisibility(View.VISIBLE);
                     ivMessageStatus.setImageResource(R.drawable.ic_clock);
+                    ivMessageStatus.setOnClickListener(null);
                 } else if (message.getMessageStatus() == MessageStatus.READ) {
                     ivMessageStatus.setVisibility(View.VISIBLE);
                     ivMessageStatus.setImageResource(R.drawable.ic_done_all);
+                    ivMessageStatus.setOnClickListener(null);
                 } else if (message.getMessageStatus() == MessageStatus.SENT) {
                     ivMessageStatus.setVisibility(View.VISIBLE);
                     ivMessageStatus.setImageResource(R.drawable.ic_done);
+                    ivMessageStatus.setOnClickListener(null);
                 } else if (message.getMessageStatus() == MessageStatus.ERROR) {
                     ivMessageStatus.setVisibility(View.VISIBLE);
                     ivMessageStatus.setImageResource(R.drawable.ic_error);
+                    ivMessageStatus.setOnClickListener(v -> {
+                        if (actionListener != null) {
+                            actionListener.onRetryMessage(message, position);
+                        }
+                    });
                 } else {
                     ivMessageStatus.setVisibility(View.GONE);
+                    ivMessageStatus.setOnClickListener(null);
                 }
             }
 
@@ -1884,48 +1987,66 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 return false;
             });
 
+            View.OnClickListener bubbleClickListener = v -> {
+                toggleActionPanel(itemView, message, position, layoutOutgoingBubble, layoutMessageActions, listener);
+            };
+
+            if (layoutOutgoingBubble != null) {
+                layoutOutgoingBubble.setOnClickListener(bubbleClickListener);
+            }
+
             itemView.setOnLongClickListener(v -> {
-                if (!isConnectionActive) {
-                    Activity act = getActivityFromContext(v.getContext());
-                    if (act != null) {
-                        PrimeNotification.INSTANCE.show(act, "Действие недоступно без подключения", null);
-                    }
-                    return true;
-                }
-
-                View shakeView = layoutOutgoingBubble != null ? layoutOutgoingBubble : itemView;
-                ObjectAnimator animator = ObjectAnimator.ofFloat(shakeView, "translationX", 0f, -12f, 12f, -8f, 8f, -4f, 4f, 0f);
-                animator.setDuration(350);
-                animator.start();
-
-                if (layoutMessageActions != null) {
-                    View layoutDefaultActions = itemView.findViewById(R.id.layoutDefaultActions);
-                    View layoutSelectionActions = itemView.findViewById(R.id.layoutSelectionActions);
-                    if (layoutDefaultActions != null) layoutDefaultActions.setVisibility(View.VISIBLE);
-                    if (layoutSelectionActions != null) layoutSelectionActions.setVisibility(View.GONE);
-
-                    if (layoutMessageActions.getVisibility() == View.VISIBLE) {
-                        layoutMessageActions.setVisibility(View.GONE);
-                    } else {
-                        layoutMessageActions.setVisibility(View.VISIBLE);
-                        layoutMessageActions.setAlpha(0f);
-                        layoutMessageActions.setScaleX(0.7f);
-                        layoutMessageActions.setScaleY(0.7f);
-                        layoutMessageActions.animate()
-                                .alpha(1f)
-                                .scaleX(1f)
-                                .scaleY(1f)
-                                .setDuration(220)
-                                .setInterpolator(new OvershootInterpolator())
-                                .start();
-                    }
-                }
-
-                if (listener != null) {
-                    listener.onMessageLongClick(message, position);
-                }
+                toggleActionPanel(itemView, message, position, layoutOutgoingBubble, layoutMessageActions, listener);
                 return true;
             });
+        }
+    }
+
+    private void toggleActionPanel(View itemView, ChatMessage message, int position, View bubbleView, View layoutMessageActions, OnMessageLongClickListener listener) {
+        if (!isConnectionActive) {
+            Activity act = getActivityFromContext(itemView.getContext());
+            if (act != null) {
+                PrimeNotification.INSTANCE.show(act, "Действие недоступно без подключения", null);
+            }
+            return;
+        }
+
+        View shakeView = bubbleView != null ? bubbleView : itemView;
+        ObjectAnimator animator = ObjectAnimator.ofFloat(shakeView, "translationX", 0f, -10f, 10f, -6f, 6f, -3f, 3f, 0f);
+        animator.setDuration(300);
+        animator.start();
+
+        if (layoutMessageActions != null) {
+            View layoutDefaultActions = itemView.findViewById(R.id.layoutDefaultActions);
+            View layoutSelectionActions = itemView.findViewById(R.id.layoutSelectionActions);
+            if (layoutDefaultActions != null) layoutDefaultActions.setVisibility(View.VISIBLE);
+            if (layoutSelectionActions != null) layoutSelectionActions.setVisibility(View.GONE);
+
+            if (layoutMessageActions.getVisibility() == View.VISIBLE) {
+                layoutMessageActions.animate()
+                        .alpha(0f)
+                        .scaleX(0.7f)
+                        .scaleY(0.7f)
+                        .setDuration(180)
+                        .withEndAction(() -> layoutMessageActions.setVisibility(View.GONE))
+                        .start();
+            } else {
+                layoutMessageActions.setVisibility(View.VISIBLE);
+                layoutMessageActions.setAlpha(0f);
+                layoutMessageActions.setScaleX(0.7f);
+                layoutMessageActions.setScaleY(0.7f);
+                layoutMessageActions.animate()
+                        .alpha(1f)
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(220)
+                        .setInterpolator(new OvershootInterpolator())
+                        .start();
+            }
+        }
+
+        if (listener != null) {
+            listener.onMessageLongClick(message, position);
         }
     }
 

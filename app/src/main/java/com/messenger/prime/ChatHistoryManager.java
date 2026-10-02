@@ -284,12 +284,16 @@ public class ChatHistoryManager {
             List<ChatMessage> history = loadMessages(appContext, targetUsername);
             if (history.isEmpty()) return;
 
-            boolean markAll = (readMsgId == null || readMsgId.isEmpty() || readMsgId.startsWith("READ_ALL"));
-            int targetIdx = history.size() - 1;
+            String cleanId = readMsgId;
+            boolean markAll = (readMsgId == null || readMsgId.isEmpty() || "READ_ALL".equalsIgnoreCase(readMsgId));
+            if (readMsgId != null && readMsgId.startsWith("READ_ALL:::")) {
+                cleanId = readMsgId.substring(11);
+            }
 
-            if (!markAll) {
+            int targetIdx = history.size() - 1;
+            if (!markAll && cleanId != null && !cleanId.isEmpty()) {
                 for (int i = 0; i < history.size(); i++) {
-                    if (readMsgId.equals(history.get(i).getMessageId())) {
+                    if (cleanId.equals(history.get(i).getMessageId())) {
                         targetIdx = i;
                         break;
                     }
@@ -310,6 +314,75 @@ public class ChatHistoryManager {
                 ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
             }
         });
+    }
+
+    public static void markIncomingMessagesAsRead(Context context, String targetUsername, String readMsgId) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return;
+        executor.execute(() -> {
+            Context appContext = context.getApplicationContext();
+            List<ChatMessage> history = loadMessages(appContext, targetUsername);
+            if (history.isEmpty()) return;
+
+            String cleanId = readMsgId;
+            boolean markAll = (readMsgId == null || readMsgId.isEmpty() || "READ_ALL".equalsIgnoreCase(readMsgId));
+            if (readMsgId != null && readMsgId.startsWith("READ_ALL:::")) {
+                cleanId = readMsgId.substring(11);
+            }
+
+            int targetIdx = history.size() - 1;
+            if (!markAll && cleanId != null && !cleanId.isEmpty()) {
+                for (int i = 0; i < history.size(); i++) {
+                    if (cleanId.equals(history.get(i).getMessageId())) {
+                        targetIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            boolean changed = false;
+            for (int i = 0; i <= targetIdx && i < history.size(); i++) {
+                ChatMessage m = history.get(i);
+                if (!m.isOutgoing() && m.getMessageStatus() != MessageStatus.READ) {
+                    m.setMessageStatus(MessageStatus.READ);
+                    changed = true;
+                }
+            }
+
+            if (changed) {
+                saveHistoryList(appContext, targetUsername, history);
+            }
+            clearUnreadCountInPersistedChats(appContext, targetUsername);
+            ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
+        });
+    }
+
+    public static void clearUnreadCountInPersistedChats(Context context, String targetUsername) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return;
+        try {
+            SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+            String json = sp.getString("persisted_chats", "[]");
+            JSONArray array = new JSONArray(json);
+            JSONArray newArray = new JSONArray();
+            boolean updated = false;
+
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject obj = array.getJSONObject(i);
+                String name = obj.optString("name", "");
+                String id = obj.optString("id", "");
+
+                if (targetUsername.equalsIgnoreCase(name) || targetUsername.equalsIgnoreCase(id)) {
+                    obj.put("unreadCount", 0);
+                    updated = true;
+                }
+                newArray.put(obj);
+            }
+
+            if (updated) {
+                sp.edit().putString("persisted_chats", newArray.toString()).apply();
+            }
+        } catch (Exception e) {
+            Log.e("ChatHistoryManager", "Failed to clear unread count in persisted_chats", e);
+        }
     }
 
     public static void updateMessageStatus(Context context, String targetUsername, String messageId, MessageStatus newStatus) {
@@ -413,6 +486,9 @@ public class ChatHistoryManager {
                     long timestamp = obj.optLong("timestamp", System.currentTimeMillis());
                     String imagePath = obj.optString("imagePath", null);
                     String messageId = obj.optString("messageId", null);
+                    if (messageId != null && messageId.trim().isEmpty()) {
+                        messageId = null;
+                    }
                     boolean isEdited = obj.optBoolean("isEdited", false);
                     String msgStatusStr = obj.optString("messageStatus", MessageStatus.SENT.name());
                     String msgTypeStr = obj.optString("messageType", ChatMessage.MessageType.TEXT.name());

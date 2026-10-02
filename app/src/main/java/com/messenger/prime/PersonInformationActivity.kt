@@ -147,6 +147,7 @@ class PersonInformationActivity : AppCompatActivity() {
             ColorAccentManager.tintViewTree(binding.root, ColorAccentManager.getCurrentAccentColor(this))
         }
         setupHeaderUi()
+        updateLiveStatus()
     }
 
     override fun onDestroy() {
@@ -531,14 +532,14 @@ class PersonInformationActivity : AppCompatActivity() {
                         mediaGrouped.getOrPut(dateLabel) { mutableListOf() }.add(subMsg)
                         totalMediaCount++
                     }
-                } else if (!msg.imagePath.isNullOrEmpty() || msg.imageBitmap != null || msg.messageType == ChatMessage.MessageType.IMAGE || msg.messageType == ChatMessage.MessageType.VIDEO) {
-                    val dateLabel = formatDateSection(msg.timestamp)
-                    mediaGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
-                    totalMediaCount++
                 } else if (msg.isFile || msg.messageType == ChatMessage.MessageType.FILE || !msg.fileName.isNullOrEmpty()) {
                     val dateLabel = formatDateSection(msg.timestamp)
                     filesGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
                     totalFilesCount++
+                } else if (!msg.imagePath.isNullOrEmpty() || msg.imageBitmap != null || msg.messageType == ChatMessage.MessageType.IMAGE || msg.messageType == ChatMessage.MessageType.VIDEO) {
+                    val dateLabel = formatDateSection(msg.timestamp)
+                    mediaGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
+                    totalMediaCount++
                 }
             }
 
@@ -577,7 +578,8 @@ class PersonInformationActivity : AppCompatActivity() {
                     binding.rvSharedMedia.visibility = View.VISIBLE
 
                     val mediaAdapter = PersonMediaAdapter(mediaAdapterItems) { clickedMsg ->
-                        ChatAdapter.showFullScreenMedia(this, null, clickedMsg, mediaClickList, 0)
+                        val initialIdx = mediaClickList.indexOf(clickedMsg).coerceAtLeast(0)
+                        ChatAdapter.showFullScreenMedia(this, null, clickedMsg, mediaClickList, initialIdx)
                     }
                     val gridManager = GridLayoutManager(this, 3)
                     gridManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
@@ -654,11 +656,14 @@ class PersonInformationActivity : AppCompatActivity() {
                         h.binding.layoutVideoBadge.visibility = View.VISIBLE
                         h.binding.tvVideoDuration.text = msg.videoDuration ?: "00:00"
 
-                        val thumb = ChatAdapter.getVideoThumbnail(h.itemView.context, path)
-                        if (thumb != null) {
-                            h.binding.ivGalleryThumbnail.setImageBitmap(thumb)
-                        } else if (!path.isNullOrEmpty()) {
-                            ChatAdapter.loadMediaImageIntoView(h.itemView.context, path, h.binding.ivGalleryThumbnail)
+                        if (!path.isNullOrEmpty()) {
+                            Glide.with(h.itemView.context)
+                                .asBitmap()
+                                .load(path)
+                                .centerCrop()
+                                .placeholder(R.drawable.ic_video)
+                                .error(R.drawable.ic_video)
+                                .into(h.binding.ivGalleryThumbnail)
                         } else {
                             h.binding.ivGalleryThumbnail.setImageResource(R.drawable.ic_video)
                         }
@@ -724,9 +729,14 @@ class PersonInformationActivity : AppCompatActivity() {
                 is FileListItem.Item -> {
                     val h = holder as ItemViewHolder
                     val msg = item.msg
-                    h.binding.tvFileName.text = msg.fileName ?: "Документ"
-                    val sizeKb = msg.fileSize / 1024
-                    h.binding.tvFileSize.text = if (sizeKb > 1024) "${sizeKb / 1024} МБ" else "$sizeKb КБ"
+                    val resolvedName = msg.fileName?.ifEmpty { null }
+                        ?: msg.imagePath?.let { File(it).name }
+                        ?: "Документ"
+                    h.binding.tvFileName.text = resolvedName
+                    
+                    val filePath = msg.imagePath ?: ""
+                    val sizeBytes = if (msg.fileSize > 0) msg.fileSize else (if (filePath.isNotEmpty()) File(filePath).length() else 0L)
+                    h.binding.tvFileSize.text = ChatAdapter.formatFileSize(sizeBytes)
                     h.itemView.setOnClickListener { onItemClick(msg) }
                 }
             }

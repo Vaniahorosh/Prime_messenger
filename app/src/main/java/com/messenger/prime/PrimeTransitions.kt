@@ -1,7 +1,7 @@
 package com.messenger.prime
 
 import android.app.Activity
-import android.app.ActivityOptions
+import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import com.r0adkll.slidr.Slidr
@@ -82,6 +82,26 @@ object PrimeTransitions {
     }
 
     /**
+     * Helper method to start an Activity with transition and notify background lava animation state.
+     */
+    @JvmStatic
+    fun startActivityWithTransition(activity: Activity, intent: Intent) {
+        LavaBackgroundState.onTransitionStart()
+        activity.startActivity(intent)
+        applyOpenTransition(activity)
+    }
+
+    /**
+     * Helper method to finish an Activity with transition.
+     */
+    @JvmStatic
+    fun finishWithTransition(activity: Activity) {
+        LavaBackgroundState.onTransitionStart()
+        activity.finish()
+        applyCloseTransition(activity)
+    }
+
+    /**
      * Attaches Slidr swipe-to-dismiss gesture to the activity across all API levels.
      * Dynamically converts the Activity to translucent while dragging so the underlying Activity
      * is rendered during the swipe gesture, while preserving non-translucent window status for
@@ -99,12 +119,6 @@ object PrimeTransitions {
             .distanceThreshold(0.25f)
             .listener(object : SlidrListener {
                 override fun onSlideStateChanged(state: Int) {
-                    // state 1 = DRAGGING, 0 = IDLE, 2 = SETTLING
-                    if (state == 1) {
-                        convertToTranslucent(activity)
-                    } else if (state == 0) {
-                        convertFromTranslucent(activity)
-                    }
                     customListener?.onSlideStateChanged(state)
                 }
 
@@ -126,33 +140,5 @@ object PrimeTransitions {
             })
             .build()
         return Slidr.attach(activity, slidrConfig)
-    }
-
-    /**
-     * Dynamically converts an Activity window to translucent so the activity behind it is rendered.
-     */
-    @JvmStatic
-    fun convertToTranslucent(activity: Activity) {
-        try {
-            val method = Activity::class.java.getDeclaredMethod(
-                "convertToTranslucent",
-                Class.forName("android.app.Activity\$TranslucentConversionListener"),
-                ActivityOptions::class.java
-            )
-            method.isAccessible = true
-            method.invoke(activity, null, null)
-        } catch (_: Exception) {}
-    }
-
-    /**
-     * Restores an Activity window to non-translucent status.
-     */
-    @JvmStatic
-    fun convertFromTranslucent(activity: Activity) {
-        try {
-            val method = Activity::class.java.getDeclaredMethod("convertFromTranslucent")
-            method.isAccessible = true
-            method.invoke(activity)
-        } catch (_: Exception) {}
     }
 }

@@ -1,85 +1,143 @@
 package com.messenger.prime
 
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
-import android.graphics.Color
+import android.content.Context
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.net.Uri
-import java.io.File
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.Gravity
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
-import android.widget.ImageView
-import android.widget.TextView
 import androidx.core.content.ContextCompat
-import android.annotation.SuppressLint
-import android.content.Context
-import com.bumptech.glide.Glide
-import androidx.core.view.isEmpty
 import androidx.core.net.toUri
-import androidx.core.graphics.toColorInt
-import androidx.recyclerview.widget.RecyclerView
-import com.messenger.prime.databinding.ItemChatBinding
-import com.messenger.prime.databinding.ItemChatFooterBinding
-import com.messenger.prime.databinding.ItemChatIslandHeaderBinding
-import android.graphics.BitmapFactory
-import android.view.animation.OvershootInterpolator
 import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.ListUpdateCallback
+import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners
-import com.bumptech.glide.signature.ObjectKey
-import kotlin.math.abs
+import com.messenger.prime.databinding.ItemChatBinding
+import com.messenger.prime.databinding.ItemChatFooterBinding
+import java.io.File
+
+class ChatDiffCallback(
+    private val oldList: List<ChatModel>,
+    private val newList: List<ChatModel>
+) : DiffUtil.Callback() {
+
+    override fun getOldListSize(): Int = oldList.size
+    override fun getNewListSize(): Int = newList.size
+
+    override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+        val oldItem = oldList[oldItemPosition]
+        val newItem = newList[newItemPosition]
+        return oldItem.id == newItem.id
+    }
+
+    override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+        val oldItem = oldList[oldItemPosition]
+        val newItem = newList[newItemPosition]
+        return oldItem == newItem
+    }
+
+    override fun getChangePayload(oldItemPosition: Int, newItemPosition: Int): Any? {
+        val oldItem = oldList[oldItemPosition]
+        val newItem = newList[newItemPosition]
+        if (oldItem.id == "__footer__" || newItem.id == "__footer__") return null
+
+        val diffBundle = Bundle()
+        if (oldItem.lastMessage != newItem.lastMessage || oldItem.activityState != newItem.activityState || oldItem.isTyping != newItem.isTyping) {
+            diffBundle.putString("lastMessage", newItem.lastMessage)
+            diffBundle.putString("activityState", newItem.activityState)
+            diffBundle.putBoolean("isTyping", newItem.isTyping)
+        }
+        if (oldItem.time != newItem.time) {
+            diffBundle.putString("time", newItem.time)
+        }
+        if (oldItem.unreadCount != newItem.unreadCount) {
+            diffBundle.putInt("unreadCount", newItem.unreadCount)
+        }
+        if (oldItem.messageStatus != newItem.messageStatus) {
+            diffBundle.putString("messageStatus", newItem.messageStatus.name)
+        }
+        if (oldItem.onlineStatus != newItem.onlineStatus) {
+            diffBundle.putString("onlineStatus", newItem.onlineStatus.name)
+        }
+        if (oldItem.avatarUri != newItem.avatarUri) {
+            diffBundle.putString("avatarUri", newItem.avatarUri ?: "")
+        }
+        if (oldItem.name != newItem.name) {
+            diffBundle.putString("name", newItem.name)
+        }
+        if (oldItem.isMuted != newItem.isMuted) {
+            diffBundle.putBoolean("isMuted", newItem.isMuted)
+        }
+
+        return if (!diffBundle.isEmpty) diffBundle else null
+    }
+}
 
 class ChatListAdapter(
     private var chatList: List<ChatModel>,
-    private var userAvatarUri: String? = null,
-    private var userName: String = "Пользователь",
-    private var currentNetworkHint: String = "Прайм",
-    private val onStartChatClick: () -> Unit,
-    private val onAvatarClick: () -> Unit,
-    private val onAvatarLongClick: () -> Unit,
-    private val onHeaderSearchClick: () -> Unit,
-    private val onNameClick: () -> Unit,
     private val onChatClick: (ChatModel) -> Unit,
     private val onDeleteClick: (ChatModel, Int) -> Unit,
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-    fun updateList(newChatList: List<ChatModel>) {
-        val diffCallback = object : DiffUtil.Callback() {
-            override fun getOldListSize(): Int = chatList.size
-            override fun getNewListSize(): Int = newChatList.size
-
-            override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-                val oldItem = chatList[oldItemPosition]
-                val newItem = newChatList[newItemPosition]
-                return oldItem.id == newItem.id && oldItem.name == newItem.name
-            }
-
-            override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-                val oldItem = chatList[oldItemPosition]
-                val newItem = newChatList[newItemPosition]
-                return oldItem == newItem
-            }
-        }
-
-        val diffResult = DiffUtil.calculateDiff(diffCallback)
-        this.chatList = newChatList
-        diffResult.dispatchUpdatesTo(this)
-    }
-
     companion object {
         private const val TYPE_CHAT = 0
         private const val TYPE_FOOTER = 1
-        private const val TYPE_HEADER = 2
     }
+
+    private val footerDummy = ChatModel(id = "__footer__", name = "", lastMessage = "", time = "", avatarUri = null)
 
     var isSearchActive = false
         private set
+
+    var currentSearchQuery = ""
+        private set
+
+    fun setSearchQuery(query: String) {
+        currentSearchQuery = query.trim()
+    }
+
+    private fun highlightSearchText(text: String, query: String, accentColor: Int): CharSequence {
+        if (query.isEmpty() || text.isEmpty()) return text
+        val normalizedText = text.replace('ё', 'е').replace('Ё', 'Е')
+        val normalizedQuery = query.replace('ё', 'е').replace('Ё', 'Е')
+        val tokens = normalizedQuery.split("\\s+".toRegex()).filter { it.isNotEmpty() }
+        if (tokens.isEmpty()) return text
+
+        val spannable = SpannableString(text)
+        var hasMatch = false
+
+        for (token in tokens) {
+            var startIdx = normalizedText.indexOf(token, 0, ignoreCase = true)
+            while (startIdx >= 0) {
+                val endIdx = (startIdx + token.length).coerceAtMost(text.length)
+                spannable.setSpan(
+                    ForegroundColorSpan(accentColor),
+                    startIdx,
+                    endIdx,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                spannable.setSpan(
+                    StyleSpan(Typeface.BOLD),
+                    startIdx,
+                    endIdx,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                hasMatch = true
+                startIdx = normalizedText.indexOf(token, endIdx, ignoreCase = true)
+            }
+        }
+        return if (hasMatch) spannable else text
+    }
 
     class ChatViewHolder(val binding: ItemChatBinding) : RecyclerView.ViewHolder(binding.root) {
         var isRevealed = false
@@ -93,7 +151,7 @@ class ChatListAdapter(
         fun startTypingAnimation(baseText: String = "Печатает") {
             if ((isTypingAnimationRunning && currentBaseText == baseText)) return
             stopTypingAnimation()
-            
+
             isTypingAnimationRunning = true
             currentBaseText = baseText
             typingDotsCount = 0
@@ -113,7 +171,7 @@ class ChatListAdapter(
             typingRunnable?.let { handler.removeCallbacks(it) }
             typingRunnable = null
         }
-        
+
         fun resetReveal() {
             binding.layoutContent.animate().cancel()
             binding.layoutContent.translationX = 0f
@@ -123,166 +181,161 @@ class ChatListAdapter(
     }
 
     class FooterViewHolder(val binding: ItemChatFooterBinding) : RecyclerView.ViewHolder(binding.root)
-    
-    inner class HeaderViewHolder(val binding: ItemChatIslandHeaderBinding) : RecyclerView.ViewHolder(binding.root) {
-        private val handler = Handler(Looper.getMainLooper())
-        private var isShowingName = false
-        private val switchRunnable = object : Runnable {
-            override fun run() {
-                if (networkHint == "Прайм" || networkHint == "ПОИСК") {
-                    isShowingName = !isShowingName
-                    updateTitle()
-                }
-                handler.postDelayed(this, 5000)
-            }
-        }
-
-        private var currentUserName = ""
-        private var networkHint = "Прайм"
-        private var currentlyShowingText = ""
-
-        fun bind(avatarUri: String?, userName: String, netHint: String, onAvatarClick: () -> Unit, onAvatarLongClick: () -> Unit, onSearchClick: () -> Unit, onNameClick: () -> Unit) {
-            currentUserName = userName
-            networkHint = netHint
-            
-            val context = itemView.context
-            if (!avatarUri.isNullOrEmpty()) {
-                var loaded = false
-                try {
-                    val uri = Uri.parse(avatarUri)
-                    val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
-                    if (file != null && file.exists()) {
-                        loadAvatarFileIntoView(context, file, binding.ivHeaderAvatar)
-                        loaded = true
-                    } else {
-                        loadAvatarUriIntoView(context, uri, binding.ivHeaderAvatar)
-                        loaded = true
-                    }
-                } catch (_: Exception) {}
-                
-                if (loaded) {
-                    binding.tvHeaderInitials.visibility = View.GONE
-                    binding.ivHeaderAvatar.visibility = View.VISIBLE
-                } else {
-                    val initial = if (userName.isNotEmpty()) userName.take(1).uppercase() else "P"
-                    binding.tvHeaderInitials.text = initial
-                    binding.tvHeaderInitials.visibility = View.VISIBLE
-                    binding.ivHeaderAvatar.visibility = View.INVISIBLE
-                }
-            } else {
-                val initial = userName.take(1).uppercase()
-                binding.tvHeaderInitials.text = initial
-                binding.tvHeaderInitials.visibility = View.VISIBLE
-                binding.ivHeaderAvatar.visibility = View.INVISIBLE
-                
-                val color = getAvatarColor(userName)
-                val bg = GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    cornerRadius = 15 * binding.root.context.resources.displayMetrics.density
-                    setColor(color)
-                }
-                binding.tvHeaderInitials.background = bg
-            }
-            binding.ivHeaderAvatar.setOnClickListener { onAvatarClick() }
-            binding.tvHeaderInitials.setOnClickListener { onAvatarClick() }
-            
-            binding.ivHeaderAvatar.setOnLongClickListener {
-                onAvatarLongClick()
-                it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                true
-            }
-            binding.tvHeaderInitials.setOnLongClickListener {
-                onAvatarLongClick()
-                it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                true
-            }
-
-            binding.btnHeaderSearch.setOnClickListener { onSearchClick() }
-
-            if (binding.tsHeaderTitle.isEmpty()) {
-                binding.tsHeaderTitle.setFactory {
-                    TextView(binding.root.context).apply {
-                        gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                        setTextColor(Color.WHITE)
-                        textSize = 18f
-                        setTypeface(null, Typeface.BOLD)
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT
-                        )
-                    }
-                }
-            }
-            
-            updateTitle(animate = false)
-            binding.tsHeaderTitle.setOnClickListener { 
-                if (isShowingName) onNameClick() 
-            }
-
-            handler.removeCallbacks(switchRunnable)
-            handler.postDelayed(switchRunnable, 5000)
-        }
-
-        private fun updateTitle(animate: Boolean = true) {
-            val textToSet = if (networkHint != "Прайм" && networkHint != "ПОИСК") {
-                if (BluetoothAdapter.checkBluetoothAddress(networkHint)) "Прайм" else networkHint
-            } else {
-                if (isShowingName && !BluetoothAdapter.checkBluetoothAddress(currentUserName)) currentUserName else "Прайм"
-            }
-            
-            if (currentlyShowingText != textToSet) {
-                currentlyShowingText = textToSet
-                if (animate) {
-                    binding.tsHeaderTitle.setText(textToSet)
-                } else {
-                    binding.tsHeaderTitle.setCurrentText(textToSet)
-                }
-            }
-        }
-
-        fun stopAnimation() {
-            handler.removeCallbacks(switchRunnable)
-        }
-
-        private fun getAvatarColor(name: String): Int {
-            val colors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFEB3B", "#FFC107", "#FF9800", "#FF5722")
-            val hash = name.hashCode()
-            val index = (if (hash == Int.MIN_VALUE) 0 else abs(hash)) % colors.size
-            return colors[index].toColorInt()
-        }
-    }
 
     override fun getItemViewType(position: Int): Int {
-        if (!isSearchActive && position == 0) return TYPE_HEADER
-        val actualPos = if (!isSearchActive) position - 1 else position
-        return if (actualPos == chatList.size) TYPE_FOOTER else TYPE_CHAT
+        if (position == chatList.size) return TYPE_FOOTER
+        return TYPE_CHAT
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-        return when (viewType) {
-            TYPE_HEADER -> {
-                val binding = ItemChatIslandHeaderBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-                HeaderViewHolder(binding)
+        return if (viewType == TYPE_FOOTER) {
+            val binding = ItemChatFooterBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+            FooterViewHolder(binding)
+        } else {
+            val binding = ItemChatBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+            ChatViewHolder(binding)
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isEmpty() || holder !is ChatViewHolder || position >= chatList.size) {
+            super.onBindViewHolder(holder, position, payloads)
+            return
+        }
+
+        val diffBundle = payloads.first() as? Bundle ?: run {
+            super.onBindViewHolder(holder, position, payloads)
+            return
+        }
+
+        val context = holder.itemView.context
+        val chat = chatList[position]
+        val binding = holder.binding
+
+        if (diffBundle.containsKey("name")) {
+            val rawName = if (BluetoothAdapter.checkBluetoothAddress(chat.name)) "Собеседник" else chat.name
+            val accentColor = ColorAccentManager.getCurrentAccentColor(context)
+            if (isSearchActive && currentSearchQuery.isNotEmpty()) {
+                binding.tvContactName.text = highlightSearchText(rawName, currentSearchQuery, accentColor)
+            } else {
+                binding.tvContactName.text = rawName
             }
-            TYPE_FOOTER -> {
-                val binding = ItemChatFooterBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-                FooterViewHolder(binding)
+        }
+
+        if (diffBundle.containsKey("lastMessage") || diffBundle.containsKey("activityState") || diffBundle.containsKey("isTyping")) {
+            val now = System.currentTimeMillis()
+            val isCurrentlyTyping = chat.isTyping || "TYPING".equals(chat.activityState, ignoreCase = true) || (chat.typingUntil > 0 && chat.typingUntil > now)
+            val accentColor = ColorAccentManager.getCurrentAccentColor(context)
+
+            if (!isCurrentlyTyping && isSearchActive && currentSearchQuery.isNotEmpty()) {
+                holder.stopTypingAnimation()
+                binding.tvLastMessage.text = highlightSearchText(chat.lastMessage, currentSearchQuery, accentColor)
+                binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_text_secondary))
+                binding.tvLastMessage.setTypeface(null, Typeface.NORMAL)
+            } else if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true) || "SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
+                holder.startTypingAnimation("Отправка медиа")
+                binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+            } else if ("VIEWING_PHOTO".equals(chat.activityState, ignoreCase = true)) {
+                holder.stopTypingAnimation()
+                binding.tvLastMessage.text = "Смотрит фото"
+                binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+            } else if ("VIEWING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
+                holder.stopTypingAnimation()
+                binding.tvLastMessage.text = "Смотрит видео"
+                binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+            } else if ("VIEWING_FILE".equals(chat.activityState, ignoreCase = true)) {
+                holder.stopTypingAnimation()
+                binding.tvLastMessage.text = "Смотрит файл"
+                binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+            } else if (isCurrentlyTyping) {
+                holder.startTypingAnimation("Печатает")
+                binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+            } else {
+                holder.stopTypingAnimation()
+                binding.tvLastMessage.text = chat.lastMessage
+                binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_text_secondary))
+                binding.tvLastMessage.setTypeface(null, Typeface.NORMAL)
             }
-            else -> {
-                val binding = ItemChatBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-                ChatViewHolder(binding)
+        }
+
+        if (diffBundle.containsKey("time")) {
+            binding.tvMessageTime.text = chat.time
+        }
+
+        if (diffBundle.containsKey("unreadCount")) {
+            val count = diffBundle.getInt("unreadCount")
+            if (count > 0) {
+                binding.tvUnreadCounter.visibility = View.VISIBLE
+                binding.tvUnreadCounter.text = if (count > 99) "99+" else count.toString()
+                val counterBg = GradientDrawable().apply { cornerRadius = 100f }
+                counterBg.setColor(if (chat.isMuted) ContextCompat.getColor(context, R.color.prime_text_secondary) else ContextCompat.getColor(context, R.color.prime_brand))
+                binding.tvUnreadCounter.background = counterBg
+            } else {
+                binding.tvUnreadCounter.visibility = View.GONE
             }
+        }
+
+        if (diffBundle.containsKey("messageStatus")) {
+            when (chat.messageStatus) {
+                MessageStatus.SENDING -> {
+                    binding.ivMessageStatus.visibility = View.VISIBLE
+                    binding.ivMessageStatus.setImageResource(R.drawable.ic_clock)
+                }
+                MessageStatus.SENT -> {
+                    binding.ivMessageStatus.visibility = View.VISIBLE
+                    binding.ivMessageStatus.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.ic_done))
+                }
+                MessageStatus.READ -> {
+                    binding.ivMessageStatus.visibility = View.VISIBLE
+                    binding.ivMessageStatus.setImageResource(R.drawable.ic_done_all)
+                }
+                MessageStatus.ERROR -> {
+                    binding.ivMessageStatus.visibility = View.VISIBLE
+                    binding.ivMessageStatus.setImageResource(R.drawable.ic_error)
+                }
+                MessageStatus.NONE -> {
+                    binding.ivMessageStatus.visibility = View.GONE
+                }
+            }
+        }
+
+        if (diffBundle.containsKey("onlineStatus")) {
+            val onlineBadge = GradientDrawable().apply { shape = GradientDrawable.OVAL }
+            when (chat.onlineStatus) {
+                OnlineStatus.ONLINE -> {
+                    binding.viewOnlineStatus.visibility = View.VISIBLE
+                    onlineBadge.setColor(ContextCompat.getColor(context, R.color.prime_success))
+                    binding.viewOnlineStatus.background = onlineBadge
+                }
+                OnlineStatus.BLOCKED -> {
+                    binding.viewOnlineStatus.visibility = View.VISIBLE
+                    onlineBadge.setColor(ContextCompat.getColor(context, R.color.prime_danger))
+                    binding.viewOnlineStatus.background = onlineBadge
+                }
+                OnlineStatus.OFFLINE -> {
+                    binding.viewOnlineStatus.visibility = View.GONE
+                }
+            }
+        }
+
+        if (diffBundle.containsKey("isMuted")) {
+            binding.ivMuteStatus.visibility = if (chat.isMuted) View.VISIBLE else View.GONE
+        }
+
+        if (diffBundle.containsKey("avatarUri")) {
+            super.onBindViewHolder(holder, position, payloads)
         }
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         when (holder) {
-            is HeaderViewHolder -> {
-                holder.bind(userAvatarUri, userName, currentNetworkHint, onAvatarClick, onAvatarLongClick, onHeaderSearchClick, onNameClick)
-            }
             is FooterViewHolder -> {
-                holder.binding.btnStartChatFooter.setOnClickListener { onStartChatClick() }
-                if (chatList.isEmpty()) {
+                if (isSearchActive || chatList.isEmpty()) {
                     holder.itemView.layoutParams = RecyclerView.LayoutParams(0, 0)
                     holder.itemView.visibility = View.GONE
                 } else {
@@ -292,20 +345,16 @@ class ChatListAdapter(
                     )
                     holder.itemView.visibility = View.VISIBLE
                     holder.binding.tvFooterEndHint.visibility = View.VISIBLE
-                    val params = holder.binding.btnStartChatFooter.layoutParams
-                    params.width = ViewGroup.LayoutParams.MATCH_PARENT
-                    holder.binding.btnStartChatFooter.layoutParams = params
                 }
             }
             is ChatViewHolder -> {
-                val actualPos = if (!isSearchActive) position - 1 else position
-                if (actualPos < 0 || actualPos >= chatList.size) return
-                val chat = chatList[actualPos]
+                if (position < 0 || position >= chatList.size) return
+                val chat = chatList[position]
                 val context = holder.itemView.context
                 val binding = holder.binding
 
                 holder.resetReveal()
-                
+
                 binding.ivUserAvatar.setImageDrawable(null)
                 binding.tvUserInitials.visibility = View.GONE
                 binding.ivUserAvatar.visibility = View.INVISIBLE
@@ -313,8 +362,21 @@ class ChatListAdapter(
                 val now = System.currentTimeMillis()
                 val isCurrentlyTyping = chat.isTyping || "TYPING".equals(chat.activityState, ignoreCase = true) || (chat.typingUntil > 0 && chat.typingUntil > now)
 
-                binding.tvContactName.text = if (BluetoothAdapter.checkBluetoothAddress(chat.name)) "Собеседник" else chat.name
-                if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true) || "SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
+                val rawName = if (BluetoothAdapter.checkBluetoothAddress(chat.name)) "Собеседник" else chat.name
+                val accentColor = ColorAccentManager.getCurrentAccentColor(context)
+
+                if (isSearchActive && currentSearchQuery.isNotEmpty()) {
+                    binding.tvContactName.text = highlightSearchText(rawName, currentSearchQuery, accentColor)
+                } else {
+                    binding.tvContactName.text = rawName
+                }
+
+                if (!isCurrentlyTyping && isSearchActive && currentSearchQuery.isNotEmpty()) {
+                    holder.stopTypingAnimation()
+                    binding.tvLastMessage.text = highlightSearchText(chat.lastMessage, currentSearchQuery, accentColor)
+                    binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_text_secondary))
+                    binding.tvLastMessage.setTypeface(null, Typeface.NORMAL)
+                } else if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true) || "SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
                     holder.startTypingAnimation("Отправка медиа")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
@@ -371,7 +433,7 @@ class ChatListAdapter(
                                 binding.tvUserInitials.visibility = View.GONE
                                 avatarLoaded = true
                             }
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             avatarLoaded = false
                         }
                     }
@@ -437,12 +499,12 @@ class ChatListAdapter(
                         binding.tvUserInitials.background = bg
                     }
                 }
-                
-                binding.layoutContent.setOnClickListener { 
+
+                binding.layoutContent.setOnClickListener {
                     if (holder.isRevealed) {
                         animateHideDelete(holder)
                     } else {
-                        onChatClick(chat) 
+                        onChatClick(chat)
                     }
                 }
 
@@ -515,9 +577,8 @@ class ChatListAdapter(
 
     override fun onViewDetachedFromWindow(holder: RecyclerView.ViewHolder) {
         super.onViewDetachedFromWindow(holder)
-        when (holder) {
-            is HeaderViewHolder -> holder.stopAnimation()
-            is ChatViewHolder -> holder.stopTypingAnimation()
+        if (holder is ChatViewHolder) {
+            holder.stopTypingAnimation()
         }
     }
 
@@ -528,43 +589,17 @@ class ChatListAdapter(
         }
     }
 
-    override fun getItemCount(): Int = if (isSearchActive) chatList.size + 1 else chatList.size + 2
+    override fun getItemCount(): Int = if (chatList.isEmpty()) 0 else chatList.size + 1
 
-    fun updateList(newList: List<ChatModel>, notify: Boolean = true) {
-        if (!notify) {
-            chatList = ArrayList(newList)
-            return
-        }
-        val diffCallback = object : DiffUtil.Callback() {
-            override fun getOldListSize() = chatList.size
-            override fun getNewListSize() = newList.size
-            override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int) = chatList[oldItemPosition].id == newList[newItemPosition].id
-            override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int) = chatList[oldItemPosition] == newList[newItemPosition]
-        }
+    fun updateList(newList: List<ChatModel>) {
+        val oldAdapterItems = if (chatList.isEmpty()) emptyList() else chatList + footerDummy
+        val newAdapterItems = if (newList.isEmpty()) emptyList() else newList + footerDummy
+
+        val diffCallback = ChatDiffCallback(oldAdapterItems, newAdapterItems)
         val diffResult = DiffUtil.calculateDiff(diffCallback)
-        val wasEmpty = chatList.isEmpty()
+
         chatList = ArrayList(newList)
-        val isEmpty = chatList.isEmpty()
-        
-        val offset = if (isSearchActive) 0 else 1
-        diffResult.dispatchUpdatesTo(object : ListUpdateCallback {
-            override fun onInserted(position: Int, count: Int) {
-                notifyItemRangeInserted(position + offset, count)
-            }
-            override fun onRemoved(position: Int, count: Int) {
-                notifyItemRangeRemoved(position + offset, count)
-            }
-            override fun onMoved(fromPosition: Int, toPosition: Int) {
-                notifyItemMoved(fromPosition + offset, toPosition + offset)
-            }
-            override fun onChanged(position: Int, count: Int, payload: Any?) {
-                notifyItemRangeChanged(position + offset, count, payload)
-            }
-        })
-        
-        if (wasEmpty != isEmpty) {
-            notifyItemChanged(itemCount - 1)
-        }
+        diffResult.dispatchUpdatesTo(this)
     }
 
     fun getChatList(): List<ChatModel> = chatList
@@ -573,21 +608,6 @@ class ChatListAdapter(
         if (isSearchActive == active) return
         isSearchActive = active
         notifyDataSetChanged()
-    }
-
-    fun updateAvatar(newUri: String?) {
-        userAvatarUri = newUri
-        if (!isSearchActive) notifyItemChanged(0)
-    }
-
-    fun updateUserName(newName: String) {
-        userName = newName
-        if (!isSearchActive) notifyItemChanged(0)
-    }
-
-    fun updateNetworkHint(newHint: String) {
-        currentNetworkHint = newHint
-        if (!isSearchActive) notifyItemChanged(0)
     }
 
     private fun animateShowDelete(holder: ChatViewHolder) {
@@ -608,68 +628,9 @@ class ChatListAdapter(
             .translationX(0f)
             .setDuration(220)
             .setInterpolator(android.view.animation.AccelerateInterpolator())
-            .withEndAction { 
+            .withEndAction {
                 holder.resetReveal()
             }
             .start()
     }
-
 }
-
-fun loadAvatarFileIntoView(context: Context, file: File, imageView: ImageView) {
-    val isGif = file.name.lowercase().endsWith(".gif")
-    val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
-    val signatureKey = ObjectKey("${file.absolutePath}_${if (file.exists()) file.lastModified() else System.currentTimeMillis()}_${file.length()}")
-    if (isGif) {
-        Glide.with(context)
-            .asGif()
-            .load(file)
-            .override(200, 200)
-            .centerCrop()
-            .signature(signatureKey)
-            .placeholder(R.drawable.ic_person)
-            .into(imageView)
-    } else {
-        Glide.with(context)
-            .load(file)
-            .override(200, 200)
-            .transform(CenterCrop(), RoundedCorners(radiusPx))
-            .signature(signatureKey)
-            .placeholder(R.drawable.ic_person)
-            .into(imageView)
-    }
-}
-
-fun loadAvatarUriIntoView(context: Context, uri: Uri, imageView: ImageView) {
-    val uriStr = uri.toString().lowercase()
-    val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif")
-    val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
-    val file = if ("file" == uri.scheme && uri.path != null) File(uri.path!!) else null
-    val signatureKey = ObjectKey("${uri.toString()}_${if (file != null && file.exists()) "${file.lastModified()}_${file.length()}" else System.currentTimeMillis()}")
-    if (isGif) {
-        Glide.with(context)
-            .asGif()
-            .load(uri)
-            .override(200, 200)
-            .centerCrop()
-            .signature(signatureKey)
-            .placeholder(R.drawable.ic_person)
-            .into(imageView)
-    } else {
-        Glide.with(context)
-            .load(uri)
-            .override(200, 200)
-            .transform(CenterCrop(), RoundedCorners(radiusPx))
-            .signature(signatureKey)
-            .placeholder(R.drawable.ic_person)
-            .into(imageView)
-    }
-}
-
-fun getAvatarColor(name: String): Int {
-    val colors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFEB3B", "#FFC107", "#FF9800", "#FF5722")
-    val hash = name.hashCode()
-    val index = (if (hash == Int.MIN_VALUE) 0 else Math.abs(hash)) % colors.size
-    return colors[index].toColorInt()
-}
-

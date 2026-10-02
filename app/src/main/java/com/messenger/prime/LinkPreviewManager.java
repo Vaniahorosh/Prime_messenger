@@ -76,11 +76,18 @@ public class LinkPreviewManager {
     private LinkPreviewData parseOpenGraph(String urlString) {
         try {
             URL url = new URL(urlString);
+            String host = url.getHost().toLowerCase();
+
+            // Специальная обработка для YouTube
+            if (host.contains("youtube.com") || host.contains("youtu.be")) {
+                return parseYouTubePreview(urlString);
+            }
+
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(5000);
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android; Mobile; rv:109.0) Gecko/109.0 Firefox/115.0");
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
             conn.setInstanceFollowRedirects(true);
 
             int code = conn.getResponseCode();
@@ -89,7 +96,7 @@ public class LinkPreviewManager {
             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             StringBuilder html = new StringBuilder();
             String line;
-            int maxChars = 150000;
+            int maxChars = 200000;
             while ((line = reader.readLine()) != null && html.length() < maxChars) {
                 html.append(line).append("\n");
             }
@@ -131,6 +138,39 @@ public class LinkPreviewManager {
             Log.w(TAG, "Failed to parse OpenGraph for " + urlString + ": " + e.getMessage());
             return createFallbackData(urlString);
         }
+    }
+
+    private LinkPreviewData parseYouTubePreview(String urlString) {
+        try {
+            String oembedUrl = "https://www.youtube.com/oembed?url=" + java.net.URLEncoder.encode(urlString, "UTF-8") + "&format=json";
+            URL url = new URL(oembedUrl);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+
+            if (conn.getResponseCode() == 200) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                StringBuilder jsonBuilder = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    jsonBuilder.append(line);
+                }
+                reader.close();
+
+                org.json.JSONObject json = new org.json.JSONObject(jsonBuilder.toString());
+                LinkPreviewData data = new LinkPreviewData();
+                data.url = urlString;
+                data.domain = "youtube.com";
+                data.title = json.optString("title", "YouTube Video");
+                data.description = json.optString("author_name", "");
+                data.imageUrl = json.optString("thumbnail_url", "");
+                return data;
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to parse YouTube oEmbed for " + urlString + ": " + e.getMessage());
+        }
+        return createFallbackData(urlString);
     }
 
     private LinkPreviewData createFallbackData(String urlString) {

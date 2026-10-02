@@ -43,14 +43,14 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="12dp"
-        android:layout_marginEnd="8dp"
+        android:layout_marginEnd="4dp"
         android:hint="Поиск собеседников..."
         app:boxBackgroundColor="@android:color/transparent"
         app:boxStrokeWidth="0dp"
         app:boxStrokeWidthFocused="0dp"
         app:hintTextColor="@color/glass_white_30"
         app:layout_constraintBottom_toBottomOf="@+id/layoutToolbarAvatarContainer"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btnIslandStartChat"
         app:layout_constraintStart_toEndOf="@+id/layoutToolbarAvatarContainer"
         app:layout_constraintTop_toTopOf="@+id/layoutToolbarAvatarContainer">
 
@@ -76,9 +76,25 @@
         android:src="@drawable/ic_cancel"
         android:visibility="invisible"
         android:alpha="0"
+        tools:ignore="HardcodedText"
+        android:contentDescription="Очистить"
         app:tint="@color/white"
         app:layout_constraintBottom_toBottomOf="@+id/inputLayoutSearch"
         app:layout_constraintEnd_toEndOf="@+id/inputLayoutSearch"
         app:layout_constraintTop_toTopOf="@+id/inputLayoutSearch" />
+
+    <ImageButton
+        android:id="@+id/btnIslandStartChat"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginEnd="6dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_add"
+        tools:ignore="HardcodedText"
+        android:contentDescription="Начать общение"
+        app:layout_constraintBottom_toBottomOf="@+id/layoutToolbarAvatarContainer"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/layoutToolbarAvatarContainer"
+        app:tint="@color/white" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

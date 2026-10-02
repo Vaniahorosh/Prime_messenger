@@ -38,8 +38,10 @@
     </style>
 
     <style name="Theme.Prime.Swipe" parent="Theme.Prime">
-        <item name="android:windowIsTranslucent">false</item>
-        <item name="android:windowBackground">@color/prime_base</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowShowWallpaper">false</item>
     </style>
 
     <style name="SquareFABShape">

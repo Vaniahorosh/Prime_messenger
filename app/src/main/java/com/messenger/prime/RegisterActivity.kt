@@ -205,6 +205,7 @@ class RegisterActivity : AppCompatActivity() {
                                     putString("current_user", userLogin)
                                     apply()
                                 }
+                                LavaBackgroundState.onTransitionStart()
                                 startActivity(Intent(this@RegisterActivity, ChatListActivity::class.java))
                                 PrimeTransitions.applyOpenTransition(this@RegisterActivity)
                                 finishAffinity()

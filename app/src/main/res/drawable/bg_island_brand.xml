@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="#FA154B87" /> <!-- Фирменный синий (98% непрозрачности) -->
+    <solid android:color="@color/prime_brand" />
     <corners android:radius="24dp" />
 </shape>

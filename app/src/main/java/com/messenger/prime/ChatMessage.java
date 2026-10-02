@@ -340,16 +340,16 @@ public class ChatMessage {
         this.messageStatus = messageStatus;
     }
 
-    public Map<String, String> getReactionsMap() {
+    public synchronized Map<String, String> getReactionsMap() {
         return new LinkedHashMap<>(reactionsMap);
     }
 
-    public String getReactionForUser(String authorLogin) {
+    public synchronized String getReactionForUser(String authorLogin) {
         if (authorLogin == null) return null;
         return reactionsMap.get(authorLogin);
     }
 
-    public void setReactionForUser(String authorLogin, String reaction) {
+    public synchronized void setReactionForUser(String authorLogin, String reaction) {
         if (authorLogin == null || authorLogin.trim().isEmpty()) {
             authorLogin = senderLogin != null ? senderLogin : "unknown";
         }
@@ -361,7 +361,7 @@ public class ChatMessage {
         updateLegacyReactionFields();
     }
 
-    private void updateLegacyReactionFields() {
+    private synchronized void updateLegacyReactionFields() {
         if (reactionsMap.isEmpty()) {
             this.reaction = null;
             this.reactionSenderLogin = null;
@@ -372,11 +372,11 @@ public class ChatMessage {
         }
     }
 
-    public String getReaction() {
+    public synchronized String getReaction() {
         return reaction;
     }
 
-    public void setReaction(String reaction) {
+    public synchronized void setReaction(String reaction) {
         if (reactionSenderLogin != null && !reactionSenderLogin.isEmpty()) {
             setReactionForUser(reactionSenderLogin, reaction);
         } else {

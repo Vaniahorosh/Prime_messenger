@@ -74,13 +74,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 }
 
                 // Update unread status in messages history
-                val history = ChatHistoryManager.loadMessages(context, targetUsername)
-                for (m in history) {
-                    if (!m.isOutgoing) {
-                        m.messageStatus = MessageStatus.READ
-                    }
-                }
-                ChatHistoryManager.saveHistoryList(context, targetUsername, history)
+                ChatHistoryManager.markIncomingMessagesAsRead(context, targetUsername, "READ_ALL")
 
                 // Notify chat list update
                 ChatListNotifier.notifyChanged()

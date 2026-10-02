@@ -293,27 +293,19 @@ public class BluetoothSocketHolder {
                 } catch (Exception ignored) {}
             }
 
-            Set<ChatPersonActivity.ConnectedThread> uniqueThreads = new HashSet<>();
-            for (Object threadObj : threadMap.values()) {
-                if (threadObj instanceof ChatPersonActivity.ConnectedThread) {
-                    ChatPersonActivity.ConnectedThread thread = (ChatPersonActivity.ConnectedThread) threadObj;
-                    if (thread.isAlive()) {
-                        uniqueThreads.add(thread);
-                    }
-                }
-            }
-            if (connectedThreadInstance instanceof ChatPersonActivity.ConnectedThread) {
-                ChatPersonActivity.ConnectedThread thread = (ChatPersonActivity.ConnectedThread) connectedThreadInstance;
-                if (thread.isAlive()) {
-                    uniqueThreads.add(thread);
-                }
+            Set<Object> uniqueThreads = new HashSet<>(threadMap.values());
+            if (connectedThreadInstance != null) {
+                uniqueThreads.add(connectedThreadInstance);
             }
 
-            for (ChatPersonActivity.ConnectedThread thread : uniqueThreads) {
+            for (Object threadObj : uniqueThreads) {
+                if (threadObj == null) continue;
                 try {
-                    thread.sendPacket((byte) 0x0F, handshakeBytes);
+                    java.lang.reflect.Method sendPacketMethod = threadObj.getClass().getMethod("sendPacket", byte.class, byte[].class);
+                    sendPacketMethod.setAccessible(true);
+                    sendPacketMethod.invoke(threadObj, (byte) 0x0F, handshakeBytes);
                     if (avatarBytes != null && avatarBytes.length > 0) {
-                        thread.sendPacket((byte) 0x07, avatarBytes);
+                        sendPacketMethod.invoke(threadObj, (byte) 0x07, avatarBytes);
                     }
                 } catch (Exception ignored) {}
             }

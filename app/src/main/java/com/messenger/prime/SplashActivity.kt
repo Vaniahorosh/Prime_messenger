@@ -41,7 +41,13 @@ class SplashActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        LavaBackgroundState.onActivityResumed()
+    }
+
     private fun checkLoginAndNavigate() {
+        LavaBackgroundState.onTransitionStart()
         val sharedPreferences = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val isLoggedIn = sharedPreferences.getBoolean("is_logged_in", false)
 

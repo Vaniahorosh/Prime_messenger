@@ -43,32 +43,113 @@
             tools:visibility="visible" />
     </FrameLayout>
 
-    <TextView
-        android:id="@+id/tvHeaderTitle"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="12dp"
-        android:textColor="@color/white"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:gravity="center_vertical|start"
-        android:ellipsize="end"
-        android:maxLines="1"
-        app:layout_constraintBottom_toBottomOf="@+id/layoutHeaderAvatarContainer"
-        app:layout_constraintEnd_toStartOf="@+id/btnHeaderSearch"
-        app:layout_constraintStart_toEndOf="@+id/layoutHeaderAvatarContainer"
-        app:layout_constraintTop_toTopOf="@+id/layoutHeaderAvatarContainer"
-        tools:text="Прайм" />
-
-    <ImageButton
-        android:id="@+id/btnHeaderSearch"
-        android:layout_width="40dp"
+    <!-- Right Side Actions Container -->
+    <FrameLayout
+        android:id="@+id/layoutHeaderActionsContainer"
+        android:layout_width="wrap_content"
         android:layout_height="40dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_search"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:tint="@color/white" />
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Normal Action Buttons: Start Chat & Search -->
+        <LinearLayout
+            android:id="@+id/layoutHeaderNormalButtons"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <FrameLayout
+                android:id="@+id/layoutStartChatContainer"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="2dp"
+                android:layout_gravity="center_vertical">
+
+                <View
+                    android:id="@+id/vStartChatHighlightRing"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_plus_pulse_ring"
+                    android:visibility="gone" />
+
+                <ImageButton
+                    android:id="@+id/btnHeaderStartChat"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_gravity="center"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_add"
+                    tools:ignore="HardcodedText"
+                    android:contentDescription="Начать общение"
+                    app:tint="@color/white" />
+            </FrameLayout>
+
+            <ImageButton
+                android:id="@+id/btnHeaderSearch"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_search"
+                tools:ignore="HardcodedText"
+                android:contentDescription="Поиск"
+                app:tint="@color/white" />
+        </LinearLayout>
+
+        <!-- Search Mode Clear Button -->
+        <ImageButton
+            android:id="@+id/btnHeaderSearchClear"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_cancel"
+            android:visibility="gone"
+            tools:ignore="HardcodedText"
+            android:contentDescription="Закрыть поиск"
+            app:tint="@color/white" />
+    </FrameLayout>
+
+    <!-- Center Content Container (Title or Search Input) -->
+    <FrameLayout
+        android:id="@+id/layoutHeaderCenterContainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginHorizontal="12dp"
+        app:layout_constraintBottom_toBottomOf="@+id/layoutHeaderAvatarContainer"
+        app:layout_constraintEnd_toStartOf="@+id/layoutHeaderActionsContainer"
+        app:layout_constraintStart_toEndOf="@+id/layoutHeaderAvatarContainer"
+        app:layout_constraintTop_toTopOf="@+id/layoutHeaderAvatarContainer">
+
+        <TextView
+            android:id="@+id/tvHeaderTitle"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:text="Прайм"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/etHeaderSearch"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center_vertical"
+            android:background="@android:color/transparent"
+            android:gravity="center_vertical"
+            android:hint="Поиск собеседников..."
+            android:imeOptions="actionSearch"
+            android:inputType="textNoSuggestions"
+            android:maxLength="196"
+            android:maxLines="1"
+            android:paddingVertical="0dp"
+            android:textColor="@color/white"
+            android:textColorHint="#80FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="normal"
+            android:visibility="gone" />
+    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -313,6 +313,7 @@ class HiActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        LavaBackgroundState.onActivityResumed()
         if (::binding.isInitialized) {
             allViews.forEach { view ->
                 view.animate().cancel()
