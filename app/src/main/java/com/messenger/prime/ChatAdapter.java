@@ -467,45 +467,29 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             
             View bubble = null;
             if (holder instanceof OutgoingViewHolder) {
-                bubble = ((OutgoingViewHolder) holder).itemView.findViewById(R.id.layoutOutgoingBubble);
+                bubble = holder.itemView.findViewById(R.id.layoutOutgoingBubble);
             } else if (holder instanceof IncomingViewHolder) {
-                bubble = ((IncomingViewHolder) holder).itemView.findViewById(R.id.layoutIncomingBubble);
+                bubble = holder.itemView.findViewById(R.id.layoutIncomingBubble);
             }
 
             if (bubble != null) {
-                // Анимируем только сам пузырек, чтобы избежать искажения на всю ширину
                 float density = v.getResources().getDisplayMetrics().density;
-                
-                // Устанавливаем точку масштабирования (pivot) к краю экрана
-                if (holder instanceof OutgoingViewHolder) {
-                    bubble.setPivotX(bubble.getWidth() > 0 ? bubble.getWidth() : 1000f);
-                } else {
-                    bubble.setPivotX(0f);
-                }
-                bubble.setPivotY(bubble.getHeight() > 0 ? bubble.getHeight() : 100f);
-
-                bubble.setTranslationY(20f * density);
+                bubble.setTranslationY(24f * density);
                 bubble.setAlpha(0f);
-                bubble.setScaleX(0.8f);
-                bubble.setScaleY(0.8f);
-
                 bubble.animate()
                         .translationY(0f)
                         .alpha(1.0f)
-                        .scaleX(1.0f)
-                        .scaleY(1.0f)
-                        .setDuration(280)
-                        .setInterpolator(new DecelerateInterpolator(1.5f))
+                        .setDuration(260)
+                        .setInterpolator(new DecelerateInterpolator())
                         .start();
             } else {
-                // Fallback, если пузырек не найден
-                v.setTranslationY(20f * v.getResources().getDisplayMetrics().density);
+                v.setTranslationY(24f * v.getResources().getDisplayMetrics().density);
                 v.setAlpha(0f);
                 v.animate()
                         .translationY(0f)
                         .alpha(1.0f)
-                        .setDuration(280)
-                        .setInterpolator(new DecelerateInterpolator(1.5f))
+                        .setDuration(260)
+                        .setInterpolator(new DecelerateInterpolator())
                         .start();
             }
         } else {
@@ -515,9 +499,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             
             View bubble = null;
             if (holder instanceof OutgoingViewHolder) {
-                bubble = ((OutgoingViewHolder) holder).itemView.findViewById(R.id.layoutOutgoingBubble);
+                bubble = holder.itemView.findViewById(R.id.layoutOutgoingBubble);
             } else if (holder instanceof IncomingViewHolder) {
-                bubble = ((IncomingViewHolder) holder).itemView.findViewById(R.id.layoutIncomingBubble);
+                bubble = holder.itemView.findViewById(R.id.layoutIncomingBubble);
             }
             if (bubble != null) {
                 bubble.animate().cancel();
@@ -1326,9 +1310,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             return;
         }
         try {
+            File f = new File(pathOrUri);
+            if (!f.exists() && !pathOrUri.contains("://")) {
+                f = new File(context.getFilesDir(), pathOrUri);
+            }
             Uri uri = pathOrUri.startsWith("content://") || pathOrUri.startsWith("file://") || pathOrUri.startsWith("http")
                     ? Uri.parse(pathOrUri)
-                    : Uri.fromFile(new File(pathOrUri));
+                    : Uri.fromFile(f);
 
             Glide.with(context)
                     .load(uri)

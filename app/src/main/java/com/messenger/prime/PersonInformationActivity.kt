@@ -513,7 +513,23 @@ class PersonInformationActivity : AppCompatActivity() {
 
     private fun loadSharedMediaAndFiles() {
         Executors.newSingleThreadExecutor().execute {
-            val history = ChatHistoryManager.loadMessages(this, targetUsername)
+            val lookupKey = if (!deviceAddress.isNullOrEmpty()) deviceAddress!! else targetUsername
+            var history = ChatHistoryManager.loadMessages(this, lookupKey)
+            if (history.isEmpty() && targetUsername.isNotEmpty()) {
+                history = ChatHistoryManager.loadMessages(this, targetUsername)
+            }
+            if (history.isEmpty() && !deviceAddress.isNullOrEmpty()) {
+                val storageKey = ChatHistoryManager.getStorageKey(this, deviceAddress!!)
+                if (storageKey.isNotEmpty()) {
+                    history = ChatHistoryManager.loadMessages(this, storageKey)
+                }
+            }
+            if (history.isEmpty() && targetUsername.isNotEmpty()) {
+                val storageKey = ChatHistoryManager.getStorageKey(this, targetUsername)
+                if (storageKey.isNotEmpty()) {
+                    history = ChatHistoryManager.loadMessages(this, storageKey)
+                }
+            }
 
             val mediaGrouped = LinkedHashMap<String, MutableList<ChatMessage>>()
             val filesGrouped = LinkedHashMap<String, MutableList<ChatMessage>>()
