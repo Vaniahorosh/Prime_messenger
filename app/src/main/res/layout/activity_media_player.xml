@@ -61,55 +61,97 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:tint="@color/prime_text_primary" />
 
-            <!-- По центру: Имя отправителя и временная метка прямо под ним -->
+            <!-- По центру: Аватар, имя отправителя и статус/время -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:orientation="vertical"
+                android:orientation="horizontal"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@+id/btnDownload"
+                app:layout_constraintEnd_toStartOf="@+id/btnMoreMenu"
                 app:layout_constraintStart_toEndOf="@+id/btnBack"
                 app:layout_constraintTop_toTopOf="parent">
 
-                <TextView
-                    android:id="@+id/tvSenderName"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:textColor="@color/prime_text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    tools:text="Отправитель" />
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/ivMediaAvatar"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_person"
+                    android:layout_marginEnd="10dp"
+                    android:visibility="gone"
+                    tools:visibility="visible"
+                    app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
 
-                <TextView
-                    android:id="@+id/tvTimestamp"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:textColor="@color/prime_text_secondary"
-                    android:textSize="12sp"
-                    tools:text="17:43" />
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvSenderName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="@color/prime_text_primary"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        tools:text="Отправитель" />
+
+                    <TextView
+                        android:id="@+id/tvTimestamp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="@color/prime_text_secondary"
+                        android:textSize="12sp"
+                        tools:text="17:43" />
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- Кнопка "Скачать" в правом верхнем углу -->
+            <!-- Многофункциональная кнопка меню в правом верхнем углу -->
             <ImageButton
-                android:id="@+id/btnDownload"
+                android:id="@+id/btnMoreMenu"
                 android:layout_width="44dp"
                 android:layout_height="44dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 tools:ignore="HardcodedText"
-                android:contentDescription="Сохранить в галерею"
-                android:src="@drawable/ic_download"
+                android:contentDescription="Меню опций"
+                android:src="@drawable/ic_more"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:tint="@color/prime_text_primary" />
         </androidx.constraintlayout.widget.ConstraintLayout>
     </eightbitlab.com.blurview.BlurView>
+
+    <!-- Островок счетчика аватарок/медиа с анимацией снизу по центру вверх -->
+    <TextView
+        android:id="@+id/tvMediaCounterBadge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/bg_date_bubble"
+        android:textColor="@color/white"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="5dp"
+        android:elevation="10dp"
+        android:alpha="0"
+        android:translationY="40dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/bottomOverlay"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="1 из 3 • Активный"
+        tools:visibility="visible"
+        tools:alpha="1"
+        tools:translationY="0dp" />
 
     <!-- 2. Кнопка Play/Pause в самом центре -->
     <ImageButton

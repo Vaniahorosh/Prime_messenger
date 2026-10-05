@@ -1,13 +1,15 @@
 package com.messenger.prime
 
-import android.bluetooth.BluetoothAdapter
 import android.app.NotificationManager
+import android.bluetooth.BluetoothAdapter
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.core.app.RemoteInput
+import com.messenger.prime.events.ChatEvent
+import org.json.JSONArray
 import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -28,13 +30,15 @@ class NotificationActionReceiver : BroadcastReceiver() {
         val targetUsername = intent.getStringExtra("EXTRA_CHAT_NAME") ?: return
         val deviceAddress = intent.getStringExtra("EXTRA_DEVICE_ADDRESS")
         val notificationId = intent.getIntExtra("EXTRA_NOTIFICATION_ID", Math.abs(targetUsername.hashCode()))
+        val targetAddr = if (!deviceAddress.isNullOrEmpty()) deviceAddress else targetUsername
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
 
         when (intent.action) {
-            ACTION_REPLY -> {
+            ACTION_REPLY, "ACTION_NOTIFICATION_REPLY" -> {
                 val results: Bundle? = RemoteInput.getResultsFromIntent(intent)
                 val replyText = results?.getCharSequence(KEY_TEXT_REPLY)?.toString()?.trim()
+                    ?: results?.getCharSequence("KEY_TEXT_REPLY")?.toString()?.trim()
 
                 if (!replyText.isNullOrEmpty()) {
                     val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
@@ -51,12 +55,10 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     val packetContent = "$messageId:::$replyText"
                     val payload = packetContent.toByteArray(StandardCharsets.UTF_8)
 
-                    val threadObj = BluetoothSocketHolder.getThreadFor(deviceAddress, targetUsername)
-                    if (threadObj is ChatPersonActivity.ConnectedThread && threadObj.isAlive) {
-                        threadObj.sendPacket(1.toByte(), payload) // TYPE_TEXT = 0x01
-                    }
+                    BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x01.toByte(), payload)
 
                     ChatHistoryManager.saveMessage(context, targetUsername, msg)
+                    resetUnreadCountAndUpdateLastMessage(context, targetUsername, targetAddr, replyText)
 
                     val displayRecipient = if (BluetoothAdapter.checkBluetoothAddress(targetUsername)) "собеседнику" else targetUsername
                     Toast.makeText(context, "Ответ отправлен $displayRecipient", Toast.LENGTH_SHORT).show()
@@ -65,23 +67,46 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 nm?.cancel(notificationId)
             }
 
-            ACTION_MARK_READ -> {
-                // Send read receipt if connected
-                val threadObj = BluetoothSocketHolder.getThreadFor(deviceAddress, targetUsername)
-                if (threadObj is ChatPersonActivity.ConnectedThread && threadObj.isAlive) {
-                    val receiptPayload = "READ_ALL".toByteArray(StandardCharsets.UTF_8)
-                    threadObj.sendPacket(0x0A.toByte(), receiptPayload) // TYPE_READ_RECEIPT = 0x0A
-                }
+            ACTION_MARK_READ, "ACTION_NOTIFICATION_MARK_READ" -> {
+                val receiptPayload = "READ_ALL".toByteArray(StandardCharsets.UTF_8)
+                BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x0A.toByte(), receiptPayload)
 
-                // Update unread status in messages history
                 ChatHistoryManager.markIncomingMessagesAsRead(context, targetUsername, "READ_ALL")
-
-                // Notify chat list update
-                ChatListNotifier.notifyChanged()
+                resetUnreadCountAndUpdateLastMessage(context, targetUsername, targetAddr, null)
 
                 nm?.cancel(notificationId)
                 Toast.makeText(context, "Отмечено как прочитанное", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun resetUnreadCountAndUpdateLastMessage(context: Context, senderName: String, deviceAddr: String, lastMsg: String?) {
+        try {
+            val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val json = sharedPrefs.getString("persisted_chats", "[]") ?: "[]"
+            val array = JSONArray(json)
+            val newArray = JSONArray()
+
+            val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val user = obj.optString("name", "")
+                val id = obj.optString("id", "")
+
+                if (user.equals(senderName, ignoreCase = true) || deviceAddr.equals(id, ignoreCase = true)) {
+                    if (lastMsg != null) {
+                        obj.put("lastMessage", lastMsg)
+                        obj.put("time", timeStr)
+                        obj.put("messageStatus", "SENT")
+                    }
+                    obj.put("unreadCount", 0)
+                }
+                newArray.put(obj)
+            }
+
+            sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply()
+            ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate)
+        } catch (_: Exception) {}
     }
 }

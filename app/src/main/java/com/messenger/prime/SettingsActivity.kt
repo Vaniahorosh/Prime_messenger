@@ -29,8 +29,14 @@ import android.text.TextWatcher
 import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
 import android.view.WindowManager
+import android.widget.CompoundButton
 import android.widget.LinearLayout
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.setViewTreeLifecycleOwner
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.messenger.prime.databinding.DialogColorAccentBinding
 import com.messenger.prime.databinding.DialogColorPickerBinding
@@ -119,12 +125,11 @@ class SettingsActivity : AppCompatActivity() {
             if (uriStr.isNullOrEmpty() && data?.data != null) uriStr = data?.data.toString()
 
             if (!uriStr.isNullOrEmpty()) {
-                val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-                val currentUser = sharedPrefs.getString("current_user", "") ?: ""
                 val isGif = uriStr.lowercase().contains(".gif")
                 val ext = if (isGif) ".gif" else ".jpg"
+                val timestamp = System.currentTimeMillis()
 
-                val permanentAvatar = File(filesDir, "my_profile_avatar$ext")
+                val permanentAvatar = File(filesDir, "my_profile_avatar_${timestamp}$ext")
                 val tempAvatar = File(filesDir, "tmp_my_profile_avatar$ext")
                 try {
                     val srcUri = Uri.parse(uriStr)
@@ -150,39 +155,26 @@ class SettingsActivity : AppCompatActivity() {
 
                 val permAvatarUri = Uri.fromFile(permanentAvatar).toString()
 
+                AvatarHistoryManager.addMyAvatar(this, permAvatarUri)
+                currentAvatarIndex = 0
                 currentAvatarUri = permAvatarUri
                 avatarUriState.value = permAvatarUri
 
-                sharedPrefs.edit()
-                    .putString("my_avatar", permAvatarUri)
-                    .putString("my_avatar_uri", permAvatarUri)
-                    .putString("my_local_avatar", permAvatarUri)
-                    .putString("${currentUser}_avatar", permAvatarUri)
-                    .putString("${currentUser}_avatarUri", permAvatarUri)
-                    .apply()
-
                 val b = binding
                 if (b != null) {
-                    val radiusPx = (14 * resources.displayMetrics.density).toInt()
-                    val sig = ObjectKey(if (permanentAvatar.exists()) permanentAvatar.lastModified() else System.currentTimeMillis())
-                    if (isGif) {
-                        Glide.with(this).asGif().load(permanentAvatar).transform(CenterCrop(), RoundedCorners(radiusPx)).signature(sig).placeholder(R.drawable.ic_person).into(b.ivPhotoCard)
-                    } else {
-                        Glide.with(this).load(permanentAvatar).transform(CenterCrop(), RoundedCorners(radiusPx)).signature(sig).placeholder(R.drawable.ic_person).into(b.ivPhotoCard)
-                    }
+                    updatePhotoCardImage(b)
                 }
                 applyAvatarState(permAvatarUri)
-                sendProfileUpdateOverBluetooth()
+                Executors.newSingleThreadExecutor().execute { sendProfileUpdateOverBluetooth() }
                 sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
-                PrimeNotification.show(this, if (isGif) "GIF-аватарка установлена" else "Фото готово")
+                PrimeNotification.show(this, if (isGif) "GIF-аватарка добавлена" else "Фото добавлено")
             }
         }
     }
 
     private fun setGifAvatarDirectly(uri: Uri) {
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        val permanentAvatar = File(filesDir, "my_profile_avatar.gif")
+        val timestamp = System.currentTimeMillis()
+        val permanentAvatar = File(filesDir, "my_profile_avatar_${timestamp}.gif")
         val tempAvatar = File(filesDir, "tmp_my_profile_avatar.gif")
         try {
             contentResolver.openInputStream(uri)?.use { input ->
@@ -200,27 +192,19 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         val permAvatarUri = Uri.fromFile(permanentAvatar).toString()
+        AvatarHistoryManager.addMyAvatar(this, permAvatarUri)
+        currentAvatarIndex = 0
         currentAvatarUri = permAvatarUri
         avatarUriState.value = permAvatarUri
 
-        sharedPrefs.edit()
-            .putString("my_avatar", permAvatarUri)
-            .putString("my_avatar_uri", permAvatarUri)
-            .putString("my_local_avatar", permAvatarUri)
-            .putString("${currentUser}_avatar", permAvatarUri)
-            .putString("${currentUser}_avatarUri", permAvatarUri)
-            .apply()
-
         val b = binding
         if (b != null) {
-            val radiusPx = (14 * resources.displayMetrics.density).toInt()
-            val sig = ObjectKey(if (permanentAvatar.exists()) permanentAvatar.lastModified() else System.currentTimeMillis())
-            Glide.with(this).asGif().load(permanentAvatar).transform(CenterCrop(), RoundedCorners(radiusPx)).signature(sig).placeholder(R.drawable.ic_person).into(b.ivPhotoCard)
+            updatePhotoCardImage(b)
         }
         applyAvatarState(permAvatarUri)
-        sendProfileUpdateOverBluetooth()
+        Executors.newSingleThreadExecutor().execute { sendProfileUpdateOverBluetooth() }
         sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
-        PrimeNotification.show(this, "GIF-аватарка установлена")
+        PrimeNotification.show(this, "GIF-аватарка добавлена")
     }
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -494,21 +478,72 @@ class SettingsActivity : AppCompatActivity() {
             }
             profileImageView = this
         }
+        setupAvatarCardSwipe(b)
         updatePhotoCardImage(b)
     }
 
-    private fun updatePhotoCardImage(b: ActivitySettingsContentBinding) {
-        val avatarUri = currentAvatarUri ?: avatarUriState.value
-        val radiusPx = (14 * resources.displayMetrics.density).toInt()
-        if (!avatarUri.isNullOrEmpty()) {
-            try {
-                val model: Any = if (avatarUri.startsWith("content://") || avatarUri.startsWith("file://") || avatarUri.startsWith("http")) {
-                    Uri.parse(avatarUri)
-                } else {
-                    val f = File(avatarUri)
-                    if (f.exists()) f else Uri.parse(avatarUri)
+    private var currentAvatarIndex = 0
+
+    private fun setupAvatarCardSwipe(b: ActivitySettingsContentBinding) {
+        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean {
+                return true
+            }
+
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+                if (e1 == null) return false
+                val diffX = e2.x - e1.x
+                val diffY = e2.y - e1.y
+                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60 && Math.abs(velocityX) > 100) {
+                    val history = AvatarHistoryManager.getMyAvatarHistory(this@SettingsActivity)
+                    if (history.size > 1) {
+                        if (diffX < 0) {
+                            currentAvatarIndex = (currentAvatarIndex + 1) % history.size
+                        } else {
+                            currentAvatarIndex = if (currentAvatarIndex - 1 < 0) history.size - 1 else currentAvatarIndex - 1
+                        }
+                        updatePhotoCardImage(b)
+                        return true
+                    }
                 }
-                val file = if (model is File) model else if (model is Uri && "file" == model.scheme && model.path != null) File(model.path!!) else null
+                return false
+            }
+
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                if (currentAvatarUri != null) togglePhotoMenuMode(!isPhotoMenuMode.value)
+                else pickImage.launch("image/*")
+                return true
+            }
+        })
+
+        b.photoCard.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event)
+        }
+    }
+
+    private fun updatePhotoCardImage(b: ActivitySettingsContentBinding) {
+        val history = AvatarHistoryManager.getMyAvatarHistory(this)
+        if (history.isEmpty()) {
+            b.ivPhotoCard.setImageResource(R.drawable.ic_person)
+            animateAvatarCounterBadge(b.tvAvatarCounter, 0, 0)
+            currentAvatarUri = null
+            return
+        }
+
+        if (currentAvatarIndex !in history.indices) {
+            currentAvatarIndex = 0
+        }
+
+        val avatarUri = history[currentAvatarIndex]
+        currentAvatarUri = avatarUri
+        avatarUriState.value = avatarUri
+
+        animateAvatarCounterBadge(b.tvAvatarCounter, currentAvatarIndex, history.size)
+
+        val radiusPx = (14 * resources.displayMetrics.density).toInt()
+        try {
+            val (model, file) = parseAvatarModelAndFile(avatarUri)
+            if (model != null) {
                 val isGif = avatarUri.lowercase().contains(".gif")
                 val signatureKey = ObjectKey(if (file != null && file.exists()) file.lastModified() else System.currentTimeMillis())
 
@@ -528,10 +563,10 @@ class SettingsActivity : AppCompatActivity() {
                         .placeholder(R.drawable.ic_person)
                         .into(b.ivPhotoCard)
                 }
-            } catch (e: Exception) {
+            } else {
                 b.ivPhotoCard.setImageResource(R.drawable.ic_person)
             }
-        } else {
+        } catch (e: Exception) {
             b.ivPhotoCard.setImageResource(R.drawable.ic_person)
         }
     }
@@ -592,6 +627,12 @@ class SettingsActivity : AppCompatActivity() {
             "dark" -> "Темная"
             else -> "Системная"
         }
+        b.cardTheme.addBounceTouchEffect()
+        b.cardLavaBg.addBounceTouchEffect()
+        b.cardGithub.addBounceTouchEffect()
+        b.cardColorAccent.addBounceTouchEffect()
+        b.cardThanks.addBounceTouchEffect()
+
         b.cardTheme.setOnClickListener { showThemeDialog(b) }
 
         b.switchLavaBg.setOnCheckedChangeListener(null)
@@ -617,6 +658,282 @@ class SettingsActivity : AppCompatActivity() {
         b.cardColorAccent.setOnClickListener { showColorAccentDialog(b) }
 
         setupThanksCard(b)
+        setupStorageSection(b)
+    }
+
+    private data class StorageBreakdown(
+        var photosSize: Long = 0L,
+        var videosSize: Long = 0L,
+        var gifsSize: Long = 0L,
+        var filesSize: Long = 0L,
+        var cacheSize: Long = 0L,
+        var totalSize: Long = 0L
+    )
+
+    private var currentStorageBreakdown: StorageBreakdown? = null
+
+    private fun setupStorageSection(b: ActivitySettingsContentBinding) {
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val accentTint = ColorStateList.valueOf(accentColor)
+
+        b.btnClearStorage.backgroundTintList = accentTint
+        b.cbStoragePhotos.buttonTintList = accentTint
+        b.cbStorageVideos.buttonTintList = accentTint
+        b.cbStorageGifs.buttonTintList = accentTint
+        b.cbStorageFiles.buttonTintList = accentTint
+        b.cbStorageCache.buttonTintList = accentTint
+
+        b.rowStoragePhotos.setOnClickListener {
+            b.cbStoragePhotos.isChecked = !b.cbStoragePhotos.isChecked
+            updateClearButtonText(b)
+        }
+        b.rowStorageVideos.setOnClickListener {
+            b.cbStorageVideos.isChecked = !b.cbStorageVideos.isChecked
+            updateClearButtonText(b)
+        }
+        b.rowStorageGifs.setOnClickListener {
+            b.cbStorageGifs.isChecked = !b.cbStorageGifs.isChecked
+            updateClearButtonText(b)
+        }
+        b.rowStorageFiles.setOnClickListener {
+            b.cbStorageFiles.isChecked = !b.cbStorageFiles.isChecked
+            updateClearButtonText(b)
+        }
+        b.rowStorageCache.setOnClickListener {
+            b.cbStorageCache.isChecked = !b.cbStorageCache.isChecked
+            updateClearButtonText(b)
+        }
+
+        val listener = CompoundButton.OnCheckedChangeListener { _, _ -> updateClearButtonText(b) }
+        b.cbStoragePhotos.setOnCheckedChangeListener(listener)
+        b.cbStorageVideos.setOnCheckedChangeListener(listener)
+        b.cbStorageGifs.setOnCheckedChangeListener(listener)
+        b.cbStorageFiles.setOnCheckedChangeListener(listener)
+        b.cbStorageCache.setOnCheckedChangeListener(listener)
+
+        b.btnClearStorage.setOnClickListener {
+            clearSelectedStorage(b)
+        }
+
+        calculateStorageAsync(b)
+    }
+
+    private fun calculateStorageAsync(b: ActivitySettingsContentBinding) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val bd = StorageBreakdown()
+            val files = filesDir.listFiles() ?: emptyArray()
+
+            for (f in files) {
+                if (!f.isFile) continue
+                val len = f.length()
+                val name = f.name.lowercase(Locale.US)
+
+                if (name.endsWith(".gif")) {
+                    bd.gifsSize += len
+                } else if (name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".3gp") || name.endsWith(".webm") || name.endsWith(".mov") || name.endsWith(".avi")) {
+                    bd.videosSize += len
+                } else if (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.startsWith("rec_photo_") || name.startsWith("rec_avatar_") || name.startsWith("avatar_") || name.startsWith("cache_img_")) {
+                    bd.photosSize += len
+                } else if (name.startsWith("tmp_") || name.endsWith(".tmp") || name.endsWith(".dat") || name.endsWith(".log")) {
+                    bd.cacheSize += len
+                } else {
+                    bd.filesSize += len
+                }
+            }
+
+            try {
+                if (cacheDir != null && cacheDir.exists()) {
+                    bd.cacheSize += cacheDir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
+                }
+                val extCache = externalCacheDir
+                if (extCache != null && extCache.exists()) {
+                    bd.cacheSize += extCache.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
+                }
+            } catch (_: Exception) {}
+
+            bd.totalSize = bd.photosSize + bd.videosSize + bd.gifsSize + bd.filesSize + bd.cacheSize
+
+            withContext(Dispatchers.Main) {
+                if (!isFinishing && !isDestroyed) {
+                    updateStorageUi(b, bd)
+                }
+            }
+        }
+    }
+
+    private fun updateStorageUi(b: ActivitySettingsContentBinding, bd: StorageBreakdown) {
+        currentStorageBreakdown = bd
+
+        b.tvSizePhotos.text = formatStorageSize(bd.photosSize)
+        b.tvSizeVideos.text = formatStorageSize(bd.videosSize)
+        b.tvSizeGifs.text = formatStorageSize(bd.gifsSize)
+        b.tvSizeFiles.text = formatStorageSize(bd.filesSize)
+        b.tvSizeCache.text = formatStorageSize(bd.cacheSize)
+
+        b.tvStorageTotalSize.text = "Всего занято: ${formatStorageSize(bd.totalSize)}"
+
+        val total = bd.totalSize.coerceAtLeast(1L).toFloat()
+
+        animateWeight(b.vChartPhotos, (bd.photosSize / total).coerceAtLeast(0.01f))
+        animateWeight(b.vChartVideos, (bd.videosSize / total).coerceAtLeast(0.01f))
+        animateWeight(b.vChartGifs, (bd.gifsSize / total).coerceAtLeast(0.01f))
+        animateWeight(b.vChartFiles, (bd.filesSize / total).coerceAtLeast(0.01f))
+        animateWeight(b.vChartOther, (bd.cacheSize / total).coerceAtLeast(0.01f))
+
+        updateClearButtonText(b)
+    }
+
+    private fun animateWeight(view: View, targetWeight: Float) {
+        val lp = view.layoutParams as? LinearLayout.LayoutParams ?: return
+        val startWeight = if (lp.weight <= 0f) 0.01f else lp.weight
+        val anim = ValueAnimator.ofFloat(startWeight, targetWeight)
+        anim.duration = 400
+        anim.addUpdateListener {
+            val w = it.animatedValue as Float
+            val p = view.layoutParams as LinearLayout.LayoutParams
+            p.weight = w
+            view.layoutParams = p
+        }
+        anim.start()
+    }
+
+    private fun updateClearButtonText(b: ActivitySettingsContentBinding) {
+        val bd = currentStorageBreakdown ?: return
+        var selectedBytes = 0L
+
+        val pVisible = b.cbStoragePhotos.isChecked
+        val vVisible = b.cbStorageVideos.isChecked
+        val gVisible = b.cbStorageGifs.isChecked
+        val fVisible = b.cbStorageFiles.isChecked
+        val cVisible = b.cbStorageCache.isChecked
+
+        if (pVisible) selectedBytes += bd.photosSize
+        if (vVisible) selectedBytes += bd.videosSize
+        if (gVisible) selectedBytes += bd.gifsSize
+        if (fVisible) selectedBytes += bd.filesSize
+        if (cVisible) selectedBytes += bd.cacheSize
+
+        val total = bd.totalSize.coerceAtLeast(1L).toFloat()
+
+        val pWeight = if (pVisible) (bd.photosSize / total).coerceAtLeast(0.01f) else 0.001f
+        val vWeight = if (vVisible) (bd.videosSize / total).coerceAtLeast(0.01f) else 0.001f
+        val gWeight = if (gVisible) (bd.gifsSize / total).coerceAtLeast(0.01f) else 0.001f
+        val fWeight = if (fVisible) (bd.filesSize / total).coerceAtLeast(0.01f) else 0.001f
+        val cWeight = if (cVisible) (bd.cacheSize / total).coerceAtLeast(0.01f) else 0.001f
+
+        animateWeight(b.vChartPhotos, pWeight)
+        animateWeight(b.vChartVideos, vWeight)
+        animateWeight(b.vChartGifs, gWeight)
+        animateWeight(b.vChartFiles, fWeight)
+        animateWeight(b.vChartOther, cWeight)
+
+        b.vChartPhotos.animate().alpha(if (pVisible) 1.0f else 0.2f).setDuration(250).start()
+        b.vChartVideos.animate().alpha(if (vVisible) 1.0f else 0.2f).setDuration(250).start()
+        b.vChartGifs.animate().alpha(if (gVisible) 1.0f else 0.2f).setDuration(250).start()
+        b.vChartFiles.animate().alpha(if (fVisible) 1.0f else 0.2f).setDuration(250).start()
+        b.vChartOther.animate().alpha(if (cVisible) 1.0f else 0.2f).setDuration(250).start()
+
+        if (selectedBytes > 0) {
+            b.btnClearStorage.isEnabled = true
+            b.btnClearStorage.text = "Очистить: ${formatStorageSize(selectedBytes)}"
+        } else {
+            b.btnClearStorage.isEnabled = false
+            b.btnClearStorage.text = "Ничего не выбрано"
+        }
+    }
+
+    private fun clearSelectedStorage(b: ActivitySettingsContentBinding) {
+        b.btnClearStorage.isEnabled = false
+        b.btnClearStorage.text = "Очистка..."
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            var deletedBytes = 0L
+
+            val deletePhotos = b.cbStoragePhotos.isChecked
+            val deleteVideos = b.cbStorageVideos.isChecked
+            val deleteGifs = b.cbStorageGifs.isChecked
+            val deleteFiles = b.cbStorageFiles.isChecked
+            val deleteCache = b.cbStorageCache.isChecked
+
+            val files = filesDir.listFiles() ?: emptyArray()
+
+            for (f in files) {
+                if (!f.isFile) continue
+                val name = f.name.lowercase(Locale.US)
+                val len = f.length()
+
+                val isGif = name.endsWith(".gif")
+                val isVid = name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".3gp") || name.endsWith(".webm") || name.endsWith(".mov") || name.endsWith(".avi")
+                val isPhoto = name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.startsWith("rec_photo_") || name.startsWith("cache_img_")
+                val isTmp = name.startsWith("tmp_") || name.endsWith(".tmp") || name.endsWith(".dat") || name.endsWith(".log")
+
+                if (name.startsWith("my_profile_avatar")) continue
+
+                var delete = false
+                if (isGif && deleteGifs) delete = true
+                else if (isVid && deleteVideos) delete = true
+                else if (isPhoto && deletePhotos) delete = true
+                else if (isTmp && deleteCache) delete = true
+                else if (!isGif && !isVid && !isPhoto && !isTmp && deleteFiles) delete = true
+
+                if (delete) {
+                    try {
+                        if (f.delete()) {
+                            deletedBytes += len
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+
+            if (deleteCache) {
+                try {
+                    if (cacheDir != null && cacheDir.exists()) {
+                        val cacheFiles = cacheDir.walkTopDown().filter { it.isFile }.toList()
+                        for (cf in cacheFiles) {
+                            val len = cf.length()
+                            if (cf.delete()) deletedBytes += len
+                        }
+                    }
+                    val extCache = externalCacheDir
+                    if (extCache != null && extCache.exists()) {
+                        val extCacheFiles = extCache.walkTopDown().filter { it.isFile }.toList()
+                        for (cf in extCacheFiles) {
+                            val len = cf.length()
+                            if (cf.delete()) deletedBytes += len
+                        }
+                    }
+                    Glide.get(applicationContext).clearDiskCache()
+                } catch (_: Exception) {}
+            }
+
+            withContext(Dispatchers.Main) {
+                if (!isFinishing && !isDestroyed) {
+                    try {
+                        Glide.get(applicationContext).clearMemory()
+                    } catch (_: Exception) {}
+
+                    // Reset cleared checkboxes
+                    if (deletePhotos) b.cbStoragePhotos.isChecked = false
+                    if (deleteVideos) b.cbStorageVideos.isChecked = false
+                    if (deleteGifs) b.cbStorageGifs.isChecked = false
+                    if (deleteFiles) b.cbStorageFiles.isChecked = false
+                    if (deleteCache) b.cbStorageCache.isChecked = false
+
+                    PrimeNotification.show(this@SettingsActivity, "Освобождено ${formatStorageSize(deletedBytes)}")
+                    calculateStorageAsync(b)
+                }
+            }
+        }
+    }
+
+    private fun formatStorageSize(bytes: Long): String {
+        if (bytes <= 0) return "0 Б"
+        val kb = bytes / 1024.0
+        if (kb < 1024) return String.format(Locale.getDefault(), "%.1f КБ", kb)
+        val mb = kb / 1024.0
+        if (mb < 1024) return String.format(Locale.getDefault(), "%.1f МБ", mb)
+        val gb = mb / 1024.0
+        return String.format(Locale.getDefault(), "%.2f ГБ", gb)
     }
 
     private fun setupThanksCard(b: ActivitySettingsContentBinding) {
@@ -1117,6 +1434,7 @@ class SettingsActivity : AppCompatActivity() {
             b.etSettingsName.setText(savedName)
             b.tvAccountHeaderSummary.text = savedName
             currentNameInDB = savedName
+            updatePhotoCardImage(b)
             applyAvatarState(savedAvatarUri)
         }
     }
@@ -1156,25 +1474,29 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun openFullPhoto() {
-        val avatarUri = currentAvatarUri ?: avatarUriState.value
-        if (avatarUri.isNullOrEmpty()) {
+        val myHistory = AvatarHistoryManager.getMyAvatarHistory(this)
+        if (myHistory.isEmpty()) {
             PrimeNotification.show(this, "Фотография не установлена")
             return
         }
         if (isClosing) return
 
         val myName = currentNameInDB.ifEmpty { "Я" }
-        val msg = ChatMessage(
-            "Аватар профиля",
-            "Это вы",
-            myName,
-            true,
-            null,
-            0L,
-            avatarUri,
-            "my_avatar_preview"
-        )
-        MediaPlayerActivity.setSharedMediaList(listOf(msg), 0)
+        val mediaList = myHistory.mapIndexed { idx, uriStr ->
+            ChatMessage(
+                "Аватар профиля",
+                if (idx == 0) "Это вы (Активный)" else "Это вы",
+                myName,
+                true,
+                null,
+                0L,
+                uriStr,
+                "my_avatar_preview_$idx"
+            )
+        }
+
+        val startIdx = currentAvatarIndex.coerceIn(0, mediaList.size - 1)
+        MediaPlayerActivity.setSharedMediaList(mediaList, startIdx)
         val intent = Intent(this, MediaPlayerActivity::class.java)
         startActivity(intent)
         PrimeTransitions.applyOpenTransition(this)
@@ -1413,28 +1735,22 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun handlePhotoDeletionWithUndo(uriToDelete: String?) {
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        if (!uriToDelete.isNullOrEmpty()) {
+            AvatarHistoryManager.removeMyAvatar(this, uriToDelete)
+        }
 
-        val fJpg = File(filesDir, "my_profile_avatar.jpg")
-        val fGif = File(filesDir, "my_profile_avatar.gif")
-        val fUserJpg = File(filesDir, "avatar_${currentUser}.jpg")
-        val fUserGif = File(filesDir, "avatar_${currentUser}.gif")
-        if (fJpg.exists()) fJpg.delete()
-        if (fGif.exists()) fGif.delete()
-        if (fUserJpg.exists()) fUserJpg.delete()
-        if (fUserGif.exists()) fUserGif.delete()
-
-        sharedPrefs.edit()
-            .remove("my_avatar")
-            .remove("my_local_avatar")
-            .remove("my_avatar_uri")
-            .remove("${currentUser}_avatar")
-            .remove("${currentUser}_avatarUri")
-            .apply()
-
-        currentAvatarUri = null
-        avatarUriState.value = null
+        val history = AvatarHistoryManager.getMyAvatarHistory(this)
+        if (history.isNotEmpty()) {
+            currentAvatarIndex = 0
+            currentAvatarUri = history[0]
+            avatarUriState.value = history[0]
+            applyAvatarState(history[0])
+        } else {
+            currentAvatarIndex = 0
+            currentAvatarUri = null
+            avatarUriState.value = null
+            applyAvatarState(null)
+        }
 
         try {
             Glide.get(this).clearMemory()
@@ -1447,9 +1763,8 @@ class SettingsActivity : AppCompatActivity() {
 
         val b = binding
         if (b != null) {
-            b.ivPhotoCard.setImageResource(R.drawable.ic_person)
+            updatePhotoCardImage(b)
         }
-        applyAvatarState(null)
         sendProfileUpdateOverBluetooth()
         sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
         PrimeNotification.show(this, "Фото удалено")

@@ -16,7 +16,9 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.GestureDetector
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
@@ -177,6 +179,8 @@ class PersonInformationActivity : AppCompatActivity() {
         }
     }
 
+    private var currentAvatarIndex = 0
+
     private fun setupHeaderUi() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val targetAddr = deviceAddress ?: ""
@@ -187,125 +191,158 @@ class PersonInformationActivity : AppCompatActivity() {
         val displayContactName = if (BluetoothAdapter.checkBluetoothAddress(contactName)) "Собеседник" else contactName
         binding.tvUserNameWP.text = displayContactName
 
-        val contactAvatar = if (targetAddr.isNotEmpty()) {
-            sharedPrefs.getString("contact_avatar_$targetAddr", null) ?: avatarUriStr
-        } else avatarUriStr
+        setupAvatarCardSwipe()
+        updateHeaderPhoto()
+    }
 
-        avatarUriStr = contactAvatar
+    private fun updateHeaderPhoto() {
+        val targetKey = if (!deviceAddress.isNullOrEmpty()) deviceAddress!! else targetUsername
+        var history = AvatarHistoryManager.getContactAvatarHistory(this, targetKey)
+        if (history.isEmpty() && !targetUsername.isNullOrEmpty()) {
+            history = AvatarHistoryManager.getContactAvatarHistory(this, targetUsername)
+        }
 
-        var photoLoaded = false
+        if (history.isEmpty() && !avatarUriStr.isNullOrEmpty()) {
+            val (_, file) = parseAvatarModelAndFile(avatarUriStr)
+            if (file == null || file.exists()) {
+                AvatarHistoryManager.addContactAvatar(this, targetKey, avatarUriStr!!)
+                if (!targetUsername.isNullOrEmpty()) {
+                    AvatarHistoryManager.addContactAvatar(this, targetUsername, avatarUriStr!!)
+                }
+                history = AvatarHistoryManager.getContactAvatarHistory(this, targetKey)
+            }
+        }
+
+        if (history.isEmpty()) {
+            binding.ivPhotoCard.setImageResource(R.drawable.ic_person)
+            animateAvatarCounterBadge(binding.tvAvatarCounter, 0, 0)
+            avatarUriStr = null
+            return
+        }
+
+        if (currentAvatarIndex !in history.indices) {
+            currentAvatarIndex = 0
+        }
+
+        val uriStr = history[currentAvatarIndex]
+        avatarUriStr = uriStr
+
+        animateAvatarCounterBadge(binding.tvAvatarCounter, currentAvatarIndex, history.size)
+
         val radiusPx = (14 * resources.displayMetrics.density).toInt()
-
-        if (!avatarUriStr.isNullOrEmpty()) {
-            try {
-                val uri = Uri.parse(avatarUriStr)
-                val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
+        try {
+            val (model, file) = parseAvatarModelAndFile(uriStr)
+            if (model != null) {
                 val signatureKey = ObjectKey(if (file != null && file.exists()) file.lastModified() else System.currentTimeMillis())
-                val isGif = avatarUriStr!!.lowercase().contains(".gif")
+                val isGif = uriStr.lowercase().contains(".gif")
 
                 if (isGif) {
                     Glide.with(this)
                         .asGif()
-                        .load(uri)
+                        .load(model)
                         .centerCrop()
                         .signature(signatureKey)
                         .transition(DrawableTransitionOptions.withCrossFade(300))
                         .placeholder(R.drawable.ic_person)
                         .into(binding.ivPhotoCard)
-                    photoLoaded = true
                 } else {
                     Glide.with(this)
-                        .load(uri)
+                        .load(model)
                         .transform(CenterCrop(), RoundedCorners(radiusPx))
                         .signature(signatureKey)
                         .transition(DrawableTransitionOptions.withCrossFade(300))
                         .placeholder(R.drawable.ic_person)
                         .into(binding.ivPhotoCard)
-                    photoLoaded = true
                 }
-            } catch (ignored: Exception) {}
-        }
-
-        if (!photoLoaded) {
-            val possibleFiles = listOfNotNull(
-                deviceAddress?.let { File(filesDir, "rec_avatar_${it}.gif") },
-                deviceAddress?.let { File(filesDir, "rec_avatar_${it}.jpg") },
-                File(filesDir, "rec_avatar_${contactName}.gif"),
-                File(filesDir, "rec_avatar_${contactName}.jpg")
-            )
-
-            for (file in possibleFiles) {
-                if (file.exists()) {
-                    val signatureKey = ObjectKey(file.lastModified())
-                    if (file.name.lowercase().endsWith(".gif")) {
-                        Glide.with(this)
-                            .asGif()
-                            .load(file)
-                            .centerCrop()
-                            .signature(signatureKey)
-                            .transition(DrawableTransitionOptions.withCrossFade(300))
-                            .placeholder(R.drawable.ic_person)
-                            .into(binding.ivPhotoCard)
-                    } else {
-                        Glide.with(this)
-                            .load(file)
-                            .transform(CenterCrop(), RoundedCorners(radiusPx))
-                            .signature(signatureKey)
-                            .transition(DrawableTransitionOptions.withCrossFade(300))
-                            .placeholder(R.drawable.ic_person)
-                            .into(binding.ivPhotoCard)
-                    }
-                    avatarUriStr = Uri.fromFile(file).toString()
-                    photoLoaded = true
-                    break
-                }
+            } else {
+                binding.ivPhotoCard.setImageResource(R.drawable.ic_person)
             }
-        }
-
-        if (!photoLoaded) {
+        } catch (_: Exception) {
             binding.ivPhotoCard.setImageResource(R.drawable.ic_person)
         }
+    }
 
-        val avatarClickListener = View.OnClickListener {
-            openAvatarInMediaPlayer()
+    private fun setupAvatarCardSwipe() {
+        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean {
+                return true
+            }
+
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+                if (e1 == null) return false
+                val diffX = e2.x - e1.x
+                val diffY = e2.y - e1.y
+                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60 && Math.abs(velocityX) > 100) {
+                    val targetKey = if (!deviceAddress.isNullOrEmpty()) deviceAddress!! else targetUsername
+                    var history = AvatarHistoryManager.getContactAvatarHistory(this@PersonInformationActivity, targetKey)
+                    if (history.isEmpty() && !targetUsername.isNullOrEmpty()) {
+                        history = AvatarHistoryManager.getContactAvatarHistory(this@PersonInformationActivity, targetUsername)
+                    }
+                    if (history.size > 1) {
+                        if (diffX < 0) {
+                            currentAvatarIndex = (currentAvatarIndex + 1) % history.size
+                        } else {
+                            currentAvatarIndex = if (currentAvatarIndex - 1 < 0) history.size - 1 else currentAvatarIndex - 1
+                        }
+                        updateHeaderPhoto()
+                        return true
+                    }
+                }
+                return false
+            }
+
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                openAvatarInMediaPlayer()
+                return true
+            }
+        })
+
+        binding.photoCard.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event)
         }
-        binding.photoCard.setOnClickListener(avatarClickListener)
-        binding.ivPhotoCard.setOnClickListener(avatarClickListener)
     }
 
     private fun openAvatarInMediaPlayer() {
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-        val targetAddr = deviceAddress ?: ""
-        val contactName = if (targetAddr.isNotEmpty()) {
-            sharedPrefs.getString("contact_name_$targetAddr", null) ?: targetUsername
-        } else targetUsername
-
-        val uriToPass = avatarUriStr ?: run {
-            val possibleFiles = listOfNotNull(
-                deviceAddress?.let { File(filesDir, "rec_avatar_${it}.gif") },
-                deviceAddress?.let { File(filesDir, "rec_avatar_${it}.jpg") },
-                File(filesDir, "rec_avatar_${contactName}.gif"),
-                File(filesDir, "rec_avatar_${contactName}.jpg"),
-                File(filesDir, "rec_avatar_${targetUsername}.gif"),
-                File(filesDir, "rec_avatar_${targetUsername}.jpg")
-            )
-            possibleFiles.firstOrNull { it.exists() }?.let { Uri.fromFile(it).toString() }
+        val targetKey = if (!deviceAddress.isNullOrEmpty()) deviceAddress!! else targetUsername
+        var contactHistory = AvatarHistoryManager.getContactAvatarHistory(this, targetKey)
+        if (contactHistory.isEmpty() && !targetUsername.isNullOrEmpty()) {
+            contactHistory = AvatarHistoryManager.getContactAvatarHistory(this, targetUsername)
         }
 
-        if (uriToPass != null) {
+        if (contactHistory.isEmpty() && !avatarUriStr.isNullOrEmpty()) {
+            val (_, file) = parseAvatarModelAndFile(avatarUriStr)
+            if (file == null || file.exists()) {
+                AvatarHistoryManager.addContactAvatar(this, targetKey, avatarUriStr!!)
+                if (!targetUsername.isNullOrEmpty()) {
+                    AvatarHistoryManager.addContactAvatar(this, targetUsername, avatarUriStr!!)
+                }
+                contactHistory = AvatarHistoryManager.getContactAvatarHistory(this, targetKey)
+            }
+        }
+
+        if (contactHistory.isNotEmpty()) {
+            val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+            val contactName = if (targetKey.isNotEmpty()) {
+                sharedPrefs.getString("contact_name_$targetKey", null) ?: targetUsername
+            } else targetUsername
+
             val displayContactName = if (BluetoothAdapter.checkBluetoothAddress(contactName)) "Собеседник" else contactName
 
-            val msg = ChatMessage(
-                "Аватар профиля",
-                "В прайме!",
-                displayContactName,
-                false,
-                null,
-                0L,
-                uriToPass,
-                "contact_avatar_preview"
-            )
-            MediaPlayerActivity.setSharedMediaList(listOf(msg), 0)
+            val mediaList = contactHistory.mapIndexed { idx, uriStr ->
+                ChatMessage(
+                    "Аватар профиля",
+                    if (idx == 0) "В прайме! (Активный)" else "В прайме!",
+                    displayContactName,
+                    false,
+                    null,
+                    0L,
+                    uriStr,
+                    "contact_avatar_preview_$idx"
+                )
+            }
+
+            val startIdx = currentAvatarIndex.coerceIn(0, mediaList.size - 1)
+            MediaPlayerActivity.setSharedMediaList(mediaList, startIdx)
             val intent = Intent(this, MediaPlayerActivity::class.java)
             startActivity(intent)
             PrimeTransitions.applyOpenTransition(this)
@@ -350,6 +387,11 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     private fun setupLeftColumnButtons() {
+        binding.photoCard.addBounceTouchEffect()
+        binding.btnViewPhoto.addBounceTouchEffect()
+        binding.btnDisconnect.addBounceTouchEffect()
+        binding.btnDeleteChat.addBounceTouchEffect()
+
         // 1. Назад
         binding.btnBack.setOnClickListener {
             onBackPressedDispatcher.onBackPressed()
@@ -441,17 +483,41 @@ class PersonInformationActivity : AppCompatActivity() {
     private fun finalizeChatDeletion() {
         val targetAddr = deviceAddress ?: targetUsername
 
+        // 1. Disconnect current socket FIRST & cancel background reconnects
+        try {
+            BluetoothConnectionManager.getInstance().disconnect(targetAddr)
+            if (!deviceAddress.isNullOrEmpty()) {
+                BluetoothConnectionManager.getInstance().disconnect(deviceAddress!!)
+            }
+            PrimeBluetoothService.cancelReconnect(this, targetAddr)
+            if (!deviceAddress.isNullOrEmpty()) {
+                PrimeBluetoothService.cancelReconnect(this, deviceAddress!!)
+            }
+        } catch (_: Exception) {}
+
+        // 2. Unbond / remove bond from Bluetooth adapter
         try {
             val adapter = BluetoothAdapter.getDefaultAdapter()
-            if (adapter != null && !deviceAddress.isNullOrEmpty() && BluetoothAdapter.checkBluetoothAddress(deviceAddress)) {
-                val device = adapter.getRemoteDevice(deviceAddress)
-                if (device != null && device.bondState == BluetoothDevice.BOND_BONDED) {
-                    try {
-                        val removeBond = device.javaClass.getMethod("removeBond")
-                        removeBond.invoke(device)
-                        Log.d("ChatDeletion", "Successfully unbonded device: $deviceAddress")
-                    } catch (e: Exception) {
-                        Log.e("ChatDeletion", "Failed to invoke removeBond", e)
+            if (adapter != null) {
+                val mac = if (!deviceAddress.isNullOrEmpty() && BluetoothAdapter.checkBluetoothAddress(deviceAddress)) deviceAddress
+                          else if (BluetoothAdapter.checkBluetoothAddress(targetUsername)) targetUsername
+                          else getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${targetUsername}_mac", null)
+
+                if (!mac.isNullOrEmpty() && BluetoothAdapter.checkBluetoothAddress(mac)) {
+                    val device = adapter.getRemoteDevice(mac)
+                    if (device != null) {
+                        try {
+                            val cancelBond = device.javaClass.getMethod("cancelBondProcess")
+                            cancelBond.invoke(device)
+                        } catch (_: Exception) {}
+
+                        try {
+                            val removeBond = device.javaClass.getMethod("removeBond")
+                            val res = removeBond.invoke(device) as? Boolean
+                            Log.d("ChatDeletion", "removeBond result for $mac: $res")
+                        } catch (e: Exception) {
+                            Log.e("ChatDeletion", "Failed to invoke removeBond", e)
+                        }
                     }
                 }
             }
@@ -459,11 +525,11 @@ class PersonInformationActivity : AppCompatActivity() {
             Log.w("PersonInfo", "Failed to remove bond", e)
         }
 
-        BluetoothConnectionManager.getInstance().disconnect(targetAddr)
         if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
             PrimeBluetoothService.stopService(this)
         }
 
+        // 3. Complete cleanup of history, avatars, files, and SharedPreferences keys
         ChatHistoryManager.deleteHistoryCompletely(this, targetUsername, deviceAddress)
 
         val chatDeletedIntent = Intent("com.messenger.prime.CHAT_DELETED").apply {
@@ -548,14 +614,25 @@ class PersonInformationActivity : AppCompatActivity() {
                         mediaGrouped.getOrPut(dateLabel) { mutableListOf() }.add(subMsg)
                         totalMediaCount++
                     }
-                } else if (msg.isFile || msg.messageType == ChatMessage.MessageType.FILE || !msg.fileName.isNullOrEmpty()) {
-                    val dateLabel = formatDateSection(msg.timestamp)
-                    filesGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
-                    totalFilesCount++
-                } else if (!msg.imagePath.isNullOrEmpty() || msg.imageBitmap != null || msg.messageType == ChatMessage.MessageType.IMAGE || msg.messageType == ChatMessage.MessageType.VIDEO) {
-                    val dateLabel = formatDateSection(msg.timestamp)
-                    mediaGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
-                    totalMediaCount++
+                } else {
+                    val pathOrName = (msg.imagePath ?: msg.fileName ?: "").lowercase(Locale.US)
+                    val isVid = msg.isVideo || pathOrName.endsWith(".mp4") || pathOrName.endsWith(".mkv") || pathOrName.endsWith(".3gp") || pathOrName.endsWith(".webm") || pathOrName.endsWith(".mov") || pathOrName.endsWith(".avi")
+                    val isImg = msg.messageType == ChatMessage.MessageType.IMAGE || (!msg.imagePath.isNullOrEmpty() && !msg.isFile) || msg.imageBitmap != null
+
+                    if (isVid) {
+                        msg.messageType = ChatMessage.MessageType.VIDEO
+                        val dateLabel = formatDateSection(msg.timestamp)
+                        mediaGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
+                        totalMediaCount++
+                    } else if (msg.isFile || msg.messageType == ChatMessage.MessageType.FILE || (!msg.fileName.isNullOrEmpty() && !isImg)) {
+                        val dateLabel = formatDateSection(msg.timestamp)
+                        filesGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
+                        totalFilesCount++
+                    } else if (isImg || !msg.imagePath.isNullOrEmpty()) {
+                        val dateLabel = formatDateSection(msg.timestamp)
+                        mediaGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
+                        totalMediaCount++
+                    }
                 }
             }
 
@@ -670,13 +747,16 @@ class PersonInformationActivity : AppCompatActivity() {
 
                     if (msg.isVideo) {
                         h.binding.layoutVideoBadge.visibility = View.VISIBLE
-                        h.binding.tvVideoDuration.text = msg.videoDuration ?: "00:00"
+                        h.binding.tvVideoDuration.text = msg.videoDuration?.ifEmpty { "00:00" } ?: "00:00"
 
                         if (!path.isNullOrEmpty()) {
+                            val (model, file) = parseAvatarModelAndFile(path)
+                            val sigKey = ObjectKey(if (file != null && file.exists()) file.lastModified() else System.currentTimeMillis())
                             Glide.with(h.itemView.context)
                                 .asBitmap()
-                                .load(path)
+                                .load(model)
                                 .centerCrop()
+                                .signature(sigKey)
                                 .placeholder(R.drawable.ic_video)
                                 .error(R.drawable.ic_video)
                                 .into(h.binding.ivGalleryThumbnail)
@@ -687,7 +767,22 @@ class PersonInformationActivity : AppCompatActivity() {
                         h.binding.layoutVideoBadge.visibility = View.GONE
 
                         if (!path.isNullOrEmpty()) {
-                            ChatAdapter.loadMediaImageIntoView(h.itemView.context, path, h.binding.ivGalleryThumbnail)
+                            val isGif = path.lowercase(Locale.US).contains(".gif")
+                            val (model, file) = parseAvatarModelAndFile(path)
+                            val sigKey = ObjectKey(if (file != null && file.exists()) file.lastModified() else System.currentTimeMillis())
+
+                            if (isGif && model != null) {
+                                Glide.with(h.itemView.context)
+                                    .asGif()
+                                    .load(model)
+                                    .centerCrop()
+                                    .signature(sigKey)
+                                    .placeholder(R.drawable.ic_photo)
+                                    .error(R.drawable.ic_photo)
+                                    .into(h.binding.ivGalleryThumbnail)
+                            } else {
+                                ChatAdapter.loadMediaImageIntoView(h.itemView.context, path, h.binding.ivGalleryThumbnail)
+                            }
                         } else if (msg.imageBitmap != null) {
                             h.binding.ivGalleryThumbnail.setImageBitmap(msg.imageBitmap)
                         } else {
@@ -745,13 +840,24 @@ class PersonInformationActivity : AppCompatActivity() {
                 is FileListItem.Item -> {
                     val h = holder as ItemViewHolder
                     val msg = item.msg
-                    val resolvedName = msg.fileName?.ifEmpty { null }
+                    var resolvedName = msg.fileName?.ifEmpty { null }
                         ?: msg.imagePath?.let { File(it).name }
                         ?: "Документ"
-                    h.binding.tvFileName.text = resolvedName
                     
+                    if (resolvedName.startsWith("content://") || resolvedName.contains("%2F")) {
+                        resolvedName = try {
+                            val dec = Uri.decode(resolvedName)
+                            File(dec).name
+                        } catch (_: Exception) { "Документ" }
+                    }
+                    
+                    h.binding.tvFileName.text = resolvedName
+
                     val filePath = msg.imagePath ?: ""
-                    val sizeBytes = if (msg.fileSize > 0) msg.fileSize else (if (filePath.isNotEmpty()) File(filePath).length() else 0L)
+                    val sizeBytes = if (msg.fileSize > 0) msg.fileSize else (if (filePath.isNotEmpty()) {
+                        val (_, f) = parseAvatarModelAndFile(filePath)
+                        f?.length() ?: 0L
+                    } else 0L)
                     h.binding.tvFileSize.text = ChatAdapter.formatFileSize(sizeBytes)
                     h.itemView.setOnClickListener { onItemClick(msg) }
                 }

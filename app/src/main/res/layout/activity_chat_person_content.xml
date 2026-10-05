@@ -129,7 +129,6 @@
         android:layout_marginEnd="12dp"
         android:background="@drawable/bg_floating_island"
         android:outlineProvider="background"
-        android:clipToOutline="true"
         android:elevation="8dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -258,18 +257,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:tint="@color/white" />
 
-    <!-- Встроенная панель вложений -->
-    <include
-        layout="@layout/layout_attachment_panel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="8dp"
-        android:elevation="6dp"
-        app:layout_constraintBottom_toTopOf="@+id/bottomContainer"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+
 
     <!-- 3. Нижний парящий контейнер (Floating Glass Footer) -->
     <LinearLayout
@@ -292,7 +280,6 @@
             android:layout_height="wrap_content"
             android:background="@drawable/bg_floating_island"
             android:outlineProvider="background"
-            android:clipToOutline="true"
             android:paddingStart="6dp"
             android:paddingTop="4dp"
             android:paddingEnd="6dp"
@@ -545,6 +532,7 @@
                     android:background="@null"
                     tools:ignore="HardcodedText"
                     android:hint="Сообщение..."
+                    android:importantForAutofill="no"
                     android:inputType="textMultiLine|textCapSentences"
                     android:maxLines="4"
                     android:paddingStart="10dp"

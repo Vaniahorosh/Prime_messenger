@@ -27,15 +27,15 @@ public class ChatMessage {
                     allVideo = false;
                 }
             }
-            if (allVideo) return "📹 Видео (" + count + ")";
-            if (allPhoto) return "🖼 Фото (" + count + ")";
+            if (allVideo) return "Видео (" + count + ")";
+            if (allPhoto) return "Фото (" + count + ")";
             return "Коллаж (" + count + ")";
         }
         MessageType type = msg.getMessageType();
-        if (type == MessageType.VIDEO) return "📹 Видео";
-        if (type == MessageType.FILE) return "📎 Файл";
-        if (type == MessageType.IMAGE) return "📷 Фотография";
-        if (type == MessageType.VOICE) return "🎤 Голосовое сообщение";
+        if (type == MessageType.VIDEO) return "Видео";
+        if (type == MessageType.FILE) return "Файл";
+        if (type == MessageType.IMAGE) return "Фотография";
+        if (type == MessageType.VOICE) return "Голосовое сообщение";
         return msg.getText() != null ? msg.getText() : "";
     }
 

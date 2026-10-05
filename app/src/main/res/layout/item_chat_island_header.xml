@@ -140,6 +140,7 @@
             android:background="@android:color/transparent"
             android:gravity="center_vertical"
             android:hint="Поиск собеседников..."
+            android:importantForAutofill="no"
             android:imeOptions="actionSearch"
             android:inputType="textNoSuggestions"
             android:maxLength="196"

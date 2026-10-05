@@ -371,26 +371,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public void updateMessageTextById(String messageId, String newText) {
         if (messageId == null || messageId.isEmpty()) return;
-        boolean found = false;
+        String cleanId = messageId.trim();
         for (int i = 0; i < messages.size(); i++) {
             ChatMessage m = messages.get(i);
-            if (messageId.equals(m.getMessageId())) {
+            if (cleanId.equals(m.getMessageId()) || (m.getMessageId() != null && m.getMessageId().trim().equals(cleanId))) {
                 m.setEdited(true);
                 m.setText(newText);
                 notifyItemChanged(i);
-                found = true;
                 break;
-            }
-        }
-        if (!found) {
-            for (int i = messages.size() - 1; i >= 0; i--) {
-                ChatMessage m = messages.get(i);
-                if (!Objects.equals(m.getText(), newText)) {
-                    m.setEdited(true);
-                    m.setText(newText);
-                    notifyItemChanged(i);
-                    break;
-                }
             }
         }
     }
@@ -1941,6 +1929,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 }
 
                 if (btnEditMsgAction != null) {
+                    boolean canEdit = message.isOutgoing() && (message.getImagePath() == null || message.getImagePath().isEmpty());
+                    btnEditMsgAction.setVisibility(canEdit ? View.VISIBLE : View.GONE);
                     btnEditMsgAction.setOnClickListener(v -> {
                         layoutMessageActions.setVisibility(View.GONE);
                         if (actionListener != null) {

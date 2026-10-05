@@ -88,7 +88,7 @@
                             android:text="Назад"
                             android:textColor="@color/white"
                             android:alpha="0.8"
-                            android:textSize="10sp"
+                            android:textSize="11sp"
                             android:textStyle="bold" />
                     </LinearLayout>
 
@@ -132,7 +132,7 @@
                                 android:text="Фото"
                                 android:textColor="@color/white"
                                 android:alpha="0.8"
-                                android:textSize="10sp"
+                                android:textSize="11sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
@@ -166,7 +166,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Выход"
                                 android:textColor="@color/prime_danger_light"
-                                android:textSize="10sp"
+                                android:textSize="11sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
@@ -201,7 +201,7 @@
                                 android:text="К Настройкам"
                                 android:textColor="@color/white"
                                 android:alpha="0.8"
-                                android:textSize="10sp"
+                                android:textSize="11sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
                     </LinearLayout>
@@ -229,6 +229,29 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
                                 android:scaleType="centerCrop" />
+
+                            <TextView
+                                android:id="@+id/tvAvatarCounter"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:background="@drawable/bg_date_bubble"
+                                android:textColor="@color/white"
+                                android:textSize="12sp"
+                                android:textStyle="bold"
+                                android:paddingHorizontal="12dp"
+                                android:paddingVertical="4dp"
+                                android:elevation="10dp"
+                                android:alpha="0"
+                                android:translationY="-30dp"
+                                android:visibility="gone"
+                                app:layout_constraintTop_toTopOf="parent"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                tools:text="1 из 3"
+                                tools:visibility="visible"
+                                tools:alpha="1"
+                                tools:translationY="0dp" />
 
                             <View
                                 android:id="@+id/viewPhotoInfoGradient"
@@ -346,7 +369,7 @@
                                 android:text="Назад"
                                 android:textColor="@color/white"
                                 android:alpha="0.8"
-                                android:textSize="10sp"
+                                android:textSize="11sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
@@ -379,7 +402,7 @@
                                 android:text="Фото"
                                 android:textColor="@color/white"
                                 android:alpha="0.8"
-                                android:textSize="10sp"
+                                android:textSize="11sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
@@ -410,7 +433,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Выход"
                                 android:textColor="@color/prime_danger_light"
-                                android:textSize="10sp"
+                                android:textSize="11sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
@@ -443,7 +466,7 @@
                                 android:text="Настройки"
                                 android:textColor="@color/white"
                                 android:alpha="0.8"
-                                android:textSize="10sp"
+                                android:textSize="11sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
                     </LinearLayout>
@@ -878,6 +901,410 @@
                                 android:layout_height="wrap_content"
                                 android:checked="true"
                                 app:showText="false" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                </LinearLayout>
+
+                <!-- Разделитель "Данные" с линиями -->
+                <LinearLayout
+                    android:id="@+id/layoutDataHeader"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:layout_marginHorizontal="24dp"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1"
+                        android:background="@color/prime_brand_dark" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="16dp"
+                        android:text="Данные и память"
+                        android:textColor="@color/prime_brand"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="true"
+                        android:letterSpacing="0.1" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1"
+                        android:background="@color/prime_brand_dark" />
+                </LinearLayout>
+
+                <!-- Блок хранилища и кэша -->
+                <LinearLayout
+                    android:id="@+id/layoutDataBlock"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginHorizontal="24dp"
+                    android:orientation="vertical">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardStorage"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="2dp"
+                        app:cardBackgroundColor="@color/prime_surface"
+                        app:strokeColor="@color/prime_divider"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="20dp">
+
+                            <!-- Заголовок хранилища -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <ImageView
+                                    android:layout_width="28dp"
+                                    android:layout_height="28dp"
+                                    android:src="@drawable/ic_file"
+                                    app:tint="@color/prime_brand"
+                                    android:contentDescription="Память" />
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="14dp"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Память Прайма"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="16sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvStorageTotalSize"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Загрузка данных..."
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="13sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <!-- Разноцветная диаграмма полосы памяти (Storage Chart) -->
+                            <LinearLayout
+                                android:id="@+id/layoutStorageChart"
+                                android:layout_width="match_parent"
+                                android:layout_height="14dp"
+                                android:layout_marginTop="16dp"
+                                android:layout_marginBottom="16dp"
+                                android:background="@drawable/bg_storage_chart_track"
+                                android:clipToOutline="true"
+                                android:orientation="horizontal">
+
+                                <View
+                                    android:id="@+id/vChartPhotos"
+                                    android:layout_width="0dp"
+                                    android:layout_height="match_parent"
+                                    android:layout_weight="1"
+                                    android:background="#2196F3" />
+
+                                <View
+                                    android:id="@+id/vChartVideos"
+                                    android:layout_width="0dp"
+                                    android:layout_height="match_parent"
+                                    android:layout_weight="1"
+                                    android:background="#9C27B0" />
+
+                                <View
+                                    android:id="@+id/vChartGifs"
+                                    android:layout_width="0dp"
+                                    android:layout_height="match_parent"
+                                    android:layout_weight="1"
+                                    android:background="#FF9800" />
+
+                                <View
+                                    android:id="@+id/vChartFiles"
+                                    android:layout_width="0dp"
+                                    android:layout_height="match_parent"
+                                    android:layout_weight="1"
+                                    android:background="#4CAF50" />
+
+                                <View
+                                    android:id="@+id/vChartOther"
+                                    android:layout_width="0dp"
+                                    android:layout_height="match_parent"
+                                    android:layout_weight="1"
+                                    android:background="#9E9E9E" />
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:layout_marginBottom="12dp"
+                                android:background="@color/prime_divider" />
+
+                            <!-- Список категорий кэша с чекбоксами -->
+
+                            <!-- 1. Фотографии -->
+                            <LinearLayout
+                                android:id="@+id/rowStoragePhotos"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:paddingVertical="8dp"
+                                android:gravity="center_vertical"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true">
+
+                                <CheckBox
+                                    android:id="@+id/cbStoragePhotos"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:checked="true"
+                                    app:buttonTint="@color/prime_brand" />
+
+                                <ImageView
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
+                                    android:src="@drawable/ic_photo"
+                                    app:tint="#2196F3"
+                                    android:contentDescription="Фото"
+                                    android:layout_marginStart="8dp" />
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="12dp"
+                                    android:text="Фотографии и аватары"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvSizePhotos"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0 МБ"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <!-- 2. Видео -->
+                            <LinearLayout
+                                android:id="@+id/rowStorageVideos"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:paddingVertical="8dp"
+                                android:gravity="center_vertical"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true">
+
+                                <CheckBox
+                                    android:id="@+id/cbStorageVideos"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:checked="true"
+                                    app:buttonTint="@color/prime_brand" />
+
+                                <ImageView
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
+                                    android:src="@drawable/ic_video"
+                                    app:tint="#9C27B0"
+                                    android:contentDescription="Видео"
+                                    android:layout_marginStart="8dp" />
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="12dp"
+                                    android:text="Видеосообщения и видео"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvSizeVideos"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0 МБ"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <!-- 3. GIF-анимации -->
+                            <LinearLayout
+                                android:id="@+id/rowStorageGifs"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:paddingVertical="8dp"
+                                android:gravity="center_vertical"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true">
+
+                                <CheckBox
+                                    android:id="@+id/cbStorageGifs"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:checked="true"
+                                    app:buttonTint="@color/prime_brand" />
+
+                                <ImageView
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
+                                    android:src="@drawable/ic_prime_gif"
+                                    app:tint="#FF9800"
+                                    android:contentDescription="GIF"
+                                    android:layout_marginStart="8dp" />
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="12dp"
+                                    android:text="GIF-анимации"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvSizeGifs"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0 МБ"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <!-- 4. Файлы и документы -->
+                            <LinearLayout
+                                android:id="@+id/rowStorageFiles"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:paddingVertical="8dp"
+                                android:gravity="center_vertical"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true">
+
+                                <CheckBox
+                                    android:id="@+id/cbStorageFiles"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:checked="true"
+                                    app:buttonTint="@color/prime_brand" />
+
+                                <ImageView
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
+                                    android:src="@drawable/ic_file"
+                                    app:tint="#4CAF50"
+                                    android:contentDescription="Документы"
+                                    android:layout_marginStart="8dp" />
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="12dp"
+                                    android:text="Файлы и документы"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvSizeFiles"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0 МБ"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <!-- 5. Кэш базы и временные файлы -->
+                            <LinearLayout
+                                android:id="@+id/rowStorageCache"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:paddingVertical="8dp"
+                                android:gravity="center_vertical"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true">
+
+                                <CheckBox
+                                    android:id="@+id/cbStorageCache"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:checked="true"
+                                    app:buttonTint="@color/prime_brand" />
+
+                                <ImageView
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
+                                    android:src="@drawable/ic_eraser"
+                                    app:tint="#9E9E9E"
+                                    android:contentDescription="Кэш"
+                                    android:layout_marginStart="8dp" />
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="12dp"
+                                    android:text="Временный кэш приложения"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvSizeCache"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0 МБ"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <!-- Кнопка очистки с анимированным индикатором -->
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnClearStorage"
+                                android:layout_width="match_parent"
+                                android:layout_height="52dp"
+                                android:layout_marginTop="16dp"
+                                android:text="Очистить: 0 МБ"
+                                android:textAllCaps="false"
+                                android:textColor="@color/white"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:maxLines="1"
+                                android:ellipsize="middle"
+                                app:autoSizeTextType="uniform"
+                                app:autoSizeMinTextSize="11sp"
+                                app:autoSizeMaxTextSize="15sp"
+                                app:cornerRadius="16dp"
+                                app:backgroundTint="@color/prime_brand"
+                                app:elevation="2dp" />
+
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 

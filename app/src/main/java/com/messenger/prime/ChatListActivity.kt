@@ -805,7 +805,7 @@ class ChatListActivity : AppCompatActivity() {
                     return@runOnUiThread
                 }
                 triggerPrimeFoundVibration()
-                PrimeNotification.show(this@ChatListActivity, "⚡ Найден: $finalName")
+                PrimeNotification.show(this@ChatListActivity, "Найден: $finalName")
                 if (::adapter.isInitialized) {
                     adapter.updateList(allChats)
                 }
@@ -1261,18 +1261,17 @@ class ChatListActivity : AppCompatActivity() {
                         hasPrimeUuid || isSavedInChats
                     }
                     
+                    // Умная сортировка: устройства с более сильным сигналом (ближе) в начале списка
                     val pairedPrimeList = primeOnlyDevices.filter { it.second }
+                        .sortedByDescending { deviceRssiMap[it.first.address]?.toInt() ?: -100 }
                     val discoveredPrimeList = primeOnlyDevices.filter { !it.second }
+                        .sortedByDescending { deviceRssiMap[it.first.address]?.toInt() ?: -100 }
+
+                    val allPrimeList = discoveredPrimeList + pairedPrimeList
 
                     val otherDevices = rawAllDevices.filterNot { (device, _) ->
                         primeOnlyDevices.any { it.first.address == device.address }
-                    }
-                    val pairedOtherList = otherDevices.filter { it.second }
-                    val discoveredOtherList = otherDevices.filter { !it.second }
-
-                    var showOtherDevices by remember { mutableStateOf(false) }
-                    var showPairedDevices by remember { mutableStateOf(true) }
-                    var showPairedOther by remember { mutableStateOf(true) }
+                    }.sortedByDescending { deviceRssiMap[it.first.address]?.toInt() ?: -100 }
 
                     if (isScanningState.value) {
                         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().height(90.dp)) {
@@ -1291,15 +1290,13 @@ class ChatListActivity : AppCompatActivity() {
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676), contentColor = Color.Black)
                         ) {
-                            Text("⚡ Поиск и авто-видимость", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                            Text("⚡ Повторить поиск и авто-видимость", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
                         }
                     }
                     
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    val allPrimeList = discoveredPrimeList + pairedPrimeList
-
-                    // 1. HORIZONTAL LAZYROW for Prime Users (Newly discovered first, then paired)
+                    // 1. HORIZONTAL LAZYROW for Prime Users (Nearest by RSSI first)
                     if (allPrimeList.isNotEmpty()) {
                         Text(
                             text = "⚡ Prime-собеседники (${allPrimeList.size})",
@@ -1322,9 +1319,19 @@ class ChatListActivity : AppCompatActivity() {
                                 if (BluetoothAdapter.checkBluetoothAddress(devName)) devName = "Prime Собеседник"
                                 val rssi = deviceRssiMap[devMac]
 
+                                val proximityText = if (!isPaired) {
+                                    if (rssi != null && rssi != Short.MIN_VALUE) {
+                                        when {
+                                            rssi >= -62 -> "🟢 ~1-3м ($rssi dBm)"
+                                            rssi >= -78 -> "🟡 ~5-8м ($rssi dBm)"
+                                            else -> "⚪ В радиусе ($rssi dBm)"
+                                        }
+                                    } else "Новый"
+                                } else "Сопряжен"
+
                                 Card(
                                     modifier = Modifier
-                                        .width(115.dp)
+                                        .width(122.dp)
                                         .clip(RoundedCornerShape(16.dp))
                                         .border(1.5.dp, Color(0xFF00E676), RoundedCornerShape(16.dp))
                                         .clickable {
@@ -1368,10 +1375,11 @@ class ChatListActivity : AppCompatActivity() {
                                         )
 
                                         Text(
-                                            text = if (!isPaired) (if (rssi != null) "$rssi дБм" else "Новый") else "Сопряжен",
-                                            color = Color.White.copy(alpha = 0.65f),
+                                            text = proximityText,
+                                            color = if (rssi != null && rssi >= -62) Color(0xFF00E676) else Color.White.copy(alpha = 0.7f),
                                             fontSize = 10.sp,
-                                            maxLines = 1
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
 
                                         Spacer(modifier = Modifier.height(6.dp))
@@ -1396,7 +1404,7 @@ class ChatListActivity : AppCompatActivity() {
                         }
                     }
 
-                    // 2. VERTICAL LAZYCOLUMN for Other Discovered Non-Audio Devices
+                    // 2. VERTICAL LAZYCOLUMN for Other Discovered Non-Audio Devices (Sorted by RSSI)
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp, max = 260.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1416,6 +1424,17 @@ class ChatListActivity : AppCompatActivity() {
                                 var devName = try { @Suppress("MissingPermission") device.name ?: "Устройство" } catch (_: Exception) { "Устройство" }
                                 if (BluetoothAdapter.checkBluetoothAddress(devName)) devName = "Устройство"
                                 val devMac = device.address
+                                val rssi = deviceRssiMap[devMac]
+
+                                val statusSubText = if (isPaired) "Ранее сопряжено" else {
+                                    if (rssi != null && rssi != Short.MIN_VALUE) {
+                                        when {
+                                            rssi >= -62 -> "🟢 Очень близко (~1-3м)"
+                                            rssi >= -78 -> "🟡 Рядом (~5-8м)"
+                                            else -> "⚪ В радиусе действия ($rssi dBm)"
+                                        }
+                                    } else "Устройство поблизости"
+                                }
 
                                 Row(
                                     modifier = Modifier
@@ -1435,7 +1454,7 @@ class ChatListActivity : AppCompatActivity() {
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(text = devName, color = Color.White.copy(alpha = 0.85f), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                        Text(text = if (isPaired) "Ранее сопряжено" else "Устройство поблизости", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                                        Text(text = statusSubText, color = Color.White.copy(alpha = 0.55f), fontSize = 11.sp)
                                     }
                                     Button(
                                         onClick = {
@@ -1456,7 +1475,7 @@ class ChatListActivity : AppCompatActivity() {
                         }
                     }
 
-                    if (primeOnlyDevices.isEmpty() && pairedPrimeList.isEmpty() && pairedOtherList.isEmpty() && discoveredOtherList.isEmpty() && !isScanningState.value) {
+                    if (primeOnlyDevices.isEmpty() && otherDevices.isEmpty() && !isScanningState.value) {
                         Text(
                             text = "Устройства не найдены поблизости",
                             color = Color.White.copy(alpha = 0.5f),
@@ -2370,11 +2389,11 @@ class ChatListActivity : AppCompatActivity() {
                                 continue
                             }
 
-                            val history = try {
-                                val h = ChatHistoryManager.loadMessages(this@ChatListActivity, finalName)
-                                if (h.isNotEmpty()) h else ChatHistoryManager.loadMessages(this@ChatListActivity, idStr)
+                            val hasHistory = try {
+                                val hasByName = ChatHistoryManager.hasHistory(this@ChatListActivity, finalName)
+                                if (hasByName) true else ChatHistoryManager.hasHistory(this@ChatListActivity, idStr)
                             } catch (_: Exception) {
-                                emptyList<ChatMessage>()
+                                false
                             }
 
                             val isUnknownName = finalName.isBlank() || 
@@ -2383,7 +2402,7 @@ class ChatListActivity : AppCompatActivity() {
                                                 finalName.equals("null", ignoreCase = true) ||
                                                 finalName.equals("1", ignoreCase = true) ||
                                                 finalName.equals("Контакт", ignoreCase = true)
-                            val hasNoMessages = item.optString("lastMessage", "").isBlank() && history.isEmpty()
+                            val hasNoMessages = item.optString("lastMessage", "").isBlank() && !hasHistory
                             if (isUnknownName && hasNoMessages) {
                                 continue
                             }
@@ -2412,31 +2431,12 @@ class ChatListActivity : AppCompatActivity() {
                                 OnlineStatus.OFFLINE
                             }
 
-                            val lastMsgObj = history.lastOrNull()
-                            val finalLastMsg: String
-                            val finalTime: String
-                            val finalMessageStatus: MessageStatus
-                            val lastTimestamp: Long
+                            val finalLastMsg = item.optString("lastMessage", "")
+                            val finalTime = item.optString("time", "сейчас")
+                            val finalMessageStatus = try { MessageStatus.valueOf(item.optString("messageStatus", "NONE")) } catch(e: Exception) { MessageStatus.NONE }
+                            val lastTimestamp = item.optLong("timestamp", 0L)
 
-                            if (lastMsgObj != null) {
-                                val txt = lastMsgObj.text
-                                finalLastMsg = if (!txt.isNullOrEmpty()) txt else ChatMessage.getSummaryDescription(lastMsgObj)
-                                finalTime = if (lastMsgObj.timestamp > 0) formatSmartTime(lastMsgObj.timestamp) else item.optString("time", "сейчас")
-                                finalMessageStatus = if (lastMsgObj.isOutgoing) lastMsgObj.messageStatus else MessageStatus.NONE
-                                lastTimestamp = lastMsgObj.timestamp
-                                item.put("lastMessage", finalLastMsg)
-                                item.put("time", finalTime)
-                                item.put("messageStatus", finalMessageStatus.name)
-                            } else {
-                                finalLastMsg = item.optString("lastMessage", "")
-                                finalTime = item.optString("time", "сейчас")
-                                finalMessageStatus = try { MessageStatus.valueOf(item.optString("messageStatus", "NONE")) } catch(e: Exception) { MessageStatus.NONE }
-                                lastTimestamp = 0L
-                            }
-
-                            val unreadInHistory = history.count { !it.isOutgoing && it.messageStatus != MessageStatus.READ }
-                            val savedUnread = item.optInt("unreadCount", 0)
-                            val finalUnreadCount = if (savedUnread == 0) 0 else maxOf(savedUnread, unreadInHistory)
+                            val finalUnreadCount = item.optInt("unreadCount", 0)
 
                             val chat = ChatModel(
                                 idStr,

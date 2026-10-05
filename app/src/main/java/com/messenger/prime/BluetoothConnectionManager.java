@@ -610,8 +610,30 @@ public class BluetoothConnectionManager {
                 }
             }
 
-            // Stage 3: Secure RFCOMM
+            // Stage 3: Direct RFCOMM Channel 1 Port Fallback (Для устройств без закэшированных SDP записей)
             if (socket == null && !isCancelled) {
+                try {
+                    socket = (BluetoothSocket) mmDevice.getClass()
+                            .getMethod("createRfcommSocket", int.class)
+                            .invoke(mmDevice, 1);
+                    if (socket != null) {
+                        this.mmSocket = socket;
+                        socket.connect();
+                    }
+                } catch (Exception eFallback) {
+                    Log.w(TAG, "Stage 3 (Channel 1 Port Fallback) failed: " + eFallback.getMessage());
+                    closeSocketQuietly(socket);
+                    socket = null;
+                }
+            }
+
+            // Stage 4: Secure RFCOMM (Вызываем ТОЛЬКО если устройство уже спарено / BONDED)
+            boolean isBonded = false;
+            try {
+                isBonded = mmDevice.getBondState() == BluetoothDevice.BOND_BONDED;
+            } catch (SecurityException ignored) {}
+
+            if (socket == null && !isCancelled && isBonded) {
                 try {
                     socket = mmDevice.createRfcommSocketToServiceRecord(mmUuid);
                     if (socket != null) {
@@ -780,7 +802,7 @@ public class BluetoothConnectionManager {
                         mmOutStream.writeInt(len);
                         if (len > 0 && payload != null) {
                             int offset = 0;
-                            int chunkSize = 65536; // 64 KB (ускорено, чтобы забивать весь буфер за раз)
+                            int chunkSize = 16384; // 16 KB for stability (prevents BT stack buffer overflow)
                             long lastProgressReportTime = 0L;
                             int lastReportedProgress = -1;
 
@@ -790,7 +812,7 @@ public class BluetoothConnectionManager {
                                     Log.d(TAG, "Media send cancelled by user");
                                     isMediaSendingCancelled = false;
                                     notifySendProgress(threadDeviceAddress, -1);
-                                    return;
+                                    throw new IOException("Media send cancelled by user - socket desynced, forcing reconnect.");
                                 }
                                 int bytesToWrite = Math.min(chunkSize, len - offset);
                                 mmOutStream.write(payload, offset, bytesToWrite);

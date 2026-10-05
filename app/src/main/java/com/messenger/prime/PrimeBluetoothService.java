@@ -87,8 +87,9 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     private synchronized void manageWakeLock() {
         int activeCount = BluetoothConnectionManager.getInstance().getConnectedDeviceCount();
         if (activeCount > 0) {
-            if (wakeLock != null && !wakeLock.isHeld()) {
-                wakeLock.acquire();
+            if (wakeLock != null) {
+                // Всегда используем таймаут для безопасности батареи
+                wakeLock.acquire(15 * 60 * 1000L); // 15 минут максимум
                 Log.d(TAG, "Partial WakeLock acquired (active connections: " + activeCount + ")");
             }
         } else {
@@ -109,30 +110,56 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         }
     }
 
+    public static void cancelReconnect(Context context, String address) {
+        if (context == null || address == null || address.isEmpty()) return;
+        try {
+            Intent intent = new Intent(context, PrimeBluetoothService.class);
+            intent.setAction("CANCEL_RECONNECT");
+            intent.putExtra("EXTRA_ADDRESS", address);
+            context.startService(intent);
+        } catch (Exception ignored) {}
+    }
+
     private void scheduleReconnect(String address) {
         if (address == null || address.isEmpty() || !BluetoothAdapter.checkBluetoothAddress(address)) return;
+
+        int attempts = reconnectAttempts.getOrDefault(address, 0) + 1;
+        if (attempts > 3) {
+            Log.d(TAG, "Max reconnect attempts (3) reached for " + address + ", stopping auto-reconnect.");
+            return;
+        }
+
+        BluetoothManager manager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothAdapter adapter = manager != null ? manager.getAdapter() : null;
+        if (adapter != null) {
+            try {
+                BluetoothDevice dev = adapter.getRemoteDevice(address);
+                int bondState = BluetoothDevice.BOND_NONE;
+                try {
+                    bondState = dev.getBondState();
+                } catch (SecurityException ignored) {}
+
+                if (dev == null || bondState != BluetoothDevice.BOND_BONDED) {
+                    Log.d(TAG, "Device " + address + " is not bonded, skipping background auto-reconnect.");
+                    return;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        reconnectAttempts.put(address, attempts);
 
         Runnable existing = pendingReconnects.remove(address);
         if (existing != null) {
             reconnectHandler.removeCallbacks(existing);
         }
 
-        int attempts = reconnectAttempts.getOrDefault(address, 0) + 1;
-        reconnectAttempts.put(address, attempts);
-
-        long delayMs;
-        if (attempts == 1) delayMs = 2000L;
-        else if (attempts == 2) delayMs = 5000L;
-        else if (attempts == 3) delayMs = 15000L;
-        else delayMs = 45000L;
+        long delayMs = attempts == 1 ? 3000L : (attempts == 2 ? 8000L : 20000L);
 
         Log.d(TAG, "Scheduling exponential reconnect for " + address + " (Attempt #" + attempts + " in " + (delayMs/1000) + "s)");
 
         Runnable reconnectTask = () -> {
             pendingReconnects.remove(address);
             if (!BluetoothConnectionManager.getInstance().isConnected(address)) {
-                BluetoothManager manager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-                BluetoothAdapter adapter = manager != null ? manager.getAdapter() : null;
                 if (adapter != null && adapter.isEnabled()) {
                     try {
                         BluetoothDevice device = adapter.getRemoteDevice(address);
@@ -155,16 +182,20 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         promoteToForeground();
-        if (intent != null && ACTION_STOP_SERVICE.equals(intent.getAction())) {
-            Log.d(TAG, "Stop service requested from notification shade");
-            shutdownAllBluetoothOperations();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        if (intent != null) {
+            String action = intent.getAction();
+            if ("CANCEL_RECONNECT".equals(action)) {
+                String addr = intent.getStringExtra("EXTRA_ADDRESS");
+                if (addr != null && !addr.isEmpty()) {
+                    resetReconnectAttempts(addr);
+                }
+            } else if (ACTION_STOP_SERVICE.equals(action)) {
+                Log.d(TAG, "Stop service requested from notification shade");
+                shutdownAllBluetoothOperations();
                 stopForeground(STOP_FOREGROUND_REMOVE);
-            } else {
-                stopForeground(true);
+                stopSelf();
+                return START_NOT_STICKY;
             }
-            stopSelf();
-            return START_NOT_STICKY;
         }
         return START_STICKY;
     }
@@ -311,9 +342,13 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     private static File getAvatarFileFor(Context context, String senderName, String deviceAddress) {
         if (context == null) return null;
         File[] candidates = new File[]{
+                deviceAddress != null ? new File(context.getFilesDir(), "rec_avatar_" + deviceAddress + ".gif") : null,
                 deviceAddress != null ? new File(context.getFilesDir(), "rec_avatar_" + deviceAddress + ".jpg") : null,
+                deviceAddress != null ? new File(context.getFilesDir(), "avatar_" + deviceAddress + ".gif") : null,
                 deviceAddress != null ? new File(context.getFilesDir(), "avatar_" + deviceAddress + ".jpg") : null,
+                senderName != null ? new File(context.getFilesDir(), "rec_avatar_" + senderName + ".gif") : null,
                 senderName != null ? new File(context.getFilesDir(), "rec_avatar_" + senderName + ".jpg") : null,
+                senderName != null ? new File(context.getFilesDir(), "avatar_" + senderName + ".gif") : null,
                 senderName != null ? new File(context.getFilesDir(), "avatar_" + senderName + ".jpg") : null
         };
         for (File f : candidates) {
@@ -874,7 +909,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
     private static ChatMessage parseBackgroundPhotoMessage(Context context, byte[] fullPayload, String sender, long photoTs, String photoTime) {
         if (fullPayload == null || fullPayload.length == 0) {
-            return new ChatMessage("📷 Фотография", photoTime, sender, false, null, photoTs, null, null);
+            return new ChatMessage("Фотография", photoTime, sender, false, null, photoTs, null, null);
         }
         try {
             String metaCheck = new String(fullPayload, 0, Math.min(fullPayload.length, 300), StandardCharsets.UTF_8);
@@ -1007,7 +1042,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             return photoMsg;
         } catch (Throwable e) {
             Log.e("PrimeBluetoothService", "Failed to parse background photo message", e);
-            return new ChatMessage("📷 Фотография", photoTime, sender, false, null, photoTs, null, null);
+            return new ChatMessage("Фотография", photoTime, sender, false, null, photoTs, null, null);
         }
     }
 

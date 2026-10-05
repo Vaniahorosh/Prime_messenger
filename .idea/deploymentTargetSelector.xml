@@ -27,7 +27,7 @@
         </DialogSelection>
       </SelectionState>
       <SelectionState runConfigName="androidTest">
-        <option name="selectionMode" value="DIALOG" />
+        <option name="selectionMode" value="DROPDOWN" />
         <DropdownSelection timestamp="2026-10-02T15:17:53.010864800Z">
           <Target type="DEFAULT_BOOT">
             <handle>

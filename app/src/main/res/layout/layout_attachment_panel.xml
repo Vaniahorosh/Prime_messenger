@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <eightbitlab.com.blurview.BlurView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/layoutAttachmentPanel"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -11,320 +12,395 @@
     android:paddingTop="12dp"
     android:paddingEnd="12dp"
     android:paddingBottom="12dp"
-    android:visibility="gone">
+    android:visibility="visible">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-    <!-- Mode Selection Row -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:orientation="horizontal"
-        android:paddingBottom="12dp">
-
-        <!-- Mode 1: GIF -->
-        <LinearLayout
-            android:id="@+id/layoutModeCamera"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <FrameLayout
-                android:id="@+id/vModeCameraBg"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
-                android:background="@drawable/bg_circular_mode_active">
-
-                <ImageView
-                    android:id="@+id/ivModeCameraIcon"
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:layout_gravity="center"
-                    android:contentDescription="GIF"
-                    android:src="@drawable/ic_prime_gif" />
-            </FrameLayout>
-
-            <TextView
-                android:id="@+id/tvModeCameraLabel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="GIF"
-                android:textColor="@color/prime_brand"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- Mode 2: Фото -->
-        <LinearLayout
-            android:id="@+id/layoutModePhoto"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <FrameLayout
-                android:id="@+id/vModePhotoBg"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
-                android:background="@drawable/bg_circular_mode_idle">
-
-                <ImageView
-                    android:id="@+id/ivModePhotoIcon"
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:layout_gravity="center"
-                    android:contentDescription="Фото"
-                    android:src="@drawable/ic_photo"
-                    app:tint="@color/prime_text_secondary" />
-            </FrameLayout>
-
-            <TextView
-                android:id="@+id/tvModePhotoLabel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Фото"
-                android:textColor="@color/prime_text_secondary"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <!-- Mode 3: Файлы -->
-        <LinearLayout
-            android:id="@+id/layoutModeFiles"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <FrameLayout
-                android:id="@+id/vModeFilesBg"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
-                android:background="@drawable/bg_circular_mode_idle">
-
-                <ImageView
-                    android:id="@+id/ivModeFilesIcon"
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:layout_gravity="center"
-                    android:contentDescription="Файлы"
-                    android:src="@drawable/ic_file"
-                    app:tint="@color/prime_text_secondary" />
-            </FrameLayout>
-
-            <TextView
-                android:id="@+id/tvModeFilesLabel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Файлы"
-                android:textColor="@color/prime_text_secondary"
-                android:textSize="12sp" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Content Sections Container -->
     <FrameLayout
-        android:id="@+id/layoutSectionsContainer"
         android:layout_width="match_parent"
-        android:layout_height="230dp">
+        android:layout_height="match_parent">
 
-        <!-- Section 1: GIF -->
+        <!-- Main Content Area (Extends Behind the Bottom Floating Island) -->
         <LinearLayout
-            android:id="@+id/layoutSectionCamera"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:visibility="visible">
+            android:orientation="vertical">
 
-            <!-- Top Row: Gallery GIF picker & Search Input -->
-            <LinearLayout
+            <!-- Top Drag Handle Pill -->
+            <View
+                android:id="@+id/vAttachmentDragHandle"
+                android:layout_width="38dp"
+                android:layout_height="4dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="10dp"
+                android:alpha="0.4"
+                android:background="@drawable/bg_date_bubble" />
+
+            <!-- Main Content Sections -->
+            <FrameLayout
+                android:id="@+id/layoutSectionsContainer"
                 android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:minHeight="380dp">
+
+                <!-- Section 1: GIF -->
+                <LinearLayout
+                    android:id="@+id/layoutSectionCamera"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:visibility="visible">
+
+                    <!-- Loading Spinner -->
+                    <ProgressBar
+                        android:id="@+id/pbGifLoading"
+                        style="?android:attr/progressBarStyleSmall"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:visibility="gone" />
+
+                    <!-- Tenor GIFs Grid (Top) -->
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1">
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvTenorGifs"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:clipToPadding="false"
+                            android:paddingBottom="100dp"
+                            app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
+                            app:spanCount="2" />
+
+                        <TextView
+                            android:id="@+id/tvGifEmpty"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="GIF не найдены. Выберите из галереи"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="13sp"
+                            android:visibility="gone" />
+                    </FrameLayout>
+
+                    <!-- Bottom Row: Gallery GIF picker & Search Input -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingTop="6dp"
+                        android:paddingBottom="56dp">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPickGifFromGallery"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:paddingHorizontal="12dp"
+                            android:paddingVertical="0dp"
+                            android:text="ВЫБРАТЬ ИЗ ГАЛЕРЕИ"
+                            android:textColor="@color/prime_brand"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            app:cornerRadius="12dp"
+                            app:strokeColor="@color/prime_brand"
+                            app:strokeWidth="1dp" />
+
+                        <EditText
+                            android:id="@+id/etGifSearch"
+                            android:layout_width="0dp"
+                            android:layout_height="36dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:background="@drawable/bg_pending_attachment"
+                            android:hint="Поиск GIF..."
+                            android:imeOptions="actionSearch"
+                            android:inputType="text"
+                            android:maxLines="1"
+                            android:paddingHorizontal="10dp"
+                            android:textColor="@color/white"
+                            android:textColorHint="@color/prime_text_secondary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Section 2: Фото & Видео Галерея -->
+                <LinearLayout
+                    android:id="@+id/layoutSectionPhoto"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1">
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvGalleryGrid"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:clipToPadding="false"
+                            android:paddingBottom="100dp" />
+
+                        <TextView
+                            android:id="@+id/tvGalleryEmpty"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="Нет фото и видео"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="14sp"
+                            android:visibility="gone" />
+                    </FrameLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnOpenSystemGallery"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="56dp"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="0dp"
+                        android:text="Выбрать в галерее"
+                        android:textColor="@color/prime_brand"
+                        android:textSize="12sp"
+                        app:cornerRadius="18dp"
+                        app:icon="@drawable/ic_photo"
+                        app:iconSize="16dp"
+                        app:iconTint="@color/prime_brand"
+                        app:strokeColor="@color/prime_brand"
+                        app:strokeWidth="1dp" />
+                </LinearLayout>
+
+                <!-- Section 3: Файлы -->
+                <LinearLayout
+                    android:id="@+id/layoutSectionFiles"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1">
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvFilesGrid"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:clipToPadding="false"
+                            android:paddingBottom="100dp" />
+
+                        <TextView
+                            android:id="@+id/tvFilesEmpty"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="Нет файлов (до 2 ГБ)"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="14sp"
+                            android:visibility="gone" />
+                    </FrameLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnOpenSystemFileManager"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="56dp"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="0dp"
+                        android:text="Открыть файловый менеджер"
+                        android:textColor="@color/prime_brand"
+                        android:textSize="12sp"
+                        app:cornerRadius="18dp"
+                        app:icon="@drawable/ic_file"
+                        app:iconSize="16dp"
+                        app:iconTint="@color/prime_brand"
+                        app:strokeColor="@color/prime_brand"
+                        app:strokeWidth="1dp" />
+                </LinearLayout>
+            </FrameLayout>
+
+        </LinearLayout>
+
+        <!-- Bottom Floating Island Overlay (Floats Over Content, Allowing Scroll Underneath) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp"
+            android:background="@drawable/bg_date_bubble"
+            android:elevation="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="6dp">
+
+            <!-- Mode 1: GIF -->
+            <LinearLayout
+                android:id="@+id/layoutModeCamera"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
                 android:orientation="horizontal"
-                android:paddingBottom="6dp">
+                android:paddingVertical="4dp">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnPickGifFromGallery"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                <FrameLayout
+                    android:id="@+id/vModeCameraBg"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_circular_mode_active">
+
+                    <ImageView
+                        android:id="@+id/ivModeCameraIcon"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="GIF"
+                        android:src="@drawable/ic_prime_gif" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/tvModeCameraLabel"
                     android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="0dp"
-                    android:text="ВЫБРАТЬ ИЗ ГАЛЕРЕИ"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="GIF"
                     android:textColor="@color/prime_brand"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    app:cornerRadius="12dp"
-                    app:strokeColor="@color/prime_brand"
-                    app:strokeWidth="1dp" />
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
-                <EditText
-                    android:id="@+id/etGifSearch"
-                    android:layout_width="0dp"
+            <!-- Mode 2: Фото -->
+            <LinearLayout
+                android:id="@+id/layoutModePhoto"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingVertical="4dp">
+
+                <FrameLayout
+                    android:id="@+id/vModePhotoBg"
+                    android:layout_width="36dp"
                     android:layout_height="36dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    android:background="@drawable/bg_pending_attachment"
-                    android:hint="Поиск GIF..."
-                    android:imeOptions="actionSearch"
-                    android:inputType="text"
-                    android:maxLines="1"
-                    android:paddingHorizontal="10dp"
-                    android:textColor="@color/white"
-                    android:textColorHint="@color/prime_text_secondary"
+                    android:background="@drawable/bg_circular_mode_idle">
+
+                    <ImageView
+                        android:id="@+id/ivModePhotoIcon"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="Фото"
+                        android:src="@drawable/ic_photo"
+                        app:tint="@color/prime_text_secondary" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/tvModePhotoLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="Фото"
+                    android:textColor="@color/prime_text_secondary"
                     android:textSize="12sp" />
             </LinearLayout>
 
-            <!-- Loading Spinner -->
-            <ProgressBar
-                android:id="@+id/pbGifLoading"
-                style="?android:attr/progressBarStyleSmall"
+            <!-- Mode 3: Файлы -->
+            <LinearLayout
+                android:id="@+id/layoutModeFiles"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingVertical="4dp">
+
+                <FrameLayout
+                    android:id="@+id/vModeFilesBg"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_circular_mode_idle">
+
+                    <ImageView
+                        android:id="@+id/ivModeFilesIcon"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="Файлы"
+                        android:src="@drawable/ic_file"
+                        app:tint="@color/prime_text_secondary" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/tvModeFilesLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="Файлы"
+                    android:textColor="@color/prime_text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Confirm Send Button with Badge (Far Right inside Island) -->
+            <FrameLayout
+                android:id="@+id/layoutConfirmContainer"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:visibility="gone" />
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="2dp"
+                android:visibility="gone"
+                tools:visibility="visible">
 
-            <!-- Tenor GIFs Grid -->
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1">
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvTenorGifs"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:clipToPadding="false"
-                    app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
-                    app:spanCount="2" />
-
-                <TextView
-                    android:id="@+id/tvGifEmpty"
+                <com.google.android.material.floatingactionbutton.FloatingActionButton
+                    android:id="@+id/btnConfirmAttachment"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:text="GIF не найдены. Выберите из галереи"
-                    android:textColor="@color/prime_text_secondary"
-                    android:textSize="13sp"
-                    android:visibility="gone" />
-            </FrameLayout>
-        </LinearLayout>
-        <!-- Section 2: Фото & Видео Галерея -->
-        <LinearLayout
-            android:id="@+id/layoutSectionPhoto"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:visibility="gone">
+                    android:contentDescription="Отправить"
+                    android:src="@android:drawable/ic_menu_send"
+                    app:backgroundTint="@color/prime_brand"
+                    app:fabCustomSize="42dp"
+                    app:maxImageSize="20dp"
+                    app:tint="@color/white" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnOpenSystemGallery"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginBottom="6dp"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="0dp"
-                android:text="Выбрать в галерее"
-                android:textColor="@color/prime_brand"
-                android:textSize="12sp"
-                app:cornerRadius="18dp"
-                app:icon="@drawable/ic_photo"
-                app:iconSize="16dp"
-                app:iconTint="@color/prime_brand"
-                app:strokeColor="@color/prime_brand"
-                app:strokeWidth="1dp" />
-
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1">
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvGalleryGrid"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:clipToPadding="false" />
-
+                <!-- Opaque Badge Counter -->
                 <TextView
-                    android:id="@+id/tvGalleryEmpty"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:text="Нет фото и видео"
-                    android:textColor="@color/prime_text_secondary"
-                    android:textSize="14sp"
-                    android:visibility="gone" />
+                    android:id="@+id/tvConfirmBadgeCounter"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="top|end"
+                    android:alpha="1.0"
+                    android:background="@drawable/bg_date_bubble"
+                    android:backgroundTint="#FFFFFFFF"
+                    android:elevation="12dp"
+                    android:gravity="center"
+                    android:text="1"
+                    android:textColor="@color/prime_brand"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
             </FrameLayout>
         </LinearLayout>
 
-        <!-- Section 3: Файлы -->
-        <LinearLayout
-            android:id="@+id/layoutSectionFiles"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnOpenSystemFileManager"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginBottom="6dp"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="0dp"
-                android:text="Открыть файловый менеджер"
-                android:textColor="@color/prime_brand"
-                android:textSize="12sp"
-                app:cornerRadius="18dp"
-                app:icon="@drawable/ic_file"
-                app:iconSize="16dp"
-                app:iconTint="@color/prime_brand"
-                app:strokeColor="@color/prime_brand"
-                app:strokeWidth="1dp" />
-
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1">
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvFilesGrid"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:clipToPadding="false" />
-
-                <TextView
-                    android:id="@+id/tvFilesEmpty"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:text="Нет файлов (до 2 ГБ)"
-                    android:textColor="@color/prime_text_secondary"
-                    android:textSize="14sp"
-                    android:visibility="gone" />
-            </FrameLayout>
-        </LinearLayout>
     </FrameLayout>
-</LinearLayout>
 </eightbitlab.com.blurview.BlurView>

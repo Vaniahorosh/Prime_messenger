@@ -241,6 +241,29 @@
                                 android:transitionName="transition_avatar"
                                 android:contentDescription="Фото собеседника" />
 
+                            <TextView
+                                android:id="@+id/tvAvatarCounter"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:background="@drawable/bg_date_bubble"
+                                android:textColor="@color/white"
+                                android:textSize="12sp"
+                                android:textStyle="bold"
+                                android:paddingHorizontal="12dp"
+                                android:paddingVertical="4dp"
+                                android:elevation="10dp"
+                                android:alpha="0"
+                                android:translationY="-30dp"
+                                android:visibility="gone"
+                                app:layout_constraintTop_toTopOf="parent"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                tools:text="1 из 3"
+                                tools:visibility="visible"
+                                tools:alpha="1"
+                                tools:translationY="0dp" />
+
                             <View
                                 android:id="@+id/viewPhotoInfoGradient"
                                 android:layout_width="match_parent"

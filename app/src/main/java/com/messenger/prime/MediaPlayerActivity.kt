@@ -10,6 +10,7 @@ import android.content.res.Configuration
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Rect
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -21,23 +22,24 @@ import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
-import androidx.core.content.ContextCompat
-import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import android.widget.ImageButton
 import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
@@ -51,8 +53,10 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.RequestOptions
-import jp.wasabeef.glide.transformations.BlurTransformation
+import com.bumptech.glide.signature.ObjectKey
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import eightbitlab.com.blurview.BlurView
+import jp.wasabeef.glide.transformations.BlurTransformation
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -77,7 +81,9 @@ class MediaPlayerActivity : AppCompatActivity() {
     private lateinit var viewPager: ViewPager2
     private lateinit var topOverlay: View
     private lateinit var btnBack: ImageButton
-    private lateinit var btnDownload: ImageButton
+    private lateinit var btnMoreMenu: ImageButton
+    private var ivMediaAvatar: ImageView? = null
+    private var tvMediaCounterBadge: TextView? = null
     private lateinit var tvSenderName: TextView
     private lateinit var tvTimestamp: TextView
     private lateinit var btnPlayPause: ImageButton
@@ -108,12 +114,14 @@ class MediaPlayerActivity : AppCompatActivity() {
     private val emphasizedDecelerate = PathInterpolator(0.05f, 0.7f, 0.1f, 1.0f)
     private val emphasizedAccelerate = PathInterpolator(0.3f, 0.0f, 0.8f, 0.15f)
     private val fastOutSlowIn = FastOutSlowInInterpolator()
-    
+
+    private val islandHideRunnable = Runnable { hideIslandBadge() }
+
     private val deletionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 "com.messenger.prime.CHAT_DELETED" -> {
-                    PrimeNotification.show(this@MediaPlayerActivity, "Чат был удален")
+                    showIslandBadge("Чат был удален")
                     val navIntent = Intent(this@MediaPlayerActivity, ChatListActivity::class.java).apply {
                         flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                     }
@@ -133,7 +141,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                     }
                     if (removedAny) {
                         if (list.isEmpty()) {
-                            PrimeNotification.show(this@MediaPlayerActivity, "Медиафайл удален")
+                            showIslandBadge("Медиафайл удален")
                             finish()
                         } else {
                             sharedMediaList = list
@@ -143,7 +151,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                             } else {
                                 updateUIForPage(viewPager.currentItem)
                             }
-                            PrimeNotification.show(this@MediaPlayerActivity, "Медиафайл удален")
+                            showIslandBadge("Медиафайл удален")
                         }
                     }
                 }
@@ -178,6 +186,10 @@ class MediaPlayerActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_media_player)
 
+        if (savedInstanceState != null) {
+            sharedStartIndex = savedInstanceState.getInt("KEY_SAVED_POSITION", sharedStartIndex)
+        }
+
         val filter = IntentFilter().apply {
             addAction("com.messenger.prime.CHAT_DELETED")
             addAction("com.messenger.prime.MSG_DELETED")
@@ -196,25 +208,20 @@ class MediaPlayerActivity : AppCompatActivity() {
 
         adapter = MediaPagerAdapter(list)
         viewPager.adapter = adapter
-        viewPager.setCurrentItem(sharedStartIndex, false)
-
-        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                toggleControls()
-                return true
-            }
-        })
-        val recyclerView = viewPager.getChildAt(0) as RecyclerView
-        recyclerView.setOnTouchListener { v, event ->
-            gestureDetector.onTouchEvent(event)
-            if (event.action == MotionEvent.ACTION_UP) {
-                v.performClick()
-            }
-            false
-        }
+        viewPager.setCurrentItem(sharedStartIndex.coerceIn(0, list.size - 1), false)
 
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
+                val recyclerView = viewPager.getChildAt(0) as? RecyclerView
+                if (recyclerView != null) {
+                    for (i in 0 until recyclerView.childCount) {
+                        val child = recyclerView.getChildAt(i)
+                        val holder = recyclerView.getChildViewHolder(child) as? MediaViewHolder
+                        if (holder?.bindingAdapterPosition != position) {
+                            holder?.resetViewZoom()
+                        }
+                    }
+                }
                 updateUIForPage(position)
             }
         })
@@ -229,7 +236,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         setupListeners()
         updateUIForPage(sharedStartIndex)
 
-        if (sourceRect != null) {
+        if (sourceRect != null && savedInstanceState == null) {
             viewPager.post { startEnterAnimation() }
         }
 
@@ -238,6 +245,13 @@ class MediaPlayerActivity : AppCompatActivity() {
                 startExitAnimation()
             }
         })
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        if (::viewPager.isInitialized) {
+            outState.putInt("KEY_SAVED_POSITION", viewPager.currentItem)
+        }
     }
 
     override fun finish() {
@@ -378,7 +392,9 @@ class MediaPlayerActivity : AppCompatActivity() {
         viewPager = findViewById(R.id.viewPager)
         topOverlay = findViewById(R.id.topOverlay)
         btnBack = findViewById(R.id.btnBack)
-        btnDownload = findViewById(R.id.btnDownload)
+        btnMoreMenu = findViewById(R.id.btnMoreMenu)
+        ivMediaAvatar = findViewById(R.id.ivMediaAvatar)
+        tvMediaCounterBadge = findViewById(R.id.tvMediaCounterBadge)
         tvSenderName = findViewById(R.id.tvSenderName)
         tvTimestamp = findViewById(R.id.tvTimestamp)
         btnPlayPause = findViewById(R.id.btnPlayPause)
@@ -443,7 +459,7 @@ class MediaPlayerActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        btnBack.setOnClickListener { finish() }
+        btnBack.setOnClickListener { startExitAnimation() }
 
         btnPlayPause.setOnClickListener {
             togglePlayPause()
@@ -451,47 +467,19 @@ class MediaPlayerActivity : AppCompatActivity() {
 
         btnFullscreen.setOnClickListener {
             isZoomed = !isZoomed
-            val recyclerView = viewPager.getChildAt(0) as RecyclerView
-            val holder = recyclerView.findViewHolderForAdapterPosition(viewPager.currentItem) as? MediaViewHolder
+            val recyclerView = viewPager.getChildAt(0) as? RecyclerView
+            val holder = recyclerView?.findViewHolderForAdapterPosition(viewPager.currentItem) as? MediaViewHolder
             if (isZoomed) {
                 holder?.playerView?.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                PrimeNotification.show(this@MediaPlayerActivity, "Заполнение экрана")
+                showIslandBadge("Заполнение экрана")
             } else {
                 holder?.playerView?.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                PrimeNotification.show(this@MediaPlayerActivity, "Вместить в экран")
+                showIslandBadge("Вместить в экран")
             }
         }
 
-        btnDownload.setOnClickListener {
-            val list = sharedMediaList ?: return@setOnClickListener
-            val pos = viewPager.currentItem
-            if (pos in list.indices) {
-                val item = list[pos]
-                val uriStr = item.imagePath
-                var mediaUri: Uri? = null
-                if (!uriStr.isNullOrEmpty()) {
-                    mediaUri = if (uriStr.startsWith("content://") || uriStr.startsWith("file://")) {
-                        Uri.parse(uriStr)
-                    } else {
-                        val file = File(uriStr)
-                        if (file.exists()) Uri.fromFile(file) else Uri.parse(uriStr)
-                    }
-                }
-                if (mediaUri != null) {
-                    Executors.newSingleThreadExecutor().execute {
-                        val success = MediaSaveUtils.saveToGallery(this, mediaUri, item.isVideo || item.messageType == ChatMessage.MessageType.VIDEO)
-                        runOnUiThread {
-                            if (success) {
-                                PrimeNotification.show(this, "Сохранено в галерею")
-                            } else {
-                                PrimeNotification.show(this, "Не удалось сохранить файл")
-                            }
-                        }
-                    }
-                } else {
-                    PrimeNotification.show(this, "Файл недоступен для сохранения")
-                }
-            }
+        btnMoreMenu.setOnClickListener {
+            showMultifunctionalMenu()
         }
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -500,11 +488,10 @@ class MediaPlayerActivity : AppCompatActivity() {
                     val total = currentPlayer!!.duration.coerceAtLeast(1L)
                     val targetMs = (progress * total) / 1000
                     scrubTargetMs = targetMs
-                    
-                    // Быстрое и плавное перемещение во время скролла
+
                     currentPlayer!!.setSeekParameters(SeekParameters.CLOSEST_SYNC)
                     currentPlayer!!.seekTo(targetMs)
-                    
+
                     updateDurationText(targetMs, total)
                     navBarProgressBar.progress = progress
                 }
@@ -519,7 +506,6 @@ class MediaPlayerActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(sb: SeekBar?) {
                 isScrubbing = false
                 if (isCurrentVideo && currentPlayer != null && scrubTargetMs != -1L) {
-                    // Точное позиционирование после отпускания ползунка
                     currentPlayer!!.setSeekParameters(SeekParameters.EXACT)
                     currentPlayer!!.seekTo(scrubTargetMs)
                 }
@@ -529,12 +515,327 @@ class MediaPlayerActivity : AppCompatActivity() {
         })
     }
 
+    private fun seekRelative(offsetMs: Long) {
+        val player = currentPlayer ?: return
+        val duration = player.duration.coerceAtLeast(1L)
+        val newPos = (player.currentPosition + offsetMs).coerceIn(0L, duration)
+        player.seekTo(newPos)
+        val currentProgress = ((newPos * 1000) / duration).toInt().coerceIn(0, 1000)
+        seekBar.progress = currentProgress
+        navBarProgressBar.progress = currentProgress
+        updateDurationText(newPos, duration)
+
+        val text = if (offsetMs > 0) "+10 сек" else "-10 сек"
+        showIslandBadge(text, 1200L)
+        showControls()
+    }
+
+    private fun showIslandBadge(message: String, autoHideMs: Long = 1800L) {
+        handler.removeCallbacks(islandHideRunnable)
+        tvSpeedIndicator.text = message
+
+        if (tvSpeedIndicator.visibility != View.VISIBLE || tvSpeedIndicator.alpha < 0.5f) {
+            tvSpeedIndicator.visibility = View.VISIBLE
+            tvSpeedIndicator.animate().cancel()
+            tvSpeedIndicator.translationY = 30f
+            tvSpeedIndicator.alpha = 0f
+            tvSpeedIndicator.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(220)
+                .setInterpolator(emphasizedDecelerate)
+                .setListener(null)
+                .start()
+        } else {
+            tvSpeedIndicator.animate().cancel()
+            tvSpeedIndicator.scaleX = 0.9f
+            tvSpeedIndicator.scaleY = 0.9f
+            tvSpeedIndicator.animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .setDuration(180)
+                .setInterpolator(OvershootInterpolator(2.0f))
+                .start()
+        }
+
+        if (autoHideMs > 0) {
+            handler.postDelayed(islandHideRunnable, autoHideMs)
+        }
+    }
+
+    private fun hideIslandBadge() {
+        handler.removeCallbacks(islandHideRunnable)
+        if (tvSpeedIndicator.visibility == View.VISIBLE) {
+            tvSpeedIndicator.animate().cancel()
+            tvSpeedIndicator.animate()
+                .alpha(0f)
+                .translationY(20f)
+                .setDuration(200)
+                .setInterpolator(emphasizedAccelerate)
+                .setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        tvSpeedIndicator.visibility = View.GONE
+                    }
+                })
+                .start()
+        }
+    }
+
+    private fun showMultifunctionalMenu() {
+        val list = sharedMediaList ?: return
+        val pos = viewPager.currentItem
+        if (pos !in list.indices) return
+        val item = list[pos]
+
+        val dialogView = layoutInflater.inflate(R.layout.dialog_media_more_menu, null)
+        val blurCard = dialogView.findViewById<BlurView>(R.id.blurDialogCard)
+        val tvMenuTitle = dialogView.findViewById<TextView>(R.id.tvMenuTitle)
+        val tvMenuSubTitle = dialogView.findViewById<TextView>(R.id.tvMenuSubTitle)
+        val btnMenuSave = dialogView.findViewById<View>(R.id.btnMenuSave)
+        val btnMenuEdit = dialogView.findViewById<View>(R.id.btnMenuEdit)
+        val btnMenuInfo = dialogView.findViewById<View>(R.id.btnMenuInfo)
+        val btnMenuDelete = dialogView.findViewById<View>(R.id.btnMenuDelete)
+        val ivMenuEditIcon = dialogView.findViewById<ImageView>(R.id.ivMenuEditIcon)
+        val tvMenuEditText = dialogView.findViewById<TextView>(R.id.tvMenuEditText)
+
+        val isContactAvatarPreview = item.messageId?.contains("contact_avatar_preview") == true
+        val isMyAvatarPreview = item.messageId?.contains("my_avatar_preview") == true
+        val isAvatarPreview = isContactAvatarPreview || isMyAvatarPreview
+                || item.text == "Аватар профиля"
+                || item.time == "Это вы"
+                || item.time == "В прайме!"
+
+        if (isContactAvatarPreview) {
+            tvMenuTitle.text = "Аватар собеседника"
+            tvMenuSubTitle.text = "${pos + 1} из ${list.size}" + (if (pos == 0) " • Активный аватар" else "")
+            btnMenuSave.visibility = View.VISIBLE
+            btnMenuInfo.visibility = View.VISIBLE
+            btnMenuEdit.visibility = View.GONE
+            btnMenuDelete.visibility = View.GONE
+        } else if (isAvatarPreview) {
+            tvMenuTitle.text = "Аватар профиля"
+            tvMenuSubTitle.text = "${pos + 1} из ${list.size}" + (if (pos == 0) " • Активный аватар" else "")
+            ivMenuEditIcon?.setImageResource(R.drawable.ic_done)
+            tvMenuEditText?.text = "Установить по умолчанию"
+            btnMenuSave.visibility = View.VISIBLE
+            btnMenuInfo.visibility = View.VISIBLE
+            btnMenuEdit.visibility = View.VISIBLE
+            btnMenuDelete.visibility = View.VISIBLE
+        } else if (item.isVideo || item.messageType == ChatMessage.MessageType.VIDEO) {
+            tvMenuTitle.text = "Видеозапись"
+            tvMenuSubTitle.text = "Отправитель: ${if (!item.senderLogin.isNullOrEmpty()) item.senderLogin else "Пользователь"}"
+            ivMenuEditIcon?.setImageResource(R.drawable.ic_edit)
+            tvMenuEditText?.text = "Редактировать в редакторе"
+            btnMenuSave.visibility = View.VISIBLE
+            btnMenuInfo.visibility = View.VISIBLE
+            btnMenuEdit.visibility = View.VISIBLE
+            btnMenuDelete.visibility = View.VISIBLE
+        } else {
+            tvMenuTitle.text = "Фотография"
+            tvMenuSubTitle.text = "Отправитель: ${if (!item.senderLogin.isNullOrEmpty()) item.senderLogin else "Пользователь"}"
+            ivMenuEditIcon?.setImageResource(R.drawable.ic_edit)
+            tvMenuEditText?.text = "Редактировать в редакторе"
+            btnMenuSave.visibility = View.VISIBLE
+            btnMenuInfo.visibility = View.VISIBLE
+            btnMenuEdit.visibility = View.VISIBLE
+            btnMenuDelete.visibility = View.VISIBLE
+        }
+
+        val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val overlayColor = if (isDark) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+        blurCard?.setupBlur(rootView, 16f, overlayColor, window.decorView.background)
+
+        val dialog = MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
+            .setView(dialogView)
+            .create()
+
+        dialog.window?.let { win ->
+            win.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    win.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                    win.attributes = win.attributes.apply { blurBehindRadius = 60 }
+                } catch (_: Throwable) {}
+            }
+        }
+
+        btnMenuSave.setOnClickListener {
+            dialog.dismiss()
+            saveCurrentMediaToGallery(item)
+        }
+
+        btnMenuEdit.setOnClickListener {
+            dialog.dismiss()
+            if (isAvatarPreview) {
+                val path = item.imagePath ?: return@setOnClickListener
+                if (item.isOutgoing) {
+                    AvatarHistoryManager.addMyAvatar(this, path)
+                    sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
+                    showIslandBadge("Аватар установлен по умолчанию")
+                    finish()
+                } else {
+                    val sender = item.senderLogin ?: ""
+                    AvatarHistoryManager.addContactAvatar(this, sender, path)
+                    sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
+                    showIslandBadge("Аватар установлен по умолчанию")
+                    finish()
+                }
+            } else {
+                val path = item.imagePath
+                if (!path.isNullOrEmpty() && !item.isVideo) {
+                    val intent = Intent(this, PhotoEditorActivity::class.java).apply {
+                        putExtra("EXTRA_IMAGE_URI", path)
+                    }
+                    startActivity(intent)
+                } else {
+                    showIslandBadge("Редактирование недоступно")
+                }
+            }
+        }
+
+        btnMenuInfo.setOnClickListener {
+            dialog.dismiss()
+            showMediaInfoDialog(item)
+        }
+
+        btnMenuDelete.setOnClickListener {
+            dialog.dismiss()
+            deleteCurrentMediaItem(pos)
+        }
+
+        dialog.show()
+    }
+
+    private fun shareCurrentMedia(item: ChatMessage) {
+        val uriStr = item.imagePath ?: return
+        val (_, file) = parseAvatarModelAndFile(uriStr)
+        if (file != null && file.exists()) {
+            try {
+                val contentUri = FileProvider.getUriForFile(
+                    this,
+                    "$packageName.fileprovider",
+                    file
+                )
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = if (item.isVideo || item.messageType == ChatMessage.MessageType.VIDEO) "video/*" else "image/*"
+                    putExtra(Intent.EXTRA_STREAM, contentUri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(Intent.createChooser(shareIntent, "Поделиться медиафайлом"))
+            } catch (_: Exception) {
+                showIslandBadge("Не удалось отправить файл")
+            }
+        } else {
+            showIslandBadge("Файл не найден на диске")
+        }
+    }
+
+    private fun showMediaInfoDialog(item: ChatMessage) {
+        val path = item.imagePath ?: ""
+        val (_, file) = parseAvatarModelAndFile(path)
+        val sizeStr = if (file != null && file.exists()) ChatAdapter.formatFileSize(file.length()) else "Неизвестно"
+        val nameStr = file?.name ?: "Медиафайл"
+        val formatStr = if (item.isVideo || item.messageType == ChatMessage.MessageType.VIDEO) "Видеозапись"
+        else if (path.lowercase(Locale.US).endsWith(".gif")) "GIF-анимация"
+        else "Изображение"
+
+        val senderStr = if (!item.senderLogin.isNullOrEmpty()) item.senderLogin else "Неизвестно"
+        var infoMsg = "Файл: $nameStr\nФормат: $formatStr\nРазмер: $sizeStr\nОтправитель: $senderStr"
+
+        if (file != null && file.exists() && !item.isVideo) {
+            try {
+                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(file.absolutePath, options)
+                if (options.outWidth > 0 && options.outHeight > 0) {
+                    infoMsg += "\nРазрешение: ${options.outWidth} x ${options.outHeight}"
+                }
+            } catch (_: Exception) {}
+        }
+
+        PrimeBlurDialog.show(
+            activity = this,
+            title = "Сведения о файле",
+            message = infoMsg,
+            positiveText = "Понятно",
+            negativeText = "Поделиться",
+            onPositive = {},
+            onNegative = { shareCurrentMedia(item) }
+        )
+    }
+
+    private fun deleteCurrentMediaItem(pos: Int) {
+        val list = sharedMediaList?.toMutableList() ?: return
+        if (pos in list.indices) {
+            val item = list[pos]
+            list.removeAt(pos)
+            sharedMediaList = list
+
+            val path = item.imagePath ?: ""
+            val isAvatarPreview = item.messageId?.contains("avatar") == true
+                    || item.text == "Аватар профиля"
+                    || item.time == "Это вы"
+                    || item.time == "В прайме!"
+                    || item.time?.contains("Активный") == true
+                    || path.lowercase(Locale.US).contains("avatar")
+
+            if (isAvatarPreview && path.isNotEmpty()) {
+                if (item.isOutgoing || item.senderLogin == "Я" || item.time?.contains("вы") == true) {
+                    AvatarHistoryManager.removeMyAvatar(this, path)
+                } else {
+                    val sender = item.senderLogin ?: ""
+                    if (sender.isNotEmpty()) {
+                        AvatarHistoryManager.removeContactAvatar(this, sender, path)
+                    }
+                }
+                sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
+                sendBroadcast(Intent("com.messenger.prime.AVATAR_UPDATED").setPackage(packageName))
+            } else {
+                val (_, file) = parseAvatarModelAndFile(path)
+                if (file != null && file.exists() && !file.name.contains("default")) {
+                    try { file.delete() } catch (_: Exception) {}
+                }
+            }
+
+            if (list.isEmpty()) {
+                showIslandBadge("Медиафайл удален")
+                finish()
+            } else {
+                adapter?.notifyDataSetChanged()
+                val nextPos = pos.coerceAtMost(list.size - 1)
+                viewPager.setCurrentItem(nextPos, false)
+                updateUIForPage(nextPos)
+                showIslandBadge("Медиафайл удален")
+            }
+        }
+    }
+
+    private fun saveCurrentMediaToGallery(item: ChatMessage) {
+        val uriStr = item.imagePath ?: return
+        val (_, file) = parseAvatarModelAndFile(uriStr)
+        if (file != null && file.exists()) {
+            Executors.newSingleThreadExecutor().execute {
+                val isVid = item.isVideo || item.messageType == ChatMessage.MessageType.VIDEO
+                val success = MediaSaveUtils.saveToGallery(this, Uri.fromFile(file), isVid)
+                runOnUiThread {
+                    if (success) {
+                        showIslandBadge("Сохранено в галерею")
+                    } else {
+                        showIslandBadge("Не удалось сохранить файл")
+                    }
+                }
+            }
+        } else {
+            showIslandBadge("Файл не найден на диске")
+        }
+    }
+
     private fun updateUIForPage(position: Int) {
         val list = sharedMediaList ?: return
         if (position !in list.indices) return
 
         val item = list[position]
-        
+
         val newSenderName = item.senderLogin ?: "Отправитель"
         val currentName = tvSenderName.text.toString()
 
@@ -561,7 +862,7 @@ class MediaPlayerActivity : AppCompatActivity() {
 
         val ts = item.timestamp
         val timeStr = if (ts > 0) SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ts)) else item.time ?: "сейчас"
-        
+
         val currentTimeStr = tvTimestamp.text.toString()
         if (currentTimeStr != timeStr && currentTimeStr.isNotEmpty()) {
             tvTimestamp.animate()
@@ -588,7 +889,60 @@ class MediaPlayerActivity : AppCompatActivity() {
                 || item.text == "Аватар профиля"
                 || item.time == "Это вы"
                 || item.time == "В прайме!"
-                || item.imagePath?.lowercase()?.contains("avatar") == true
+                || item.imagePath?.lowercase(Locale.US)?.contains("avatar") == true
+
+        if (ivMediaAvatar != null) {
+            if (isAvatarPreview) {
+                ivMediaAvatar!!.visibility = View.VISIBLE
+                val (avatarModel, avatarFile) = parseAvatarModelAndFile(item.imagePath)
+                val sigKey = ObjectKey(if (avatarFile != null && avatarFile.exists()) avatarFile.lastModified() else System.currentTimeMillis())
+
+                if (item.imagePath?.lowercase(Locale.US)?.contains(".gif") == true) {
+                    Glide.with(this).asGif().load(avatarModel).signature(sigKey).placeholder(R.drawable.ic_person).into(ivMediaAvatar!!)
+                } else {
+                    Glide.with(this).load(avatarModel).signature(sigKey).placeholder(R.drawable.ic_person).into(ivMediaAvatar!!)
+                }
+            } else {
+                ivMediaAvatar!!.visibility = View.GONE
+            }
+        }
+
+        val counterBadge = tvMediaCounterBadge
+        if (list.size > 1 && counterBadge != null) {
+            val badgeText = if (isAvatarPreview) {
+                "${position + 1} из ${list.size}" + (if (position == 0) " • Активный" else "")
+            } else {
+                "${position + 1} из ${list.size}"
+            }
+            counterBadge.text = badgeText
+            if (counterBadge.visibility != View.VISIBLE || counterBadge.alpha < 0.5f) {
+                counterBadge.visibility = View.VISIBLE
+                counterBadge.translationY = -40f
+                counterBadge.alpha = 0f
+                counterBadge.animate()
+                    .translationY(0f)
+                    .alpha(1f)
+                    .setDuration(320)
+                    .setInterpolator(OvershootInterpolator(1.4f))
+                    .start()
+            } else {
+                counterBadge.animate().cancel()
+                counterBadge.animate()
+                    .translationY(12f)
+                    .setDuration(120)
+                    .setInterpolator(DecelerateInterpolator())
+                    .withEndAction {
+                        counterBadge.animate()
+                            .translationY(0f)
+                            .setDuration(180)
+                            .setInterpolator(OvershootInterpolator(1.8f))
+                            .start()
+                    }
+                    .start()
+            }
+        } else {
+            counterBadge?.visibility = View.GONE
+        }
 
         val caption = item.text
         if (!isAvatarPreview && !caption.isNullOrEmpty() && caption != "Фото" && caption != "Фотография" && caption != "Аватар профиля") {
@@ -599,7 +953,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         }
 
         val path = item.imagePath ?: ""
-        val isGif = path.lowercase().endsWith(".gif") || path.lowercase().contains("gif")
+        val isGif = path.lowercase(Locale.US).endsWith(".gif") || path.lowercase(Locale.US).contains("gif")
         if (path.isNotEmpty()) {
             val model: Any = if (path.startsWith("content://") || path.startsWith("file://") || path.startsWith("http")) {
                 Uri.parse(path)
@@ -637,18 +991,18 @@ class MediaPlayerActivity : AppCompatActivity() {
         handler.removeCallbacks(updateProgressRunnable)
         handler.postDelayed({
             if (isFinishing || isDestroyed) return@postDelayed
-            val recyclerView = viewPager.getChildAt(0) as RecyclerView
-            
-            // Pause all other players
-            for (i in 0 until recyclerView.childCount) {
-                val child = recyclerView.getChildAt(i)
-                val holder = recyclerView.getChildViewHolder(child) as? MediaViewHolder
-                if (holder?.bindingAdapterPosition != position) {
-                    holder?.player?.pause()
+            val recyclerView = viewPager.getChildAt(0) as? RecyclerView
+            if (recyclerView != null) {
+                for (i in 0 until recyclerView.childCount) {
+                    val child = recyclerView.getChildAt(i)
+                    val holder = recyclerView.getChildViewHolder(child) as? MediaViewHolder
+                    if (holder?.bindingAdapterPosition != position) {
+                        holder?.player?.pause()
+                    }
                 }
             }
 
-            val holder = recyclerView.findViewHolderForAdapterPosition(position) as? MediaViewHolder
+            val holder = recyclerView?.findViewHolderForAdapterPosition(position) as? MediaViewHolder
 
             if (holder != null && holder.player != null) {
                 onPlayerActiveAndReady(holder.player!!, position)
@@ -679,37 +1033,14 @@ class MediaPlayerActivity : AppCompatActivity() {
             if (currentPlayer!!.isPlaying) {
                 currentPlayer!!.pause()
                 btnPlayPause.setImageResource(R.drawable.ic_media_play)
+                showIslandBadge("Пауза", 1200L)
             } else {
                 currentPlayer!!.play()
                 btnPlayPause.setImageResource(R.drawable.ic_media_pause)
+                showIslandBadge("Воспроизведение", 1200L)
             }
         }
         showControls()
-    }
-
-    private fun showSpeedIndicator(show: Boolean) {
-        if (show) {
-            tvSpeedIndicator.visibility = View.VISIBLE
-            tvSpeedIndicator.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(220)
-                .setInterpolator(emphasizedDecelerate)
-                .setListener(null)
-                .start()
-        } else {
-            tvSpeedIndicator.animate()
-                .alpha(0f)
-                .translationY(20f)
-                .setDuration(220)
-                .setInterpolator(emphasizedAccelerate)
-                .setListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        tvSpeedIndicator.visibility = View.GONE
-                    }
-                })
-                .start()
-        }
     }
 
     private fun updateDurationText(currentMs: Long, totalMs: Long) {
@@ -720,11 +1051,16 @@ class MediaPlayerActivity : AppCompatActivity() {
     }
 
     private fun formatMs(ms: Long): String {
-        if (ms < 0) return "00:00"
+        if (ms <= 0) return "00:00"
         val totalSec = ms / 1000
-        val mins = totalSec / 60
+        val hours = totalSec / 3600
+        val mins = (totalSec % 3600) / 60
         val secs = totalSec % 60
-        return String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
+        return if (hours > 0) {
+            String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, mins, secs)
+        } else {
+            String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
+        }
     }
 
     private fun showControls() {
@@ -742,6 +1078,13 @@ class MediaPlayerActivity : AppCompatActivity() {
 
             bottomOverlay.visibility = View.VISIBLE
             bottomOverlay.animate().setListener(null).alpha(1f).translationY(0f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
+
+            val counterBadge = tvMediaCounterBadge
+            val list = sharedMediaList ?: emptyList()
+            if (counterBadge != null && list.size > 1) {
+                counterBadge.visibility = View.VISIBLE
+                counterBadge.animate().setListener(null).alpha(1f).translationY(0f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
+            }
 
             navBarProgressBar.animate().alpha(0f).setDuration(200)
                 .setListener(object : AnimatorListenerAdapter() {
@@ -779,6 +1122,16 @@ class MediaPlayerActivity : AppCompatActivity() {
                     }
                 }).start()
 
+            val counterBadge = tvMediaCounterBadge
+            if (counterBadge != null && counterBadge.visibility == View.VISIBLE) {
+                counterBadge.animate().alpha(0f).translationY(40f).setDuration(240).setInterpolator(emphasizedAccelerate)
+                    .setListener(object : AnimatorListenerAdapter() {
+                        override fun onAnimationEnd(animation: Animator) {
+                            if (!areControlsVisible) counterBadge.visibility = View.GONE
+                        }
+                    }).start()
+            }
+
             if (isCurrentVideo) {
                 navBarProgressBar.visibility = View.VISIBLE
                 navBarProgressBar.animate().alpha(0.4f).setDuration(240).start()
@@ -805,12 +1158,14 @@ class MediaPlayerActivity : AppCompatActivity() {
         super.onDestroy()
         try {
             unregisterReceiver(deletionReceiver)
-        } catch (e: Exception) {
-            // Ignore if not registered or already unregistered
-        }
+        } catch (_: Exception) {}
+
         handler.removeCallbacksAndMessages(null)
-        sharedMediaList = null
-        
+
+        if (!isChangingConfigurations) {
+            sharedMediaList = null
+        }
+
         val recyclerView = viewPager.getChildAt(0) as? RecyclerView
         if (recyclerView != null) {
             for (i in 0 until recyclerView.childCount) {
@@ -819,13 +1174,14 @@ class MediaPlayerActivity : AppCompatActivity() {
                 holder?.releasePlayer()
             }
         }
-        
+
         currentPlayer?.release()
         currentPlayer = null
     }
 
     interface MediaPageInteractionListener {
         fun onSingleTap()
+        fun onDoubleTapSide(isRightSide: Boolean)
         fun onLongPressStart()
         fun onLongPressEnd()
     }
@@ -837,11 +1193,21 @@ class MediaPlayerActivity : AppCompatActivity() {
                 toggleControls()
             }
 
+            override fun onDoubleTapSide(isRightSide: Boolean) {
+                if (isCurrentVideo && currentPlayer != null) {
+                    if (isRightSide) {
+                        seekRelative(10000)
+                    } else {
+                        seekRelative(-10000)
+                    }
+                }
+            }
+
             override fun onLongPressStart() {
                 if (isCurrentVideo && currentPlayer != null) {
                     isSpeedingUp = true
                     currentPlayer?.playbackParameters = PlaybackParameters(2.0f)
-                    showSpeedIndicator(true)
+                    showIslandBadge("Ускорение 2x", autoHideMs = 0L)
                 }
             }
 
@@ -849,7 +1215,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                 if (isSpeedingUp) {
                     isSpeedingUp = false
                     currentPlayer?.playbackParameters = PlaybackParameters(1.0f)
-                    showSpeedIndicator(false)
+                    hideIslandBadge()
                 }
             }
         }
@@ -879,6 +1245,15 @@ class MediaPlayerActivity : AppCompatActivity() {
         var scaleFactor = 1.0f
         private var lastFocusX = 0f
         private var lastFocusY = 0f
+
+        fun clampTranslation(target: View) {
+            val viewW = target.width.toFloat()
+            val viewH = target.height.toFloat()
+            val maxTransX = (viewW * (scaleFactor - 1f) / 2f).coerceAtLeast(0f)
+            val maxTransY = (viewH * (scaleFactor - 1f) / 2f).coerceAtLeast(0f)
+            target.translationX = target.translationX.coerceIn(-maxTransX, maxTransX)
+            target.translationY = target.translationY.coerceIn(-maxTransY, maxTransY)
+        }
 
         fun resetViewZoom() {
             scaleFactor = 1.0f
@@ -915,6 +1290,7 @@ class MediaPlayerActivity : AppCompatActivity() {
 
                     target.scaleX = scaleFactor
                     target.scaleY = scaleFactor
+                    clampTranslation(target)
 
                     if (scaleFactor > 1.02f) {
                         viewPager.isUserInputEnabled = false
@@ -933,6 +1309,19 @@ class MediaPlayerActivity : AppCompatActivity() {
                         listener.onLongPressEnd()
                     }
                     val target: View = if (playerView.visibility == View.VISIBLE) playerView else imageView
+                    val viewW = itemView.width.toFloat()
+                    val tapX = e.x
+
+                    if (isCurrentVideo && viewW > 0) {
+                        if (tapX < viewW * 0.35f) {
+                            listener.onDoubleTapSide(false)
+                            return true
+                        } else if (tapX > viewW * 0.65f) {
+                            listener.onDoubleTapSide(true)
+                            return true
+                        }
+                    }
+
                     if (scaleFactor > 1.1f) {
                         resetViewZoom()
                     } else {
@@ -986,6 +1375,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                             val dy = event.y - lastFocusY
                             target.translationX += dx
                             target.translationY += dy
+                            clampTranslation(target)
                             lastFocusX = event.x
                             lastFocusY = event.y
                         }
@@ -1014,22 +1404,18 @@ class MediaPlayerActivity : AppCompatActivity() {
                             val rawDragY = event.rawY - startRawY
                             val screenH = resources.displayMetrics.heightPixels.toFloat()
                             val progress = (Math.abs(rawDragY) / screenH).coerceIn(0f, 1f)
-                            
-                            val dampingFactor = 0.5f // Смягчение тяги для эластичного ощущения
+
+                            val dampingFactor = 0.5f
                             val dragY = rawDragY * dampingFactor
                             viewPager.translationY = dragY
 
-                            val dragScale = 1.0f - (progress * 0.35f) // Плавное масштабирование
+                            val dragScale = 1.0f - (progress * 0.35f)
                             viewPager.scaleX = dragScale
                             viewPager.scaleY = dragScale
 
                             ivBlurredBackground.alpha = (0.6f * (1f - progress * 1.5f)).coerceIn(0f, 0.6f)
                             topOverlay.alpha = (1f - progress * 3f).coerceIn(0f, 1f)
                             bottomOverlay.alpha = (1f - progress * 3f).coerceIn(0f, 1f)
-                            
-                            if (topOverlay.visibility == View.VISIBLE) {
-                                toggleControls() // Плавно скрыть UI при начале свайпа вниз
-                            }
                         }
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -1045,7 +1431,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                                 .scaleX(1.0f)
                                 .scaleY(1.0f)
                                 .setDuration(300)
-                                .setInterpolator(androidx.interpolator.view.animation.FastOutSlowInInterpolator())
+                                .setInterpolator(FastOutSlowInInterpolator())
                                 .start()
                             ivBlurredBackground.animate()
                                 .alpha(0.6f)
@@ -1087,7 +1473,7 @@ class MediaPlayerActivity : AppCompatActivity() {
             if (isVid) {
                 playerView.visibility = View.VISIBLE
                 imageView.visibility = View.GONE
-                
+
                 playerView.resizeMode = if (isZoomed) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
 
                 val uriStr = item.imagePath
@@ -1099,12 +1485,20 @@ class MediaPlayerActivity : AppCompatActivity() {
                         if (file.exists()) Uri.fromFile(file) else Uri.parse(uriStr)
                     }
 
-                    player = ExoPlayer.Builder(itemView.context).build()
+                    val audioAttributes = AudioAttributes.Builder()
+                        .setUsage(C.USAGE_MEDIA)
+                        .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                        .build()
+
+                    player = ExoPlayer.Builder(itemView.context)
+                        .setAudioAttributes(audioAttributes, true)
+                        .build()
+
                     playerView.player = player
                     player!!.setMediaItem(MediaItem.fromUri(uri))
                     player!!.repeatMode = Player.REPEAT_MODE_ONE
                     player!!.prepare()
-                    
+
                     if (isActive) {
                         player!!.playWhenReady = true
                     } else {
@@ -1123,7 +1517,7 @@ class MediaPlayerActivity : AppCompatActivity() {
 
                         override fun onPlayerError(error: PlaybackException) {
                             if (bindingAdapterPosition == viewPager.currentItem) {
-                                PrimeNotification.show(this@MediaPlayerActivity, "Ошибка воспроизведения видео")
+                                showIslandBadge("Ошибка воспроизведения видео")
                             }
                         }
                     })
@@ -1133,7 +1527,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                 imageView.visibility = View.VISIBLE
 
                 val path = item.imagePath ?: ""
-                val isGif = path.lowercase().endsWith(".gif") || path.lowercase().contains("gif")
+                val isGif = path.lowercase(Locale.US).endsWith(".gif") || path.lowercase(Locale.US).contains("gif")
 
                 val model: Any? = if (path.isNotEmpty()) {
                     if (path.startsWith("content://") || path.startsWith("file://") || path.startsWith("http")) {

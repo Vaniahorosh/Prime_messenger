@@ -112,6 +112,20 @@
         <item name="buttonBarNegativeButtonStyle">@style/Widget.Prime.Button.Dialog.Negative</item>
     </style>
 
+    <style name="Theme.Prime.BottomSheetDialog" parent="Theme.MaterialComponents.DayNight.BottomSheetDialog">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="bottomSheetStyle">@style/Widget.Prime.BottomSheet</item>
+    </style>
+
+    <style name="Widget.Prime.BottomSheet" parent="Widget.MaterialComponents.BottomSheet.Modal">
+        <item name="android:background">@android:color/transparent</item>
+        <item name="behavior_peekHeight">0dp</item>
+    </style>
+
     <style name="RoundedDialogShape">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">26dp</item>

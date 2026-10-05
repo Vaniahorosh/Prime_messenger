@@ -98,6 +98,11 @@ public class ChatHistoryManager {
                 }
             }
             historyEdit.apply();
+            
+            for (String tKey : keysToDelete) {
+                File jsonFile = new File(appContext.getFilesDir(), "history_" + getStorageKey(appContext, tKey) + ".json");
+                if (jsonFile.exists()) jsonFile.delete();
+            }
 
             // 2. Полное физическое удаление всех файлов аватарок, медиа и кэша, связанных с контактом
             try {
@@ -130,13 +135,20 @@ public class ChatHistoryManager {
                 }
             } catch (Exception ignored) {}
 
-            // 3. Полное удаление метрик последнего визита, статусов набора текста и записи из списка чатов
+            // 3. Полное удаление имен контактов, аватарок, истории аватарок, метрик последнего визита, статусов набора текста и записи из списка чатов
             SharedPreferences localDb = appContext.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
             SharedPreferences.Editor dbEdit = localDb.edit();
             for (String tKey : keysToDelete) {
                 dbEdit.remove("last_seen_" + tKey);
                 dbEdit.remove("typing_until_" + tKey);
                 dbEdit.remove("activity_state_" + tKey);
+                dbEdit.remove("contact_name_" + tKey);
+                dbEdit.remove("contact_avatar_" + tKey);
+                dbEdit.remove("contact_avatar_history_" + tKey);
+                dbEdit.remove(tKey + "_avatar");
+                dbEdit.remove(tKey + "_avatarUri");
+                dbEdit.remove(tKey + "_name");
+                dbEdit.remove(tKey + "_mac");
             }
 
             try {
@@ -201,9 +213,19 @@ public class ChatHistoryManager {
 
                 if (matchAddr || matchMappedMac || matchName || matchNameAddr) {
                     try {
+                        BluetoothConnectionManager.getInstance().disconnect(devAddr);
+                        PrimeBluetoothService.cancelReconnect(context, devAddr);
+                    } catch (Exception ignored) {}
+
+                    try {
+                        Method cancelBond = dev.getClass().getMethod("cancelBondProcess");
+                        cancelBond.invoke(dev);
+                    } catch (Exception ignored) {}
+
+                    try {
                         Method removeBondMethod = dev.getClass().getMethod("removeBond");
-                        removeBondMethod.invoke(dev);
-                        Log.d("ChatHistoryManager", "Successfully unpaired bluetooth device: " + devAddr + " (" + devName + ")");
+                        Boolean res = (Boolean) removeBondMethod.invoke(dev);
+                        Log.d("ChatHistoryManager", "Unpair result for " + devAddr + " (" + devName + "): " + res);
                     } catch (Exception e) {
                         Log.e("ChatHistoryManager", "Failed to unpair bluetooth device " + devAddr, e);
                     }
@@ -273,6 +295,30 @@ public class ChatHistoryManager {
                 ChatListNotifier.emitEvent(new ChatEvent.MessageSent(targetUsername, message));
             } else {
                 ChatListNotifier.emitEvent(new ChatEvent.MessageReceived(targetUsername, message));
+            }
+        });
+    }
+
+    public static void updateMessageText(Context context, String targetUsername, String messageId, String newText) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty() || messageId == null || messageId.isEmpty()) return;
+
+        executor.execute(() -> {
+            Context appContext = context.getApplicationContext();
+            List<ChatMessage> history = loadMessages(appContext, targetUsername);
+            boolean updated = false;
+            String cleanId = messageId.trim();
+            for (int i = 0; i < history.size(); i++) {
+                ChatMessage m = history.get(i);
+                if (cleanId.equals(m.getMessageId()) || (m.getMessageId() != null && m.getMessageId().trim().equals(cleanId))) {
+                    m.setEdited(true);
+                    m.setText(newText);
+                    updated = true;
+                    break;
+                }
+            }
+            if (updated) {
+                saveHistoryList(appContext, targetUsername, history);
+                ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
             }
         });
     }
@@ -461,16 +507,65 @@ public class ChatHistoryManager {
         return key;
     }
 
-    public static List<ChatMessage> loadMessages(Context context, String targetUsername) {
-        List<ChatMessage> list = new ArrayList<>();
-        if (context == null || targetUsername == null || targetUsername.isEmpty()) return list;
+    public static boolean hasHistory(Context context, String targetUsername) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return false;
 
         String key = getStorageKey(context, targetUsername);
+        
+        File file = new File(context.getFilesDir(), "history_" + key + ".json");
+        if (file.exists() && file.length() > 2) return true;
+        
+        if (!key.equalsIgnoreCase(targetUsername)) {
+            File altFile = new File(context.getFilesDir(), "history_" + targetUsername + ".json");
+            if (altFile.exists() && altFile.length() > 2) return true;
+        }
+
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         String json = prefs.getString("history_" + key, null);
 
         if ((json == null || json.isEmpty()) && !key.equalsIgnoreCase(targetUsername)) {
             json = prefs.getString("history_" + targetUsername, null);
+        }
+
+        return json != null && json.length() > 2;
+    }
+
+    public static List<ChatMessage> loadMessages(Context context, String targetUsername) {
+        List<ChatMessage> list = new ArrayList<>();
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return list;
+
+        String key = getStorageKey(context, targetUsername);
+        String json = null;
+        
+        File file = new File(context.getFilesDir(), "history_" + key + ".json");
+        if (file.exists()) {
+            try {
+                android.util.AtomicFile atomicFile = new android.util.AtomicFile(file);
+                json = new String(atomicFile.readFully(), java.nio.charset.StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                Log.e("ChatHistoryManager", "Failed to read history file", e);
+            }
+        }
+        
+        if ((json == null || json.isEmpty()) && !key.equalsIgnoreCase(targetUsername)) {
+            File altFile = new File(context.getFilesDir(), "history_" + targetUsername + ".json");
+            if (altFile.exists()) {
+                try {
+                    android.util.AtomicFile atomicFile = new android.util.AtomicFile(altFile);
+                    json = new String(atomicFile.readFully(), java.nio.charset.StandardCharsets.UTF_8);
+                } catch (Exception e) {
+                    Log.e("ChatHistoryManager", "Failed to read alt history file", e);
+                }
+            }
+        }
+
+        if (json == null || json.isEmpty()) {
+            SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            json = prefs.getString("history_" + key, null);
+
+            if ((json == null || json.isEmpty()) && !key.equalsIgnoreCase(targetUsername)) {
+                json = prefs.getString("history_" + targetUsername, null);
+            }
         }
 
         if (json != null && !json.isEmpty()) {
@@ -598,9 +693,15 @@ public class ChatHistoryManager {
                 obj.put("reactionSenderLogin", msg.getReactionSenderLogin() != null ? msg.getReactionSenderLogin() : "");
                 array.put(obj);
             }
-            prefs.edit().putString("history_" + key, array.toString()).apply();
+            
+            String jsonStr = array.toString();
+            saveBytesToAtomicFile(context, "history_" + key + ".json", jsonStr.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            
+            if (prefs.contains("history_" + key)) {
+                prefs.edit().remove("history_" + key).apply();
+            }
         } catch (Exception e) {
-            Log.e("ChatHistoryManager", "Failed to save history", e);
+            Log.e("ChatHistoryManager", "Failed to save history to file", e);
         }
     }
 
