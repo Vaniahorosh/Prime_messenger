@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:window="http://schemas.android.com/apk/res-auto">
+
+    <!-- 1. Split Placeholder Rule: Automatically open ChatPlaceholderActivity on the RIGHT side when ANY left-side navigation screen is active on tablets/foldables -->
+    <SplitPlaceholderRule
+        window:placeholderActivityName="com.messenger.prime.ChatPlaceholderActivity"
+        window:splitRatio="0.38"
+        window:splitLayoutDirection="locale"
+        window:splitMinWidthDp="480"
+        window:finishPrimaryWithPlaceholder="adjacent">
+        <ActivityFilter
+            window:activityName="com.messenger.prime.ChatListActivity" />
+        <ActivityFilter
+            window:activityName="com.messenger.prime.GlobalSearchActivity" />
+        <ActivityFilter
+            window:activityName="com.messenger.prime.SettingsActivity" />
+        <ActivityFilter
+            window:activityName="com.messenger.prime.PersonInformationActivity" />
+    </SplitPlaceholderRule>
+
+    <!-- 2. Split Pair Rule: Primary Left Pane (ChatListActivity / GlobalSearchActivity / SettingsActivity / PersonInformationActivity) + Secondary Right Pane (ChatPersonActivity) -->
+    <!-- clearTop="false" guarantees that the active Chat on the right pane NEVER closes when navigating left-side screens -->
+    <SplitPairRule
+        window:clearTop="false"
+        window:finishPrimaryWithSecondary="never"
+        window:finishSecondaryWithPrimary="always"
+        window:splitRatio="0.38"
+        window:splitLayoutDirection="locale"
+        window:splitMinWidthDp="480">
+        <SplitPairFilter
+            window:primaryActivityName="com.messenger.prime.ChatListActivity"
+            window:secondaryActivityName="com.messenger.prime.ChatPersonActivity" />
+        <SplitPairFilter
+            window:primaryActivityName="com.messenger.prime.GlobalSearchActivity"
+            window:secondaryActivityName="com.messenger.prime.ChatPersonActivity" />
+        <SplitPairFilter
+            window:primaryActivityName="com.messenger.prime.SettingsActivity"
+            window:secondaryActivityName="com.messenger.prime.ChatPersonActivity" />
+        <SplitPairFilter
+            window:primaryActivityName="com.messenger.prime.PersonInformationActivity"
+            window:secondaryActivityName="com.messenger.prime.ChatPersonActivity" />
+    </SplitPairRule>
+
+    <!-- 3. Full Screen / Always Expand Rules for Auth, Media, and Editor activities ONLY -->
+    <ActivityRule
+        window:alwaysExpand="true">
+        <ActivityFilter
+            window:activityName="com.messenger.prime.SplashActivity" />
+        <ActivityFilter
+            window:activityName="com.messenger.prime.HiActivity" />
+        <ActivityFilter
+            window:activityName="com.messenger.prime.LoginActivity" />
+        <ActivityFilter
+            window:activityName="com.messenger.prime.RegisterActivity" />
+        <ActivityFilter
+            window:activityName="com.messenger.prime.MediaPlayerActivity" />
+        <ActivityFilter
+            window:activityName="com.messenger.prime.PhotoEditorActivity" />
+        <ActivityFilter
+            window:activityName="com.messenger.prime.BanActivity" />
+    </ActivityRule>
+
+</resources>

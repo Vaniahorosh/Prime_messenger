@@ -1,82 +1,162 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/photoRootContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/prime_base"
-    android:clipChildren="false"
+    android:orientation="horizontal"
     tools:context=".ChatListActivity">
 
-    <!-- Top Pinned Island Header (Always Visible & Accent Colored) -->
-    <include
-        android:id="@+id/layoutIslandHeader"
-        layout="@layout/item_chat_island_header"
+    <!-- Left Pane: Chat List (Full width on phones, 380dp on Foldables/Tablets) -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutLeftPaneChats"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginTop="12dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:layout_height="match_parent"
+        android:layout_weight="1">
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerViewChats"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:clipToPadding="false"
-        android:paddingTop="8dp"
-        android:paddingBottom="100dp"
-        android:overScrollMode="never"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/layoutIslandHeader"
-        tools:listitem="@layout/item_chat" />
+        <!-- Top Pinned Island Header -->
+        <include
+            android:id="@+id/layoutIslandHeader"
+            layout="@layout/item_chat_island_header"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="12dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerViewChats"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:clipToPadding="false"
+            android:paddingTop="8dp"
+            android:paddingBottom="100dp"
+            android:overScrollMode="never"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/layoutIslandHeader"
+            tools:listitem="@layout/item_chat" />
 
-
-    <LinearLayout
-        android:id="@+id/layoutEmptyState"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:orientation="vertical"
-        android:paddingHorizontal="48dp"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/layoutIslandHeader">
-
-        <TextView
-            android:id="@+id/tvEmptyState"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:id="@+id/layoutEmptyState"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center"
-            tools:ignore="HardcodedText"
-            android:text="Прайма не видно, начните с кем нибудь общение!"
-            android:textColor="@color/prime_text_secondary"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-    </LinearLayout>
+            android:orientation="vertical"
+            android:paddingHorizontal="32dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/layoutIslandHeader">
 
-    <FrameLayout
-        android:id="@+id/dialogContainer"
-        android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/tvEmptyState"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                tools:ignore="HardcodedText"
+                android:text="Прайма не видно, начните с кем нибудь общение!"
+                android:textColor="@color/prime_text_secondary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/dialogContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            android:elevation="200dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- Included Bottom Navigation Bar -->
+        <include
+            layout="@layout/layout_bottom_navigation"
+            android:layout_width="0dp"
+            android:layout_height="64dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Pane Divider for Foldables / Tablets -->
+    <View
+        android:id="@+id/vPaneDivider"
+        android:layout_width="1dp"
         android:layout_height="match_parent"
-        android:visibility="gone"
-        android:elevation="200dp"
-        android:clickable="true"
-        android:focusable="true" />
+        android:background="@color/prime_brand_dark"
+        android:visibility="gone" />
 
-    <!-- Included Bottom Navigation Bar -->
-    <include
-        layout="@layout/layout_bottom_navigation"
+    <!-- Right Pane: Active Chat Conversation Detail Placeholder for Foldables / Tablets -->
+    <FrameLayout
+        android:id="@+id/layoutRightPaneDetail"
         android:layout_width="0dp"
-        android:layout_height="64dp"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:visibility="gone">
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <!-- Live Animated Wallpaper Background for Placeholder -->
+        <com.messenger.prime.MaterialShapesWallpaperView
+            android:id="@+id/vRightPaneWallpaper"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- Placeholder when no chat is open -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/blurRightPaneEmpty"
+            android:layout_width="320dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_blur_glass_panel"
+            android:padding="28dp"
+            android:elevation="6dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@drawable/ic_nav_chats"
+                    app:tint="@color/prime_brand" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:gravity="center"
+                    android:text="Выберите чат для начала общения"
+                    android:textColor="@color/white"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:gravity="center"
+                    android:text="Сообщения и медиафайлы передаются напрямую по Bluetooth"
+                    android:textColor="@color/prime_text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </eightbitlab.com.blurview.BlurView>
+
+        <!-- Container for embedded chat activity view on foldables -->
+        <FrameLayout
+            android:id="@+id/fContainerDetailChat"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+    </FrameLayout>
+
+</LinearLayout>

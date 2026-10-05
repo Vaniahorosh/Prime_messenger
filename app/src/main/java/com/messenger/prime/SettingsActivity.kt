@@ -21,6 +21,7 @@ import android.os.Build
 import android.os.Bundle
 import android.content.res.ColorStateList
 import android.graphics.drawable.ColorDrawable
+import android.view.Gravity
 import android.text.Editable
 import android.text.SpannableString
 import android.text.Spanned
@@ -254,6 +255,16 @@ class SettingsActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
 
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val intent = Intent(this@SettingsActivity, ChatListActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+                startActivity(intent)
+                finish()
+            }
+        })
+
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         setupEdgeToEdge(isDarkIcons = !isDark)
 
@@ -356,21 +367,24 @@ class SettingsActivity : AppCompatActivity() {
 
                             ViewCompat.setOnApplyWindowInsetsListener(view) { _, insets ->
                                 val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                                val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
                                 val sDensity = resources.displayMetrics.density
                                 val extraPadding = (12 * sDensity).toInt()
                                 val topInset = if (systemBars.top > 0) systemBars.top else getStatusBarHeight()
 
+                                b.root.setPadding(cutout.left, 0, cutout.right, 0)
+
                                 b.headerStaticBlock.updatePadding(top = 0)
                                 b.layoutWithPhoto.updatePadding(
-                                    top = topInset + extraPadding,
+                                    top = maxOf(topInset, cutout.top) + extraPadding,
                                     bottom = extraPadding
                                 )
                                 b.layoutNoPhoto.updatePadding(
-                                    top = topInset + extraPadding,
+                                    top = maxOf(topInset, cutout.top) + extraPadding,
                                     bottom = extraPadding
                                 )
                                 
-                                b.nestedScrollView.updatePadding(bottom = systemBars.bottom)
+                                b.nestedScrollView.updatePadding(bottom = maxOf(systemBars.bottom, cutout.bottom))
                                 insets
                             }
                             ViewCompat.requestApplyInsets(view)
@@ -741,7 +755,14 @@ class SettingsActivity : AppCompatActivity() {
         val nestedScrollView = bindingRef?.nestedScrollView
             ?: findViewById<androidx.core.widget.NestedScrollView>(R.id.nestedScrollView)
 
-        if (navStyle != "bottom_bar") {
+        val isTablet = resources.configuration.smallestScreenWidthDp >= 600
+        val isEmbedded = try {
+            androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this)
+        } catch (_: Exception) {
+            false
+        }
+
+        if (navStyle != "bottom_bar" || isTablet || isEmbedded) {
             navView.visibility = View.GONE
             nestedScrollView?.setPadding(
                 nestedScrollView.paddingLeft,

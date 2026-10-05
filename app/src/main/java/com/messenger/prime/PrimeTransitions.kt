@@ -62,6 +62,9 @@ object PrimeTransitions {
         }
     }
 
+    @Volatile
+    private var isSlidrDismissing: Boolean = false
+
     /**
      * Applies the Prime Activity CLOSE transition when finishing an Activity.
      * On API 34+, registers the CLOSE transition.
@@ -69,6 +72,10 @@ object PrimeTransitions {
      */
     @JvmStatic
     fun applyCloseTransition(activity: Activity) {
+        if (isSlidrDismissing) {
+            // Skip playing close transition animation if activity was already swiped off screen by Slidr
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             activity.overrideActivityTransition(
                 Activity.OVERRIDE_TRANSITION_CLOSE,
@@ -136,7 +143,15 @@ object PrimeTransitions {
      */
     @JvmStatic
     @JvmOverloads
-    fun attachSlidr(activity: Activity, customListener: SlidrListener? = null): SlidrInterface {
+    fun attachSlidr(activity: Activity, customListener: SlidrListener? = null): SlidrInterface? {
+        val config = activity.resources.configuration
+        val isTablet = config.screenWidthDp >= 480 || config.smallestScreenWidthDp >= 480
+
+        if (isTablet) {
+            activity.window.setBackgroundDrawableResource(R.color.prime_base)
+            return null
+        }
+
         val slidrConfig = SlidrConfig.Builder()
             .position(SlidrPosition.LEFT)
             .scrimColor(Color.BLACK)
@@ -158,10 +173,22 @@ object PrimeTransitions {
                 }
 
                 override fun onSlideClosed(): Boolean {
+                    isSlidrDismissing = true
                     val customHandled = customListener?.onSlideClosed() ?: false
                     if (!customHandled) {
-                        applyCloseTransition(activity)
+                        activity.finish()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                            activity.overrideActivityTransition(
+                                Activity.OVERRIDE_TRANSITION_CLOSE,
+                                0,
+                                0
+                            )
+                        } else {
+                            @Suppress("DEPRECATION")
+                            activity.overridePendingTransition(0, 0)
+                        }
                     }
+                    activity.window.decorView.post { isSlidrDismissing = false }
                     return customHandled
                 }
             })

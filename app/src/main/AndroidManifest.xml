@@ -41,6 +41,14 @@
         android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.Prime">
 
+        <!-- Activity Embedding Support -->
+        <property
+            android:name="android.window.PROPERTY_ACTIVITY_EMBEDDING_SPLITS_ENABLED"
+            android:value="true" />
+        <property
+            android:name="android.window.PROPERTY_ACTIVITY_EMBEDDING_ALLOW_SYSTEM_OVERRIDE"
+            android:value="true" />
+
         <activity
             android:name=".SplashActivity"
             android:exported="true"
@@ -70,6 +78,11 @@
             android:name=".ChatListActivity"
             android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ChatPlaceholderActivity"
+            android:exported="false" />
+
         <activity
             android:name=".SettingsActivity"
             android:launchMode="singleTop"

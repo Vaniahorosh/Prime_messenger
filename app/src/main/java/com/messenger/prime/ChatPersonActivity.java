@@ -65,6 +65,7 @@ import android.util.LruCache;
 import android.util.Size;
 import android.media.ThumbnailUtils;
 import android.view.GestureDetector;
+import android.view.Gravity;
 
 import android.view.HapticFeedbackConstants;
 import android.view.animation.AccelerateInterpolator;
@@ -601,7 +602,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
             PrimeTransitions.setupActivityTransitions(this);
 
-        setContentView(R.layout.activity_chat_person_content);
+            setContentView(R.layout.activity_chat_person_content);
 
         PrimeTransitions.attachSlidr(this);
 
@@ -625,9 +626,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (chatRoot != null) {
             ViewCompat.setOnApplyWindowInsetsListener(chatRoot, (v, insets) -> {
                 Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                Insets cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout());
                 Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
                 float density = getResources().getDisplayMetrics().density;
-                int statusBarTop = systemBars.top > 0 ? systemBars.top : getStatusBarHeight();
+                int statusBarTop = Math.max(systemBars.top > 0 ? systemBars.top : getStatusBarHeight(), cutout.top);
+
+                v.setPadding(cutout.left, 0, cutout.right, 0);
 
                 View vTopGradient = findViewById(R.id.vTopGradient);
                 if (vTopGradient != null) {
@@ -3535,11 +3539,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private boolean isConnectionActive() {
         String targetAddr = resolveTargetAddress();
-        if (BluetoothConnectionManager.getInstance().isConnected(targetAddr)) return true;
-        if (deviceAddress != null && BluetoothConnectionManager.getInstance().isConnected(deviceAddress)) return true;
-        if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) return true;
+        if (targetAddr != null && !targetAddr.isEmpty() && BluetoothConnectionManager.getInstance().isConnected(targetAddr)) return true;
+        if (deviceAddress != null && !deviceAddress.isEmpty() && BluetoothConnectionManager.getInstance().isConnected(deviceAddress)) return true;
         if (BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername)) return true;
-        if (BluetoothSocketHolder.hasAnyActiveConnection()) return true;
+        if (targetAddr != null && !targetAddr.isEmpty() && BluetoothSocketHolder.isConnectedWith(targetAddr, targetUsername)) return true;
         return false;
     }
 
@@ -3557,6 +3560,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void sendText(String text) {
         if (text == null || text.trim().isEmpty()) return;
+        if (!isConnectionActive()) {
+            PrimeNotification.show(this, "Сообщение не отправлено: нет подключения к собеседнику");
+            updateInputVisibility(false);
+            return;
+        }
         senderTypingHandler.removeCallbacks(stopSenderTypingRunnable);
         sendActivityState("IDLE");
         long timestamp = System.currentTimeMillis();

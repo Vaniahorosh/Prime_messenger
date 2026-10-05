@@ -461,18 +461,28 @@ class ChatListAdapter(
                     }
 
                     if (!avatarLoaded) {
-                        val possibleFiles = listOfNotNull(
-                            File(context.filesDir, "rec_avatar_${chat.name}.gif"),
-                            File(context.filesDir, "rec_avatar_${chat.id}.gif"),
-                            File(context.filesDir, "avatar_${chat.name}.gif"),
-                            File(context.filesDir, "avatar_${chat.id}.gif"),
-                            File(context.filesDir, "rec_avatar_${chat.name}.jpg"),
-                            File(context.filesDir, "rec_avatar_${chat.id}.jpg"),
-                            File(context.filesDir, "avatar_${chat.name}.jpg"),
-                            File(context.filesDir, "avatar_${chat.id}.jpg")
-                        )
+                        val isGeneric = chat.name.equals("Собеседник", ignoreCase = true) ||
+                                        chat.name.equals("Prime Собеседник", ignoreCase = true) ||
+                                        chat.name.equals("Пользователь", ignoreCase = true) ||
+                                        chat.name.equals("Prime User", ignoreCase = true) ||
+                                        chat.name.equals("Контакт", ignoreCase = true)
+
+                        val possibleFiles = mutableListOf<File>()
+                        if (!chat.id.isNullOrEmpty()) {
+                            possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.id}.gif"))
+                            possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.id}.jpg"))
+                            possibleFiles.add(File(context.filesDir, "avatar_${chat.id}.gif"))
+                            possibleFiles.add(File(context.filesDir, "avatar_${chat.id}.jpg"))
+                        }
+                        if (!isGeneric && !chat.name.isNullOrEmpty()) {
+                            possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.name}.gif"))
+                            possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.name}.jpg"))
+                            possibleFiles.add(File(context.filesDir, "avatar_${chat.name}.gif"))
+                            possibleFiles.add(File(context.filesDir, "avatar_${chat.name}.jpg"))
+                        }
+
                         for (targetFile in possibleFiles) {
-                            if (targetFile.exists()) {
+                            if (targetFile.exists() && targetFile.length() > 0) {
                                 try {
                                     loadAvatarFileIntoView(context, targetFile, binding.ivUserAvatar)
                                     binding.ivUserAvatar.visibility = View.VISIBLE

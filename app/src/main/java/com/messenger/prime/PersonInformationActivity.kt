@@ -10,7 +10,9 @@ import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
+import android.view.Gravity
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -86,7 +88,18 @@ class PersonInformationActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         PrimeTransitions.setupActivityTransitions(this)
 
-        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val config = resources.configuration
+        val isFoldableOrTablet = config.smallestScreenWidthDp >= 600
+        if (isFoldableOrTablet) {
+            val density = resources.displayMetrics.density
+            val targetWidth = (380 * density).toInt()
+            window.setLayout(targetWidth, ViewGroup.LayoutParams.MATCH_PARENT)
+            window.setGravity(Gravity.START or Gravity.TOP)
+            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            window.setDimAmount(0.25f)
+        }
+
+        val isDark = (config.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         setupEdgeToEdge(isDarkIcons = !isDark)
 
         binding = ActivityPersonInformationBinding.inflate(layoutInflater)
@@ -94,13 +107,16 @@ class PersonInformationActivity : AppCompatActivity() {
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
             val density = resources.displayMetrics.density
             val extraPadding = (12 * density).toInt()
             val topInset = if (systemBars.top > 0) systemBars.top else (24 * density).toInt()
 
+            binding.root.setPadding(cutout.left, 0, cutout.right, 0)
+
             binding.layoutWithPhoto.setPadding(
                 binding.layoutWithPhoto.paddingLeft,
-                topInset + extraPadding,
+                maxOf(topInset, cutout.top) + extraPadding,
                 binding.layoutWithPhoto.paddingRight,
                 extraPadding
             )
@@ -108,7 +124,7 @@ class PersonInformationActivity : AppCompatActivity() {
                 binding.nestedScrollView.paddingLeft,
                 binding.nestedScrollView.paddingTop,
                 binding.nestedScrollView.paddingRight,
-                systemBars.bottom
+                maxOf(systemBars.bottom, cutout.bottom)
             )
             insets
         }
@@ -124,6 +140,16 @@ class PersonInformationActivity : AppCompatActivity() {
         ViewCompat.setTransitionName(binding.tvUserNameWP, "transition_name")
 
         PrimeTransitions.attachSlidr(this)
+
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val intent = Intent(this@PersonInformationActivity, ChatListActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+                startActivity(intent)
+                finish()
+            }
+        })
 
         val filter = IntentFilter().apply {
             addAction("com.messenger.prime.STATUS_UPDATED")

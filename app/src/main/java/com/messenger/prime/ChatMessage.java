@@ -379,13 +379,10 @@ public class ChatMessage {
     public synchronized void setReaction(String reaction) {
         if (reactionSenderLogin != null && !reactionSenderLogin.isEmpty()) {
             setReactionForUser(reactionSenderLogin, reaction);
+        } else if (reaction != null && !reaction.isEmpty()) {
+            setReactionForUser(senderLogin != null ? senderLogin : "me", reaction);
         } else {
-            this.reaction = reaction;
-            if (reaction != null && !reaction.isEmpty()) {
-                setReactionForUser(senderLogin != null ? senderLogin : "me", reaction);
-            } else {
-                reactionsMap.clear();
-            }
+            this.reaction = null;
         }
     }
 

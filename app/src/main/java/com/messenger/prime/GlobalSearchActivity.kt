@@ -1,5 +1,6 @@
 package com.messenger.prime
 
+import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -74,11 +75,14 @@ class GlobalSearchActivity : AppCompatActivity() {
 
         ViewCompat.setOnApplyWindowInsetsListener(rootLayout) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
             val density = resources.displayMetrics.density
+
+            rootLayout.setPadding(cutout.left, 0, cutout.right, 0)
 
             blurHeader.setPadding(
                 blurHeader.paddingLeft,
-                systemBars.top + (8 * density).toInt(),
+                maxOf(systemBars.top, cutout.top) + (8 * density).toInt(),
                 blurHeader.paddingRight,
                 (8 * density).toInt()
             )
@@ -87,7 +91,7 @@ class GlobalSearchActivity : AppCompatActivity() {
             if (navView != null) {
                 val lp = navView.layoutParams as? android.view.ViewGroup.MarginLayoutParams
                 if (lp != null) {
-                    val targetMargin = systemBars.bottom + (12 * density).toInt()
+                    val targetMargin = maxOf(systemBars.bottom, cutout.bottom) + (12 * density).toInt()
                     if (lp.bottomMargin != targetMargin) {
                         lp.bottomMargin = targetMargin
                         navView.layoutParams = lp
@@ -97,7 +101,14 @@ class GlobalSearchActivity : AppCompatActivity() {
 
             val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
             val navStyle = sharedPrefs.getString("navigation_style", "island") ?: "island"
-            val bottomPadding = if (navStyle == "bottom_bar") systemBars.bottom + (88 * density).toInt() else systemBars.bottom + (24 * density).toInt()
+            val isTablet = resources.configuration.smallestScreenWidthDp >= 600
+            val isEmbedded = try {
+                androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this)
+            } catch (_: Exception) {
+                false
+            }
+
+            val bottomPadding = if (navStyle == "bottom_bar" && !isTablet && !isEmbedded) systemBars.bottom + (88 * density).toInt() else maxOf(systemBars.bottom, cutout.bottom) + (24 * density).toInt()
 
             rvResults.setPadding(
                 rvResults.paddingLeft,
@@ -117,9 +128,23 @@ class GlobalSearchActivity : AppCompatActivity() {
         rvResults.layoutManager = LinearLayoutManager(this)
         rvResults.adapter = adapter
 
-        btnBack.setOnClickListener {
+        val backAction = {
+            val intent = Intent(this, ChatListActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
             finish()
             PrimeTransitions.applyCloseTransition(this)
+        }
+
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                backAction()
+            }
+        })
+
+        btnBack.setOnClickListener {
+            backAction()
         }
 
         btnClear.setOnClickListener {
@@ -181,7 +206,14 @@ class GlobalSearchActivity : AppCompatActivity() {
 
         val density = resources.displayMetrics.density
 
-        if (navStyle != "bottom_bar") {
+        val isTablet = resources.configuration.smallestScreenWidthDp >= 600
+        val isEmbedded = try {
+            androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this)
+        } catch (_: Exception) {
+            false
+        }
+
+        if (navStyle != "bottom_bar" || isTablet || isEmbedded) {
             navView.visibility = View.GONE
             rvResults.setPadding(
                 rvResults.paddingLeft,
@@ -319,6 +351,7 @@ class GlobalSearchActivity : AppCompatActivity() {
                     val contactName = sharedPrefs.getString("contact_name_$devAddr", null)
                         ?: sharedPrefs.getString("${devAddr}_name", null)
                         ?: targetUser
+                    val displayContactName = if (BluetoothAdapter.checkBluetoothAddress(contactName)) "Собеседник" else contactName
 
                     val avatarUri = sharedPrefs.getString("contact_avatar_$devAddr", null)
                         ?: sharedPrefs.getString("${devAddr}_avatar", null)
@@ -326,10 +359,10 @@ class GlobalSearchActivity : AppCompatActivity() {
 
                     val lowerQuery = query.lowercase(Locale.ROOT)
 
-                    if (contactName.lowercase(Locale.ROOT).contains(lowerQuery) || targetUser.lowercase(Locale.ROOT).contains(lowerQuery)) {
+                    if (displayContactName.lowercase(Locale.ROOT).contains(lowerQuery) || targetUser.lowercase(Locale.ROOT).contains(lowerQuery)) {
                         results.add(
                             SearchResultItem(
-                                title = contactName,
+                                title = displayContactName,
                                 snippet = "Чат с пользователем • $lastMsg",
                                 time = timeStr,
                                 targetUsername = targetUser,
@@ -346,7 +379,7 @@ class GlobalSearchActivity : AppCompatActivity() {
                         if (text.lowercase(Locale.ROOT).contains(lowerQuery)) {
                             results.add(
                                 SearchResultItem(
-                                    title = contactName,
+                                    title = displayContactName,
                                     snippet = text,
                                     time = msg.time ?: timeStr,
                                     targetUsername = targetUser,
@@ -371,20 +404,37 @@ class GlobalSearchActivity : AppCompatActivity() {
     }
 
     private fun openChat(item: SearchResultItem) {
-        val intent = Intent(this, ChatPersonActivity::class.java).apply {
-            putExtra("EXTRA_CHAT_NAME", item.targetUsername)
-            if (!item.deviceAddress.isNullOrEmpty()) {
-                putExtra("EXTRA_DEVICE_ADDRESS", item.deviceAddress)
+        val config = resources.configuration
+        val isFoldableOrTablet = config.smallestScreenWidthDp >= 600
+        if (isFoldableOrTablet) {
+            val intent = Intent(this, ChatListActivity::class.java).apply {
+                putExtra("EXTRA_CHAT_NAME", item.targetUsername)
+                if (!item.deviceAddress.isNullOrEmpty()) {
+                    putExtra("EXTRA_DEVICE_ADDRESS", item.deviceAddress)
+                }
+                if (!item.matchedMessageId.isNullOrEmpty()) {
+                    putExtra("EXTRA_TARGET_MESSAGE_ID", item.matchedMessageId)
+                }
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
-            if (!item.avatarUri.isNullOrEmpty()) {
-                putExtra("EXTRA_AVATAR_URI", item.avatarUri)
+            startActivity(intent)
+            finish()
+        } else {
+            val intent = Intent(this, ChatPersonActivity::class.java).apply {
+                putExtra("EXTRA_CHAT_NAME", item.targetUsername)
+                if (!item.deviceAddress.isNullOrEmpty()) {
+                    putExtra("EXTRA_DEVICE_ADDRESS", item.deviceAddress)
+                }
+                if (!item.avatarUri.isNullOrEmpty()) {
+                    putExtra("EXTRA_AVATAR_URI", item.avatarUri)
+                }
+                if (!item.matchedMessageId.isNullOrEmpty()) {
+                    putExtra("EXTRA_TARGET_MESSAGE_ID", item.matchedMessageId)
+                }
             }
-            if (!item.matchedMessageId.isNullOrEmpty()) {
-                putExtra("EXTRA_TARGET_MESSAGE_ID", item.matchedMessageId)
-            }
+            startActivity(intent)
+            PrimeTransitions.applyOpenTransition(this)
         }
-        startActivity(intent)
-        PrimeTransitions.applyOpenTransition(this)
     }
 
     private class SearchResultAdapter(private val onClick: (SearchResultItem) -> Unit) :

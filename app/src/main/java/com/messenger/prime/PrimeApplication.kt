@@ -28,6 +28,13 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
             DynamicColors.applyToActivitiesIfAvailable(this)
         }
         createNotificationChannels()
+        
+        try {
+            androidx.window.embedding.RuleController.getInstance(this)
+                .setRules(androidx.window.embedding.RuleController.parseRules(this, R.xml.main_split_config))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun createNotificationChannels() {

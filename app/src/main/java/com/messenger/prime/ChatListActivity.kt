@@ -12,6 +12,8 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -20,7 +22,9 @@ import android.content.pm.PackageManager
 import androidx.lifecycle.lifecycleScope
 import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.drawable.ColorDrawable
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
@@ -43,7 +47,11 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
+import com.messenger.prime.events.ChatEvent
 import android.text.Editable
+import android.widget.LinearLayout
+import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.text.TextWatcher
 import android.transition.AutoTransition
 import android.transition.TransitionManager
@@ -51,9 +59,13 @@ import android.util.Log
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.messenger.prime.databinding.ActivityChatPersonContentBinding
 import android.view.inputmethod.InputMethodManager
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
@@ -76,8 +88,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.core.app.ActivityCompat
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.*
@@ -652,6 +666,18 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
+    private val pickEmbeddedImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        // Deprecated: ChatPersonActivity handles this natively now
+    }
+
+    private val pickEmbeddedVideoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        // Deprecated: ChatPersonActivity handles this natively now
+    }
+
+    private val pickEmbeddedFileLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        // Deprecated: ChatPersonActivity handles this natively now
+    }
+
     private fun onStartChatClicked() {
         val bluetoothManager = getSystemService(BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothAdapter = bluetoothManager.adapter
@@ -765,6 +791,1070 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
+    @Deprecated("Replaced by WindowManager Activity Embedding")
+    private var embeddedChatController: EmbeddedChatViewController? = null
+
+    @Deprecated("Replaced by WindowManager Activity Embedding")
+    private fun getEmbeddedChatController(): EmbeddedChatViewController {
+        if (embeddedChatController == null) {
+            embeddedChatController = EmbeddedChatViewController(this, binding.fContainerDetailChat)
+        }
+        return embeddedChatController!!
+    }
+
+    class EmbeddedChatViewController(
+        private val activity: ChatListActivity,
+        private val container: FrameLayout
+    ) : ChatAdapter.OnMessageActionListener {
+
+        private var binding: ActivityChatPersonContentBinding? = null
+        private var chatAdapter: ChatAdapter? = null
+        var activeTargetUsername: String? = null
+            private set
+        var activeDeviceAddress: String? = null
+            private set
+
+        private var isEditMode = false
+        private var editingMessageId: String? = null
+        private var replyingToMessage: ChatMessage? = null
+
+        private val autoRetryHandler = Handler(Looper.getMainLooper())
+        private val autoRetryRunnable = object : Runnable {
+            override fun run() {
+                val target = activeDeviceAddress ?: activeTargetUsername ?: return
+                val isConn = BluetoothConnectionManager.getInstance().isConnected(target) ||
+                    BluetoothSocketHolder.isConnectedWith(activeDeviceAddress, activeTargetUsername)
+                if (!isConn && BluetoothAdapter.checkBluetoothAddress(target)) {
+                    try {
+                        val bManager = activity.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+                        val bAdapter = bManager?.adapter
+                        if (bAdapter != null && bAdapter.isEnabled) {
+                            val device = bAdapter.getRemoteDevice(target)
+                            val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                            val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+                            val myDisplayName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: currentUser
+                            val savedName = sharedPrefs.getString("contact_name_$target", null) ?: activeTargetUsername ?: target
+
+                            BluetoothConnectionManager.getInstance().connectToDevice(
+                                bAdapter,
+                                device,
+                                UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66"),
+                                myDisplayName,
+                                savedName,
+                                true
+                            )
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    autoRetryHandler.postDelayed(this, 4000)
+                } else {
+                    updateInputState(isConn)
+                }
+            }
+        }
+
+        private val notifierListener = object : ChatListNotifier.ChatEventListener {
+            override fun onEvent(event: ChatEvent) {
+                val addr = activeDeviceAddress ?: activeTargetUsername ?: return
+                when (event) {
+                    is ChatEvent.ConnectionStateChanged -> {
+                        if (event.deviceAddress.equals(addr, ignoreCase = true) || event.deviceAddress.equals(activeTargetUsername, ignoreCase = true)) {
+                            updateInputState(event.isConnected)
+                        }
+                    }
+                    is ChatEvent.MessageReceived -> {
+                        if (event.deviceAddress.equals(addr, ignoreCase = true) || event.deviceAddress.equals(activeTargetUsername, ignoreCase = true)) {
+                            reloadMessagesHistory()
+                        }
+                    }
+                    is ChatEvent.MessageSent -> {
+                        if (event.deviceAddress.equals(addr, ignoreCase = true) || event.deviceAddress.equals(activeTargetUsername, ignoreCase = true)) {
+                            reloadMessagesHistory()
+                        }
+                    }
+                    is ChatEvent.MessageStatusChanged -> {
+                        if (event.deviceAddress.equals(addr, ignoreCase = true) || event.deviceAddress.equals(activeTargetUsername, ignoreCase = true)) {
+                            reloadMessagesHistory()
+                        }
+                    }
+                    is ChatEvent.ChatMetadataUpdated -> {
+                        if (event.deviceAddress.equals(addr, ignoreCase = true) || event.deviceAddress.equals(activeTargetUsername, ignoreCase = true)) {
+                            reloadMessagesHistory()
+                        }
+                    }
+                    is ChatEvent.GeneralUpdate -> {
+                        val isConnected = BluetoothConnectionManager.getInstance().isConnected(addr) ||
+                            BluetoothSocketHolder.isConnectedWith(activeDeviceAddress, activeTargetUsername)
+                        updateInputState(isConnected)
+                        reloadMessagesHistory()
+                    }
+                }
+            }
+        }
+
+        private val connectionCallback = object : BluetoothConnectionManager.ConnectionCallback {
+            override fun onStateChanged(deviceAddress: String?, state: BluetoothConnectionManager.ConnectionState?, deviceName: String?) {
+                val addr = activeDeviceAddress ?: activeTargetUsername ?: return
+                if (deviceAddress != null && (deviceAddress.equals(addr, ignoreCase = true) || deviceAddress.equals(activeTargetUsername, ignoreCase = true))) {
+                    val isConn = (state == BluetoothConnectionManager.ConnectionState.CONNECTED)
+                    updateInputState(isConn)
+                }
+            }
+
+            override fun onPacketReceived(deviceAddress: String?, type: Byte, payload: ByteArray?) {
+                val addr = activeDeviceAddress ?: activeTargetUsername ?: return
+                if (deviceAddress != null && (deviceAddress.equals(addr, ignoreCase = true) || deviceAddress.equals(activeTargetUsername, ignoreCase = true))) {
+                    if (type == 0x04.toByte()) {
+                        val stateData = if (payload != null && payload.isNotEmpty()) String(payload, java.nio.charset.StandardCharsets.UTF_8) else "STATE:TYPING"
+                        val action = stateData.removePrefix("STATE:")
+                        val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                        val user = activeTargetUsername ?: ""
+                        if (action == "TYPING") {
+                            sharedPrefs.edit().putLong("typing_until_$user", System.currentTimeMillis() + 4500L).apply()
+                        }
+                        updateChatStatus(true, action)
+                    } else {
+                        reloadMessagesHistory()
+                    }
+                }
+            }
+
+            override fun onError(deviceAddress: String?, errorMessage: String?) {}
+
+            override fun onSendProgress(deviceAddress: String?, progress: Int) {
+                val addr = activeDeviceAddress ?: activeTargetUsername ?: return
+                if (deviceAddress != null && (deviceAddress.equals(addr, ignoreCase = true) || deviceAddress.equals(activeTargetUsername, ignoreCase = true))) {
+                    val b = binding ?: return
+                    activity.runOnUiThread {
+                        if (progress in 0..99) {
+                            if (b.layoutSendingProgress.visibility != View.VISIBLE) {
+                                b.layoutSendingProgress.visibility = View.VISIBLE
+                                b.layoutSendingProgress.alpha = 0f
+                                b.layoutSendingProgress.animate().alpha(1f).setDuration(200).start()
+                            }
+                            b.pbSendingProgress.progress = progress
+                            b.tvSendingProgressPercent.text = "Передача... $progress%"
+                        } else {
+                            if (b.layoutSendingProgress.visibility == View.VISIBLE) {
+                                b.layoutSendingProgress.animate().alpha(0f).setDuration(200).withEndAction {
+                                    b.layoutSendingProgress.visibility = View.GONE
+                                }.start()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        init {
+            ChatListNotifier.addListener(notifierListener)
+            BluetoothConnectionManager.getInstance().registerCallback(connectionCallback)
+        }
+
+        fun openChat(targetUsername: String, deviceAddress: String?) {
+            this.activeTargetUsername = targetUsername
+            this.activeDeviceAddress = deviceAddress
+
+            autoRetryHandler.removeCallbacksAndMessages(null)
+            autoRetryHandler.post(autoRetryRunnable)
+
+            if (binding == null) {
+                val inflater = LayoutInflater.from(activity)
+                val view = inflater.inflate(R.layout.activity_chat_person_content, container, false)
+                binding = ActivityChatPersonContentBinding.bind(view)
+                container.removeAllViews()
+                container.addView(view)
+                setupEmbeddedView(binding!!)
+            }
+            container.visibility = View.VISIBLE
+            activity.binding.blurRightPaneEmpty.visibility = View.GONE
+
+            val b = binding ?: return
+            b.btnCloseEmbeddedChat.visibility = View.VISIBLE
+            b.btnCloseEmbeddedChat.setOnClickListener {
+                closeEmbeddedChat()
+            }
+            val targetAddr = if (!deviceAddress.isNullOrEmpty()) deviceAddress else targetUsername
+
+            // Apply accent theme and wallpaper
+            val accentColor = ColorAccentManager.getCurrentAccentColor(activity)
+            b.btnSend.imageTintList = ColorStateList.valueOf(accentColor)
+            b.btnAttach.imageTintList = ColorStateList.valueOf(accentColor)
+            b.fabScrollToBottom.backgroundTintList = ColorStateList.valueOf(accentColor)
+            b.snakeSendingProgress.setIndicatorColor(accentColor)
+            b.vWallpaperBackground.updateThemeColors()
+            b.vWallpaperBackground.startEntranceAnimation()
+            ColorAccentManager.tintViewTree(b.root, accentColor)
+
+            // Ensure bottom input bar is 100% visible
+            b.layoutInput.visibility = View.VISIBLE
+            b.bottomContainer.visibility = View.VISIBLE
+
+            val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val savedName = if (!deviceAddress.isNullOrEmpty()) {
+                sharedPrefs.getString("contact_name_$deviceAddress", null) ?: targetUsername
+            } else targetUsername
+            val displayContactName = if (BluetoothAdapter.checkBluetoothAddress(savedName)) "Собеседник" else savedName
+
+            b.tvChatName.text = displayContactName
+
+            val isConnected = BluetoothConnectionManager.getInstance().isConnected(targetAddr) ||
+                BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername)
+            updateInputState(isConnected)
+
+            val avatarUri = if (!deviceAddress.isNullOrEmpty()) {
+                sharedPrefs.getString("contact_avatar_$deviceAddress", null) ?: sharedPrefs.getString("contact_avatar_$targetUsername", null)
+            } else sharedPrefs.getString("contact_avatar_$targetUsername", null)
+
+            if (!avatarUri.isNullOrEmpty()) {
+                val (_, file) = parseAvatarModelAndFile(avatarUri)
+                if (file != null && file.exists()) {
+                    Glide.with(activity).load(file).into(b.ivChatAvatar)
+                } else {
+                    Glide.with(activity).load(avatarUri).into(b.ivChatAvatar)
+                }
+            } else {
+                b.ivChatAvatar.setImageResource(R.drawable.ic_person)
+            }
+
+            b.layoutHeader.setOnClickListener {
+                val intent = Intent(activity, PersonInformationActivity::class.java).apply {
+                    putExtra("EXTRA_CHAT_NAME", targetUsername)
+                    if (!deviceAddress.isNullOrEmpty()) putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress)
+                    if (!avatarUri.isNullOrEmpty()) putExtra("EXTRA_AVATAR_URI", avatarUri)
+                    putExtra("EXTRA_IS_ONLINE", isConnected)
+                }
+                activity.startActivity(intent)
+                PrimeTransitions.applyOpenTransition(activity)
+            }
+
+            b.layoutHeader.setOnLongClickListener {
+                val menuOptions = arrayOf("👤 Профиль контакта", "🧹 Очистить историю сообщений", "🔌 Переподключиться")
+                MaterialAlertDialogBuilder(activity)
+                    .setTitle(displayContactName)
+                    .setItems(menuOptions) { _, which ->
+                        when (which) {
+                            0 -> b.layoutHeader.performClick()
+                            1 -> showClearHistoryDialog()
+                            2 -> {
+                                autoRetryHandler.removeCallbacksAndMessages(null)
+                                autoRetryHandler.post(autoRetryRunnable)
+                                PrimeNotification.show(activity, "Попытка переподключения...")
+                            }
+                        }
+                    }
+                    .setNegativeButton("Отмена", null)
+                    .show()
+                true
+            }
+
+            val history = ChatHistoryManager.loadMessages(activity, targetUsername)
+            val currentUserId = sharedPrefs.getString("current_user", "") ?: ""
+            val myDisplayName = sharedPrefs.getString("${currentUserId}_name", currentUserId) ?: "Пользователь"
+
+            chatAdapter = ChatAdapter().apply {
+                setLocalUsername(myDisplayName)
+                setConnectionActive(isConnected)
+                setOnMessageActionListener(this@EmbeddedChatViewController)
+                setMessages(history)
+            }
+            b.rvMessages.layoutManager = LinearLayoutManager(activity).apply {
+                stackFromEnd = true
+            }
+            b.rvMessages.adapter = chatAdapter
+            if (history.isNotEmpty()) {
+                b.rvMessages.scrollToPosition(history.size - 1)
+            }
+
+            // Scroll to bottom FAB & floating date listener
+            b.rvMessages.clearOnScrollListeners()
+            b.rvMessages.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+                    val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
+                    val lastVisible = layoutManager.findLastCompletelyVisibleItemPosition()
+                    val firstVisible = layoutManager.findFirstVisibleItemPosition()
+                    val totalItems = chatAdapter?.itemCount ?: 0
+
+                    if (totalItems - lastVisible > 4) {
+                        if (b.fabScrollToBottom.visibility != View.VISIBLE) {
+                            b.fabScrollToBottom.visibility = View.VISIBLE
+                            b.fabScrollToBottom.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(200).start()
+                        }
+                    } else {
+                        if (b.fabScrollToBottom.visibility == View.VISIBLE) {
+                            b.fabScrollToBottom.animate().alpha(0f).scaleX(0.5f).scaleY(0.5f).setDuration(200)
+                                .withEndAction { b.fabScrollToBottom.visibility = View.GONE }.start()
+                        }
+                    }
+
+                    if (firstVisible >= 0 && firstVisible < history.size) {
+                        val msg = history[firstVisible]
+                        val smartDate = activity.formatSmartTime(msg.timestamp)
+                        b.tvFloatingDate.text = smartDate
+                        if (b.tvFloatingDate.alpha < 0.9f) {
+                            b.tvFloatingDate.animate().alpha(1f).setDuration(150).start()
+                        }
+                    }
+                }
+
+                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                    super.onScrollStateChanged(recyclerView, newState)
+                    if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                        b.tvFloatingDate.animate().alpha(0f).setDuration(500).setStartDelay(1000).start()
+                    }
+                }
+            })
+
+            b.fabScrollToBottom.setOnClickListener {
+                val totalItems = chatAdapter?.itemCount ?: 0
+                if (totalItems > 0) {
+                    b.rvMessages.smoothScrollToPosition(totalItems - 1)
+                }
+            }
+
+            // Typing listener
+            b.etMessage.addTextChangedListener(object : TextWatcher {
+                private var lastSent = 0L
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastSent > 1500 && isConnected) {
+                        lastSent = now
+                        val payload = "STATE:TYPING".toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+                        BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x04.toByte(), payload)
+                    }
+                }
+                override fun afterTextChanged(s: Editable?) {}
+            })
+
+            // Apply insets
+            applyInsets()
+
+            b.btnAttach.setOnClickListener {
+                openAttachmentPanel()
+            }
+
+            b.btnSend.setOnClickListener {
+                val currentConn = BluetoothConnectionManager.getInstance().isConnected(targetAddr) ||
+                    BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername)
+                if (!currentConn) {
+                    PrimeNotification.show(activity, "Сообщение не отправлено: нет подключения к собеседнику")
+                    updateInputState(false)
+                    return@setOnClickListener
+                }
+
+                val text = b.etMessage.text.toString().trim()
+                if (text.isEmpty()) return@setOnClickListener
+
+                if (isEditMode && editingMessageId != null) {
+                    val editId = editingMessageId!!
+                    chatAdapter?.updateMessageTextById(editId, text)
+                    ChatHistoryManager.updateMessageText(activity, targetUsername, editId, text)
+
+                    val payloadStr = "$editId:::$text"
+                    BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x0C.toByte(), payloadStr.toByteArray(java.nio.charset.StandardCharsets.UTF_8))
+
+                    exitEditMode()
+                    b.etMessage.setText("")
+                    PrimeNotification.show(activity, "Сообщение изменено")
+                    return@setOnClickListener
+                }
+
+                val timestamp = System.currentTimeMillis()
+                val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
+                val messageId = "${myDisplayName}_${timestamp}_${UUID.randomUUID().toString().substring(0, 4)}"
+
+                val msg = ChatMessage(text, time, myDisplayName, true, null, timestamp, null, messageId)
+                msg.messageStatus = MessageStatus.SENT
+
+                if (replyingToMessage != null) {
+                    msg.replyToMessageId = replyingToMessage?.messageId
+                    msg.replyToSender = replyingToMessage?.senderLogin
+                    msg.replyToText = replyingToMessage?.text
+                    cancelReply()
+                }
+
+                ChatHistoryManager.saveMessage(activity, targetUsername, msg)
+                chatAdapter?.addMessage(msg)
+                b.rvMessages.scrollToPosition((chatAdapter?.itemCount ?: 1) - 1)
+
+                var packetContent = "$messageId:::$text"
+                if (msg.isReply) {
+                    packetContent += ":::REPLY:::${msg.replyToMessageId}:::${msg.replyToSender}:::${msg.replyToText}"
+                }
+                val payload = packetContent.toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+                BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x01.toByte(), payload)
+
+                b.etMessage.setText("")
+            }
+
+            b.btnCloseEditBar?.setOnClickListener { exitEditMode() }
+            b.btnCloseReplyBar?.setOnClickListener { cancelReply() }
+        }
+
+        private var resetTypingRunnable: Runnable? = null
+
+        fun updateChatStatus(isConnected: Boolean, activityState: String = "IDLE") {
+            val b = binding ?: return
+            activity.runOnUiThread {
+                val user = activeTargetUsername ?: return@runOnUiThread
+                val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+
+                val typingUntil = sharedPrefs.getLong("typing_until_$user", 0L)
+                val now = System.currentTimeMillis()
+                val isCurrentlyTyping = (typingUntil > now) || "TYPING".equals(activityState, ignoreCase = true)
+
+                val statusText = if (!isConnected) {
+                    "не в сети"
+                } else if ("SENDING_MEDIA".equals(activityState, ignoreCase = true) || "SENDING_PHOTO".equals(activityState, ignoreCase = true) || "SENDING_VIDEO".equals(activityState, ignoreCase = true) || "SENDING_FILE".equals(activityState, ignoreCase = true)) {
+                    "передает медиафайл..."
+                } else if ("VIEWING_PHOTO".equals(activityState, ignoreCase = true)) {
+                    "смотрит фото"
+                } else if ("VIEWING_VIDEO".equals(activityState, ignoreCase = true)) {
+                    "смотрит видео"
+                } else if ("VIEWING_FILE".equals(activityState, ignoreCase = true)) {
+                    "смотрит файл"
+                } else if (isCurrentlyTyping) {
+                    "печатает..."
+                } else {
+                    "в сети"
+                }
+
+                b.tvChatStatus.text = statusText
+                b.tvChatStatus.setTextColor(
+                    if (isConnected) {
+                        if (statusText != "в сети" && statusText != "не в сети") ContextCompat.getColor(activity, R.color.prime_brand)
+                        else ContextCompat.getColor(activity, R.color.prime_success)
+                    } else ContextCompat.getColor(activity, R.color.prime_text_secondary)
+                )
+
+                val onlineBadge = GradientDrawable().apply { shape = GradientDrawable.OVAL }
+                if (isConnected) {
+                    b.viewOnlineStatus.visibility = View.VISIBLE
+                    onlineBadge.setColor(ContextCompat.getColor(activity, R.color.prime_success))
+                    b.viewOnlineStatus.background = onlineBadge
+                    autoRetryHandler.removeCallbacks(autoRetryRunnable)
+                } else {
+                    b.viewOnlineStatus.visibility = View.GONE
+                    autoRetryHandler.removeCallbacks(autoRetryRunnable)
+                    autoRetryHandler.postDelayed(autoRetryRunnable, 3500)
+                }
+
+                if (isCurrentlyTyping || activityState != "IDLE") {
+                    resetTypingRunnable?.let { autoRetryHandler.removeCallbacks(it) }
+                    resetTypingRunnable = Runnable {
+                        updateChatStatus(isConnected, "IDLE")
+                    }
+                    autoRetryHandler.postDelayed(resetTypingRunnable!!, 4500)
+                }
+            }
+        }
+
+        fun updateInputState(isConnected: Boolean) {
+            updateChatStatus(isConnected)
+            val b = binding ?: return
+            activity.runOnUiThread {
+                b.etMessage.isEnabled = isConnected
+                b.etMessage.isFocusable = isConnected
+                b.etMessage.isFocusableInTouchMode = isConnected
+                if (isConnected) {
+                    b.etMessage.hint = "Сообщение..."
+                    b.etMessage.alpha = 1.0f
+                } else {
+                    b.etMessage.hint = "Не в сети"
+                    b.etMessage.alpha = 0.5f
+                    b.etMessage.clearFocus()
+                    val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    imm?.hideSoftInputFromWindow(b.etMessage.windowToken, 0)
+                }
+
+                b.btnSend.isEnabled = isConnected
+                b.btnSend.alpha = if (isConnected) 1.0f else 0.4f
+                b.btnAttach.isEnabled = isConnected
+                b.btnAttach.alpha = if (isConnected) 1.0f else 0.4f
+
+                chatAdapter?.setConnectionActive(isConnected)
+            }
+        }
+
+        fun updateHeaderInfo() {
+            val b = binding ?: return
+            val user = activeTargetUsername ?: return
+            val devAddr = activeDeviceAddress
+
+            activity.runOnUiThread {
+                val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                val savedName = if (!devAddr.isNullOrEmpty()) {
+                    sharedPrefs.getString("contact_name_$devAddr", null)
+                        ?: sharedPrefs.getString("${devAddr}_name", null)
+                        ?: sharedPrefs.getString("contact_name_$user", null)
+                        ?: sharedPrefs.getString("${user}_name", null)
+                        ?: user
+                } else {
+                    sharedPrefs.getString("contact_name_$user", null)
+                        ?: sharedPrefs.getString("${user}_name", null)
+                        ?: user
+                }
+                val displayContactName = if (BluetoothAdapter.checkBluetoothAddress(savedName)) "Собеседник" else savedName
+                b.tvChatName.text = displayContactName
+
+                val avatarUri = if (!devAddr.isNullOrEmpty()) {
+                    sharedPrefs.getString("contact_avatar_$devAddr", null)
+                        ?: sharedPrefs.getString("contact_avatar_$user", null)
+                        ?: sharedPrefs.getString("${devAddr}_avatar", null)
+                        ?: sharedPrefs.getString("${user}_avatar", null)
+                } else {
+                    sharedPrefs.getString("contact_avatar_$user", null)
+                        ?: sharedPrefs.getString("${user}_avatar", null)
+                }
+
+                if (!avatarUri.isNullOrEmpty()) {
+                    val (_, file) = parseAvatarModelAndFile(avatarUri)
+                    if (file != null && file.exists()) {
+                        Glide.with(activity)
+                            .load(file)
+                            .signature(ObjectKey(file.lastModified().toString()))
+                            .into(b.ivChatAvatar)
+                    } else {
+                        Glide.with(activity)
+                            .load(avatarUri)
+                            .signature(ObjectKey(avatarUri))
+                            .into(b.ivChatAvatar)
+                    }
+                } else {
+                    b.ivChatAvatar.setImageResource(R.drawable.ic_person)
+                }
+            }
+        }
+
+        fun reloadMessagesHistory() {
+            val user = activeTargetUsername ?: return
+            val b = binding ?: return
+            activity.runOnUiThread {
+                val history = ChatHistoryManager.loadMessages(activity, user)
+                chatAdapter?.setMessages(history)
+                if (history.isNotEmpty()) {
+                    b.rvMessages.scrollToPosition(history.size - 1)
+                }
+            }
+        }
+
+        fun sendImageUri(uri: Uri) {
+            val targetUser = activeTargetUsername ?: return
+            val targetAddr = if (!activeDeviceAddress.isNullOrEmpty()) activeDeviceAddress!! else targetUser
+            val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val currentUserId = sharedPrefs.getString("current_user", "") ?: ""
+            val myDisplayName = sharedPrefs.getString("${currentUserId}_name", currentUserId) ?: "Пользователь"
+
+            activity.lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val isGif = uri.toString().lowercase(Locale.US).endsWith(".gif") ||
+                        activity.contentResolver.getType(uri)?.equals("image/gif", ignoreCase = true) == true
+
+                    val bytes = if (isGif) {
+                        activity.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    } else {
+                        val isStream = activity.contentResolver.openInputStream(uri)
+                        val bitmap = BitmapFactory.decodeStream(isStream)
+                        isStream?.close()
+                        if (bitmap != null) {
+                            val baos = ByteArrayOutputStream()
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos)
+                            baos.toByteArray()
+                        } else null
+                    }
+
+                    if (bytes != null && bytes.isNotEmpty()) {
+                        val timestamp = System.currentTimeMillis()
+                        val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
+                        val messageId = "${myDisplayName}_${timestamp}_${UUID.randomUUID()}"
+                        val ext = if (isGif) ".gif" else ".jpg"
+
+                        val file = ChatHistoryManager.saveBytesToAtomicFile(activity, "sent_photo_${timestamp}_$ext", bytes)
+                        val photoPath = file?.absolutePath ?: uri.toString()
+
+                        val msg = ChatMessage("Фотография", time, myDisplayName, true, null, timestamp, photoPath, messageId)
+                        msg.messageStatus = MessageStatus.SENT
+
+                        ChatHistoryManager.saveMessage(activity, targetUser, msg)
+
+                        val payloadStr = "$messageId:::$photoPath"
+                        val payload = payloadStr.toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+                        BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x02.toByte(), payload)
+
+                        activity.runOnUiThread {
+                            chatAdapter?.addMessage(msg)
+                            binding?.rvMessages?.scrollToPosition((chatAdapter?.itemCount ?: 1) - 1)
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+
+        fun sendVideoOrFileUri(uri: Uri, isVideo: Boolean) {
+            val targetUser = activeTargetUsername ?: return
+            val targetAddr = if (!activeDeviceAddress.isNullOrEmpty()) activeDeviceAddress!! else targetUser
+            val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val currentUserId = sharedPrefs.getString("current_user", "") ?: ""
+            val myDisplayName = sharedPrefs.getString("${currentUserId}_name", currentUserId) ?: "Пользователь"
+
+            activity.lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val bytes = activity.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (bytes != null && bytes.isNotEmpty()) {
+                        val timestamp = System.currentTimeMillis()
+                        val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
+                        val messageId = "${myDisplayName}_${timestamp}_${UUID.randomUUID()}"
+                        val prefix = if (isVideo) "rec_video_" else "rec_file_"
+
+                        val file = ChatHistoryManager.saveBytesToAtomicFile(activity, "${prefix}${timestamp}.dat", bytes)
+                        val filePath = file?.absolutePath ?: uri.toString()
+                        val summaryText = if (isVideo) "Видеозапись" else "Файл"
+
+                        val msg = ChatMessage(summaryText, time, myDisplayName, true, null, timestamp, filePath, messageId)
+                        msg.messageStatus = MessageStatus.SENT
+
+                        ChatHistoryManager.saveMessage(activity, targetUser, msg)
+
+                        val payloadStr = "$messageId:::$filePath"
+                        val payload = payloadStr.toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+                        BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x0E.toByte(), payload)
+
+                        activity.runOnUiThread {
+                            chatAdapter?.addMessage(msg)
+                            binding?.rvMessages?.scrollToPosition((chatAdapter?.itemCount ?: 1) - 1)
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+
+        fun closeEmbeddedChat() {
+            activeTargetUsername = null
+            activeDeviceAddress = null
+            autoRetryHandler.removeCallbacksAndMessages(null)
+            BluetoothConnectionManager.getInstance().unregisterCallback(connectionCallback)
+            container.visibility = View.GONE
+            activity.binding.fContainerDetailChat.visibility = View.GONE
+            activity.binding.blurRightPaneEmpty.visibility = View.VISIBLE
+            activity.binding.vRightPaneWallpaper.visibility = View.VISIBLE
+            activity.binding.vRightPaneWallpaper.updateThemeColors()
+            activity.binding.vRightPaneWallpaper.startEntranceAnimation()
+        }
+
+        private var attachmentDialog: BottomSheetDialog? = null
+
+        fun openAttachmentPanel() {
+            if (attachmentDialog == null) {
+                initAttachmentPanel()
+            }
+            attachmentDialog?.show()
+        }
+
+        private fun initAttachmentPanel() {
+            if (attachmentDialog != null) return
+
+            val dialog = BottomSheetDialog(activity, R.style.Theme_Prime_BottomSheetDialog)
+            val inflater = LayoutInflater.from(activity)
+            val dialogView = inflater.inflate(R.layout.layout_attachment_panel, null)
+            dialog.setContentView(dialogView)
+
+            dialog.setOnShowListener {
+                val bottomSheetView = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+                if (bottomSheetView != null) {
+                    bottomSheetView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    val lp = bottomSheetView.layoutParams
+                    if (lp != null) {
+                        lp.height = ViewGroup.LayoutParams.MATCH_PARENT
+                        bottomSheetView.layoutParams = lp
+                    }
+                    val behavior = BottomSheetBehavior.from(bottomSheetView)
+                    behavior.state = BottomSheetBehavior.STATE_EXPANDED
+                    behavior.skipCollapsed = true
+                    behavior.isFitToContents = false
+                    behavior.expandedOffset = 0
+                }
+            }
+
+            if (dialog.window != null) {
+                dialog.window?.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
+                dialog.window?.setDimAmount(0.5f)
+            }
+
+            val btnPickGifFromGallery = dialogView.findViewById<View>(R.id.btnPickGifFromGallery)
+            btnPickGifFromGallery?.setOnClickListener {
+                dialog.dismiss()
+                activity.pickEmbeddedImageLauncher.launch("image/*")
+            }
+
+            val btnOpenSystemGallery = dialogView.findViewById<View>(R.id.btnOpenSystemGallery)
+            btnOpenSystemGallery?.setOnClickListener {
+                dialog.dismiss()
+                activity.pickEmbeddedImageLauncher.launch("image/*")
+            }
+
+            val btnOpenSystemFiles = dialogView.findViewById<View>(R.id.btnOpenSystemFileManager)
+            btnOpenSystemFiles?.setOnClickListener {
+                dialog.dismiss()
+                activity.pickEmbeddedFileLauncher.launch("*/*")
+            }
+
+            val layoutModeCamera = dialogView.findViewById<View>(R.id.layoutModeCamera)
+            val layoutModePhoto = dialogView.findViewById<View>(R.id.layoutModePhoto)
+            val layoutModeFiles = dialogView.findViewById<View>(R.id.layoutModeFiles)
+
+            val layoutSectionCamera = dialogView.findViewById<View>(R.id.layoutSectionCamera)
+            val layoutSectionPhoto = dialogView.findViewById<View>(R.id.layoutSectionPhoto)
+            val layoutSectionFiles = dialogView.findViewById<View>(R.id.layoutSectionFiles)
+
+            fun switchMode(mode: Int) {
+                layoutSectionCamera?.visibility = if (mode == 0) View.VISIBLE else View.GONE
+                layoutSectionPhoto?.visibility = if (mode == 1) View.VISIBLE else View.GONE
+                layoutSectionFiles?.visibility = if (mode == 2) View.VISIBLE else View.GONE
+            }
+
+            layoutModeCamera?.setOnClickListener { switchMode(0) }
+            layoutModePhoto?.setOnClickListener { switchMode(1) }
+            layoutModeFiles?.setOnClickListener { switchMode(2) }
+
+            switchMode(1)
+
+            attachmentDialog = dialog
+        }
+
+        fun applyInsets(topInset: Int = activity.topInsetPx, bottomInset: Int = activity.bottomInsetPx) {
+            val b = binding ?: return
+            activity.runOnUiThread {
+                val density = activity.resources.displayMetrics.density
+
+                val rootInsets = ViewCompat.getRootWindowInsets(activity.window.decorView)
+                val systemBars = rootInsets?.getInsets(WindowInsetsCompat.Type.systemBars())
+                val cutouts = rootInsets?.getInsets(WindowInsetsCompat.Type.displayCutout())
+                val ime = rootInsets?.getInsets(WindowInsetsCompat.Type.ime())
+
+                val statusBarTop = maxOf(
+                    topInset,
+                    systemBars?.top ?: 0,
+                    cutouts?.top ?: 0,
+                    activity.getSystemStatusBarHeight(activity)
+                )
+
+                val navBarBottom = maxOf(
+                    bottomInset,
+                    systemBars?.bottom ?: 0,
+                    cutouts?.bottom ?: 0,
+                    ime?.bottom ?: 0,
+                    activity.getSystemNavigationBarHeight(activity)
+                )
+
+                b.vTopGradient.visibility = View.VISIBLE
+                val topGradLp = b.vTopGradient.layoutParams
+                if (topGradLp != null) {
+                    topGradLp.height = statusBarTop + (56 * density).toInt()
+                    b.vTopGradient.layoutParams = topGradLp
+                }
+
+                b.vBottomGradient.visibility = View.VISIBLE
+                val bottomGradLp = b.vBottomGradient.layoutParams
+                if (bottomGradLp != null) {
+                    bottomGradLp.height = navBarBottom + (36 * density).toInt()
+                    b.vBottomGradient.layoutParams = bottomGradLp
+                }
+
+                val headerLp = b.layoutHeader.layoutParams as? ViewGroup.MarginLayoutParams
+                if (headerLp != null) {
+                    headerLp.topMargin = statusBarTop + (12 * density).toInt()
+                    b.layoutHeader.layoutParams = headerLp
+                }
+
+                val bottomLp = b.bottomContainer.layoutParams as? ViewGroup.MarginLayoutParams
+                if (bottomLp != null) {
+                    bottomLp.bottomMargin = navBarBottom + (12 * density).toInt()
+                    b.bottomContainer.layoutParams = bottomLp
+                }
+
+                val dateLp = b.tvFloatingDate.layoutParams as? ViewGroup.MarginLayoutParams
+                if (dateLp != null) {
+                    dateLp.topMargin = statusBarTop + (80 * density).toInt()
+                    b.tvFloatingDate.layoutParams = dateLp
+                }
+
+                val topPadding = statusBarTop + (76 * density).toInt()
+                val bottomPadding = navBarBottom + (76 * density).toInt()
+                b.rvMessages.setPadding(
+                    (8 * density).toInt(),
+                    topPadding,
+                    (8 * density).toInt(),
+                    bottomPadding
+                )
+            }
+        }
+
+        private fun setupEmbeddedView(b: ActivityChatPersonContentBinding) {
+            b.btnBack.visibility = View.GONE
+            b.btnCloseEmbeddedChat.visibility = View.VISIBLE
+            b.btnCloseEmbeddedChat.setOnClickListener {
+                closeEmbeddedChat()
+            }
+            b.btnCancelSendingProgress.setOnClickListener {
+                val target = activeDeviceAddress ?: activeTargetUsername ?: return@setOnClickListener
+                BluetoothConnectionManager.getInstance().cancelCurrentMediaSend(target)
+                b.layoutSendingProgress.visibility = View.GONE
+            }
+
+            ViewCompat.setOnApplyWindowInsetsListener(b.chatRoot) { _, insets ->
+                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                applyInsets(systemBars.top, systemBars.bottom)
+                insets
+            }
+            ViewCompat.requestApplyInsets(b.chatRoot)
+            applyInsets()
+        }
+
+        private fun exitEditMode() {
+            isEditMode = false
+            editingMessageId = null
+            binding?.layoutEditBar?.visibility = View.GONE
+        }
+
+        private fun cancelReply() {
+            replyingToMessage = null
+            binding?.layoutReplyBar?.visibility = View.GONE
+        }
+
+        override fun onEditMessage(message: ChatMessage?, position: Int) {
+            if (message == null) return
+            isEditMode = true
+            editingMessageId = message.messageId
+            binding?.layoutEditBar?.visibility = View.VISIBLE
+            binding?.tvEditBarTitle?.text = message.text ?: ""
+            binding?.etMessage?.setText(message.text ?: "")
+            binding?.etMessage?.setSelection(binding?.etMessage?.text?.length ?: 0)
+        }
+
+        override fun onDeleteMessage(message: ChatMessage?, position: Int) {
+            if (message == null) return
+            val msgId = message.messageId ?: return
+            val user = activeTargetUsername ?: return
+            val targetAddr = if (!activeDeviceAddress.isNullOrEmpty()) activeDeviceAddress!! else user
+
+            val currentHistory = ChatHistoryManager.loadMessages(activity, user).toMutableList()
+            currentHistory.removeAll { it.messageId == msgId }
+            ChatHistoryManager.saveHistoryList(activity, user, currentHistory)
+            chatAdapter?.setMessages(currentHistory)
+
+            BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x0D.toByte(), msgId.toByteArray(java.nio.charset.StandardCharsets.UTF_8))
+            PrimeNotification.show(activity, "Сообщение удалено")
+        }
+
+        override fun onQuickReaction(message: ChatMessage?, reaction: String?, position: Int) {
+            if (message == null) return
+            val user = activeTargetUsername ?: return
+            val targetAddr = if (!activeDeviceAddress.isNullOrEmpty()) activeDeviceAddress!! else user
+            val msgId = message.messageId ?: return
+
+            val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+            val myDisplayName = sharedPrefs.getString("${currentUser}_name", null)
+                ?: sharedPrefs.getString("my_name", null)
+                ?: sharedPrefs.getString("my_local_name", null)
+                ?: currentUser.ifEmpty { "Пользователь" }
+
+            val existingReaction = message.getReactionForUser(myDisplayName)
+            val finalReaction = if (reaction != null && reaction.equals(existingReaction, ignoreCase = true)) null else reaction
+
+            message.setReactionForUser(myDisplayName, finalReaction)
+            chatAdapter?.updateMessageReactionById(msgId, finalReaction, myDisplayName)
+
+            val currentHistory = ChatHistoryManager.loadMessages(activity, user).toMutableList()
+            for (m in currentHistory) {
+                if (m.messageId == msgId) {
+                    m.setReactionForUser(myDisplayName, finalReaction)
+                    break
+                }
+            }
+            ChatHistoryManager.saveHistoryList(activity, user, currentHistory)
+            if (!targetAddr.equals(user, ignoreCase = true)) {
+                ChatHistoryManager.saveHistoryList(activity, targetAddr, currentHistory)
+            }
+
+            val rxPayload = "$msgId:::${finalReaction ?: "REMOVE"}:::$myDisplayName"
+            BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x0D.toByte(), rxPayload.toByteArray(java.nio.charset.StandardCharsets.UTF_8))
+            ChatListNotifier.notifyChanged()
+        }
+
+        private fun showClearHistoryDialog() {
+            val user = activeTargetUsername ?: return
+            val targetAddr = if (!activeDeviceAddress.isNullOrEmpty()) activeDeviceAddress!! else user
+
+            MaterialAlertDialogBuilder(activity)
+                .setTitle("Очистить историю?")
+                .setMessage("Вы уверены, что хотите полностью удалить историю сообщений с $user?")
+                .setPositiveButton("Удалить") { _, _ ->
+                    ChatHistoryManager.deleteHistoryCompletely(activity, user, targetAddr)
+                    chatAdapter?.setMessages(emptyList())
+                    PrimeNotification.show(activity, "История сообщений очищена")
+                }
+                .setNegativeButton("Отмена", null)
+                .show()
+        }
+
+        override fun onReplyMessage(message: ChatMessage?, position: Int) {
+            if (message == null) return
+            replyingToMessage = message
+            binding?.layoutReplyBar?.visibility = View.VISIBLE
+            binding?.tvReplyBarTitle?.text = message.senderLogin ?: "Собеседник"
+            binding?.tvReplyBarText?.text = message.text ?: "Медиафайл"
+        }
+
+        override fun onReplyToSelectedText(message: ChatMessage?, selectedText: String?, position: Int) {
+            if (!selectedText.isNullOrEmpty()) {
+                val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                val clip = ClipData.newPlainText("Prime Message", selectedText)
+                clipboard?.setPrimaryClip(clip)
+                PrimeNotification.show(activity, "Текст скопирован в буфер обмена")
+            } else {
+                onReplyMessage(message, position)
+            }
+        }
+
+        override fun onForwardMessage(message: ChatMessage?, position: Int) {
+            if (message == null) return
+            val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val jsonChats = sharedPrefs.getString("persisted_chats", "[]")
+            val chatNames = mutableListOf<String>()
+
+            try {
+                val chatArray = JSONArray(jsonChats)
+                for (i in 0 until chatArray.length()) {
+                    val obj = chatArray.getJSONObject(i)
+                    val name = obj.optString("name", "")
+                    if (name.isNotEmpty() && !chatNames.contains(name)) {
+                        chatNames.add(name)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            if (chatNames.isEmpty()) {
+                PrimeNotification.show(activity, "Нет доступных чатов для пересылки")
+                return
+            }
+
+            val chatArray = chatNames.toTypedArray()
+            MaterialAlertDialogBuilder(activity)
+                .setTitle("Переслать сообщение")
+                .setItems(chatArray) { _, which ->
+                    val selectedTarget = chatArray[which]
+                    forwardMessageToTarget(message, selectedTarget)
+                }
+                .setNegativeButton("Отмена", null)
+                .show()
+        }
+
+        private fun forwardMessageToTarget(messageToForward: ChatMessage, targetName: String) {
+            val timestamp = System.currentTimeMillis()
+            val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
+            val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val currentUserId = sharedPrefs.getString("current_user", "") ?: ""
+            val myDisplayName = sharedPrefs.getString("${currentUserId}_name", currentUserId) ?: "Пользователь"
+
+            val isCurrentChat = targetName.equals(activeTargetUsername, ignoreCase = true)
+            val text = messageToForward.text ?: ""
+            val msgId = "${myDisplayName}_${timestamp}_${UUID.randomUUID().toString().substring(0, 4)}"
+
+            val fwdMsg = ChatMessage(text, timeStr, myDisplayName, true, null, timestamp, messageToForward.imagePath, msgId)
+            fwdMsg.fileName = messageToForward.fileName
+            fwdMsg.fileSize = messageToForward.fileSize
+            fwdMsg.videoDuration = messageToForward.videoDuration
+            fwdMsg.messageType = messageToForward.messageType
+            fwdMsg.messageStatus = MessageStatus.SENT
+
+            ChatHistoryManager.saveMessage(activity, targetName, fwdMsg)
+
+            if (isCurrentChat) {
+                chatAdapter?.addMessage(fwdMsg)
+                binding?.rvMessages?.scrollToPosition((chatAdapter?.itemCount ?: 1) - 1)
+            }
+
+            val targetAddr = sharedPrefs.getString("contact_address_$targetName", null) ?: targetName
+            var packetContent = "$msgId:::$text"
+            val typeByte: Byte = when (messageToForward.messageType) {
+                ChatMessage.MessageType.IMAGE -> {
+                    packetContent = "$msgId:::${messageToForward.imagePath}"
+                    0x02.toByte()
+                }
+                ChatMessage.MessageType.FILE, ChatMessage.MessageType.VIDEO -> {
+                    packetContent = "$msgId:::${messageToForward.imagePath}"
+                    0x0E.toByte()
+                }
+                else -> 0x01.toByte()
+            }
+
+            BluetoothConnectionManager.getInstance().sendPacket(targetAddr, typeByte, packetContent.toByteArray(java.nio.charset.StandardCharsets.UTF_8))
+            PrimeNotification.show(activity, "Сообщение переслано в $targetName")
+        }
+
+        override fun onJumpToMessage(messageId: String?) {
+            if (messageId.isNullOrEmpty()) return
+            val adapter = chatAdapter ?: return
+            val pos = adapter.findPositionByMessageId(messageId)
+            if (pos >= 0) {
+                binding?.rvMessages?.smoothScrollToPosition(pos)
+            }
+        }
+
+        override fun onJumpToMessage(messageId: String?, quotedText: String?) {
+            onJumpToMessage(messageId)
+        }
+
+        override fun onCancelSending(message: ChatMessage?, position: Int) {
+            val target = activeDeviceAddress ?: activeTargetUsername ?: return
+            BluetoothConnectionManager.getInstance().cancelCurrentMediaSend(target)
+            binding?.layoutSendingProgress?.visibility = View.GONE
+        }
+
+        override fun onRetryMessage(message: ChatMessage?, position: Int) {
+            if (message == null || message.messageId == null) return
+            val user = activeTargetUsername ?: return
+            val targetAddr = if (!activeDeviceAddress.isNullOrEmpty()) activeDeviceAddress!! else user
+
+            message.messageStatus = MessageStatus.SENDING
+            chatAdapter?.updateMessageStatusById(message.messageId, MessageStatus.SENDING)
+            ChatHistoryManager.updateMessageStatus(activity, user, message.messageId, MessageStatus.SENDING)
+
+            if (!BluetoothConnectionManager.getInstance().isConnected(targetAddr)) {
+                autoRetryHandler.post(autoRetryRunnable)
+            } else if (!message.text.isNullOrEmpty()) {
+                val payloadStr = "${message.messageId}:::${message.text}"
+                val payload = payloadStr.toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+                BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x01.toByte(), payload)
+            }
+        }
+
+        fun onMessageReceived(targetUser: String) {
+            if (targetUser.equals(activeTargetUsername, ignoreCase = true)) {
+                val history = ChatHistoryManager.loadMessages(activity, targetUser)
+                chatAdapter?.setMessages(history)
+                binding?.rvMessages?.scrollToPosition(history.size - 1)
+
+                val isConnected = BluetoothConnectionManager.getInstance().isConnected(activeDeviceAddress ?: activeTargetUsername)
+                binding?.tvChatStatus?.text = if (isConnected) "в сети" else "не в сети"
+                binding?.tvChatStatus?.setTextColor(
+                    if (isConnected) ContextCompat.getColor(activity, R.color.prime_success)
+                    else ContextCompat.getColor(activity, R.color.prime_text_secondary)
+                )
+            }
+        }
+    }
+
     @SuppressLint("MissingPermission")
     private fun triggerPrimeFoundVibration() {
         try {
@@ -788,7 +1878,10 @@ class ChatListActivity : AppCompatActivity() {
 
     private fun handlePrimeDeviceFound(device: BluetoothDevice, name: String?) {
         if (primeDevices.add(device.address)) {
-            val knownContact = chatListState.find { it.id.equals(device.address, ignoreCase = true) }
+            val knownContact = chatListState.find {
+                it.id.equals(device.address, ignoreCase = true) ||
+                (!name.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(name) && it.name.equals(name, ignoreCase = true))
+            }
             val rawName = knownContact?.name ?: name
             val finalName = if (rawName.isNullOrBlank() || BluetoothAdapter.checkBluetoothAddress(rawName)) "Prime Собеседник" else rawName
             
@@ -979,6 +2072,18 @@ class ChatListActivity : AppCompatActivity() {
         if (isTransitioning) return true
         if (!::binding.isInitialized) return super.dispatchTouchEvent(event)
 
+        val config = resources.configuration
+        val isFoldableOrTablet = config.smallestScreenWidthDp >= 600
+        if (isFoldableOrTablet) {
+            return super.dispatchTouchEvent(event)
+        }
+
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val navStyle = sharedPrefs.getString("navigation_style", "island") ?: "island"
+        if (navStyle == "bottom_bar") {
+            return super.dispatchTouchEvent(event)
+        }
+
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 startY = event.y
@@ -1064,6 +2169,11 @@ class ChatListActivity : AppCompatActivity() {
 
         val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
         setupEdgeToEdge(isDarkIcons = !isDark)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes.layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
 
         checkNotificationPermission()
 
@@ -1151,6 +2261,13 @@ class ChatListActivity : AppCompatActivity() {
                         
                         setupIslandHeaderView()
                         setupSwipeToDelete()
+                        
+                        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+                            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+                            binding.root.setPadding(cutout.left, 0, cutout.right, 0)
+                            insets
+                        }
+                        
                         isContentBindingReady.value = true
                         view
                     },
@@ -1869,6 +2986,16 @@ class ChatListActivity : AppCompatActivity() {
         return seconds * 1000
     }
 
+    fun getSystemStatusBarHeight(context: Context): Int {
+        val resourceId = context.resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else (24 * context.resources.displayMetrics.density).toInt()
+    }
+
+    fun getSystemNavigationBarHeight(context: Context): Int {
+        val resourceId = context.resources.getIdentifier("navigation_bar_height", "dimen", "android")
+        return if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else (48 * context.resources.displayMetrics.density).toInt()
+    }
+
     private fun showScrollTopHintOnce(sharedPrefs: android.content.SharedPreferences) {
         // Text popup removed per user request
     }
@@ -1884,8 +3011,10 @@ class ChatListActivity : AppCompatActivity() {
                     reloadChatsFromDb()
                     ChatListNotifier.notifyChanged()
                 }
-                "com.messenger.prime.AVATAR_CHANGED" -> {
-                    runOnUiThread { refreshUserUi() }
+                "com.messenger.prime.AVATAR_CHANGED", "com.messenger.prime.NAME_CHANGED", "com.messenger.prime.CHAT_METADATA_UPDATED" -> {
+                    runOnUiThread {
+                        refreshUserUi()
+                    }
                 }
                 "com.messenger.prime.NAV_STYLE_CHANGED" -> {
                     runOnUiThread { updateNavigationStyleUi() }
@@ -2084,8 +3213,26 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateFoldableDualPaneLayout() {
+        if (!::binding.isInitialized) return
+        
+        // WindowManager Activity Embedding natively handles the split layout now.
+        // We just need to ensure the chat list takes the full space of its container.
+        val leftPane = binding.layoutLeftPaneChats
+        val leftLp = leftPane.layoutParams as? android.widget.LinearLayout.LayoutParams
+        if (leftLp != null) {
+            leftLp.width = 0
+            leftLp.weight = 1f
+            leftPane.layoutParams = leftLp
+        }
+        
+        binding.vPaneDivider.visibility = View.GONE
+        binding.layoutRightPaneDetail.visibility = View.GONE
+    }
+
     private fun updateNavigationStyleUi() {
         if (!::binding.isInitialized) return
+        updateFoldableDualPaneLayout()
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val navStyle = sharedPrefs.getString("navigation_style", "island") ?: "island"
         val navView = findViewById<View>(R.id.blurBottomNav) ?: return
@@ -2662,14 +3809,87 @@ class ChatListActivity : AppCompatActivity() {
                         }
                     } catch (e: Exception) { e.printStackTrace() }
                 }
-                if (newArray.length() != array.length()) {
-                    sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply()
-                }
             } catch (e: Exception) { e.printStackTrace() }
         }
 
-        tempList.sortByDescending { it.second }
-        return tempList.map { it.first }
+        val dedupMap = LinkedHashMap<String, Pair<ChatModel, Long>>()
+        for (pair in tempList) {
+            val chat = pair.first
+            val ts = pair.second
+
+            val isMac = BluetoothAdapter.checkBluetoothAddress(chat.id.uppercase(Locale.US))
+            val key = if (isMac) {
+                chat.id.uppercase(Locale.US)
+            } else if (chat.name.isNotBlank() && chat.name != "Собеседник" && chat.name != "Prime Собеседник") {
+                chat.name.lowercase(Locale.US)
+            } else {
+                chat.id.lowercase(Locale.US)
+            }
+
+            val existing = dedupMap[key]
+            if (existing == null) {
+                dedupMap[key] = pair
+            } else {
+                val oldChat = existing.first
+                val oldTs = existing.second
+
+                val bestName = if (BluetoothAdapter.checkBluetoothAddress(oldChat.name) && !BluetoothAdapter.checkBluetoothAddress(chat.name)) {
+                    chat.name
+                } else oldChat.name
+
+                val bestId = if (isMac) chat.id.uppercase(Locale.US) else oldChat.id
+                val bestLastMsg = if (ts > oldTs) chat.lastMessage else if (oldChat.lastMessage.isNotEmpty()) oldChat.lastMessage else chat.lastMessage
+                val bestTime = if (ts > oldTs) chat.time else oldChat.time
+                val bestAvatar = oldChat.avatarUri ?: chat.avatarUri
+                val bestOnline = if (oldChat.onlineStatus == OnlineStatus.ONLINE || chat.onlineStatus == OnlineStatus.ONLINE) OnlineStatus.ONLINE else OnlineStatus.OFFLINE
+                val bestMsgStatus = if (ts > oldTs) chat.messageStatus else oldChat.messageStatus
+                val bestUnread = maxOf(oldChat.unreadCount, chat.unreadCount)
+                val bestMuted = oldChat.isMuted || chat.isMuted
+                val bestTyping = oldChat.isTyping || chat.isTyping
+                val bestTypingUntil = maxOf(oldChat.typingUntil, chat.typingUntil)
+                val bestActState = if (chat.activityState != "IDLE") chat.activityState else oldChat.activityState
+
+                val merged = ChatModel(
+                    bestId,
+                    bestName,
+                    bestLastMsg,
+                    bestTime,
+                    bestAvatar,
+                    bestOnline,
+                    bestMsgStatus,
+                    bestUnread,
+                    bestMuted,
+                    bestTyping,
+                    bestTypingUntil,
+                    bestActState
+                )
+                dedupMap[key] = Pair(merged, maxOf(ts, oldTs))
+            }
+        }
+
+        val deduplicatedList = dedupMap.values.toList().sortedByDescending { it.second }.map { it.first }
+
+        // Save deduplicated contacts back to DB
+        val array = JSONArray()
+        deduplicatedList.forEach { chat ->
+            val obj = JSONObject().apply {
+                put("id", chat.id)
+                put("name", chat.name)
+                put("lastMessage", chat.lastMessage)
+                put("time", chat.time)
+                put("avatarUri", chat.avatarUri)
+                put("onlineStatus", chat.onlineStatus.name)
+                put("messageStatus", chat.messageStatus.name)
+                put("unreadCount", chat.unreadCount)
+                put("isMuted", chat.isMuted)
+                put("typingUntil", chat.typingUntil)
+                put("activityState", chat.activityState)
+            }
+            array.put(obj)
+        }
+        sharedPrefs.edit().putString("persisted_chats", array.toString()).apply()
+
+        return deduplicatedList
     }
     private fun showNameEditDialog() {
         isNameEditDialogVisible.value = true

@@ -142,19 +142,36 @@
             android:paddingEnd="12dp"
             android:paddingBottom="6dp">
 
-            <ImageButton
-                android:id="@+id/btnBack"
+            <FrameLayout
+                android:id="@+id/layoutNavButtonContainer"
                 android:layout_width="44dp"
                 android:layout_height="44dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                tools:ignore="HardcodedText"
-                android:contentDescription="Назад"
-                android:src="@drawable/ic_arrow_back"
-                android:transitionName="transition_back_btn"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:tint="@color/prime_text_primary" />
+                app:layout_constraintTop_toTopOf="parent">
+
+                <ImageButton
+                    android:id="@+id/btnBack"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    tools:ignore="HardcodedText"
+                    android:contentDescription="Назад"
+                    android:src="@drawable/ic_arrow_back"
+                    android:transitionName="transition_back_btn"
+                    app:tint="@color/prime_text_primary" />
+
+                <ImageButton
+                    android:id="@+id/btnCloseEmbeddedChat"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    tools:ignore="HardcodedText"
+                    android:contentDescription="Закрыть чат"
+                    android:src="@drawable/ic_cancel"
+                    android:visibility="gone"
+                    app:tint="@color/prime_text_primary" />
+            </FrameLayout>
 
             <com.google.android.material.imageview.ShapeableImageView
                 android:id="@+id/ivChatAvatar"
@@ -182,7 +199,7 @@
                 android:id="@+id/tvChatName"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
+                android:layout_marginStart="12dp"
                 android:layout_marginEnd="12dp"
                 android:ellipsize="end"
                 android:maxLines="1"
@@ -192,7 +209,7 @@
                 android:textStyle="bold"
                 app:layout_constraintBottom_toTopOf="@id/tvChatStatus"
                 app:layout_constraintEnd_toStartOf="@id/ivChatAvatar"
-                app:layout_constraintStart_toEndOf="@id/btnBack"
+                app:layout_constraintStart_toEndOf="@id/layoutNavButtonContainer"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintVertical_chainStyle="packed" />
 
@@ -209,7 +226,7 @@
                 android:textSize="13sp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/ivChatAvatar"
-                app:layout_constraintStart_toEndOf="@id/btnBack"
+                app:layout_constraintStart_toEndOf="@id/layoutNavButtonContainer"
                 app:layout_constraintTop_toBottomOf="@id/tvChatName" />
         </androidx.constraintlayout.widget.ConstraintLayout>
     </eightbitlab.com.blurview.BlurView>

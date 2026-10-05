@@ -374,7 +374,9 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 nm.createNotificationChannel(msgChannel);
             }
 
-            Intent chatIntent = new Intent(context, ChatPersonActivity.class);
+            boolean isFoldableOrTablet = context.getResources().getConfiguration().smallestScreenWidthDp >= 600;
+            Class<?> targetActivity = isFoldableOrTablet ? ChatListActivity.class : ChatPersonActivity.class;
+            Intent chatIntent = new Intent(context, targetActivity);
             chatIntent.putExtra("EXTRA_CHAT_NAME", senderName);
             if (deviceAddress != null && !deviceAddress.isEmpty()) {
                 chatIntent.putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress);

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Prime.Swipe" parent="Theme.Prime">
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowBackground">@color/prime_base</item>
+        <item name="android:windowShowWallpaper">false</item>
+    </style>
+</resources>

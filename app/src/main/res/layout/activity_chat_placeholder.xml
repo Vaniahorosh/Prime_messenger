@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/prime_base">
+
+    <!-- Live Animated Wallpaper Background for Placeholder -->
+    <com.messenger.prime.MaterialShapesWallpaperView
+        android:id="@+id/vRightPaneWallpaper"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Placeholder when no chat is open -->
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/blurRightPaneEmpty"
+        android:layout_width="320dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_blur_glass_panel"
+        android:padding="28dp"
+        android:elevation="6dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_nav_chats"
+                app:tint="@color/prime_brand" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:gravity="center"
+                android:text="Выберите чат для начала общения"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:text="Сообщения и медиафайлы передаются напрямую по Bluetooth"
+                android:textColor="@color/prime_text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
+
+</FrameLayout>
