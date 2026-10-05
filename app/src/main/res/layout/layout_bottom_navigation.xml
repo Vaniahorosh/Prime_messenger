@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<eightbitlab.com.blurview.BlurView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/blurBottomNav"
+    android:layout_width="match_parent"
+    android:layout_height="72dp"
+    android:layout_gravity="bottom"
+    android:layout_marginHorizontal="16dp"
+    android:layout_marginBottom="12dp"
+    android:background="@drawable/bg_blur_glass_panel"
+    android:elevation="14dp"
+    android:outlineProvider="background"
+    android:clipToOutline="true"
+    android:clickable="true"
+    android:focusable="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingHorizontal="4dp"
+        android:paddingVertical="4dp">
+
+        <!-- Item 1: Чаты (Google M3 Style) -->
+        <LinearLayout
+            android:id="@+id/btnNavChats"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <FrameLayout
+                android:id="@+id/vNavChatsIndicator"
+                android:layout_width="56dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_m3_active_indicator"
+                android:backgroundTint="@color/prime_brand"
+                android:elevation="2dp">
+
+                <ImageView
+                    android:id="@+id/ivNavChatsIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_nav_chats"
+                    app:tint="@color/white" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvNavChatsLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="Чаты"
+                android:textColor="@color/prime_brand"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Item 2: Устройства -->
+        <LinearLayout
+            android:id="@+id/btnNavDevices"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <FrameLayout
+                android:id="@+id/vNavDevicesIndicator"
+                android:layout_width="56dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_m3_active_indicator"
+                android:backgroundTint="@color/prime_brand"
+                android:visibility="invisible"
+                tools:visibility="visible">
+
+                <ImageView
+                    android:id="@+id/ivNavDevicesIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_nav_devices"
+                    app:tint="@color/prime_text_secondary" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvNavDevicesLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="Устройства"
+                android:textColor="@color/prime_text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Item 3: Поиск (Global Search) -->
+        <LinearLayout
+            android:id="@+id/btnNavSearch"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <FrameLayout
+                android:id="@+id/vNavSearchIndicator"
+                android:layout_width="56dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_m3_active_indicator"
+                android:backgroundTint="@color/prime_brand"
+                android:visibility="invisible"
+                tools:visibility="visible">
+
+                <ImageView
+                    android:id="@+id/ivNavSearchIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_search"
+                    app:tint="@color/prime_text_secondary" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvNavSearchLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="Поиск"
+                android:textColor="@color/prime_text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Item 4: Профиль (Settings) -->
+        <LinearLayout
+            android:id="@+id/btnNavProfile"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <FrameLayout
+                android:id="@+id/vNavProfileIndicator"
+                android:layout_width="56dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_m3_active_indicator"
+                android:backgroundTint="@color/prime_brand"
+                android:visibility="invisible"
+                tools:visibility="visible">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/ivNavProfileAvatar"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_person"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvNavProfileLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="Профиль"
+                android:textColor="@color/prime_text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+</eightbitlab.com.blurview.BlurView>

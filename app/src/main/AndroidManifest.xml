@@ -107,6 +107,12 @@
             android:exported="false"
             android:theme="@style/Theme.Prime.Swipe" />
 
+        <activity
+            android:name=".GlobalSearchActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Prime.Swipe"
+            android:windowSoftInputMode="adjustResize" />
+
         <activity-alias
             android:name=".Person_information"
             android:targetActivity=".PersonInformationActivity"

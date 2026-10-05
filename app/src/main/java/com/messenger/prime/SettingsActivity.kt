@@ -31,6 +31,7 @@ import android.text.style.ClickableSpan
 import android.view.WindowManager
 import android.widget.CompoundButton
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import kotlinx.coroutines.Dispatchers
@@ -659,6 +660,213 @@ class SettingsActivity : AppCompatActivity() {
 
         setupThanksCard(b)
         setupStorageSection(b)
+        setupNavStyleSection(b)
+    }
+
+    private fun setupNavStyleSection(b: ActivitySettingsContentBinding) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        var currentNavStyle = sharedPrefs.getString("navigation_style", "island") ?: "island"
+
+        val updateNavStyleUi = {
+            val isIsland = currentNavStyle == "island"
+            b.rbStyleIsland.isChecked = isIsland
+            b.rbStyleBottomBar.isChecked = !isIsland
+
+            val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+            b.cardStyleIsland.strokeColor = if (isIsland) accentColor else android.graphics.Color.TRANSPARENT
+            b.cardStyleIsland.strokeWidth = if (isIsland) (2 * resources.displayMetrics.density).toInt() else 0
+
+            b.cardStyleBottomBar.strokeColor = if (!isIsland) accentColor else android.graphics.Color.TRANSPARENT
+            b.cardStyleBottomBar.strokeWidth = if (!isIsland) (2 * resources.displayMetrics.density).toInt() else 0
+
+            setupBottomNav(b)
+        }
+
+        updateNavStyleUi()
+
+        val setStyle = { style: String ->
+            if (currentNavStyle != style) {
+                currentNavStyle = style
+                sharedPrefs.edit().putString("navigation_style", style).apply()
+                updateNavStyleUi()
+                sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+            }
+        }
+
+        b.cardStyleIsland.setOnClickListener { setStyle("island") }
+        b.rbStyleIsland.setOnClickListener { setStyle("island") }
+
+        b.cardStyleBottomBar.setOnClickListener { setStyle("bottom_bar") }
+        b.rbStyleBottomBar.setOnClickListener { setStyle("bottom_bar") }
+    }
+
+    private fun updateM3TabState(
+        isActive: Boolean,
+        indicatorView: View?,
+        iconView: ImageView?,
+        labelView: TextView?,
+        accentColor: Int,
+        secondaryColor: Int
+    ) {
+        if (indicatorView == null || labelView == null) return
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val visibleInactiveColor = if (isDark) android.graphics.Color.parseColor("#E6FFFFFF") else android.graphics.Color.parseColor("#E6154B87")
+
+        indicatorView.visibility = View.VISIBLE
+
+        if (isActive) {
+            indicatorView.backgroundTintList = ColorStateList.valueOf(accentColor)
+            iconView?.setColorFilter(android.graphics.Color.WHITE)
+            labelView.setTextColor(accentColor)
+            labelView.setTypeface(null, android.graphics.Typeface.BOLD)
+            labelView.alpha = 1.0f
+        } else {
+            indicatorView.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+            iconView?.setColorFilter(visibleInactiveColor)
+            labelView.setTextColor(visibleInactiveColor)
+            labelView.setTypeface(null, android.graphics.Typeface.NORMAL)
+            labelView.alpha = 1.0f
+        }
+    }
+
+    private fun setupBottomNav(b: ActivitySettingsContentBinding? = binding) {
+        val bindingRef = b ?: binding
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        val navStyle = sharedPrefs.getString("navigation_style", "island") ?: "island"
+        val navView = bindingRef?.root?.findViewById<View>(R.id.blurBottomNav)
+            ?: findViewById<View>(R.id.blurBottomNav)
+            ?: return
+
+        val density = resources.displayMetrics.density
+        val nestedScrollView = bindingRef?.nestedScrollView
+            ?: findViewById<androidx.core.widget.NestedScrollView>(R.id.nestedScrollView)
+
+        if (navStyle != "bottom_bar") {
+            navView.visibility = View.GONE
+            nestedScrollView?.setPadding(
+                nestedScrollView.paddingLeft,
+                nestedScrollView.paddingTop,
+                nestedScrollView.paddingRight,
+                (24 * density).toInt()
+            )
+            return
+        }
+
+        navView.visibility = View.VISIBLE
+        navView.bringToFront()
+
+        val rootInsets = ViewCompat.getRootWindowInsets(window.decorView)
+        val systemBarsBottom = rootInsets?.getInsets(WindowInsetsCompat.Type.systemBars())?.bottom ?: 0
+
+        val initialLp = navView.layoutParams as? android.view.ViewGroup.MarginLayoutParams
+        if (initialLp != null) {
+            val targetMargin = systemBarsBottom + (12 * density).toInt()
+            if (initialLp.bottomMargin != targetMargin) {
+                initialLp.bottomMargin = targetMargin
+                navView.layoutParams = initialLp
+            }
+        }
+
+        nestedScrollView?.setPadding(
+            nestedScrollView.paddingLeft,
+            nestedScrollView.paddingTop,
+            nestedScrollView.paddingRight,
+            systemBarsBottom + (88 * density).toInt()
+        )
+
+        ViewCompat.setOnApplyWindowInsetsListener(navView) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val lp = v.layoutParams as? android.view.ViewGroup.MarginLayoutParams
+            if (lp != null) {
+                val targetMargin = systemBars.bottom + (12 * density).toInt()
+                if (lp.bottomMargin != targetMargin) {
+                    lp.bottomMargin = targetMargin
+                    v.layoutParams = lp
+                }
+            }
+            nestedScrollView?.setPadding(
+                nestedScrollView.paddingLeft,
+                nestedScrollView.paddingTop,
+                nestedScrollView.paddingRight,
+                systemBars.bottom + (88 * density).toInt()
+            )
+            insets
+        }
+
+        val btnNavChats = navView.findViewById<View>(R.id.btnNavChats)
+        val btnNavDevices = navView.findViewById<View>(R.id.btnNavDevices)
+        val btnNavSearch = navView.findViewById<View>(R.id.btnNavSearch)
+
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val secondaryColor = ContextCompat.getColor(this, R.color.prime_text_secondary)
+
+        val vNavChatsIndicator = navView.findViewById<View>(R.id.vNavChatsIndicator)
+        val vNavDevicesIndicator = navView.findViewById<View>(R.id.vNavDevicesIndicator)
+        val vNavSearchIndicator = navView.findViewById<View>(R.id.vNavSearchIndicator)
+        val vNavProfileIndicator = navView.findViewById<View>(R.id.vNavProfileIndicator)
+
+        val ivNavChatsIcon = navView.findViewById<ImageView>(R.id.ivNavChatsIcon)
+        val ivNavDevicesIcon = navView.findViewById<ImageView>(R.id.ivNavDevicesIcon)
+        val ivNavSearchIcon = navView.findViewById<ImageView>(R.id.ivNavSearchIcon)
+
+        val tvNavChatsLabel = navView.findViewById<TextView>(R.id.tvNavChatsLabel)
+        val tvNavDevicesLabel = navView.findViewById<TextView>(R.id.tvNavDevicesLabel)
+        val tvNavSearchLabel = navView.findViewById<TextView>(R.id.tvNavSearchLabel)
+        val tvNavProfileLabel = navView.findViewById<TextView>(R.id.tvNavProfileLabel)
+
+        updateM3TabState(false, vNavChatsIndicator, ivNavChatsIcon, tvNavChatsLabel, accentColor, secondaryColor)
+        updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, tvNavDevicesLabel, accentColor, secondaryColor)
+        updateM3TabState(false, vNavSearchIndicator, ivNavSearchIcon, tvNavSearchLabel, accentColor, secondaryColor)
+        updateM3TabState(true, vNavProfileIndicator, null, tvNavProfileLabel, accentColor, secondaryColor)
+
+        val profileAvatarIv = navView.findViewById<ImageView>(R.id.ivNavProfileAvatar)
+        if (profileAvatarIv != null) {
+            val myAvatar = sharedPrefs.getString("my_avatar", null)
+                ?: sharedPrefs.getString("my_local_avatar", null)
+            if (!myAvatar.isNullOrEmpty()) {
+                val (_, file) = parseAvatarModelAndFile(myAvatar)
+                if (file != null && file.exists()) {
+                    Glide.with(this).load(file).into(profileAvatarIv)
+                } else {
+                    Glide.with(this).load(myAvatar).into(profileAvatarIv)
+                }
+            } else {
+                profileAvatarIv.setImageResource(R.drawable.ic_person)
+            }
+        }
+
+        val blurNavView = navView as? eightbitlab.com.blurview.BlurView
+        if (blurNavView != null) {
+            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val overlayColor = if (isDark) android.graphics.Color.parseColor("#700F172A") else android.graphics.Color.parseColor("#70154B87")
+            val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
+            blurNavView.setupBlur(rootView, 22f, overlayColor, window.decorView.background)
+        }
+
+        btnNavChats?.setOnClickListener {
+            val intent = Intent(this, ChatListActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            PrimeTransitions.applyPageFlipTransition(this, isForward = false)
+            finish()
+        }
+
+        btnNavDevices?.setOnClickListener {
+            val intent = Intent(this, ChatListActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra("EXTRA_ACTION_SCAN", true)
+            }
+            startActivity(intent)
+            PrimeTransitions.applyPageFlipTransition(this, isForward = false)
+            finish()
+        }
+
+        btnNavSearch?.setOnClickListener {
+            val intent = Intent(this, GlobalSearchActivity::class.java)
+            startActivity(intent)
+            PrimeTransitions.applyPageFlipTransition(this, isForward = false)
+        }
     }
 
     private data class StorageBreakdown(
@@ -1397,18 +1605,30 @@ class SettingsActivity : AppCompatActivity() {
 
     private val chatDeletedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            val navIntent = Intent(this@SettingsActivity, ChatListActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            when (intent?.action) {
+                "com.messenger.prime.CHAT_DELETED" -> {
+                    val navIntent = Intent(this@SettingsActivity, ChatListActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    }
+                    startActivity(navIntent)
+                    finish()
+                }
+                "com.messenger.prime.NAV_STYLE_CHANGED", "com.messenger.prime.AVATAR_CHANGED" -> {
+                    runOnUiThread { setupBottomNav() }
+                }
             }
-            startActivity(navIntent)
-            finish()
         }
     }
 
     override fun onResume() {
         super.onResume()
-        val filter = IntentFilter("com.messenger.prime.CHAT_DELETED")
+        val filter = IntentFilter().apply {
+            addAction("com.messenger.prime.CHAT_DELETED")
+            addAction("com.messenger.prime.NAV_STYLE_CHANGED")
+            addAction("com.messenger.prime.AVATAR_CHANGED")
+        }
         ContextCompat.registerReceiver(this, chatDeletedReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        setupBottomNav()
         LavaBackgroundState.onActivityResumed()
         isClosing = false
         val b = binding

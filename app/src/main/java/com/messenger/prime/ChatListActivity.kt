@@ -454,6 +454,9 @@ class ChatListActivity : AppCompatActivity() {
     private val isScanningState = mutableStateOf(false)
     private val deviceRssiMap = mutableStateMapOf<String, Short>()
 
+    private var topInsetPx: Int = 0
+    private var bottomInsetPx: Int = 0
+
     private var startY = 0f
     private var initialIsAtTop = false
     private var isPulling = false
@@ -1152,6 +1155,9 @@ class ChatListActivity : AppCompatActivity() {
                         view
                     },
                     update = { _ ->
+                        this@ChatListActivity.topInsetPx = topInsetPx
+                        this@ChatListActivity.bottomInsetPx = bottomInsetPx
+
                         val topMargin = topInsetPx + (12 * resources.displayMetrics.density).toInt()
                         val lp = binding.layoutIslandHeader.root.layoutParams as? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
                         if (lp != null && lp.topMargin != topMargin) {
@@ -1159,12 +1165,7 @@ class ChatListActivity : AppCompatActivity() {
                             binding.layoutIslandHeader.root.layoutParams = lp
                         }
 
-                        binding.recyclerViewChats.setPadding(
-                            binding.recyclerViewChats.paddingLeft,
-                            (8 * resources.displayMetrics.density).toInt(),
-                            binding.recyclerViewChats.paddingRight,
-                            bottomInsetPx + (100 * resources.displayMetrics.density).toInt()
-                        )
+                        updateNavigationStyleUi()
                         updateEmptyState()
                     },
                     modifier = Modifier.fillMaxSize()
@@ -1886,6 +1887,9 @@ class ChatListActivity : AppCompatActivity() {
                 "com.messenger.prime.AVATAR_CHANGED" -> {
                     runOnUiThread { refreshUserUi() }
                 }
+                "com.messenger.prime.NAV_STYLE_CHANGED" -> {
+                    runOnUiThread { updateNavigationStyleUi() }
+                }
             }
         }
     }
@@ -1897,10 +1901,12 @@ class ChatListActivity : AppCompatActivity() {
             val filter = IntentFilter().apply {
                 addAction("com.messenger.prime.CHAT_DELETED")
                 addAction("com.messenger.prime.AVATAR_CHANGED")
+                addAction("com.messenger.prime.NAV_STYLE_CHANGED")
             }
             ContextCompat.registerReceiver(this, avatarChangedReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         } catch (_: Exception) {}
         reloadChatsFromDb()
+        updateNavigationStyleUi()
     }
 
     override fun onPause() {
@@ -1923,12 +1929,21 @@ class ChatListActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         reloadChatsFromDb()
+        updateNavigationStyleUi()
+        if (intent.getBooleanExtra("EXTRA_ACTION_SCAN", false)) {
+            onStartChatClicked()
+        }
     }
 
     override fun onResume() {
         super.onResume()
         refreshUserUi()
         reloadChatsFromDb()
+        updateNavigationStyleUi()
+        if (intent != null && intent.getBooleanExtra("EXTRA_ACTION_SCAN", false)) {
+            intent.removeExtra("EXTRA_ACTION_SCAN")
+            onStartChatClicked()
+        }
         isPulling = false; isThresholdCrossed = false
         if (bluetoothAdapter != null && bluetoothAdapter!!.isEnabled) {
             if (acceptThread == null || !acceptThread!!.isAlive) {
@@ -2037,6 +2052,197 @@ class ChatListActivity : AppCompatActivity() {
                 setColor(ColorAccentManager.getAvatarColor(name))
             }
             binding.layoutIslandHeader.tvHeaderInitials.background = avatarBg
+        }
+    }
+
+    private fun updateM3TabState(
+        isActive: Boolean,
+        indicatorView: View?,
+        iconView: ImageView?,
+        labelView: TextView?,
+        accentColor: Int,
+        secondaryColor: Int
+    ) {
+        if (indicatorView == null || labelView == null) return
+        val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val visibleInactiveColor = if (isDark) android.graphics.Color.parseColor("#E6FFFFFF") else android.graphics.Color.parseColor("#E6154B87")
+
+        indicatorView.visibility = View.VISIBLE
+
+        if (isActive) {
+            indicatorView.backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+            iconView?.setColorFilter(android.graphics.Color.WHITE)
+            labelView.setTextColor(accentColor)
+            labelView.setTypeface(null, android.graphics.Typeface.BOLD)
+            labelView.alpha = 1.0f
+        } else {
+            indicatorView.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+            iconView?.setColorFilter(visibleInactiveColor)
+            labelView.setTextColor(visibleInactiveColor)
+            labelView.setTypeface(null, android.graphics.Typeface.NORMAL)
+            labelView.alpha = 1.0f
+        }
+    }
+
+    private fun updateNavigationStyleUi() {
+        if (!::binding.isInitialized) return
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val navStyle = sharedPrefs.getString("navigation_style", "island") ?: "island"
+        val navView = findViewById<View>(R.id.blurBottomNav) ?: return
+
+        val density = resources.displayMetrics.density
+        val lp = binding.recyclerViewChats.layoutParams as? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+
+        if (navStyle == "bottom_bar") {
+            binding.layoutIslandHeader.root.visibility = View.GONE
+            navView.visibility = View.VISIBLE
+            navView.bringToFront()
+
+            val navLp = navView.layoutParams as? ViewGroup.MarginLayoutParams
+            if (navLp != null) {
+                val targetMargin = bottomInsetPx + (12 * density).toInt()
+                if (navLp.bottomMargin != targetMargin) {
+                    navLp.bottomMargin = targetMargin
+                    navView.layoutParams = navLp
+                }
+            }
+
+            if (lp != null) {
+                lp.topToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                lp.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                binding.recyclerViewChats.layoutParams = lp
+            }
+
+            val topPadding = topInsetPx + (12 * density).toInt()
+            val bottomPadding = bottomInsetPx + (88 * density).toInt()
+            binding.recyclerViewChats.setPadding(
+                binding.recyclerViewChats.paddingLeft,
+                topPadding,
+                binding.recyclerViewChats.paddingRight,
+                bottomPadding
+            )
+
+            setupBottomNav()
+        } else {
+            binding.layoutIslandHeader.root.visibility = View.VISIBLE
+            navView.visibility = View.GONE
+
+            if (lp != null) {
+                lp.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                lp.topToBottom = R.id.layoutIslandHeader
+                binding.recyclerViewChats.layoutParams = lp
+            }
+
+            val topPadding = (8 * density).toInt()
+            val bottomPadding = bottomInsetPx + (24 * density).toInt()
+            binding.recyclerViewChats.setPadding(
+                binding.recyclerViewChats.paddingLeft,
+                topPadding,
+                binding.recyclerViewChats.paddingRight,
+                bottomPadding
+            )
+        }
+    }
+
+    private fun setupBottomNav() {
+        if (!::binding.isInitialized) return
+        val navView = findViewById<View>(R.id.blurBottomNav) ?: return
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val navStyle = sharedPrefs.getString("navigation_style", "island") ?: "island"
+
+        if (navStyle != "bottom_bar") {
+            navView.visibility = View.GONE
+            return
+        }
+
+        navView.visibility = View.VISIBLE
+        navView.bringToFront()
+
+        val density = resources.displayMetrics.density
+
+        ViewCompat.setOnApplyWindowInsetsListener(navView) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val lp = v.layoutParams as? ViewGroup.MarginLayoutParams
+            if (lp != null) {
+                val targetMargin = systemBars.bottom + (12 * density).toInt()
+                if (lp.bottomMargin != targetMargin) {
+                    lp.bottomMargin = targetMargin
+                    v.layoutParams = lp
+                }
+            }
+            insets
+        }
+
+        val btnNavChats = navView.findViewById<View>(R.id.btnNavChats)
+        val btnNavDevices = navView.findViewById<View>(R.id.btnNavDevices)
+        val btnNavSearch = navView.findViewById<View>(R.id.btnNavSearch)
+        val btnNavProfile = navView.findViewById<View>(R.id.btnNavProfile)
+
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val secondaryColor = ContextCompat.getColor(this, R.color.prime_text_secondary)
+
+        val vNavChatsIndicator = navView.findViewById<View>(R.id.vNavChatsIndicator)
+        val vNavDevicesIndicator = navView.findViewById<View>(R.id.vNavDevicesIndicator)
+        val vNavSearchIndicator = navView.findViewById<View>(R.id.vNavSearchIndicator)
+        val vNavProfileIndicator = navView.findViewById<View>(R.id.vNavProfileIndicator)
+
+        val ivNavChatsIcon = navView.findViewById<ImageView>(R.id.ivNavChatsIcon)
+        val ivNavDevicesIcon = navView.findViewById<ImageView>(R.id.ivNavDevicesIcon)
+        val ivNavSearchIcon = navView.findViewById<ImageView>(R.id.ivNavSearchIcon)
+
+        val tvNavChatsLabel = navView.findViewById<TextView>(R.id.tvNavChatsLabel)
+        val tvNavDevicesLabel = navView.findViewById<TextView>(R.id.tvNavDevicesLabel)
+        val tvNavSearchLabel = navView.findViewById<TextView>(R.id.tvNavSearchLabel)
+        val tvNavProfileLabel = navView.findViewById<TextView>(R.id.tvNavProfileLabel)
+
+        updateM3TabState(true, vNavChatsIndicator, ivNavChatsIcon, tvNavChatsLabel, accentColor, secondaryColor)
+        updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, tvNavDevicesLabel, accentColor, secondaryColor)
+        updateM3TabState(false, vNavSearchIndicator, ivNavSearchIcon, tvNavSearchLabel, accentColor, secondaryColor)
+        updateM3TabState(false, vNavProfileIndicator, null, tvNavProfileLabel, accentColor, secondaryColor)
+
+        val profileAvatarIv = navView.findViewById<ImageView>(R.id.ivNavProfileAvatar)
+        if (profileAvatarIv != null) {
+            val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val myAvatar = sharedPrefs.getString("my_avatar", null)
+                ?: sharedPrefs.getString("my_local_avatar", null)
+            if (!myAvatar.isNullOrEmpty()) {
+                val (_, file) = parseAvatarModelAndFile(myAvatar)
+                if (file != null && file.exists()) {
+                    Glide.with(this).load(file).into(profileAvatarIv)
+                } else {
+                    Glide.with(this).load(myAvatar).into(profileAvatarIv)
+                }
+            } else {
+                profileAvatarIv.setImageResource(R.drawable.ic_person)
+            }
+        }
+
+        val blurNavView = navView as? eightbitlab.com.blurview.BlurView
+        if (blurNavView != null) {
+            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val overlayColor = if (isDark) android.graphics.Color.parseColor("#700F172A") else android.graphics.Color.parseColor("#70154B87")
+            val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
+            blurNavView.setupBlur(rootView, 22f, overlayColor, window.decorView.background)
+        }
+
+        btnNavChats?.setOnClickListener {
+            binding.recyclerViewChats.smoothScrollToPosition(0)
+        }
+
+        btnNavDevices?.setOnClickListener {
+            onStartChatClicked()
+        }
+
+        btnNavSearch?.setOnClickListener {
+            val intent = Intent(this, GlobalSearchActivity::class.java)
+            startActivity(intent)
+            PrimeTransitions.applyPageFlipTransition(this, isForward = true)
+        }
+
+        btnNavProfile?.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
+            PrimeTransitions.applyPageFlipTransition(this, isForward = true)
         }
     }
 

@@ -82,6 +82,33 @@ object PrimeTransitions {
     }
 
     /**
+     * Applies an exclusive horizontal page-flip / book-page slide transition when navigating between
+     * Bottom Navigation tabs. Creates a seamless page-turning feel instead of standard overlapping activities.
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun applyPageFlipTransition(activity: Activity, isForward: Boolean = true) {
+        val enterAnim = if (isForward) R.anim.slide_in_right else R.anim.slide_in_left
+        val exitAnim = if (isForward) R.anim.slide_out_left else R.anim.slide_out_right
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            activity.overrideActivityTransition(
+                Activity.OVERRIDE_TRANSITION_OPEN,
+                enterAnim,
+                exitAnim
+            )
+            activity.overrideActivityTransition(
+                Activity.OVERRIDE_TRANSITION_CLOSE,
+                enterAnim,
+                exitAnim
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            activity.overridePendingTransition(enterAnim, exitAnim)
+        }
+    }
+
+    /**
      * Helper method to start an Activity with transition and notify background lava animation state.
      */
     @JvmStatic

@@ -904,6 +904,267 @@
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
+                    <!-- Выбор стиля интерфейса (Островок vs Нижняя панель) -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardNavStyleSection"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:cardBackgroundColor="@color/prime_surface"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="20dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:paddingBottom="14dp">
+
+                                <ImageView
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:layout_marginEnd="16dp"
+                                    android:src="@drawable/ic_perspective"
+                                    app:tint="@color/prime_brand" />
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="Стиль навигации"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="15sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Выберите между верхним островком и нижней панелью"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <!-- Side-by-side XML Preview Cards -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal">
+
+                                <!-- Option 1: Floating Island Preview -->
+                                <com.google.android.material.card.MaterialCardView
+                                    android:id="@+id/cardStyleIsland"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginEnd="6dp"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    app:cardBackgroundColor="@color/prime_base"
+                                    app:cardCornerRadius="18dp"
+                                    app:cardElevation="2dp"
+                                    app:strokeColor="@color/prime_brand"
+                                    app:strokeWidth="2dp">
+
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:gravity="center_horizontal"
+                                        android:orientation="vertical"
+                                        android:padding="12dp">
+
+                                        <!-- Mini Mockup of Island Header -->
+                                        <FrameLayout
+                                            android:layout_width="match_parent"
+                                            android:layout_height="80dp"
+                                            android:background="@drawable/bg_pending_attachment"
+                                            android:padding="6dp">
+
+                                            <!-- Mini Floating Island Pill -->
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="32dp"
+                                                android:layout_gravity="top"
+                                                android:background="@drawable/bg_date_bubble"
+                                                android:gravity="center_vertical"
+                                                android:paddingHorizontal="6dp">
+
+                                                <!-- Mini Avatar -->
+                                                <View
+                                                    android:layout_width="20dp"
+                                                    android:layout_height="20dp"
+                                                    android:background="@drawable/bg_circular_mode_active" />
+
+                                                <!-- Mini Title -->
+                                                <View
+                                                    android:layout_width="32dp"
+                                                    android:layout_height="8dp"
+                                                    android:layout_marginStart="6dp"
+                                                    android:background="@drawable/bg_date_bubble" />
+
+                                                <View
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="1dp"
+                                                    android:layout_weight="1" />
+
+                                                <!-- Mini + Button -->
+                                                <ImageView
+                                                    android:layout_width="14dp"
+                                                    android:layout_height="14dp"
+                                                    android:src="@drawable/ic_add"
+                                                    app:tint="@color/prime_brand" />
+                                            </LinearLayout>
+
+                                            <!-- Mini Mock List below Island -->
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="32dp"
+                                                android:layout_gravity="bottom"
+                                                android:orientation="vertical">
+                                                <View
+                                                    android:layout_width="match_parent"
+                                                    android:layout_height="12dp"
+                                                    android:layout_marginBottom="4dp"
+                                                    android:alpha="0.3"
+                                                    android:background="@drawable/bg_date_bubble" />
+                                                <View
+                                                    android:layout_width="match_parent"
+                                                    android:layout_height="12dp"
+                                                    android:alpha="0.2"
+                                                    android:background="@drawable/bg_date_bubble" />
+                                            </LinearLayout>
+                                        </FrameLayout>
+
+                                        <RadioButton
+                                            android:id="@+id/rbStyleIsland"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="8dp"
+                                            android:checked="true"
+                                            android:clickable="false"
+                                            android:text="Островок"
+                                            android:textColor="@color/white"
+                                            android:textSize="13sp"
+                                            android:textStyle="bold" />
+                                    </LinearLayout>
+                                </com.google.android.material.card.MaterialCardView>
+
+                                <!-- Option 2: Bottom Navigation Preview -->
+                                <com.google.android.material.card.MaterialCardView
+                                    android:id="@+id/cardStyleBottomBar"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="6dp"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    app:cardBackgroundColor="@color/prime_base"
+                                    app:cardCornerRadius="18dp"
+                                    app:cardElevation="2dp"
+                                    app:strokeColor="@color/prime_brand"
+                                    app:strokeWidth="0dp">
+
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:gravity="center_horizontal"
+                                        android:orientation="vertical"
+                                        android:padding="12dp">
+
+                                        <!-- Mini Mockup of Bottom Bar Layout -->
+                                        <FrameLayout
+                                            android:layout_width="match_parent"
+                                            android:layout_height="80dp"
+                                            android:background="@drawable/bg_pending_attachment"
+                                            android:padding="6dp">
+
+                                            <!-- Mini Mock Chat List -->
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="40dp"
+                                                android:layout_gravity="top"
+                                                android:orientation="vertical">
+                                                <View
+                                                    android:layout_width="match_parent"
+                                                    android:layout_height="12dp"
+                                                    android:layout_marginBottom="4dp"
+                                                    android:alpha="0.3"
+                                                    android:background="@drawable/bg_date_bubble" />
+                                                <View
+                                                    android:layout_width="match_parent"
+                                                    android:layout_height="12dp"
+                                                    android:alpha="0.2"
+                                                    android:background="@drawable/bg_date_bubble" />
+                                            </LinearLayout>
+
+                                            <!-- Mini Bottom Bar -->
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="24dp"
+                                                android:layout_gravity="bottom"
+                                                android:background="@drawable/bg_date_bubble"
+                                                android:gravity="center"
+                                                android:orientation="horizontal"
+                                                android:paddingHorizontal="4dp">
+
+                                                <ImageView
+                                                    android:layout_width="10dp"
+                                                    android:layout_height="10dp"
+                                                    android:layout_weight="1"
+                                                    android:src="@drawable/ic_nav_chats"
+                                                    app:tint="@color/prime_brand" />
+                                                <ImageView
+                                                    android:layout_width="10dp"
+                                                    android:layout_height="10dp"
+                                                    android:layout_weight="1"
+                                                    android:src="@drawable/ic_nav_devices"
+                                                    app:tint="@color/prime_text_secondary" />
+                                                <ImageView
+                                                    android:layout_width="10dp"
+                                                    android:layout_height="10dp"
+                                                    android:layout_weight="1"
+                                                    android:src="@drawable/ic_search"
+                                                    app:tint="@color/prime_text_secondary" />
+                                                <ImageView
+                                                    android:layout_width="10dp"
+                                                    android:layout_height="10dp"
+                                                    android:layout_weight="1"
+                                                    android:src="@drawable/ic_person"
+                                                    app:tint="@color/prime_text_secondary" />
+                                            </LinearLayout>
+                                        </FrameLayout>
+
+                                        <RadioButton
+                                            android:id="@+id/rbStyleBottomBar"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="8dp"
+                                            android:checked="false"
+                                            android:clickable="false"
+                                            android:text="Панель"
+                                            android:textColor="@color/white"
+                                            android:textSize="13sp"
+                                            android:textStyle="bold" />
+                                    </LinearLayout>
+                                </com.google.android.material.card.MaterialCardView>
+                            </LinearLayout>
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
                 </LinearLayout>
 
                 <!-- Разделитель "Данные" с линиями -->
@@ -1632,5 +1893,13 @@
             </LinearLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
+
+    <!-- Included Bottom Navigation Bar -->
+    <include
+        layout="@layout/layout_bottom_navigation"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:layout_gravity="bottom"
+        android:visibility="gone" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

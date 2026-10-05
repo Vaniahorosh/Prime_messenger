@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/globalSearchRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/prime_base">
+
+    <!-- Animated Lava Background Container -->
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/composeSearchBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Top Header Bar -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/blurSearchHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="12dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="8dp"
+            android:background="@color/prime_surface">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageButton
+                    android:id="@+id/btnSearchBack"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Назад"
+                    android:src="@drawable/ic_undo"
+                    app:tint="@color/white" />
+
+                <EditText
+                    android:id="@+id/etGlobalSearchQuery"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="8dp"
+                    android:background="@drawable/bg_pending_attachment"
+                    android:hint="Поиск сообщений и контактов..."
+                    android:imeOptions="actionSearch"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:paddingHorizontal="14dp"
+                    android:textColor="@color/white"
+                    android:textColorHint="@color/prime_text_secondary"
+                    android:textSize="14sp" />
+
+                <ImageButton
+                    android:id="@+id/btnSearchClear"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Очистить"
+                    android:src="@drawable/ic_cancel"
+                    android:visibility="gone"
+                    app:tint="@color/prime_text_secondary" />
+            </LinearLayout>
+        </eightbitlab.com.blurview.BlurView>
+
+        <!-- Search Results List -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvGlobalSearchResults"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingBottom="80dp" />
+
+            <TextView
+                android:id="@+id/tvSearchEmptyState"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="Введите запрос для поиска..."
+                android:textColor="@color/prime_text_secondary"
+                android:textSize="14sp" />
+        </FrameLayout>
+
+    </LinearLayout>
+
+    <!-- Included Bottom Navigation Bar -->
+    <include
+        layout="@layout/layout_bottom_navigation"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:layout_gravity="bottom"
+        android:visibility="gone" />
+
+</FrameLayout>
