@@ -136,11 +136,10 @@ class GlobalSearchActivity : AppCompatActivity() {
             PrimeTransitions.applyCloseTransition(this)
         }
 
-        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                backAction()
-            }
-        })
+        PrimePredictiveBack.attach(this) {
+            finish()
+            PrimeTransitions.applyCloseTransition(this)
+        }
 
         btnBack.setOnClickListener {
             backAction()
@@ -431,8 +430,7 @@ class GlobalSearchActivity : AppCompatActivity() {
                     putExtra("EXTRA_TARGET_MESSAGE_ID", item.matchedMessageId)
                 }
             }
-            startActivity(intent)
-            PrimeTransitions.applyOpenTransition(this)
+            PrimeTransitions.startActivityWithTransition(this, intent)
         }
     }
 

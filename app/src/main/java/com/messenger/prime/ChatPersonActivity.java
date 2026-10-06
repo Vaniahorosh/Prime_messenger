@@ -401,7 +401,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private final Runnable autoRetryRunnable = new Runnable() {
         @Override
         public void run() {
-            if (!isFinishing() && !isDestroyed() && !isManuallyDisconnected && BluetoothConnectionManager.getInstance().getState() != BluetoothConnectionManager.ConnectionState.CONNECTED) {
+            if (!isFinishing() && !isDestroyed() && !isManuallyDisconnected && !isConnectionActive()) {
                 connectionRetryCount++;
                 Log.d(TAG, "Auto-retrying connection attempt " + connectionRetryCount + "...");
                 startPrimeConnection();
@@ -413,8 +413,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private final Runnable connectTimeoutRunnable = new Runnable() {
         @Override
         public void run() {
-            if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) return;
-            if (BluetoothConnectionManager.getInstance().getState() != BluetoothConnectionManager.ConnectionState.CONNECTED) {
+            if (isConnectionActive()) return;
+            if (!isConnectionActive()) {
                 stopAnimatingStatus();
                 updateOfflineLastSeenStatus();
                 setOnlineStatusIndicator(false);
@@ -575,7 +575,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             String currentUser = sharedPreferences.getString("current_user", "");
             if (key != null && (key.equals("my_local_name") || key.equals("my_local_avatar") || key.equals("current_user_name") || key.equals(currentUser + "_name") || key.equals(currentUser + "_avatar"))) {
                 reloadLocalProfileFromSettings();
-                if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) {
+                if (isConnectionActive()) {
                     String handshake = "HANDSHAKE:login=" + currentUser + ";name=" + localUsername + ";version=" + getAppVersionCode(getApplicationContext());
                     sendPacket(TYPE_TEXT, handshake.getBytes(StandardCharsets.UTF_8));
                     sendLocalAvatar(true);
@@ -609,6 +609,25 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
 
 
+            boolean isTabletDevice = getResources().getConfiguration().smallestScreenWidthDp >= 600;
+            if (isTabletDevice) {
+                boolean isEmbedded = false;
+                try {
+                    isEmbedded = androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this);
+                } catch (Exception ignored) {}
+
+                if (!isEmbedded) {
+                    Intent chatListIntent = new Intent(this, ChatListActivity.class);
+                    chatListIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    startActivity(chatListIntent);
+
+                    Intent selfIntent = new Intent(getIntent());
+                    startActivity(selfIntent);
+                    finish();
+                    return;
+                }
+            }
+
             setContentView(R.layout.activity_chat_person_content);
 
 
@@ -620,7 +639,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 } else if (isEditMode) {
                     exitEditMode();
                 } else {
-                    finish();
+                    setEnabled(false);
+                    getOnBackPressedDispatcher().onBackPressed();
                 }
             }
         });
@@ -782,6 +802,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         btnAttach = findViewById(R.id.btnAttach);
         if (btnAttach != null) {
             btnAttach.setOnClickListener(v -> {
+                if (!isConnectionActive() && !isRemoteUserOnline) {
+                    Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 hideSoftKeyboard();
                 toggleAttachmentPanel();
             });
@@ -955,7 +979,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
             @Override
             public int getSwipeDirs(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
-                if (BluetoothConnectionManager.getInstance().getState() != BluetoothConnectionManager.ConnectionState.CONNECTED) {
+                if (!isConnectionActive()) {
                     return 0;
                 }
                 int pos = viewHolder.getBindingAdapterPosition();
@@ -995,7 +1019,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                     @NonNull RecyclerView.ViewHolder viewHolder,
                                     float dX, float dY, int actionState, boolean isCurrentlyActive) {
 
-                if (BluetoothConnectionManager.getInstance().getState() != BluetoothConnectionManager.ConnectionState.CONNECTED) {
+                if (!isConnectionActive()) {
                     return;
                 }
 
@@ -1142,7 +1166,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             public void onDeleteMessage(ChatMessage message, int position) {
                 if (message == null) return;
                 
-                if (BluetoothConnectionManager.getInstance().getState() != BluetoothConnectionManager.ConnectionState.CONNECTED) {
+                if (!isConnectionActive()) {
                     PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Действие недоступно без подключения", null);
                     return;
                 }
@@ -1173,7 +1197,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
             @Override
             public void onQuickReaction(ChatMessage message, String reaction, int position) {
-                if (BluetoothConnectionManager.getInstance().getState() != BluetoothConnectionManager.ConnectionState.CONNECTED) {
+                if (!isConnectionActive()) {
                     PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Действие недоступно без подключения", null);
                     return;
                 }
@@ -1182,7 +1206,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
             @Override
             public void onReplyMessage(ChatMessage message, int position) {
-                if (BluetoothConnectionManager.getInstance().getState() != BluetoothConnectionManager.ConnectionState.CONNECTED) {
+                if (!isConnectionActive()) {
                     return;
                 }
                 enterReplyMode(message);
@@ -1190,7 +1214,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
             @Override
             public void onReplyToSelectedText(ChatMessage message, String selectedText, int position) {
-                if (BluetoothConnectionManager.getInstance().getState() != BluetoothConnectionManager.ConnectionState.CONNECTED) {
+                if (!isConnectionActive()) {
                     return;
                 }
                 enterReplyModeForSelectedText(message, selectedText);
@@ -1812,7 +1836,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     }
                 } else {
                     long now = System.currentTimeMillis();
-                    if (now - lastTypingSentTime > 1500 && BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) {
+                    if (now - lastTypingSentTime > 1500 && isConnectionActive()) {
                         lastTypingSentTime = now;
                         sendActivityState("TYPING");
                     }
@@ -1835,7 +1859,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         boolean useExistingSocket = intent.getBooleanExtra("EXTRA_USE_EXISTING_SOCKET", false);
 
-        if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) {
+        if (isConnectionActive()) {
             BluetoothSocketHolder.setActiveDeviceAddress(deviceAddress);
             BluetoothSocketHolder.setActiveTargetUsername(targetUsername);
 
@@ -1891,7 +1915,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     BluetoothDevice d = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                     dev = d;
                 }
-                if (dev != null && BluetoothConnectionManager.getInstance().getState() != BluetoothConnectionManager.ConnectionState.CONNECTED) {
+                if (dev != null && !isConnectionActive()) {
                     String devAddr = dev.getAddress();
                     String devName = dev.getName();
                     if (isValidMacAddress(devAddr) && devName != null && (devName.equalsIgnoreCase(targetUsername) || devName.toLowerCase().contains(targetUsername.toLowerCase()) || devName.contains("Prime"))) {
@@ -1910,7 +1934,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     };
 
     private void sendPresenceUpdate(boolean isOnline) {
-        if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) {
+        if (isConnectionActive()) {
             long now = System.currentTimeMillis();
             String payloadStr = isOnline ? "ONLINE" : ("OFFLINE:" + now);
             sendPacket(TYPE_PRESENCE, payloadStr.getBytes(StandardCharsets.UTF_8));
@@ -2034,7 +2058,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         BluetoothConnectionManager.getInstance().setCallback(this);
 
-        if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) {
+        if (isConnectionActive()) {
             updateInputVisibility(true);
             sendLocalAvatar(false);
         } else {
@@ -2055,11 +2079,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
         }
 
-        if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) {
+        if (isConnectionActive()) {
             sendLocalAvatar();
         }
 
-        if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) {
+        if (isConnectionActive()) {
             saveLastSeenTimestamp();
             updateInputVisibility(true);
         } else {
@@ -2137,7 +2161,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private final Runnable lastSeenRunnable = new Runnable() {
         @Override
         public void run() {
-            if (BluetoothConnectionManager.getInstance().getState() != BluetoothConnectionManager.ConnectionState.CONNECTED) {
+            if (!isConnectionActive()) {
                 updateOfflineLastSeenStatus();
                 lastSeenHandler.postDelayed(this, 30000);
             }
@@ -2214,7 +2238,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void updateConnectionStateInAdapter() {
         if (chatAdapter != null) {
-            boolean active = BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED;
+            boolean active = isConnectionActive();
             chatAdapter.setConnectionActive(active);
         }
     }
@@ -2500,7 +2524,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             ChatHistoryManager.saveMessage(this, targetUsername, fwdMsg);
             saveLastMessageToChatList(fwdMsg.getText());
 
-            if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) {
+            if (isConnectionActive()) {
                 String packetContent = fwdMsg.getMessageId() + ":::" + fwdMsg.getText();
                 packetContent += ":::REPLY:::" + fwdMsg.getReplyToMessageId() + ":::" + fwdMsg.getReplyToSender() + ":::" + fwdMsg.getReplyToText();
                 sendPacket(TYPE_TEXT, packetContent.getBytes(StandardCharsets.UTF_8));
@@ -2609,7 +2633,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         public void run() {
             if (isDeletionPending) {
                 isChatDeleted = true;
-                if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) {
+                if (isConnectionActive()) {
                     String deletionPayload = "DELETE_CHAT:login=" + localUsername + ";name=" + localUsername;
                     sendPacket(TYPE_CHAT_DELETED, deletionPayload.getBytes(StandardCharsets.UTF_8));
                 }
@@ -2995,7 +3019,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void performCompleteChatDeletion() {
         isChatDeleted = true;
-        if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) {
+        if (isConnectionActive()) {
             String deletionPayload = "DELETE_CHAT:login=" + localUsername + ";name=" + localUsername;
             sendPacket(TYPE_CHAT_DELETED, deletionPayload.getBytes(StandardCharsets.UTF_8));
             new Handler(Looper.getMainLooper()).postDelayed(this::finalizeChatDeletion, 200);
@@ -3857,7 +3881,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private void sendLocalAvatar(boolean force) {
-        if (BluetoothConnectionManager.getInstance().getState() != BluetoothConnectionManager.ConnectionState.CONNECTED) return;
+        if (!isConnectionActive()) return;
         runOnIoThread(() -> {
             try {
                 SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
@@ -3995,7 +4019,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     @SuppressLint("MissingPermission")
     private void startPrimeConnection(boolean forceClient) {
         if (isChatDeleted || isManuallyDisconnected) return;
-        if (BluetoothConnectionManager.getInstance().getState() == BluetoothConnectionManager.ConnectionState.CONNECTED) {
+        if (isConnectionActive()) {
             updateInputVisibility(true);
             return;
         }
@@ -4093,28 +4117,45 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (address == null || address.isEmpty()) return true;
         if (activeChatPersonAddress != null && activeChatPersonAddress.equalsIgnoreCase(address)) return true;
         if (activeChatPersonName != null && activeChatPersonName.equalsIgnoreCase(address)) return true;
+        
+        String remoteName = BluetoothConnectionManager.getInstance().getThreadRemoteUsername(address);
+        if (remoteName != null && activeChatPersonName != null && remoteName.equalsIgnoreCase(activeChatPersonName)) {
+            return true;
+        }
+
         return false;
     }
 
     private boolean isMatchingDevice(String addrOrName) {
-        if (addrOrName == null || addrOrName.isEmpty()) return true;
+        if (addrOrName == null || addrOrName.isEmpty()) return false;
         if (this.deviceAddress != null && this.deviceAddress.equalsIgnoreCase(addrOrName)) return true;
         if (this.targetUsername != null && this.targetUsername.equalsIgnoreCase(addrOrName)) return true;
 
         SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
         String savedMac = sp.getString(targetUsername + "_mac", null);
         if (savedMac != null && savedMac.equalsIgnoreCase(addrOrName)) {
-            this.deviceAddress = savedMac;
-            return true;
-        }
-
-        if (this.deviceAddress == null || !isValidMacAddress(this.deviceAddress) || BluetoothConnectionManager.getInstance().isConnected(addrOrName) || BluetoothSocketHolder.isConnectedWith(addrOrName, targetUsername)) {
-            if (isValidMacAddress(addrOrName)) {
-                this.deviceAddress = addrOrName;
-                sp.edit().putString(targetUsername + "_mac", addrOrName).apply();
+            if (this.deviceAddress == null || !isValidMacAddress(this.deviceAddress)) {
+                this.deviceAddress = savedMac;
             }
             return true;
         }
+
+        // Check if the connection belongs to our target username
+        if (BluetoothConnectionManager.getInstance().isConnected(addrOrName)) {
+            String remoteName = BluetoothConnectionManager.getInstance().getThreadRemoteUsername(addrOrName);
+            if (remoteName != null && remoteName.equalsIgnoreCase(targetUsername)) {
+                if (this.deviceAddress == null || !isValidMacAddress(this.deviceAddress)) {
+                    if (isValidMacAddress(addrOrName)) {
+                        this.deviceAddress = addrOrName;
+                        sp.edit().putString(targetUsername + "_mac", addrOrName).apply();
+                    }
+                }
+                return true;
+            }
+        }
+        
+        // As a fallback for older connections, if we don't have a MAC and the packet arrived,
+        // we can't blindly adopt it anymore. We rely on the handshake.
 
         return false;
     }
@@ -4615,8 +4656,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 }
 
                 if (btnAttach != null) {
-                    btnAttach.setEnabled(true);
-                    btnAttach.setAlpha(1.0f);
+                    btnAttach.setEnabled(connected);
+                    btnAttach.setAlpha(connected ? 1.0f : 0.4f);
                 }
             }
         });
@@ -6514,9 +6555,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         tvGalleryEmpty = dialogView.findViewById(R.id.tvGalleryEmpty);
         tvFilesEmpty = dialogView.findViewById(R.id.tvFilesEmpty);
 
-        boolean isTablet = getResources().getConfiguration().smallestScreenWidthDp >= 600
-                || getResources().getConfiguration().screenWidthDp >= 600
-                || getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+        boolean isTablet = getResources().getConfiguration().smallestScreenWidthDp >= 600;
 
         int photoSpanCount = isTablet ? 5 : 3;
         int gifSpanCount = isTablet ? 3 : 2;
@@ -7872,3 +7911,5 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         } catch (Exception ignored) {}
     }
 }
+
+

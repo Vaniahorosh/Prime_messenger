@@ -570,15 +570,21 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
-    private val backCallback = object : OnBackPressedCallback(true) {
+    private val backCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
             if (isContactDialogVisible.value) {
                 isContactDialogVisible.value = false
                 stopBluetoothScan()
+                if (binding.layoutIslandHeader.btnHeaderSearchClear.visibility != View.VISIBLE) {
+                    isEnabled = false
+                }
                 return
             }
             if (::binding.isInitialized && binding.layoutIslandHeader.btnHeaderSearchClear.visibility == View.VISIBLE) {
                 binding.layoutIslandHeader.btnHeaderSearchClear.performClick()
+                if (!isContactDialogVisible.value) {
+                    isEnabled = false
+                }
                 return
             }
             isEnabled = false
@@ -653,6 +659,7 @@ class ChatListActivity : AppCompatActivity() {
         
         if (allGranted) {
             isContactDialogVisible.value = true
+            backCallback.isEnabled = true
         } else {
             val permanentlyDenied = requiredPerms.any { perms ->
                 ActivityCompat.checkSelfPermission(this, perms) != PackageManager.PERMISSION_GRANTED && 
@@ -700,6 +707,7 @@ class ChatListActivity : AppCompatActivity() {
             requestBluetoothPermissionLauncher.launch(requiredPerms)
         } else {
             isContactDialogVisible.value = true
+            backCallback.isEnabled = true
         }
     }
 
@@ -786,8 +794,7 @@ class ChatListActivity : AppCompatActivity() {
                 }
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
-            startActivity(chatIntent)
-            PrimeTransitions.applyOpenTransition(this@ChatListActivity)
+            PrimeTransitions.startActivityWithTransition(this@ChatListActivity, chatIntent)
         }
     }
 
@@ -895,16 +902,45 @@ class ChatListActivity : AppCompatActivity() {
 
         private val connectionCallback = object : BluetoothConnectionManager.ConnectionCallback {
             override fun onStateChanged(deviceAddress: String?, state: BluetoothConnectionManager.ConnectionState?, deviceName: String?) {
-                val addr = activeDeviceAddress ?: activeTargetUsername ?: return
-                if (deviceAddress != null && (deviceAddress.equals(addr, ignoreCase = true) || deviceAddress.equals(activeTargetUsername, ignoreCase = true))) {
+                val targetUser = activeTargetUsername ?: return
+                var isMatch = false
+                if (deviceAddress != null) {
+                    if (deviceAddress.equals(activeDeviceAddress, ignoreCase = true) || deviceAddress.equals(targetUser, ignoreCase = true)) {
+                        isMatch = true
+                    } else {
+                        val remoteName = BluetoothConnectionManager.getInstance().getThreadRemoteUsername(deviceAddress)
+                        if (remoteName != null && remoteName.equals(targetUser, ignoreCase = true)) {
+                            isMatch = true
+                        }
+                    }
+                }
+                
+                if (isMatch) {
                     val isConn = (state == BluetoothConnectionManager.ConnectionState.CONNECTED)
                     updateInputState(isConn)
                 }
             }
 
             override fun onPacketReceived(deviceAddress: String?, type: Byte, payload: ByteArray?) {
-                val addr = activeDeviceAddress ?: activeTargetUsername ?: return
-                if (deviceAddress != null && (deviceAddress.equals(addr, ignoreCase = true) || deviceAddress.equals(activeTargetUsername, ignoreCase = true))) {
+                val targetUser = activeTargetUsername ?: return
+                var isMatch = false
+                if (deviceAddress != null) {
+                    if (deviceAddress.equals(activeDeviceAddress, ignoreCase = true) || deviceAddress.equals(targetUser, ignoreCase = true)) {
+                        isMatch = true
+                    } else {
+                        val remoteName = BluetoothConnectionManager.getInstance().getThreadRemoteUsername(deviceAddress)
+                        if (remoteName != null && remoteName.equals(targetUser, ignoreCase = true)) {
+                            isMatch = true
+                            if (activeDeviceAddress == null || (activeDeviceAddress != null && !android.bluetooth.BluetoothAdapter.checkBluetoothAddress(activeDeviceAddress!!.uppercase(java.util.Locale.US)))) {
+                                activeDeviceAddress = deviceAddress
+                                val sp = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                                sp.edit().putString(targetUser + "_mac", deviceAddress).apply()
+                            }
+                        }
+                    }
+                }
+                
+                if (isMatch) {
                     if (type == 0x04.toByte()) {
                         val stateData = if (payload != null && payload.isNotEmpty()) String(payload, java.nio.charset.StandardCharsets.UTF_8) else "STATE:TYPING"
                         val action = stateData.removePrefix("STATE:")
@@ -1025,8 +1061,7 @@ class ChatListActivity : AppCompatActivity() {
                     if (!avatarUri.isNullOrEmpty()) putExtra("EXTRA_AVATAR_URI", avatarUri)
                     putExtra("EXTRA_IS_ONLINE", isConnected)
                 }
-                activity.startActivity(intent)
-                PrimeTransitions.applyOpenTransition(activity)
+                PrimeTransitions.startActivityWithTransition(activity, intent)
             }
 
             b.layoutHeader.setOnLongClickListener {
@@ -2116,8 +2151,7 @@ class ChatListActivity : AppCompatActivity() {
                     if (isThresholdCrossed && !isTransitioning) {
                         isTransitioning = true
                         val intent = Intent(this, SettingsActivity::class.java)
-                        startActivity(intent)
-                        PrimeTransitions.applyOpenTransition(this)
+                        PrimeTransitions.startActivityWithTransition(this, intent)
                         
                         binding.recyclerViewChats.postDelayed({
                             resetPullUiInstant()
@@ -3488,8 +3522,7 @@ class ChatListActivity : AppCompatActivity() {
         binding.layoutIslandHeader.btnHeaderStartChat.setOnClickListener { onStartChatClicked() }
         binding.layoutIslandHeader.ivHeaderAvatar.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
-            startActivity(intent)
-            PrimeTransitions.applyOpenTransition(this)
+            PrimeTransitions.startActivityWithTransition(this, intent)
         }
         binding.layoutIslandHeader.tvHeaderInitials.setOnClickListener {
             binding.layoutIslandHeader.ivHeaderAvatar.performClick()

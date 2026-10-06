@@ -113,7 +113,7 @@
             android:name=".ChatPersonActivity"
             android:launchMode="singleTop"
             android:exported="false"
-            android:theme="@style/Theme.Prime.Swipe" />
+            android:theme="@style/Theme.Prime" />
 
         <activity
             android:name=".PersonInformationActivity"

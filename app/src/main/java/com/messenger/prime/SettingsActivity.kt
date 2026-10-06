@@ -254,15 +254,10 @@ class SettingsActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
 
-        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                val intent = Intent(this@SettingsActivity, ChatListActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                }
-                startActivity(intent)
-                finish()
-            }
-        })
+        PrimePredictiveBack.attach(this) {
+            finish()
+            PrimeTransitions.applyCloseTransition(this)
+        }
 
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         setupEdgeToEdge(isDarkIcons = !isDark)
@@ -863,22 +858,44 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         btnNavChats?.setOnClickListener {
-            val intent = Intent(this, ChatListActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            val isTablet = resources.configuration.smallestScreenWidthDp >= 600 ||
+                    try {
+                        androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this)
+                    } catch (_: Exception) {
+                        false
+                    }
+            if (isTablet) {
+                finish()
+                PrimeTransitions.applyCloseTransition(this)
+            } else {
+                val intent = Intent(this, ChatListActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+                startActivity(intent)
+                PrimeTransitions.applyPageFlipTransition(this, isForward = false)
+                finish()
             }
-            startActivity(intent)
-            PrimeTransitions.applyPageFlipTransition(this, isForward = false)
-            finish()
         }
 
         btnNavDevices?.setOnClickListener {
-            val intent = Intent(this, ChatListActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra("EXTRA_ACTION_SCAN", true)
+            val isTablet = resources.configuration.smallestScreenWidthDp >= 600 ||
+                    try {
+                        androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this)
+                    } catch (_: Exception) {
+                        false
+                    }
+            if (isTablet) {
+                finish()
+                PrimeTransitions.applyCloseTransition(this)
+            } else {
+                val intent = Intent(this, ChatListActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    putExtra("EXTRA_ACTION_SCAN", true)
+                }
+                startActivity(intent)
+                PrimeTransitions.applyPageFlipTransition(this, isForward = false)
+                finish()
             }
-            startActivity(intent)
-            PrimeTransitions.applyPageFlipTransition(this, isForward = false)
-            finish()
         }
 
         btnNavSearch?.setOnClickListener {

@@ -14,7 +14,7 @@ class ChatPlaceholderActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         val config = resources.configuration
-        val isTablet = config.screenWidthDp >= 480 || config.smallestScreenWidthDp >= 480
+        val isTablet = config.smallestScreenWidthDp >= 600
         val isEmbedded = try {
             androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this)
         } catch (_: Exception) {

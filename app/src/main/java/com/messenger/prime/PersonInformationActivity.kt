@@ -139,15 +139,44 @@ class PersonInformationActivity : AppCompatActivity() {
         ViewCompat.setTransitionName(binding.tvUserNameWP, "transition_name")
 
 
-        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                val intent = Intent(this@PersonInformationActivity, ChatListActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                }
-                startActivity(intent)
+        PrimePredictiveBack.attach(this) {
+            val config = resources.configuration
+            val isTablet = config.smallestScreenWidthDp >= 600 ||
+                    try {
+                        androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this)
+                    } catch (_: Exception) {
+                        false
+                    }
+
+            if (isTablet) {
+                // Tablet Mode: ChatInfo -> ChatList (close secondary pane, revealing ChatList on primary pane)
                 finish()
+                PrimeTransitions.applyCloseTransition(this)
+            } else {
+                // Phone Mode: ChatInfo -> ChatPerson
+                val chatName = intent.getStringExtra("EXTRA_CHAT_NAME")
+                    ?: intent.getStringExtra("targetUsername")
+                    ?: intent.getStringExtra("EXTRA_NAME")
+                val chatAddress = intent.getStringExtra("EXTRA_DEVICE_ADDRESS")
+                    ?: intent.getStringExtra("deviceAddress")
+                    ?: intent.getStringExtra("EXTRA_MAC")
+
+                if (chatName != null && chatName.isNotEmpty()) {
+                    val personIntent = Intent(this@PersonInformationActivity, ChatPersonActivity::class.java).apply {
+                        putExtra("EXTRA_CHAT_NAME", chatName)
+                        if (chatAddress != null && chatAddress.isNotEmpty()) {
+                            putExtra("EXTRA_DEVICE_ADDRESS", chatAddress)
+                        }
+                        flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    }
+                    PrimeTransitions.startActivityWithTransition(this@PersonInformationActivity, personIntent)
+                    finish()
+                } else {
+                    finish()
+                    PrimeTransitions.applyCloseTransition(this)
+                }
             }
-        })
+        }
 
         val filter = IntentFilter().apply {
             addAction("com.messenger.prime.STATUS_UPDATED")

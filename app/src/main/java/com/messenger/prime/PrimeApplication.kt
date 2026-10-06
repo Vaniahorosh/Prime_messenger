@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import android.app.Activity
 import android.os.Bundle
 import com.google.android.material.color.DynamicColors
+import androidx.activity.ComponentActivity
 import java.lang.ref.WeakReference
 
 class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
@@ -134,6 +135,9 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         PrimeTransitions.setupActivityTransitions(activity)
         if (activity !is SplashActivity && activity !is ChatListActivity && activity !is HiActivity && activity !is ChatPlaceholderActivity) {
             PrimeTransitions.attachSlidr(activity)
+            if (activity is ComponentActivity) {
+                PrimePredictiveBack.attach(activity)
+            }
         }
     }
     override fun onActivityStarted(activity: Activity) {

@@ -128,20 +128,7 @@ public class BluetoothConnectionManager {
         return deviceStates.getOrDefault(deviceAddress, ConnectionState.DISCONNECTED);
     }
 
-    public synchronized String getActiveDeviceAddress() {
-        if (!connectionPool.isEmpty()) {
-            return connectionPool.keySet().iterator().next();
-        }
-        return "";
-    }
 
-    public synchronized String getActiveDeviceName() {
-        String addr = getActiveDeviceAddress();
-        if (!addr.isEmpty()) {
-            return deviceNames.getOrDefault(addr, "Prime User");
-        }
-        return "";
-    }
 
     public synchronized boolean isConnected(String deviceAddress) {
         if (deviceAddress == null || deviceAddress.isEmpty()) {
@@ -377,9 +364,6 @@ public class BluetoothConnectionManager {
 
     public synchronized ConnectedThread getThreadFor(String addressOrName) {
         if (addressOrName == null || addressOrName.isEmpty()) {
-            if (connectionPool.size() == 1) {
-                return connectionPool.values().iterator().next();
-            }
             return null;
         }
 
@@ -399,13 +383,6 @@ public class BluetoothConnectionManager {
             }
         }
 
-        if (connectionPool.size() == 1) {
-            ConnectedThread singleThread = connectionPool.values().iterator().next();
-            if (singleThread != null && singleThread.isAlive()) {
-                return singleThread;
-            }
-        }
-
         return null;
     }
 
@@ -415,6 +392,11 @@ public class BluetoothConnectionManager {
         if (t != null) {
             t.setThreadRemoteUsername(username);
         }
+    }
+
+    public synchronized String getThreadRemoteUsername(String deviceAddress) {
+        ConnectedThread t = getThreadFor(deviceAddress);
+        return t != null ? t.getThreadRemoteUsername() : null;
     }
 
     /**

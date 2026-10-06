@@ -17,7 +17,7 @@ import java.io.File
 
 fun View.addBounceTouchEffect() {
     val decelerate = DecelerateInterpolator()
-    val overshoot = OvershootInterpolator(2.0f)
+    val overshoot = OvershootInterpolator(1.8f)
 
     setOnTouchListener { v, event ->
         when (event.action) {
@@ -26,11 +26,25 @@ fun View.addBounceTouchEffect() {
                 v.animate()
                     .scaleX(0.96f)
                     .scaleY(0.96f)
-                    .setDuration(120)
+                    .setDuration(110)
                     .setInterpolator(decelerate)
                     .start()
             }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+            MotionEvent.ACTION_MOVE -> {
+                val isInside = event.x in 0f..v.width.toFloat() && event.y in 0f..v.height.toFloat()
+                val targetScale = if (isInside) 0.96f else 1.0f
+                if (v.scaleX != targetScale) {
+                    v.animate().cancel()
+                    v.animate()
+                        .scaleX(targetScale)
+                        .scaleY(targetScale)
+                        .setDuration(120)
+                        .setInterpolator(decelerate)
+                        .start()
+                }
+            }
+            MotionEvent.ACTION_UP -> {
+                val isInside = event.x in 0f..v.width.toFloat() && event.y in 0f..v.height.toFloat()
                 v.animate().cancel()
                 v.animate()
                     .scaleX(1.0f)
@@ -38,9 +52,18 @@ fun View.addBounceTouchEffect() {
                     .setDuration(220)
                     .setInterpolator(overshoot)
                     .start()
-                if (event.action == MotionEvent.ACTION_UP) {
+                if (isInside) {
                     v.performClick()
                 }
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                v.animate().cancel()
+                v.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(200)
+                    .setInterpolator(decelerate)
+                    .start()
             }
         }
         true

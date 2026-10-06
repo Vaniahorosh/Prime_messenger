@@ -2,8 +2,23 @@
 <set xmlns:android="http://schemas.android.com/apk/res/android"
     android:shareInterpolator="false">
     <translate
-        android:duration="300"
+        android:duration="350"
         android:fromXDelta="0%"
         android:toXDelta="100%"
-        android:interpolator="@android:interpolator/fast_out_slow_in" />
+        android:interpolator="@anim/emphasized" />
+    <scale
+        android:duration="350"
+        android:fromXScale="1.0"
+        android:toXScale="0.95"
+        android:fromYScale="1.0"
+        android:toYScale="0.95"
+        android:pivotX="50%"
+        android:pivotY="50%"
+        android:interpolator="@anim/emphasized" />
+    <alpha
+        android:duration="220"
+        android:startOffset="80"
+        android:fromAlpha="1.0"
+        android:toAlpha="0.0"
+        android:interpolator="@anim/emphasized_decelerate" />
 </set>
