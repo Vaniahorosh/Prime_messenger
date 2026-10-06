@@ -12,36 +12,36 @@
     <color name="prime_overlay_dark">#99000000</color>
 
     <!-- Semantic Colors (Light Theme) -->
-    <color name="login_background">@color/grad_start</color>
-    <color name="login_button_background">@color/white</color>
-    <color name="login_button_tint">@color/grad_start</color>
-    <color name="hi_background">@color/prime_background_blue</color>
-    <color name="prime_base">#F4F7FB</color>
-    <color name="prime_surface">#FFFFFF</color>
-    <color name="prime_search_bg">#F0F2F5</color>
-    <color name="prime_text_primary">#172033</color>
-    <color name="prime_text_secondary">#71809A</color>
-    <color name="prime_divider">#D9E1EC</color>
-    <color name="prime_icon_secondary">#71809A</color>
-    <color name="prime_danger">#D32F2F</color>
-    <color name="prime_danger_light">#FFCDD2</color>
-    <color name="prime_success">#4CAF50</color>
-    <color name="prime_info">#2196F3</color>
+    <color name="login_background">@color/prime_base</color>
+    <color name="login_button_background">@color/prime_brand</color>
+    <color name="login_button_tint">@color/white</color>
+    <color name="hi_background">@color/prime_brand</color>
+    <color name="prime_base">#F8FAFC</color> <!-- Modern light slate -->
+    <color name="prime_surface">#FFFFFF</color> <!-- Pure white -->
+    <color name="prime_search_bg">#F1F5F9</color> <!-- Slate 100 -->
+    <color name="prime_text_primary">#0F172A</color> <!-- Slate 900 -->
+    <color name="prime_text_secondary">#64748B</color> <!-- Slate 500 -->
+    <color name="prime_divider">#E2E8F0</color> <!-- Slate 200 -->
+    <color name="prime_icon_secondary">#64748B</color>
+    <color name="prime_danger">#EF4444</color>
+    <color name="prime_danger_light">#FEE2E2</color>
+    <color name="prime_success">#10B981</color>
+    <color name="prime_info">#3B82F6</color>
 
     <!-- Chat Semantic Colors (Light Theme) -->
-    <color name="chat_bubble_incoming_bg">#F1F5F9</color>
-    <color name="chat_bubble_incoming_stroke">#26000000</color>
-    <color name="chat_bubble_incoming_text">#172033</color>
-    <color name="chat_bubble_incoming_time">#71809A</color>
-    <color name="chat_bubble_outgoing_start">#1A5EA8</color>
-    <color name="chat_bubble_outgoing_end">#154B87</color>
+    <color name="chat_bubble_incoming_bg">#FFFFFF</color>
+    <color name="chat_bubble_incoming_stroke">#E2E8F0</color>
+    <color name="chat_bubble_incoming_text">#1E293B</color>
+    <color name="chat_bubble_incoming_time">#94A3B8</color>
+    <color name="chat_bubble_outgoing_start">#3B82F6</color>
+    <color name="chat_bubble_outgoing_end">#1D4ED8</color>
     <color name="chat_bubble_outgoing_text">#FFFFFF</color>
-    <color name="chat_bubble_outgoing_time">#D0E1F9</color>
-    <color name="chat_island_bg">#F2FFFFFF</color>
-    <color name="chat_island_stroke">#33154B87</color>
-    <color name="chat_date_bubble_bg">#E6F1F5F9</color>
-    <color name="chat_date_bubble_stroke">#20000000</color>
-    <color name="chat_date_bubble_text">#475569</color>
+    <color name="chat_bubble_outgoing_time">#DBEAFE</color>
+    <color name="chat_island_bg">#E6FFFFFF</color>
+    <color name="chat_island_stroke">#1A000000</color>
+    <color name="chat_date_bubble_bg">#F1F5F9</color>
+    <color name="chat_date_bubble_stroke">#00000000</color>
+    <color name="chat_date_bubble_text">#64748B</color>
 
     <!-- Legacy / Other Prime Colors -->
     <color name="prime_brand_dark">#154A86</color>
@@ -63,19 +63,19 @@
     <color name="grad_end">#0D2F54</color>
 
     <!-- Progress Bar Brand Colors (Light Theme) -->
-    <color name="prime_progress_start">#154B87</color>
-    <color name="prime_progress_end">#1E88E5</color>
-    <color name="prime_progress_track_bg">#20154B87</color>
-    <color name="prime_progress_track_border">#33154B87</color>
+    <color name="prime_progress_start">#3B82F6</color>
+    <color name="prime_progress_end">#2563EB</color>
+    <color name="prime_progress_track_bg">#E2E8F0</color>
+    <color name="prime_progress_track_border">#00000000</color>
 
     <!-- Dialog Semantic Colors (Light Theme) -->
-    <color name="dialog_title_color">@color/prime_brand</color>
-    <color name="dialog_body_color">@color/prime_brand_alpha_80</color>
-    <color name="dialog_input_text_color">@color/prime_brand</color>
-    <color name="dialog_hint_color">#99154B87</color>
-    <color name="dialog_box_stroke">#40154B87</color>
-    <color name="dialog_button_cancel_text">@color/prime_brand</color>
-    <color name="dialog_button_cancel_stroke">#40154B87</color>
+    <color name="dialog_title_color">#0F172A</color>
+    <color name="dialog_body_color">#475569</color>
+    <color name="dialog_input_text_color">#1E293B</color>
+    <color name="dialog_hint_color">#94A3B8</color>
+    <color name="dialog_box_stroke">#CBD5E1</color>
+    <color name="dialog_button_cancel_text">#64748B</color>
+    <color name="dialog_button_cancel_stroke">#E2E8F0</color>
     <color name="dialog_button_save_bg">@color/prime_brand</color>
     <color name="dialog_button_save_text">@color/white</color>
 

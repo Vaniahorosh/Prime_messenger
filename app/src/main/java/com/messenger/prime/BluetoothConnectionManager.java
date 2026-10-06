@@ -429,6 +429,14 @@ public class BluetoothConnectionManager {
         }
     }
 
+    public synchronized void broadcastPacket(byte type, byte[] payload) {
+        for (ConnectedThread r : connectionPool.values()) {
+            if (r != null && r.isAlive()) {
+                r.sendPacket(type, payload);
+            }
+        }
+    }
+
     public synchronized void cancelCurrentMediaSend(String deviceAddress) {
         ConnectedThread r = getThreadFor(deviceAddress);
         if (r != null) {

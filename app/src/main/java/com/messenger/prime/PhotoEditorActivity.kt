@@ -142,7 +142,6 @@ class PhotoEditorActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
-        PrimeTransitions.setupActivityTransitions(this)
         onBackPressedDispatcher.addCallback(this, backCallback)
         setupEdgeToEdge()
         

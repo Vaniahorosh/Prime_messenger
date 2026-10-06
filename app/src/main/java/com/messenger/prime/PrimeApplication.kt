@@ -113,13 +113,28 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         
         @JvmStatic
         fun getCurrentActivity(): Activity? = currentActivityRef?.get()
+
+        @JvmStatic
+        fun getPreviousActivity(): Activity? {
+            if (activityStack.size >= 2) {
+                return activityStack[activityStack.size - 2].get()
+            }
+            return null
+        }
+        
+        val activityStack = mutableListOf<WeakReference<Activity>>()
     }
     
     private var activityReferences = 0
     private var isActivityChangingConfigurations = false
 
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+        activityStack.add(WeakReference(activity))
         ColorAccentManager.applyAccentToActivity(activity)
+        PrimeTransitions.setupActivityTransitions(activity)
+        if (activity !is SplashActivity && activity !is ChatListActivity && activity !is HiActivity && activity !is ChatPlaceholderActivity) {
+            PrimeTransitions.attachSlidr(activity)
+        }
     }
     override fun onActivityStarted(activity: Activity) {
         if (++activityReferences == 1 && !isActivityChangingConfigurations) {
@@ -128,6 +143,9 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
     }
     override fun onActivityResumed(activity: Activity) {
         currentActivityRef = WeakReference(activity)
+        // Ensure it's at the top of the stack
+        activityStack.removeAll { it.get() == null || it.get() == activity }
+        activityStack.add(WeakReference(activity))
     }
     override fun onActivityPaused(activity: Activity) {
         if (currentActivityRef?.get() == activity) {
@@ -142,5 +160,7 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         }
     }
     override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-    override fun onActivityDestroyed(activity: Activity) {}
+    override fun onActivityDestroyed(activity: Activity) {
+        activityStack.removeAll { it.get() == null || it.get() == activity }
+    }
 }

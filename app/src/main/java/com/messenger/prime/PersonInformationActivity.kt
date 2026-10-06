@@ -86,7 +86,6 @@ class PersonInformationActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
-        PrimeTransitions.setupActivityTransitions(this)
 
         val config = resources.configuration
         val isFoldableOrTablet = config.smallestScreenWidthDp >= 600
@@ -139,7 +138,6 @@ class PersonInformationActivity : AppCompatActivity() {
         ViewCompat.setTransitionName(binding.ivPhotoCard, "transition_avatar")
         ViewCompat.setTransitionName(binding.tvUserNameWP, "transition_name")
 
-        PrimeTransitions.attachSlidr(this)
 
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {

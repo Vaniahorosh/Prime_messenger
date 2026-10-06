@@ -58,7 +58,6 @@ class GlobalSearchActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
-        PrimeTransitions.setupActivityTransitions(this)
 
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         setupEdgeToEdge(isDark)

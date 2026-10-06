@@ -147,18 +147,18 @@ private fun getLightPalette(): List<Color> {
     val randomChoice = Random.nextInt(3)
     return when (randomChoice) {
         0 -> listOf(
-            Color(0xFF29B6F6).copy(alpha = 0.50f), // Sky Cyan
-            Color(0xFF1E88E5).copy(alpha = 0.40f), // Vibrant Prime Blue
+            Color(0xFFDBEAFE).copy(alpha = 0.80f), // Blue 100
+            Color(0xFFBFDBFE).copy(alpha = 0.60f), // Blue 200
             Color.Transparent
         )
         1 -> listOf(
-            Color(0xFF00E5FF).copy(alpha = 0.40f), // Aqua Cyan
-            Color(0xFF1565C0).copy(alpha = 0.45f), // Deep Navy Accent
+            Color(0xFFE0F2FE).copy(alpha = 0.70f), // Sky 100
+            Color(0xFFBAE6FD).copy(alpha = 0.50f), // Sky 200
             Color.Transparent
         )
         else -> listOf(
-            Color(0xFF42A5F5).copy(alpha = 0.48f), // Soft Electric Blue
-            Color(0xFF0097A7).copy(alpha = 0.38f), // Deep Teal Accent
+            Color(0xFFCFFAFE).copy(alpha = 0.70f), // Cyan 100
+            Color(0xFFA5F3FC).copy(alpha = 0.50f), // Cyan 200
             Color.Transparent
         )
     }
@@ -205,8 +205,8 @@ fun PrimeTheme(
     } else {
         androidx.compose.material3.lightColorScheme(
             primary = accentColor,
-            background = accentColor,
-            surface = Color(0xFFF1F5F9)
+            background = Color(0xFFF8FAFC),
+            surface = Color(0xFFFFFFFF)
         )
     }
 
@@ -267,7 +267,7 @@ fun GlassCard(
         tint = if (darkTheme) {
             Color(0xFF1E293B).copy(alpha = 0.6f)
         } else {
-            Color(0xFF154B87).copy(alpha = 0.6f)
+            Color(0xFFF1F5F9).copy(alpha = 0.6f)
         },
         shape = RoundedCornerShape(32.dp)
     ) {

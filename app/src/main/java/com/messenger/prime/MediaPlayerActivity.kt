@@ -182,7 +182,6 @@ class MediaPlayerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
-        PrimeTransitions.setupActivityTransitions(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_media_player)
 

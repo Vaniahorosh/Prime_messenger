@@ -43,25 +43,25 @@ class PrimeSplashView @JvmOverloads constructor(
 
     private val tealPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = if (isDarkTheme) Color.parseColor("#3CAEA3") else Color.WHITE
+        color = if (isDarkTheme) Color.parseColor("#3CAEA3") else Color.parseColor("#154B87") // Prime brand
     }
 
     private val tailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.parseColor("#0F1B33")
+        color = if (isDarkTheme) Color.parseColor("#0F1B33") else Color.parseColor("#1E293B")
     }
 
     private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = if (isDarkTheme) Color.parseColor("#3CAEA3") else Color.WHITE
+        color = if (isDarkTheme) Color.parseColor("#3CAEA3") else Color.parseColor("#154B87")
     }
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = if (isDarkTheme) Color.parseColor("#3CAEA3") else Color.WHITE
+        color = if (isDarkTheme) Color.parseColor("#3CAEA3") else Color.parseColor("#1E293B")
         textSize = 22f * resources.displayMetrics.density
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        setShadowLayer(8f, 0f, 2f, Color.parseColor("#60000000"))
+        setShadowLayer(8f, 0f, 2f, if (isDarkTheme) Color.parseColor("#60000000") else Color.parseColor("#20000000"))
     }
 
     private var iconScale = 0f

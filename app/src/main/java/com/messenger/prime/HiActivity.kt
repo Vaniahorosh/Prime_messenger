@@ -102,7 +102,6 @@ class HiActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
-        PrimeTransitions.setupActivityTransitions(this)
 
         val sharedPreferences = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val isLoggedIn = sharedPreferences.getBoolean("is_logged_in", false)
@@ -144,7 +143,9 @@ class HiActivity : AppCompatActivity() {
         }
 
         setupTextSwitcher()
-        binding.tvLicense.setTextColor(Color.WHITE)
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        binding.tvLicense.setTextColor(if (isDark) Color.WHITE else Color.parseColor("#64748B"))
+        binding.btnExit.setColorFilter(if (isDark) Color.WHITE else Color.parseColor("#1E293B"))
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -238,16 +239,19 @@ class HiActivity : AppCompatActivity() {
 
     private fun updatePermissionsButtonUi() {
         val missing = getMissingPermissions()
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         if (missing.isEmpty()) {
             binding.btnPermissions.text = "Все разрешения приняты ✓"
             binding.btnPermissions.strokeColor = ColorStateList.valueOf(Color.parseColor("#4CAF50"))
             binding.btnPermissions.setTextColor(Color.parseColor("#4CAF50"))
-            binding.btnPermissions.setIconTintResource(R.color.prime_success)
+            binding.btnPermissions.iconTint = ColorStateList.valueOf(Color.parseColor("#4CAF50"))
         } else {
             binding.btnPermissions.text = "Разрешения приложения (${missing.size})"
-            binding.btnPermissions.strokeColor = ColorStateList.valueOf(Color.parseColor("#80FFFFFF"))
-            binding.btnPermissions.setTextColor(Color.WHITE)
-            binding.btnPermissions.setIconTintResource(R.color.white)
+            val strokeColor = if (isDark) Color.parseColor("#80FFFFFF") else Color.parseColor("#800F172A")
+            val textColor = if (isDark) Color.WHITE else Color.parseColor("#0F172A")
+            binding.btnPermissions.strokeColor = ColorStateList.valueOf(strokeColor)
+            binding.btnPermissions.setTextColor(textColor)
+            binding.btnPermissions.iconTint = ColorStateList.valueOf(textColor)
         }
     }
 
@@ -260,7 +264,7 @@ class HiActivity : AppCompatActivity() {
 
     private fun setupTextSwitcher() {
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val generalTextColor = Color.WHITE
+        val generalTextColor = if (isDark) Color.WHITE else Color.parseColor("#1E293B")
         val buttonTextColor = if (isDark) Color.WHITE else Color.parseColor("#154B87")
 
         binding.textSwitcherSlogan.setFactory {

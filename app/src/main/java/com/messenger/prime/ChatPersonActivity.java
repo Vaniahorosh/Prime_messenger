@@ -229,7 +229,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private final Queue<PendingMessage> pendingMessageQueue = new ConcurrentLinkedQueue<>();
     private volatile String pendingReadReceiptMsgId = null;
-    private final ExecutorService ioExecutor = Executors.newCachedThreadPool();
+    private ExecutorService ioExecutor = Executors.newCachedThreadPool();
+
+    private void runOnIoThread(Runnable runnable) {
+        if (ioExecutor != null && !ioExecutor.isShutdown()) {
+            try {
+                ioExecutor.execute(runnable);
+            } catch (Exception ignored) {}
+        }
+    }
 
     private String targetUsername;
     private String deviceAddress;
@@ -600,11 +608,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 controller.setAppearanceLightNavigationBars(!isDarkTheme);
             }
 
-            PrimeTransitions.setupActivityTransitions(this);
 
             setContentView(R.layout.activity_chat_person_content);
 
-        PrimeTransitions.attachSlidr(this);
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -1266,7 +1272,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     case MESSAGE_READ_PHOTO:
                         byte[] fullPayload = (byte[]) msg.obj;
                         if (fullPayload != null && fullPayload.length > 0) {
-                            ioExecutor.execute(() -> {
+                            runOnIoThread(() -> {
                                 try {
                                     String metaCheck = new String(fullPayload, 0, Math.min(fullPayload.length, 300), StandardCharsets.UTF_8);
                                     if (metaCheck.contains(":::MULTI:")) {
@@ -1426,7 +1432,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     case MESSAGE_READ_FILE:
                         byte[] fileBuf = (byte[]) msg.obj;
                         if (fileBuf != null && fileBuf.length > 0) {
-                            ioExecutor.execute(() -> {
+                            runOnIoThread(() -> {
                                 try {
                                     ChatMessage fileMsg = parseFileMessageBytes(fileBuf, targetUsername);
                                     if (fileMsg != null) {
@@ -3467,7 +3473,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
         }
 
-        ioExecutor.execute(() -> {
+        runOnIoThread(() -> {
             List<ChatMessage> history = ChatHistoryManager.loadMessages(ChatPersonActivity.this, targetUsername);
             for (ChatMessage m : history) {
                 if (m.isOutgoing() && (m.getMessageStatus() == MessageStatus.SENDING || m.getMessageStatus() == MessageStatus.NONE || m.getMessageStatus() == MessageStatus.ERROR)) {
@@ -3608,7 +3614,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         showSendingProgressUi(0);
 
-        ioExecutor.execute(() -> {
+        runOnIoThread(() -> {
             long timestamp = System.currentTimeMillis();
             String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(timestamp));
             String messageId = localUsername + "_" + timestamp + "_" + UUID.randomUUID().toString();
@@ -3684,7 +3690,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         senderTypingHandler.removeCallbacks(stopSenderTypingRunnable);
         sendActivityState("IDLE");
 
-        ioExecutor.execute(() -> {
+        runOnIoThread(() -> {
             try {
                 boolean isGif = false;
                 if (uri != null) {
@@ -3852,7 +3858,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void sendLocalAvatar(boolean force) {
         if (BluetoothConnectionManager.getInstance().getState() != BluetoothConnectionManager.ConnectionState.CONNECTED) return;
-        ioExecutor.execute(() -> {
+        runOnIoThread(() -> {
             try {
                 SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
                 String currentUser = sharedPrefs.getString("current_user", "");
@@ -4432,7 +4438,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 case TYPE_AVATAR:
                     if (payload.length > 0) {
                         final byte[] avatarPayload = payload;
-                        ioExecutor.execute(() -> {
+                        runOnIoThread(() -> {
                             try {
                                 boolean isGif = avatarPayload.length > 3 && avatarPayload[0] == (byte)'G' && avatarPayload[1] == (byte)'I' && avatarPayload[2] == (byte)'F';
                                 String ext = isGif ? ".gif" : ".jpg";
@@ -5789,7 +5795,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         showSendingProgressUi(0);
 
-        ioExecutor.execute(() -> {
+        runOnIoThread(() -> {
             try {
                 long timestamp = System.currentTimeMillis();
                 String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(timestamp));
@@ -6127,7 +6133,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void fetchTenorGifs(String query) {
         if (pbGifLoading != null) pbGifLoading.setVisibility(View.VISIBLE);
         if (tvGifEmpty != null) tvGifEmpty.setVisibility(View.GONE);
-        ioExecutor.execute(() -> {
+        runOnIoThread(() -> {
             List<TenorGifItem> gifList = new ArrayList<>();
             try {
                 // 1. Google Tenor v2 Official API
@@ -6309,7 +6315,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             return;
         }
         PrimeNotification.INSTANCE.show(this, "Загрузка GIF...", null);
-        ioExecutor.execute(() -> {
+        runOnIoThread(() -> {
             try {
                 URL url = new URL(item.fullUrl);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -7180,7 +7186,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private void loadGalleryMediaAsync() {
-        ioExecutor.execute(() -> {
+        runOnIoThread(() -> {
             List<MediaItem> list = new ArrayList<>();
             Uri queryUri = MediaStore.Files.getContentUri("external");
             String[] projection = new String[] {
@@ -7244,7 +7250,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private void loadFilesAsync() {
-        ioExecutor.execute(() -> {
+        runOnIoThread(() -> {
             List<FileItem> list = new ArrayList<>();
             Uri queryUri = MediaStore.Files.getContentUri("external");
             String[] projection = new String[] {

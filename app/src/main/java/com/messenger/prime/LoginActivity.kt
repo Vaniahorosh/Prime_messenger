@@ -46,7 +46,6 @@ class LoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
-        PrimeTransitions.setupActivityTransitions(this)
         
         setupEdgeToEdge()
 
@@ -191,18 +190,27 @@ class LoginActivity : AppCompatActivity() {
             }
         }
 
-        PrimeTransitions.attachSlidr(this)
     }
 
     private fun setupContrastColors(b: ActivityLoginContentBinding, darkTheme: Boolean) {
-        val titleColor = if (darkTheme) android.graphics.Color.parseColor("#F1F5F9") else android.graphics.Color.WHITE
-        val subtitleColor = if (darkTheme) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.argb(191, 255, 255, 255)
+        val titleColor = if (darkTheme) android.graphics.Color.parseColor("#F1F5F9") else android.graphics.Color.parseColor("#0F172A")
+        val subtitleColor = if (darkTheme) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
+        val iconTint = if (darkTheme) android.graphics.Color.WHITE else android.graphics.Color.parseColor("#1E293B")
         
         b.tvTitle.setTextColor(titleColor)
         b.tvSubtitle.setTextColor(subtitleColor)
+        b.btnBack.setColorFilter(iconTint)
+        
+        b.etLogin.setTextColor(titleColor)
+        b.etPassword.setTextColor(titleColor)
+        
+        b.inputLayoutPassword.setEndIconTintList(android.content.res.ColorStateList.valueOf(iconTint))
+        b.inputLayoutLogin.setEndIconTintList(android.content.res.ColorStateList.valueOf(iconTint))
+        b.inputLayoutLogin.defaultHintTextColor = android.content.res.ColorStateList.valueOf(subtitleColor)
+        b.inputLayoutPassword.defaultHintTextColor = android.content.res.ColorStateList.valueOf(subtitleColor)
         
         // Input layouts background and stroke
-        val inputBg = if (darkTheme) android.graphics.Color.argb(153, 15, 23, 42) else android.graphics.Color.argb(102, 21, 75, 135)
+        val inputBg = if (darkTheme) android.graphics.Color.argb(153, 15, 23, 42) else android.graphics.Color.argb(153, 255, 255, 255)
         b.inputLayoutLogin.boxBackgroundColor = inputBg
         b.inputLayoutPassword.boxBackgroundColor = inputBg
     }

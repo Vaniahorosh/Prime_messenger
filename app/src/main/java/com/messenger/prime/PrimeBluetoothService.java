@@ -218,6 +218,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             }
         } catch (Throwable ignored) {}
 
+        BluetoothConnectionManager.getInstance().disconnect();
         BluetoothSocketHolder.clearSocket();
 
         try {

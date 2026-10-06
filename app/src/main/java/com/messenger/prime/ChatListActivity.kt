@@ -2690,7 +2690,12 @@ class ChatListActivity : AppCompatActivity() {
                                                 isIncomingConnectionDialogVisible.value = false
                                                 val socket = incomingSocket
                                                 if (socket != null && socket.isConnected) {
-                                                    BluetoothSocketHolder.registerConnection(incomingDeviceMac, incomingDeviceName, socket, null)
+                                                    val remoteDevice = try { socket.remoteDevice } catch (e: Exception) { null }
+                                                    if (remoteDevice != null) {
+                                                        BluetoothConnectionManager.getInstance().onSocketConnected(socket, remoteDevice)
+                                                    } else {
+                                                        BluetoothSocketHolder.registerConnection(incomingDeviceMac, incomingDeviceName, socket, null)
+                                                    }
                                                     navigateToChatPerson(incomingDeviceName, incomingDeviceMac, useExistingSocket = true)
                                                 }
                                             },
@@ -4059,7 +4064,12 @@ class ChatListActivity : AppCompatActivity() {
                             incomingDeviceMac = devMac
                             isIncomingConnectionDialogVisible.value = true
                         } else {
-                            BluetoothSocketHolder.registerConnection(devMac, devName, socket, null)
+                            val remoteDevice = try { socket.remoteDevice } catch (e: Exception) { null }
+                            if (remoteDevice != null) {
+                                BluetoothConnectionManager.getInstance().onSocketConnected(socket, remoteDevice)
+                            } else {
+                                BluetoothSocketHolder.registerConnection(devMac, devName, socket, null)
+                            }
                             ChatListNotifier.notifyChanged()
                         }
                     }

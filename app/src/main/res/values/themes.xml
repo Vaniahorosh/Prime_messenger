@@ -12,9 +12,9 @@
         <item name="colorOnSecondaryContainer">@color/prime_text_primary</item>
         <item name="android:windowBackground">@color/prime_base</item>
         <item name="android:colorBackground">@color/prime_base</item>
-        <item name="colorSurface">@color/prime_base</item>
+        <item name="colorSurface">@color/prime_surface</item>
         <item name="colorOnSurface">@color/prime_text_primary</item>
-        <item name="colorSurfaceVariant">@color/prime_surface</item>
+        <item name="colorSurfaceVariant">@color/prime_search_bg</item>
         <item name="colorOnSurfaceVariant">@color/prime_text_secondary</item>
         <item name="colorSurfaceContainerHigh">@color/chat_island_bg</item>
         <item name="colorOutline">@color/prime_divider</item>

@@ -248,7 +248,6 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
-        PrimeTransitions.setupActivityTransitions(this)
         
         setContentView(R.layout.activity_settings)
 
@@ -480,7 +479,6 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        PrimeTransitions.attachSlidr(this)
 
         onBackPressedDispatcher.addCallback(this, backCallback)
     }
@@ -1945,29 +1943,24 @@ class SettingsActivity : AppCompatActivity() {
                 ?: sharedPrefs.getString("my_avatar_uri", null)
                 ?: sharedPrefs.getString("${currentUser}_avatar", "") ?: ""
 
-            val allThreads = BluetoothSocketHolder.getAllConnectedThreads()
-            for (threadObj in allThreads) {
-                if (threadObj is ChatPersonActivity.ConnectedThread && threadObj.isAlive) {
-                    val handshake = "HANDSHAKE:login=$currentUser;name=$myDisplayName;avatar=$localAvatarUri;version=${ChatPersonActivity.getAppVersionCode(this)}"
-                    threadObj.sendPacket(0x01.toByte(), handshake.toByteArray(Charsets.UTF_8))
+            val handshake = "HANDSHAKE:login=$currentUser;name=$myDisplayName;avatar=$localAvatarUri;version=${ChatPersonActivity.getAppVersionCode(this)}"
+            BluetoothConnectionManager.getInstance().broadcastPacket(0x01.toByte(), handshake.toByteArray(Charsets.UTF_8))
 
-                    if (localAvatarUri.isNotEmpty()) {
-                        try {
-                            val isStream = contentResolver.openInputStream(Uri.parse(localAvatarUri))
-                            if (isStream != null) {
-                                val bitmap = BitmapFactory.decodeStream(isStream)
-                                isStream.close()
-                                if (bitmap != null) {
-                                    val scaled = Bitmap.createScaledBitmap(bitmap, 96, 96, false)
-                                    val baos = ByteArrayOutputStream()
-                                    scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos)
-                                    threadObj.sendPacket(0x07.toByte(), baos.toByteArray())
-                                }
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
+            if (localAvatarUri.isNotEmpty()) {
+                try {
+                    val isStream = contentResolver.openInputStream(Uri.parse(localAvatarUri))
+                    if (isStream != null) {
+                        val bitmap = BitmapFactory.decodeStream(isStream)
+                        isStream.close()
+                        if (bitmap != null) {
+                            val scaled = Bitmap.createScaledBitmap(bitmap, 96, 96, false)
+                            val baos = ByteArrayOutputStream()
+                            scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos)
+                            BluetoothConnectionManager.getInstance().broadcastPacket(0x07.toByte(), baos.toByteArray())
                         }
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
         } catch (e: Exception) {
@@ -2020,25 +2013,14 @@ class SettingsActivity : AppCompatActivity() {
             negativeText = "Нет",
             isPositiveDanger = true,
             onPositive = {
-                val allThreads = BluetoothSocketHolder.getAllConnectedThreads()
-                if (allThreads.isNotEmpty()) {
-                    try {
-                        for (threadObj in allThreads) {
-                            if (threadObj != null) {
-                                val method = threadObj.javaClass.getMethod("sendPacket", Byte::class.java, ByteArray::class.java)
-                                val currentUser = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("current_user", "") ?: ""
-                                val myDisplayName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${currentUser}_name", currentUser) ?: currentUser
-                                val payload = "DELETE_CHAT:login=$myDisplayName;name=$myDisplayName".toByteArray(Charsets.UTF_8)
-                                method.invoke(threadObj, 8.toByte(), payload) // TYPE_CHAT_DELETED = 0x08
-                            }
-                        }
-                        Thread.sleep(100)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                    BluetoothSocketHolder.clearSocket()
-                    PrimeBluetoothService.stopService(this)
-                }
+                val currentUser = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("current_user", "") ?: ""
+                val myDisplayName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${currentUser}_name", currentUser) ?: currentUser
+                val payload = "DELETE_CHAT:login=$myDisplayName;name=$myDisplayName".toByteArray(Charsets.UTF_8)
+                BluetoothConnectionManager.getInstance().broadcastPacket(8.toByte(), payload) // TYPE_CHAT_DELETED = 0x08
+                Thread.sleep(100)
+                BluetoothConnectionManager.getInstance().disconnect()
+                BluetoothSocketHolder.clearSocket()
+                PrimeBluetoothService.stopService(this)
                 getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).edit().putBoolean("is_logged_in", false).apply()
                 startActivity(Intent(this, LoginActivity::class.java))
                 PrimeTransitions.applyOpenTransition(this)

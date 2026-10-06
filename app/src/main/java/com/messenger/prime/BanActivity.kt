@@ -62,7 +62,6 @@ class BanActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
-        PrimeTransitions.setupActivityTransitions(this)
         
         setContentView(R.layout.activity_ban)
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
@@ -111,7 +110,6 @@ class BanActivity : AppCompatActivity() {
             }
         }
 
-        PrimeTransitions.attachSlidr(this)
     }
 
     override fun onResume() {

@@ -27,13 +27,15 @@
             <!-- Шапка с фирменным цветом -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/headerStaticBlock"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:elevation="4dp"
                 android:paddingBottom="24dp"
                 android:clipChildren="false"
                 android:clipToPadding="false"
-                app:layout_constraintTop_toTopOf="parent">
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
 
                 <androidx.compose.ui.platform.ComposeView
                     android:id="@+id/composeHeaderBackground"
@@ -47,12 +49,15 @@
                 <!-- Режим с ФОТО -->
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/layoutWithPhoto"
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:paddingTop="16dp"
                     android:paddingBottom="16dp"
                     android:clipChildren="false"
                     android:clipToPadding="false"
+                    app:layout_constraintWidth_max="650dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent">
 
                     <!-- Кнопка Назад -->
@@ -304,11 +309,14 @@
                 <!-- Режим БЕЗ фото -->
                 <LinearLayout
                     android:id="@+id/layoutNoPhoto"
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:gravity="center_horizontal"
                     android:orientation="vertical"
                     android:paddingHorizontal="16dp"
+                    app:layout_constraintWidth_max="650dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
                     android:visibility="gone">
 
@@ -476,10 +484,14 @@
             <!-- Общий контейнер для всего контента под шапкой -->
             <LinearLayout
                 android:id="@+id/layoutSettingsBodyContainer"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                app:layout_constraintTop_toBottomOf="@+id/headerStaticBlock">
+                app:layout_constraintWidth_max="650dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/headerStaticBlock"
+                app:layout_constraintBottom_toBottomOf="parent">
 
                 <!-- Данные аккаунта -->
                 <LinearLayout

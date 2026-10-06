@@ -94,7 +94,6 @@ class RegisterActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
-        PrimeTransitions.setupActivityTransitions(this)
         
         setupEdgeToEdge()
         userLogin = intent.getStringExtra("EXTRA_LOGIN") ?: ""
@@ -233,14 +232,25 @@ class RegisterActivity : AppCompatActivity() {
             }
         }
 
-        PrimeTransitions.attachSlidr(this)
     }
 
     private fun setupContrastColors(b: ActivityRegisterContentBinding, darkTheme: Boolean) {
-        val welcomeColor = if (darkTheme) android.graphics.Color.parseColor("#F1F5F9") else android.graphics.Color.WHITE
+        val welcomeColor = if (darkTheme) android.graphics.Color.parseColor("#F1F5F9") else android.graphics.Color.parseColor("#0F172A")
+        val iconTint = if (darkTheme) android.graphics.Color.WHITE else android.graphics.Color.parseColor("#1E293B")
+        val subtitleColor = if (darkTheme) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
+
         b.tvWelcome.setTextColor(welcomeColor)
+        b.btnBack.setColorFilter(iconTint)
         
-        val inputBg = if (darkTheme) android.graphics.Color.argb(153, 15, 23, 42) else android.graphics.Color.argb(102, 21, 75, 135)
+        b.etName.setTextColor(welcomeColor)
+        b.etPassword.setTextColor(welcomeColor)
+        
+        b.inputLayoutPassword.setEndIconTintList(android.content.res.ColorStateList.valueOf(iconTint))
+        b.inputLayoutName.setEndIconTintList(android.content.res.ColorStateList.valueOf(iconTint))
+        b.inputLayoutName.defaultHintTextColor = android.content.res.ColorStateList.valueOf(subtitleColor)
+        b.inputLayoutPassword.defaultHintTextColor = android.content.res.ColorStateList.valueOf(subtitleColor)
+        
+        val inputBg = if (darkTheme) android.graphics.Color.argb(153, 15, 23, 42) else android.graphics.Color.argb(153, 255, 255, 255)
         b.inputLayoutName.boxBackgroundColor = inputBg
         b.inputLayoutPassword.boxBackgroundColor = inputBg
     }
