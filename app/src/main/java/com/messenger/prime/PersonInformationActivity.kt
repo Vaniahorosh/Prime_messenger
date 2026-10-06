@@ -474,46 +474,18 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     private fun showBlurDeleteChatDialog() {
-        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_blur_delete_chat, null)
-        val blurCard = dialogView.findViewById<BlurView>(R.id.blurDialogCard)
-        val tvTitle = dialogView.findViewById<TextView>(R.id.tvBlurDialogTitle)
-        val btnNo = dialogView.findViewById<View>(R.id.btnBlurDialogNo)
-        val btnYes = dialogView.findViewById<View>(R.id.btnBlurDialogYes)
-
         val displayTitleName = if (BluetoothAdapter.checkBluetoothAddress(targetUsername)) "собеседником" else targetUsername
-        tvTitle.text = "Удалить чат с $displayTitleName?"
-
-        val dialog = MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
-            .setView(dialogView)
-            .create()
-
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-
-        dialog.setOnShowListener {
-            val decorView = window.decorView as? ViewGroup
-            if (decorView != null && blurCard != null) {
-                val algorithm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    RenderEffectBlur()
-                } else {
-                    RenderScriptBlur(this)
-                }
-                blurCard.setupWith(decorView, algorithm)
-                    .setBlurRadius(20f)
-                    .setOverlayColor(Color.parseColor("#80154B87"))
-                    .setBlurAutoUpdate(true)
+        PrimeBlurDialog.show(
+            activity = this,
+            title = "Удалить чат с $displayTitleName?",
+            message = "Вы уверены, что хотите полностью удалить данный чат и очистить всю переписку?",
+            positiveText = "Удалить",
+            negativeText = "Отмена",
+            isPositiveDanger = true,
+            onPositive = {
+                performCompleteChatDeletion()
             }
-        }
-
-        btnNo.setOnClickListener {
-            dialog.dismiss()
-        }
-
-        btnYes.setOnClickListener {
-            dialog.dismiss()
-            performCompleteChatDeletion()
-        }
-
-        dialog.show()
+        )
     }
 
     private fun performCompleteChatDeletion() {
@@ -550,32 +522,16 @@ class PersonInformationActivity : AppCompatActivity() {
 
         // 2. Unbond / remove bond from Bluetooth adapter
         try {
-            val adapter = BluetoothAdapter.getDefaultAdapter()
-            if (adapter != null) {
-                val mac = if (!deviceAddress.isNullOrEmpty() && BluetoothAdapter.checkBluetoothAddress(deviceAddress)) deviceAddress
-                          else if (BluetoothAdapter.checkBluetoothAddress(targetUsername)) targetUsername
-                          else getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${targetUsername}_mac", null)
+            val mac = if (!deviceAddress.isNullOrEmpty() && BluetoothAdapter.checkBluetoothAddress(deviceAddress)) deviceAddress
+                      else if (BluetoothAdapter.checkBluetoothAddress(targetUsername)) targetUsername
+                      else getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${targetUsername}_mac", null)
 
-                if (!mac.isNullOrEmpty() && BluetoothAdapter.checkBluetoothAddress(mac)) {
-                    val device = adapter.getRemoteDevice(mac)
-                    if (device != null) {
-                        try {
-                            val cancelBond = device.javaClass.getMethod("cancelBondProcess")
-                            cancelBond.invoke(device)
-                        } catch (_: Exception) {}
-
-                        try {
-                            val removeBond = device.javaClass.getMethod("removeBond")
-                            val res = removeBond.invoke(device) as? Boolean
-                            Log.d("ChatDeletion", "removeBond result for $mac: $res")
-                        } catch (e: Exception) {
-                            Log.e("ChatDeletion", "Failed to invoke removeBond", e)
-                        }
-                    }
-                }
+            if (!mac.isNullOrEmpty()) {
+                BluetoothConnectionManager.getInstance().blockMacAddress(mac, 0, "Chat deleted")
+                BluetoothConnectionManager.getInstance().disconnect(mac)
             }
         } catch (e: Exception) {
-            Log.w("PersonInfo", "Failed to remove bond", e)
+            Log.w("PersonInfo", "Failed to disconnect deleted chat", e)
         }
 
         if (!BluetoothSocketHolder.hasAnyActiveConnection()) {

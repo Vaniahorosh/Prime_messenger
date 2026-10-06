@@ -36,6 +36,9 @@ class HorizontalContactAdapter(
         val displayName = if (isBtAddress) "Собеседник" else contact.name
         binding.tvName.text = displayName
 
+        try {
+            com.bumptech.glide.Glide.with(context).clear(binding.ivAvatar)
+        } catch (_: Exception) {}
         binding.ivAvatar.setImageDrawable(null)
 
         var loaded = false
@@ -56,14 +59,27 @@ class HorizontalContactAdapter(
         }
 
         if (!loaded) {
-            val possible = listOfNotNull(
-                File(context.filesDir, "rec_avatar_${contact.name}.gif"),
-                File(context.filesDir, "rec_avatar_${contact.id}.gif"),
-                File(context.filesDir, "rec_avatar_${contact.name}.jpg"),
-                File(context.filesDir, "rec_avatar_${contact.id}.jpg"),
-                File(context.filesDir, "avatar_${contact.name}.jpg"),
-                File(context.filesDir, "avatar_${contact.id}.jpg")
-            )
+            val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", android.content.Context.MODE_PRIVATE)
+            val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+            val myName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: ""
+            val isGeneric = displayName.equals("Собеседник", ignoreCase = true) ||
+                            displayName.equals("Prime Собеседник", ignoreCase = true) ||
+                            displayName.equals("Пользователь", ignoreCase = true) ||
+                            displayName.equals("Prime User", ignoreCase = true) ||
+                            displayName.equals("Контакт", ignoreCase = true)
+            val isLocalName = contact.name.equals(currentUser, ignoreCase = true) || contact.name.equals(myName, ignoreCase = true)
+            val isLocalId = contact.id.equals(currentUser, ignoreCase = true) || contact.id.equals(myName, ignoreCase = true)
+
+            val possible = mutableListOf<File>()
+            if (!contact.id.isNullOrEmpty() && !isLocalId && !isGeneric) {
+                possible.add(File(context.filesDir, "rec_avatar_${contact.id}.gif"))
+                possible.add(File(context.filesDir, "rec_avatar_${contact.id}.jpg"))
+            }
+            if (!contact.name.isNullOrEmpty() && !isLocalName && !isGeneric) {
+                possible.add(File(context.filesDir, "rec_avatar_${contact.name}.gif"))
+                possible.add(File(context.filesDir, "rec_avatar_${contact.name}.jpg"))
+            }
+
             val found = possible.firstOrNull { it.exists() && it.length() > 0 }
             if (found != null) {
                 try {

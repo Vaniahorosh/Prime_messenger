@@ -327,7 +327,7 @@ class ChatListAdapter(
             binding.ivMuteStatus.visibility = if (chat.isMuted) View.VISIBLE else View.GONE
         }
 
-        if (diffBundle.containsKey("avatarUri")) {
+        if (diffBundle.containsKey("avatarUri") || diffBundle.containsKey("name")) {
             super.onBindViewHolder(holder, position, payloads)
         }
     }
@@ -355,6 +355,9 @@ class ChatListAdapter(
 
                 holder.resetReveal()
 
+                try {
+                    Glide.with(context).clear(binding.ivUserAvatar)
+                } catch (_: Exception) {}
                 binding.ivUserAvatar.setImageDrawable(null)
                 binding.tvUserInitials.visibility = View.GONE
                 binding.ivUserAvatar.visibility = View.INVISIBLE
@@ -418,6 +421,10 @@ class ChatListAdapter(
                     binding.tvUserInitials.visibility = View.GONE
                 } else {
                     var avatarLoaded = false
+                    val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                    val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+                    val myDisplayName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: ""
+
                     if (!chat.avatarUri.isNullOrEmpty()) {
                         try {
                             val uri = chat.avatarUri.toUri()
@@ -439,10 +446,12 @@ class ChatListAdapter(
                     }
 
                     if (!avatarLoaded) {
-                        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-                        val prefAvatar = sharedPrefs.getString("contact_avatar_${chat.id}", null)
-                            ?: sharedPrefs.getString("${chat.id}_avatarUri", null)
-                            ?: sharedPrefs.getString("${chat.id}_avatar", null)
+                        val isLocalChatId = chat.id.equals(currentUser, ignoreCase = true) || chat.id.equals(myDisplayName, ignoreCase = true)
+                        val prefAvatar = if (!isLocalChatId) {
+                            sharedPrefs.getString("contact_avatar_${chat.id}", null)
+                                ?: sharedPrefs.getString("${chat.id}_avatarUri", null)
+                                ?: sharedPrefs.getString("${chat.id}_avatar", null)
+                        } else null
 
                         if (!prefAvatar.isNullOrEmpty()) {
                             try {
@@ -466,19 +475,17 @@ class ChatListAdapter(
                                         chat.name.equals("Пользователь", ignoreCase = true) ||
                                         chat.name.equals("Prime User", ignoreCase = true) ||
                                         chat.name.equals("Контакт", ignoreCase = true)
+                        val isLocalId = chat.id.equals(currentUser, ignoreCase = true) || chat.id.equals(myDisplayName, ignoreCase = true)
+                        val isLocalName = chat.name.equals(currentUser, ignoreCase = true) || chat.name.equals(myDisplayName, ignoreCase = true)
 
                         val possibleFiles = mutableListOf<File>()
-                        if (!chat.id.isNullOrEmpty()) {
+                        if (!chat.id.isNullOrEmpty() && !isLocalId && !isGeneric) {
                             possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.id}.gif"))
                             possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.id}.jpg"))
-                            possibleFiles.add(File(context.filesDir, "avatar_${chat.id}.gif"))
-                            possibleFiles.add(File(context.filesDir, "avatar_${chat.id}.jpg"))
                         }
-                        if (!isGeneric && !chat.name.isNullOrEmpty()) {
+                        if (!chat.name.isNullOrEmpty() && !isLocalName && !isGeneric) {
                             possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.name}.gif"))
                             possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.name}.jpg"))
-                            possibleFiles.add(File(context.filesDir, "avatar_${chat.name}.gif"))
-                            possibleFiles.add(File(context.filesDir, "avatar_${chat.name}.jpg"))
                         }
 
                         for (targetFile in possibleFiles) {

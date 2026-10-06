@@ -7,22 +7,35 @@
     android:orientation="vertical"
     android:padding="4dp">
 
-    <TextView
-        android:id="@+id/tvDateHeader"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:id="@+id/layoutDateHeader"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
-        android:background="@drawable/bg_date_bubble"
-        android:paddingStart="12dp"
-        android:paddingTop="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
         android:paddingEnd="12dp"
-        android:paddingBottom="4dp"
-        android:textColor="@color/chat_date_bubble_text"
-        android:textSize="12sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
+        android:paddingTop="12dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tvDateHeader"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/prime_brand"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            tools:text="Сегодня" />
+
+        <View
+            android:id="@+id/vDateHeaderLine"
+            android:layout_width="0dp"
+            android:layout_height="1.5dp"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:background="@color/prime_brand" />
+    </LinearLayout>
 
     <!-- Разделитель "Новое сообщение" -->
     <LinearLayout
@@ -571,6 +584,17 @@
                 android:gravity="center"
                 android:text="👍"
                 android:textSize="16sp" />
+
+            <ImageButton
+                android:id="@+id/btnExpandReactions"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Все реакции"
+                android:padding="4dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_expand_more"
+                app:tint="@color/prime_text_primary" />
 
             <View
                 android:layout_width="1dp"

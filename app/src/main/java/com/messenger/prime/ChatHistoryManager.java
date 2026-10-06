@@ -213,26 +213,14 @@ public class ChatHistoryManager {
 
                 if (matchAddr || matchMappedMac || matchName || matchNameAddr) {
                     try {
+                        BluetoothConnectionManager.getInstance().blockMacAddress(devAddr, 0, "Chat deleted");
                         BluetoothConnectionManager.getInstance().disconnect(devAddr);
                         PrimeBluetoothService.cancelReconnect(context, devAddr);
                     } catch (Exception ignored) {}
-
-                    try {
-                        Method cancelBond = dev.getClass().getMethod("cancelBondProcess");
-                        cancelBond.invoke(dev);
-                    } catch (Exception ignored) {}
-
-                    try {
-                        Method removeBondMethod = dev.getClass().getMethod("removeBond");
-                        Boolean res = (Boolean) removeBondMethod.invoke(dev);
-                        Log.d("ChatHistoryManager", "Unpair result for " + devAddr + " (" + devName + "): " + res);
-                    } catch (Exception e) {
-                        Log.e("ChatHistoryManager", "Failed to unpair bluetooth device " + devAddr, e);
-                    }
                 }
             }
         } catch (Exception e) {
-            Log.e("ChatHistoryManager", "Error unpairing bluetooth device", e);
+            Log.e("ChatHistoryManager", "Error clearing chat connection", e);
         }
     }
 
@@ -314,6 +302,28 @@ public class ChatHistoryManager {
                     m.setText(newText);
                     updated = true;
                     break;
+                }
+            }
+            if (!updated) {
+                for (int i = 0; i < history.size(); i++) {
+                    ChatMessage m = history.get(i);
+                    if (m.getMessageId() != null && (cleanId.contains(m.getMessageId()) || m.getMessageId().contains(cleanId))) {
+                        m.setEdited(true);
+                        m.setText(newText);
+                        updated = true;
+                        break;
+                    }
+                }
+            }
+            if (!updated && !history.isEmpty()) {
+                for (int i = history.size() - 1; i >= 0; i--) {
+                    ChatMessage m = history.get(i);
+                    if (!m.isOutgoing()) {
+                        m.setEdited(true);
+                        m.setText(newText);
+                        updated = true;
+                        break;
+                    }
                 }
             }
             if (updated) {

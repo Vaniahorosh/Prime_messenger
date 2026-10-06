@@ -18,6 +18,7 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
     override fun onCreate() {
         super.onCreate()
         registerActivityLifecycleCallbacks(this)
+        sanitizeLocalUserProfile(this)
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val theme = sharedPrefs.getString("app_theme", "system")
         when (theme) {
@@ -133,7 +134,7 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         activityStack.add(WeakReference(activity))
         ColorAccentManager.applyAccentToActivity(activity)
         PrimeTransitions.setupActivityTransitions(activity)
-        if (activity !is SplashActivity && activity !is ChatListActivity && activity !is HiActivity && activity !is ChatPlaceholderActivity) {
+        if (activity !is SplashActivity && activity !is ChatListActivity && activity !is HiActivity && activity !is ChatPlaceholderActivity && activity !is MediaPlayerActivity && activity !is PhotoEditorActivity) {
             PrimeTransitions.attachSlidr(activity)
             if (activity is ComponentActivity) {
                 PrimePredictiveBack.attach(activity)

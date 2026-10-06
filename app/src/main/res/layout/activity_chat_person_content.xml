@@ -231,28 +231,27 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
     </eightbitlab.com.blurview.BlurView>
 
-    <!-- Плавающая плашка даты -->
+    <!-- Плавающая плашка даты при скроллинге (текст слева) -->
     <TextView
         android:id="@+id/tvFloatingDate"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="88dp"
-        android:alpha="0"
-        android:background="@drawable/bg_date_bubble"
+        android:layout_marginTop="2dp"
+        android:layout_marginStart="16dp"
+        android:background="@drawable/bg_floating_island"
         android:clickable="true"
         android:focusable="true"
-        android:elevation="6dp"
-        android:paddingStart="14dp"
-        android:paddingTop="6dp"
-        android:paddingEnd="14dp"
-        android:paddingBottom="6dp"
-        tools:text="12 марта"
-        android:textColor="@color/chat_date_bubble_text"
+        android:elevation="30dp"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="5dp"
+        android:textColor="@color/white"
         android:textSize="12sp"
         android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"
+        tools:text="12 марта"
+        tools:visibility="visible"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/layoutHeader" />
 
     <!-- Кнопка прокрутки вниз -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton

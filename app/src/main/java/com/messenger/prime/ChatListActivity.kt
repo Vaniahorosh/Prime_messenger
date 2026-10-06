@@ -398,17 +398,23 @@ fun CachedAvatarView(name: String, macAddress: String, modifier: Modifier = Modi
                     candidates.add(File(avatarUriStr))
                 }
             }
-            if (macAddress.isNotEmpty()) {
+            val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+            val myName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: ""
+            val isGenericName = name.equals("Собеседник", ignoreCase = true) ||
+                                name.equals("Prime Собеседник", ignoreCase = true) ||
+                                name.equals("Пользователь", ignoreCase = true) ||
+                                name.equals("Prime User", ignoreCase = true) ||
+                                name.equals("Контакт", ignoreCase = true)
+            val isLocalName = name.equals(currentUser, ignoreCase = true) || name.equals(myName, ignoreCase = true)
+            val isLocalMac = macAddress.equals(currentUser, ignoreCase = true) || macAddress.equals(myName, ignoreCase = true)
+
+            if (macAddress.isNotEmpty() && !isLocalMac && !isGenericName) {
                 candidates.add(File(context.filesDir, "rec_avatar_$macAddress.gif"))
                 candidates.add(File(context.filesDir, "rec_avatar_$macAddress.jpg"))
-                candidates.add(File(context.filesDir, "avatar_$macAddress.gif"))
-                candidates.add(File(context.filesDir, "avatar_$macAddress.jpg"))
             }
-            if (name.isNotEmpty()) {
+            if (name.isNotEmpty() && !isLocalName && !isGenericName) {
                 candidates.add(File(context.filesDir, "rec_avatar_$name.gif"))
                 candidates.add(File(context.filesDir, "rec_avatar_$name.jpg"))
-                candidates.add(File(context.filesDir, "avatar_$name.gif"))
-                candidates.add(File(context.filesDir, "avatar_$name.jpg"))
             }
 
             val foundFile = candidates.firstOrNull { it.exists() && it.length() > 0 }
@@ -623,17 +629,20 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private fun showSettingsDialog() {
-        AlertDialog.Builder(this, R.style.Theme_Prime_AlertDialog)
-            .setTitle("Требуется доступ к Bluetooth")
-            .setMessage("Для поиска собеседников поблизости приложению необходим доступ к Bluetooth. Пожалуйста, включите его в настройках.")
-            .setPositiveButton("Открыть настройки") { _, _ ->
+        PrimeBlurDialog.show(
+            activity = this,
+            title = "Требуется доступ к Bluetooth",
+            message = "Для поиска собеседников поблизости приложению необходим доступ к Bluetooth. Пожалуйста, включите его в настройках.",
+            positiveText = "Открыть настройки",
+            negativeText = "Отмена",
+            iconRes = R.drawable.ic_prime_statusbar,
+            onPositive = {
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                 val uri = Uri.fromParts("package", packageName, null)
                 intent.data = uri
                 startActivity(intent)
             }
-            .setNegativeButton("Отмена", null)
-            .show()
+        )
     }
 
     private val requestNotificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -825,6 +834,7 @@ class ChatListActivity : AppCompatActivity() {
         private var editingMessageId: String? = null
         private var replyingToMessage: ChatMessage? = null
 
+        private var embeddedRetryCount = 0
         private val autoRetryHandler = Handler(Looper.getMainLooper())
         private val autoRetryRunnable = object : Runnable {
             override fun run() {
@@ -832,30 +842,37 @@ class ChatListActivity : AppCompatActivity() {
                 val isConn = BluetoothConnectionManager.getInstance().isConnected(target) ||
                     BluetoothSocketHolder.isConnectedWith(activeDeviceAddress, activeTargetUsername)
                 if (!isConn && BluetoothAdapter.checkBluetoothAddress(target)) {
-                    try {
-                        val bManager = activity.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-                        val bAdapter = bManager?.adapter
-                        if (bAdapter != null && bAdapter.isEnabled) {
-                            val device = bAdapter.getRemoteDevice(target)
-                            val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-                            val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-                            val myDisplayName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: currentUser
-                            val savedName = sharedPrefs.getString("contact_name_$target", null) ?: activeTargetUsername ?: target
+                    if (embeddedRetryCount < 3) {
+                        embeddedRetryCount++
+                        try {
+                            val bManager = activity.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+                            val bAdapter = bManager?.adapter
+                            if (bAdapter != null && bAdapter.isEnabled) {
+                                val device = bAdapter.getRemoteDevice(target)
+                                val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                                val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+                                val myDisplayName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: currentUser
+                                val savedName = sharedPrefs.getString("contact_name_$target", null) ?: activeTargetUsername ?: target
 
-                            BluetoothConnectionManager.getInstance().connectToDevice(
-                                bAdapter,
-                                device,
-                                UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66"),
-                                myDisplayName,
-                                savedName,
-                                true
-                            )
+                                BluetoothConnectionManager.getInstance().connectToDevice(
+                                    bAdapter,
+                                    device,
+                                    UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66"),
+                                    myDisplayName,
+                                    savedName,
+                                    true
+                                )
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                        val nextDelay = if (embeddedRetryCount == 1) 3000L else if (embeddedRetryCount == 2) 8000L else 18000L
+                        autoRetryHandler.postDelayed(this, nextDelay)
+                    } else {
+                        updateInputState(false)
                     }
-                    autoRetryHandler.postDelayed(this, 4000)
                 } else {
+                    embeddedRetryCount = 0
                     updateInputState(isConn)
                 }
             }
@@ -992,6 +1009,7 @@ class ChatListActivity : AppCompatActivity() {
             this.activeTargetUsername = targetUsername
             this.activeDeviceAddress = deviceAddress
 
+            embeddedRetryCount = 0
             autoRetryHandler.removeCallbacksAndMessages(null)
             autoRetryHandler.post(autoRetryRunnable)
 
@@ -1066,21 +1084,22 @@ class ChatListActivity : AppCompatActivity() {
 
             b.layoutHeader.setOnLongClickListener {
                 val menuOptions = arrayOf("👤 Профиль контакта", "🧹 Очистить историю сообщений", "🔌 Переподключиться")
-                MaterialAlertDialogBuilder(activity)
-                    .setTitle(displayContactName)
-                    .setItems(menuOptions) { _, which ->
-                        when (which) {
-                            0 -> b.layoutHeader.performClick()
-                            1 -> showClearHistoryDialog()
-                            2 -> {
-                                autoRetryHandler.removeCallbacksAndMessages(null)
-                                autoRetryHandler.post(autoRetryRunnable)
-                                PrimeNotification.show(activity, "Попытка переподключения...")
-                            }
+                PrimeBlurDialog.showList(
+                    activity = activity,
+                    title = displayContactName,
+                    items = menuOptions
+                ) { index, _ ->
+                    when (index) {
+                        0 -> b.layoutHeader.performClick()
+                        1 -> showClearHistoryDialog()
+                        2 -> {
+                            embeddedRetryCount = 0
+                            autoRetryHandler.removeCallbacksAndMessages(null)
+                            autoRetryHandler.post(autoRetryRunnable)
+                            PrimeNotification.show(activity, "Попытка переподключения...")
                         }
                     }
-                    .setNegativeButton("Отмена", null)
-                    .show()
+                }
                 true
             }
 
@@ -1094,6 +1113,7 @@ class ChatListActivity : AppCompatActivity() {
                 setOnMessageActionListener(this@EmbeddedChatViewController)
                 setMessages(history)
             }
+            b.rvMessages.setItemViewCacheSize(6)
             b.rvMessages.layoutManager = LinearLayoutManager(activity).apply {
                 stackFromEnd = true
             }
@@ -1136,6 +1156,7 @@ class ChatListActivity : AppCompatActivity() {
 
                 override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
                     super.onScrollStateChanged(recyclerView, newState)
+                    chatAdapter?.setScrolling(newState != RecyclerView.SCROLL_STATE_IDLE)
                     if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                         b.tvFloatingDate.animate().alpha(0f).setDuration(500).setStartDelay(1000).start()
                     }
@@ -1728,16 +1749,19 @@ class ChatListActivity : AppCompatActivity() {
             val user = activeTargetUsername ?: return
             val targetAddr = if (!activeDeviceAddress.isNullOrEmpty()) activeDeviceAddress!! else user
 
-            MaterialAlertDialogBuilder(activity)
-                .setTitle("Очистить историю?")
-                .setMessage("Вы уверены, что хотите полностью удалить историю сообщений с $user?")
-                .setPositiveButton("Удалить") { _, _ ->
+            PrimeBlurDialog.show(
+                activity = activity,
+                title = "Очистить историю?",
+                message = "Вы уверены, что хотите полностью удалить историю сообщений с $user?",
+                positiveText = "Удалить",
+                negativeText = "Отмена",
+                isPositiveDanger = true,
+                onPositive = {
                     ChatHistoryManager.deleteHistoryCompletely(activity, user, targetAddr)
                     chatAdapter?.setMessages(emptyList())
                     PrimeNotification.show(activity, "История сообщений очищена")
                 }
-                .setNegativeButton("Отмена", null)
-                .show()
+            )
         }
 
         override fun onReplyMessage(message: ChatMessage?, position: Int) {
@@ -1784,14 +1808,14 @@ class ChatListActivity : AppCompatActivity() {
             }
 
             val chatArray = chatNames.toTypedArray()
-            MaterialAlertDialogBuilder(activity)
-                .setTitle("Переслать сообщение")
-                .setItems(chatArray) { _, which ->
-                    val selectedTarget = chatArray[which]
-                    forwardMessageToTarget(message, selectedTarget)
-                }
-                .setNegativeButton("Отмена", null)
-                .show()
+            PrimeBlurDialog.showList(
+                activity = activity,
+                title = "Переслать сообщение",
+                items = chatArray
+            ) { index, _ ->
+                val selectedTarget = chatArray[index]
+                forwardMessageToTarget(message, selectedTarget)
+            }
         }
 
         private fun forwardMessageToTarget(messageToForward: ChatMessage, targetName: String) {
@@ -1935,8 +1959,10 @@ class ChatListActivity : AppCompatActivity() {
                 if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
                     return@runOnUiThread
                 }
-                triggerPrimeFoundVibration()
-                PrimeNotification.show(this@ChatListActivity, "Найден: $finalName")
+                if (isContactDialogVisible.value) {
+                    triggerPrimeFoundVibration()
+                    PrimeNotification.show(this@ChatListActivity, "Найден: $finalName")
+                }
                 if (::adapter.isInitialized) {
                     adapter.updateList(allChats)
                 }
@@ -2661,9 +2687,21 @@ class ChatListActivity : AppCompatActivity() {
                             onDispose {}
                         }
 
+                        val animScale = remember { androidx.compose.animation.core.Animatable(0.82f) }
+                        val animAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+                        LaunchedEffect(Unit) {
+                            launch { animScale.animateTo(1f, androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow, dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy)) }
+                            launch { animAlpha.animateTo(1f, androidx.compose.animation.core.tween(220)) }
+                        }
+
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .graphicsLayer {
+                                    scaleX = animScale.value
+                                    scaleY = animScale.value
+                                    alpha = animAlpha.value
+                                }
                                 .clickable { 
                                     isIncomingConnectionDialogVisible.value = false
                                     try { incomingSocket?.close() } catch (e: Exception) {}
@@ -2767,9 +2805,21 @@ class ChatListActivity : AppCompatActivity() {
                             onDispose {}
                         }
 
+                        val animScale = remember { androidx.compose.animation.core.Animatable(0.82f) }
+                        val animAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+                        LaunchedEffect(Unit) {
+                            launch { animScale.animateTo(1f, androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow, dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy)) }
+                            launch { animAlpha.animateTo(1f, androidx.compose.animation.core.tween(220)) }
+                        }
+
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .graphicsLayer {
+                                    scaleX = animScale.value
+                                    scaleY = animScale.value
+                                    alpha = animAlpha.value
+                                }
                                 .clickable { isFoundDeviceDialogVisible.value = false },
                             contentAlignment = Alignment.Center
                         ) {
@@ -2859,9 +2909,21 @@ class ChatListActivity : AppCompatActivity() {
                             onDispose {}
                         }
 
+                        val animScale = remember { androidx.compose.animation.core.Animatable(0.82f) }
+                        val animAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+                        LaunchedEffect(Unit) {
+                            launch { animScale.animateTo(1f, androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow, dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy)) }
+                            launch { animAlpha.animateTo(1f, androidx.compose.animation.core.tween(220)) }
+                        }
+
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .graphicsLayer {
+                                    scaleX = animScale.value
+                                    scaleY = animScale.value
+                                    alpha = animAlpha.value
+                                }
                                 .clickable { isNameEditDialogVisible.value = false },
                             contentAlignment = Alignment.Center
                         ) {
@@ -3223,6 +3285,27 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateNavUnreadBadge(navView: View) {
+        val tvNavChatsUnreadBadge = navView.findViewById<TextView>(R.id.tvNavChatsUnreadBadge) ?: return
+        var totalUnread = 0
+        try {
+            val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val json = sharedPrefs.getString("persisted_chats", "[]") ?: "[]"
+            val array = org.json.JSONArray(json)
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                totalUnread += obj.optInt("unreadCount", 0)
+            }
+        } catch (_: Exception) {}
+
+        if (totalUnread > 0) {
+            tvNavChatsUnreadBadge.text = if (totalUnread > 99) "99+" else totalUnread.toString()
+            tvNavChatsUnreadBadge.visibility = View.VISIBLE
+        } else {
+            tvNavChatsUnreadBadge.visibility = View.GONE
+        }
+    }
+
     private fun updateM3TabState(
         isActive: Boolean,
         indicatorView: View?,
@@ -3239,16 +3322,35 @@ class ChatListActivity : AppCompatActivity() {
 
         if (isActive) {
             indicatorView.backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+            indicatorView.animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .alpha(1.0f)
+                .setDuration(220)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.1f))
+                .start()
+
             iconView?.setColorFilter(android.graphics.Color.WHITE)
+            iconView?.animate()?.scaleX(1.1f)?.scaleY(1.1f)?.setDuration(180)?.start()
+
             labelView.setTextColor(accentColor)
             labelView.setTypeface(null, android.graphics.Typeface.BOLD)
-            labelView.alpha = 1.0f
+            labelView.animate()?.scaleX(1.05f)?.scaleY(1.05f)?.alpha(1.0f)?.setDuration(180)?.start()
         } else {
             indicatorView.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+            indicatorView.animate()
+                .scaleX(0.7f)
+                .scaleY(0.7f)
+                .alpha(0f)
+                .setDuration(180)
+                .start()
+
             iconView?.setColorFilter(visibleInactiveColor)
+            iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
+
             labelView.setTextColor(visibleInactiveColor)
             labelView.setTypeface(null, android.graphics.Typeface.NORMAL)
-            labelView.alpha = 1.0f
+            labelView.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.alpha(0.85f)?.setDuration(180)?.start()
         }
     }
 
@@ -3385,6 +3487,7 @@ class ChatListActivity : AppCompatActivity() {
         updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, tvNavDevicesLabel, accentColor, secondaryColor)
         updateM3TabState(false, vNavSearchIndicator, ivNavSearchIcon, tvNavSearchLabel, accentColor, secondaryColor)
         updateM3TabState(false, vNavProfileIndicator, null, tvNavProfileLabel, accentColor, secondaryColor)
+        updateNavUnreadBadge(navView)
 
         val profileAvatarIv = navView.findViewById<ImageView>(R.id.ivNavProfileAvatar)
         if (profileAvatarIv != null) {
@@ -3534,10 +3637,14 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private fun showLogoutDialog() {
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
-            .setTitle("Выход")
-            .setMessage("Сделать выход из аккаунта?")
-            .setPositiveButton("Да") { _, _ ->
+        PrimeBlurDialog.show(
+            activity = this,
+            title = "Выход",
+            message = "Выполнить выход из аккаунта?",
+            positiveText = "Да",
+            negativeText = "Отмена",
+            isPositiveDanger = true,
+            onPositive = {
                 getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).edit()
                     .putBoolean("is_logged_in", false)
                     .apply()
@@ -3545,8 +3652,7 @@ class ChatListActivity : AppCompatActivity() {
                 finishAffinity()
                 PrimeTransitions.applyOpenTransition(this)
             }
-            .setNegativeButton("Нет", null)
-            .show()
+        )
     }
 
     private fun deleteContact(contact: ChatModel) {
@@ -4086,24 +4192,42 @@ class ChatListActivity : AppCompatActivity() {
 
                     runOnUiThread {
                         if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                            try { socket.close() } catch (e: Exception) {}
-                            return@runOnUiThread
-                        }
-
-                        if (!isIncomingConnectionDialogVisible.value) {
-                            triggerPrimeFoundVibration()
-                            incomingSocket = socket
-                            incomingDeviceName = devName
-                            incomingDeviceMac = devMac
-                            isIncomingConnectionDialogVisible.value = true
-                        } else {
-                            val remoteDevice = try { socket.remoteDevice } catch (e: Exception) { null }
-                            if (remoteDevice != null) {
-                                BluetoothConnectionManager.getInstance().onSocketConnected(socket, remoteDevice)
+                            if (device != null) {
+                                BluetoothConnectionManager.getInstance().onSocketConnected(socket, device)
                             } else {
                                 BluetoothSocketHolder.registerConnection(devMac, devName, socket, null)
                             }
                             ChatListNotifier.notifyChanged()
+                            return@runOnUiThread
+                        }
+
+                        val isKnown = chatListState.any {
+                            it.id.equals(devMac, ignoreCase = true) ||
+                            (!devName.isNullOrBlank() && it.name.equals(devName, ignoreCase = true))
+                        } || (device != null && device.bondState == BluetoothDevice.BOND_BONDED)
+
+                        if (isKnown || !isContactDialogVisible.value) {
+                            if (device != null) {
+                                BluetoothConnectionManager.getInstance().onSocketConnected(socket, device)
+                            } else {
+                                BluetoothSocketHolder.registerConnection(devMac, devName, socket, null)
+                            }
+                            ChatListNotifier.notifyChanged()
+                        } else {
+                            if (!isIncomingConnectionDialogVisible.value) {
+                                triggerPrimeFoundVibration()
+                                incomingSocket = socket
+                                incomingDeviceName = devName
+                                incomingDeviceMac = devMac
+                                isIncomingConnectionDialogVisible.value = true
+                            } else {
+                                if (device != null) {
+                                    BluetoothConnectionManager.getInstance().onSocketConnected(socket, device)
+                                } else {
+                                    BluetoothSocketHolder.registerConnection(devMac, devName, socket, null)
+                                }
+                                ChatListNotifier.notifyChanged()
+                            }
                         }
                     }
                 }

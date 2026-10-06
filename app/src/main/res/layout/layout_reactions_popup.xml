@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_floating_island"
+    android:elevation="14dp"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
+        android:layout_marginTop="2dp"
+        android:layout_marginBottom="6dp"
+        android:text="Все реакции"
+        android:textColor="@color/prime_text_secondary"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <GridLayout
+        android:id="@+id/gridReactionsEmoji"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:columnCount="6"
+        android:alignmentMode="alignBounds" />
+
+</LinearLayout>

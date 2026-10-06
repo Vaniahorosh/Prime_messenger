@@ -707,6 +707,27 @@ class SettingsActivity : AppCompatActivity() {
         b.rbStyleBottomBar.setOnClickListener { setStyle("bottom_bar") }
     }
 
+    private fun updateNavUnreadBadge(navView: View) {
+        val tvNavChatsUnreadBadge = navView.findViewById<TextView>(R.id.tvNavChatsUnreadBadge) ?: return
+        var totalUnread = 0
+        try {
+            val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val json = sharedPrefs.getString("persisted_chats", "[]") ?: "[]"
+            val array = org.json.JSONArray(json)
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                totalUnread += obj.optInt("unreadCount", 0)
+            }
+        } catch (_: Exception) {}
+
+        if (totalUnread > 0) {
+            tvNavChatsUnreadBadge.text = if (totalUnread > 99) "99+" else totalUnread.toString()
+            tvNavChatsUnreadBadge.visibility = View.VISIBLE
+        } else {
+            tvNavChatsUnreadBadge.visibility = View.GONE
+        }
+    }
+
     private fun updateM3TabState(
         isActive: Boolean,
         indicatorView: View?,
@@ -723,16 +744,35 @@ class SettingsActivity : AppCompatActivity() {
 
         if (isActive) {
             indicatorView.backgroundTintList = ColorStateList.valueOf(accentColor)
+            indicatorView.animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .alpha(1.0f)
+                .setDuration(220)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.1f))
+                .start()
+
             iconView?.setColorFilter(android.graphics.Color.WHITE)
+            iconView?.animate()?.scaleX(1.1f)?.scaleY(1.1f)?.setDuration(180)?.start()
+
             labelView.setTextColor(accentColor)
             labelView.setTypeface(null, android.graphics.Typeface.BOLD)
-            labelView.alpha = 1.0f
+            labelView.animate()?.scaleX(1.05f)?.scaleY(1.05f)?.alpha(1.0f)?.setDuration(180)?.start()
         } else {
             indicatorView.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+            indicatorView.animate()
+                .scaleX(0.7f)
+                .scaleY(0.7f)
+                .alpha(0f)
+                .setDuration(180)
+                .start()
+
             iconView?.setColorFilter(visibleInactiveColor)
+            iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
+
             labelView.setTextColor(visibleInactiveColor)
             labelView.setTypeface(null, android.graphics.Typeface.NORMAL)
-            labelView.alpha = 1.0f
+            labelView.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.alpha(0.85f)?.setDuration(180)?.start()
         }
     }
 
@@ -832,6 +872,7 @@ class SettingsActivity : AppCompatActivity() {
         updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, tvNavDevicesLabel, accentColor, secondaryColor)
         updateM3TabState(false, vNavSearchIndicator, ivNavSearchIcon, tvNavSearchLabel, accentColor, secondaryColor)
         updateM3TabState(true, vNavProfileIndicator, null, tvNavProfileLabel, accentColor, secondaryColor)
+        updateNavUnreadBadge(navView)
 
         val profileAvatarIv = navView.findViewById<ImageView>(R.id.ivNavProfileAvatar)
         if (profileAvatarIv != null) {
@@ -1350,6 +1391,23 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
+        dialog.setOnShowListener {
+            blurCard?.apply {
+                alpha = 0f
+                scaleX = 0.82f
+                scaleY = 0.82f
+                translationY = 60f
+                animate()
+                    .alpha(1f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .translationY(0f)
+                    .setDuration(300L)
+                    .setInterpolator(android.view.animation.OvershootInterpolator(1.2f))
+                    .start()
+            }
+        }
+
         val isMonetSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         dialogBinding.layoutMonetSwitch.visibility = if (isMonetSupported) View.VISIBLE else View.GONE
         val currentType = ColorAccentManager.getAccentType(this)
@@ -1463,6 +1521,23 @@ class SettingsActivity : AppCompatActivity() {
                 } catch (e: Throwable) {
                     e.printStackTrace()
                 }
+            }
+        }
+
+        dialog.setOnShowListener {
+            blurCard?.apply {
+                alpha = 0f
+                scaleX = 0.82f
+                scaleY = 0.82f
+                translationY = 60f
+                animate()
+                    .alpha(1f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .translationY(0f)
+                    .setDuration(300L)
+                    .setInterpolator(android.view.animation.OvershootInterpolator(1.2f))
+                    .start()
             }
         }
 

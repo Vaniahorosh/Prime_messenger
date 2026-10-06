@@ -29,26 +29,52 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center"
             android:orientation="vertical">
 
             <FrameLayout
-                android:id="@+id/vNavChatsIndicator"
                 android:layout_width="56dp"
                 android:layout_height="32dp"
-                android:background="@drawable/bg_m3_active_indicator"
-                android:backgroundTint="@color/prime_brand"
-                android:elevation="2dp">
+                android:layout_gravity="center">
 
-                <ImageView
-                    android:id="@+id/ivNavChatsIcon"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_nav_chats"
-                    app:tint="@color/white" />
+                <FrameLayout
+                    android:id="@+id/vNavChatsIndicator"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_m3_active_indicator"
+                    android:backgroundTint="@color/prime_brand"
+                    android:elevation="2dp">
+
+                    <ImageView
+                        android:id="@+id/ivNavChatsIcon"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_nav_chats"
+                        app:tint="@color/white" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/tvNavChatsUnreadBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="16dp"
+                    android:minWidth="16dp"
+                    android:layout_gravity="top|end"
+                    android:layout_marginTop="-2dp"
+                    android:layout_marginEnd="-2dp"
+                    android:background="@drawable/bg_nav_unread_badge"
+                    android:elevation="6dp"
+                    android:gravity="center"
+                    android:paddingHorizontal="4dp"
+                    android:textColor="@color/white"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    tools:text="3"
+                    tools:visibility="visible" />
             </FrameLayout>
 
             <TextView
@@ -68,6 +94,7 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center"
@@ -107,6 +134,7 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center"
@@ -146,6 +174,7 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center"

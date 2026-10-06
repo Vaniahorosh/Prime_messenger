@@ -54,9 +54,12 @@ import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.webkit.MimeTypeMap;
+import android.graphics.drawable.ColorDrawable;
+import android.widget.GridLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupWindow;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.VideoView;
@@ -104,6 +107,20 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private OnMessageActionListener actionListener;
     private String localUsername = "";
     private boolean isConnectionActive = false;
+    private boolean isScrolling = false;
+
+    public void setScrolling(boolean scrolling) {
+        if (this.isScrolling != scrolling) {
+            this.isScrolling = scrolling;
+            if (!scrolling) {
+                notifyDataSetChanged();
+            }
+        }
+    }
+
+    public boolean isScrolling() {
+        return isScrolling;
+    }
 
     public static Activity getActivityFromContext(Context context) {
         if (context == null) return null;
@@ -369,18 +386,44 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
-    public void updateMessageTextById(String messageId, String newText) {
-        if (messageId == null || messageId.isEmpty()) return;
+    public boolean updateMessageTextById(String messageId, String newText) {
+        if (messageId == null || messageId.isEmpty() || messages == null || messages.isEmpty()) return false;
         String cleanId = messageId.trim();
+
+        // 1. Exact ID match
         for (int i = 0; i < messages.size(); i++) {
             ChatMessage m = messages.get(i);
             if (cleanId.equals(m.getMessageId()) || (m.getMessageId() != null && m.getMessageId().trim().equals(cleanId))) {
                 m.setEdited(true);
                 m.setText(newText);
                 notifyItemChanged(i);
-                break;
+                return true;
             }
         }
+
+        // 2. Partial ID match
+        for (int i = 0; i < messages.size(); i++) {
+            ChatMessage m = messages.get(i);
+            if (m.getMessageId() != null && (cleanId.contains(m.getMessageId()) || m.getMessageId().contains(cleanId))) {
+                m.setEdited(true);
+                m.setText(newText);
+                notifyItemChanged(i);
+                return true;
+            }
+        }
+
+        // 3. Fallback: last incoming (non-outgoing) message
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            ChatMessage m = messages.get(i);
+            if (!m.isOutgoing()) {
+                m.setEdited(true);
+                m.setText(newText);
+                notifyItemChanged(i);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void updateMessageReactionById(String messageId, String reaction) {
@@ -617,14 +660,27 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             bubble.setScaleY(1f);
         }
 
+        stopVideoPreviewInViewHolder(holder);
+    }
+
+    @Override
+    public void onViewDetachedFromWindow(@NonNull RecyclerView.ViewHolder holder) {
+        super.onViewDetachedFromWindow(holder);
+        stopVideoPreviewInViewHolder(holder);
+    }
+
+    private void stopVideoPreviewInViewHolder(RecyclerView.ViewHolder holder) {
+        VideoView vv = null;
         if (holder instanceof IncomingViewHolder) {
-            if (((IncomingViewHolder) holder).videoMessagePreview != null) {
-                ((IncomingViewHolder) holder).videoMessagePreview.stopPlayback();
-            }
+            vv = ((IncomingViewHolder) holder).videoMessagePreview;
         } else if (holder instanceof OutgoingViewHolder) {
-            if (((OutgoingViewHolder) holder).videoMessagePreview != null) {
-                ((OutgoingViewHolder) holder).videoMessagePreview.stopPlayback();
-            }
+            vv = ((OutgoingViewHolder) holder).videoMessagePreview;
+        }
+        if (vv != null) {
+            vv.removeCallbacks(null);
+            try {
+                vv.stopPlayback();
+            } catch (Exception ignored) {}
         }
     }
 
@@ -1056,11 +1112,15 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 dur.setVisibility(View.VISIBLE);
                 dur.setText(item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "00:00");
             }
-            loadVideoThumbnailIntoView(container.getContext(), item.path, img, vv);
+            loadVideoThumbnailIntoView(container.getContext(), item.path, img, vv, isScrolling);
         } else if (item.isVideo) {
             // Во время отправки (SENDING) демонстрируем статический снимок без создания VideoView,
             // чтобы не создавать файловые блокировки и нагрузку на диск во время передачи по Bluetooth!
-            if (vv != null) vv.setVisibility(View.GONE);
+            if (vv != null) {
+                vv.removeCallbacks(null);
+                try { vv.stopPlayback(); } catch (Exception ignored) {}
+                vv.setVisibility(View.GONE);
+            }
             if (play != null) play.setVisibility(View.GONE);
             if (dur != null) {
                 dur.setVisibility(View.VISIBLE);
@@ -1068,15 +1128,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
             if (img != null) {
                 img.setVisibility(View.VISIBLE);
-                Bitmap thumb = getVideoThumbnail(container.getContext(), item.path);
-                if (thumb != null) {
-                    img.setImageBitmap(thumb);
-                } else {
-                    img.setImageResource(R.drawable.ic_video);
-                }
+                loadMediaImageIntoView(container.getContext(), item.path, img);
             }
         } else {
-            if (vv != null) vv.setVisibility(View.GONE);
+            if (vv != null) {
+                vv.removeCallbacks(null);
+                try { vv.stopPlayback(); } catch (Exception ignored) {}
+                vv.setVisibility(View.GONE);
+            }
             if (play != null) play.setVisibility(View.GONE);
             if (dur != null) dur.setVisibility(View.GONE);
             if (img != null) {
@@ -1131,12 +1190,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (item.isVideo) {
             if (play != null) play.setVisibility(View.VISIBLE);
             if (iv != null) {
-                Bitmap thumb = getVideoThumbnail(tile != null ? tile.getContext() : (iv != null ? iv.getContext() : null), item.path);
-                if (thumb != null) {
-                    iv.setImageBitmap(thumb);
-                } else {
-                    iv.setImageResource(R.drawable.ic_video);
-                }
+                loadMediaImageIntoView(iv.getContext(), item.path, iv);
             }
         } else {
             if (play != null) play.setVisibility(View.GONE);
@@ -1317,35 +1371,91 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
-    public static void loadVideoThumbnailIntoView(Context context, String pathOrUri, ImageView imageView, VideoView videoView) {
+    public static void loadVideoThumbnailIntoView(Context context, String pathOrUri, ImageView imageView, VideoView videoView, boolean isScrolling) {
         if (context == null) return;
         if (pathOrUri == null || pathOrUri.isEmpty()) {
             if (imageView != null) {
                 imageView.setVisibility(View.VISIBLE);
                 imageView.setImageResource(R.drawable.ic_video);
             }
-            if (videoView != null) videoView.setVisibility(View.GONE);
+            if (videoView != null) {
+                videoView.removeCallbacks(null);
+                try { videoView.stopPlayback(); } catch (Exception ignored) {}
+                videoView.setVisibility(View.GONE);
+            }
             return;
         }
 
-        Uri uri = pathOrUri.startsWith("content://") ? Uri.parse(pathOrUri) : (new File(pathOrUri).exists() ? Uri.fromFile(new File(pathOrUri)) : null);
+        Uri uri = pathOrUri.startsWith("content://")
+                ? Uri.parse(pathOrUri)
+                : (new File(pathOrUri).exists() ? Uri.fromFile(new File(pathOrUri)) : null);
 
         if (videoView != null && uri != null) {
-            videoView.setVisibility(View.VISIBLE);
-            if (imageView != null) imageView.setVisibility(View.GONE);
-            videoView.setVideoURI(uri);
-            videoView.setOnPreparedListener(mp -> {
-                try {
-                    mp.setVolume(0f, 0f);
-                    mp.setLooping(true);
-                    videoView.start();
-                } catch (Exception ignored) {}
-            });
-            videoView.setOnErrorListener((mp, what, extra) -> {
+            if (isScrolling) {
+                videoView.removeCallbacks(null);
+                try { videoView.stopPlayback(); } catch (Exception ignored) {}
                 videoView.setVisibility(View.GONE);
                 if (imageView != null) {
                     imageView.setVisibility(View.VISIBLE);
-                    Glide.with(context).load(uri).centerCrop().placeholder(R.drawable.ic_video).into(imageView);
+                    Glide.with(context)
+                            .load(uri)
+                            .centerCrop()
+                            .placeholder(R.drawable.ic_video)
+                            .error(R.drawable.ic_video)
+                            .into(imageView);
+                }
+                return;
+            }
+
+            videoView.setVisibility(View.VISIBLE);
+            if (imageView != null) imageView.setVisibility(View.GONE);
+
+            videoView.removeCallbacks(null);
+            videoView.setVideoURI(uri);
+
+            Runnable checkLoopRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (videoView.isPlaying()) {
+                            int pos = videoView.getCurrentPosition();
+                            if (pos >= 3000) {
+                                videoView.seekTo(0);
+                                videoView.start();
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                    videoView.postDelayed(this, 150);
+                }
+            };
+
+            videoView.setOnPreparedListener(mp -> {
+                try {
+                    mp.setVolume(0f, 0f);
+                    mp.setLooping(false);
+                    videoView.start();
+                    videoView.post(checkLoopRunnable);
+                } catch (Exception ignored) {}
+            });
+
+            videoView.setOnCompletionListener(mp -> {
+                try {
+                    videoView.seekTo(0);
+                    videoView.start();
+                } catch (Exception ignored) {}
+            });
+
+            videoView.setOnErrorListener((mp, what, extra) -> {
+                videoView.removeCallbacks(null);
+                videoView.setVisibility(View.GONE);
+                if (imageView != null) {
+                    imageView.setVisibility(View.VISIBLE);
+                    Glide.with(context)
+                            .load(uri)
+                            .centerCrop()
+                            .placeholder(R.drawable.ic_video)
+                            .error(R.drawable.ic_video)
+                            .into(imageView);
                 }
                 return true;
             });
@@ -1354,10 +1464,23 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         if (imageView != null) {
             imageView.setVisibility(View.VISIBLE);
-            if (videoView != null) videoView.setVisibility(View.GONE);
+            if (videoView != null) {
+                videoView.removeCallbacks(null);
+                try { videoView.stopPlayback(); } catch (Exception ignored) {}
+                videoView.setVisibility(View.GONE);
+            }
             Object loadUri = uri != null ? uri : pathOrUri;
-            Glide.with(context).load(loadUri).centerCrop().placeholder(R.drawable.ic_video).into(imageView);
+            Glide.with(context)
+                    .load(loadUri)
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_video)
+                    .error(R.drawable.ic_video)
+                    .into(imageView);
         }
+    }
+
+    public static void loadVideoThumbnailIntoView(Context context, String pathOrUri, ImageView imageView, VideoView videoView) {
+        loadVideoThumbnailIntoView(context, pathOrUri, imageView, videoView, false);
     }
 
     public static Bitmap getVideoThumbnail(Context context, String pathOrUri) {
@@ -1604,12 +1727,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 layoutUnreadHeader.setVisibility(message.isFirstUnread() ? View.VISIBLE : View.GONE);
             }
 
-            if (showDateHeader && message.getTimestamp() > 0) {
-                tvDateHeader.setVisibility(View.VISIBLE);
-                tvDateHeader.setText(getDateHeaderString(message.getTimestamp()));
-            } else {
-                tvDateHeader.setVisibility(View.GONE);
-            }
+            bindDateHeader(itemView, tvDateHeader, showDateHeader, message.getTimestamp());
 
             if (layoutQuotedReply != null) {
                 if (message.isReply()) {
@@ -1672,6 +1790,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 if (btnReactHeart != null) btnReactHeart.setOnClickListener(rxClick);
                 if (btnReactFire != null) btnReactFire.setOnClickListener(rxClick);
                 if (btnReactLike != null) btnReactLike.setOnClickListener(rxClick);
+
+                ImageButton btnExpandReactions = itemView.findViewById(R.id.btnExpandReactions);
+                if (btnExpandReactions != null) {
+                    btnExpandReactions.setOnClickListener(v -> {
+                        layoutMessageActions.setVisibility(View.GONE);
+                        showExpandedReactionsPopup(v, message, position);
+                    });
+                }
 
                 if (btnReplyMsgAction != null) {
                     btnReplyMsgAction.setOnClickListener(v -> {
@@ -1801,12 +1927,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 layoutOutgoingBubble.setBackground(ColorAccentManager.createOutgoingBubbleDrawable(itemView.getContext()));
             }
 
-            if (showDateHeader && message.getTimestamp() > 0) {
-                tvDateHeader.setVisibility(View.VISIBLE);
-                tvDateHeader.setText(getDateHeaderString(message.getTimestamp()));
-            } else {
-                tvDateHeader.setVisibility(View.GONE);
-            }
+            bindDateHeader(itemView, tvDateHeader, showDateHeader, message.getTimestamp());
 
             if (layoutQuotedReply != null) {
                 if (message.isReply()) {
@@ -1918,6 +2039,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 if (btnReactHeart != null) btnReactHeart.setOnClickListener(rxClick);
                 if (btnReactFire != null) btnReactFire.setOnClickListener(rxClick);
                 if (btnReactLike != null) btnReactLike.setOnClickListener(rxClick);
+
+                ImageButton btnExpandReactions = itemView.findViewById(R.id.btnExpandReactions);
+                if (btnExpandReactions != null) {
+                    btnExpandReactions.setOnClickListener(v -> {
+                        layoutMessageActions.setVisibility(View.GONE);
+                        showExpandedReactionsPopup(v, message, position);
+                    });
+                }
 
                 if (btnReplyMsgAction != null) {
                     btnReplyMsgAction.setOnClickListener(v -> {
@@ -2219,6 +2348,95 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         animator.start();
     }
 
+    private void bindDateHeader(View itemView, TextView tvDateHeader, boolean showDateHeader, long timestamp) {
+        View layoutDateHeader = itemView.findViewById(R.id.layoutDateHeader);
+        View vDateHeaderLine = itemView.findViewById(R.id.vDateHeaderLine);
+
+        if (showDateHeader && timestamp > 0) {
+            if (layoutDateHeader != null) layoutDateHeader.setVisibility(View.VISIBLE);
+            else if (tvDateHeader != null) tvDateHeader.setVisibility(View.VISIBLE);
+
+            String dateStr = getDateHeaderString(timestamp);
+            if (tvDateHeader != null) {
+                tvDateHeader.setText(dateStr);
+                int accentColor = ColorAccentManager.getCurrentAccentColor(itemView.getContext());
+                tvDateHeader.setTextColor(accentColor);
+                if (vDateHeaderLine != null) {
+                    vDateHeaderLine.setBackgroundTintList(android.content.res.ColorStateList.valueOf(accentColor));
+                }
+            }
+        } else {
+            if (layoutDateHeader != null) layoutDateHeader.setVisibility(View.GONE);
+            else if (tvDateHeader != null) tvDateHeader.setVisibility(View.GONE);
+        }
+    }
+
+    private void showExpandedReactionsPopup(View anchorView, ChatMessage message, int position) {
+        if (anchorView == null || anchorView.getContext() == null) return;
+        Context context = anchorView.getContext();
+
+        View popupView = LayoutInflater.from(context).inflate(R.layout.layout_reactions_popup, null);
+
+        PopupWindow popupWindow = new PopupWindow(
+                popupView,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                true
+        );
+        popupWindow.setElevation(16f);
+        popupWindow.setOutsideTouchable(true);
+        popupWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+        GridLayout flexGrid = popupView.findViewById(R.id.gridReactionsEmoji);
+        String[] emojiList = new String[]{
+                "❤️", "🔥", "👍", "👎", "😂", "😮", "😢", "🙏", "👏", "🎉",
+                "💯", "🥰", "🤩", "🥳", "🤡", "💩", "😡", "🤯", "😱", "🥺",
+                "⚡", "🌟", "😴", "🤮", "🤝", "🤖", "🎃", "👑", "🎯", "🚀",
+                "💔", "👀", "🙈", "😜", "😎", "🤔", "🤫", "🙄", "🫠", "💀"
+        };
+
+        float density = context.getResources().getDisplayMetrics().density;
+        for (String emoji : emojiList) {
+            TextView tv = new TextView(context);
+            tv.setText(emoji);
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+            tv.setGravity(Gravity.CENTER);
+            int sizePx = (int) (38 * density);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(sizePx, sizePx);
+            tv.setLayoutParams(lp);
+            tv.setBackgroundResource(R.drawable.bg_emoji_chip);
+            tv.setFocusable(true);
+            tv.setClickable(true);
+
+            tv.setOnClickListener(v -> {
+                v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                popupWindow.dismiss();
+                if (actionListener != null) {
+                    actionListener.onQuickReaction(message, emoji, position);
+                }
+            });
+
+            if (flexGrid != null) {
+                flexGrid.addView(tv);
+            }
+        }
+
+        popupView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        int popupWidth = popupView.getMeasuredWidth();
+        int popupHeight = popupView.getMeasuredHeight();
+
+        int[] location = new int[2];
+        anchorView.getLocationOnScreen(location);
+        int x = location[0] + (anchorView.getWidth() / 2) - (popupWidth / 2);
+        int y = location[1] - popupHeight - (int) (8 * density);
+
+        if (y < 100) {
+            y = location[1] + anchorView.getHeight() + (int) (8 * density);
+        }
+
+        popupWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY, x, y);
+    }
+
     private void bindReactions(LinearLayout layoutMessageReaction, ChatMessage message, int position) {
         if (layoutMessageReaction == null) return;
 
@@ -2355,15 +2573,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 if (fAuthor.exists()) {
                     try {
                         Bitmap bmp = BitmapFactory.decodeFile(fAuthor.getAbsolutePath());
-                        if (bmp != null) return bmp;
-                    } catch (Exception ignored) {}
-                }
-            }
-            File[] files = context.getFilesDir().listFiles((dir, name) -> name.startsWith("rec_avatar_") && (name.endsWith(".jpg") || name.endsWith(".gif")));
-            if (files != null) {
-                for (File f : files) {
-                    try {
-                        Bitmap bmp = BitmapFactory.decodeFile(f.getAbsolutePath());
                         if (bmp != null) return bmp;
                     } catch (Exception ignored) {}
                 }

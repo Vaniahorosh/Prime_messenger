@@ -53,9 +53,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.messenger.prime.databinding.ActivityPhotoEditorContentBinding
 import com.messenger.prime.databinding.DialogColorPickerBinding
-import com.r0adkll.slidr.Slidr
-import com.r0adkll.slidr.model.SlidrConfig
-import com.r0adkll.slidr.model.SlidrPosition
 import eightbitlab.com.blurview.BlurView
 import java.io.File
 import java.io.FileInputStream

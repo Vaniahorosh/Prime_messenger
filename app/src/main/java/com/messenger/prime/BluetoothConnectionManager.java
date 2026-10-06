@@ -16,7 +16,9 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -65,16 +67,27 @@ public class BluetoothConnectionManager {
     // MAC Address DDoS & Flood Guard
     // =========================================================================
 
+    private final Set<String> blockedMacAddresses = ConcurrentHashMap.newKeySet();
+
     public boolean isMacBlocked(String macAddress) {
-        return false;
+        if (macAddress == null || macAddress.isEmpty()) return false;
+        String clean = macAddress.trim().toUpperCase(Locale.US);
+        return blockedMacAddresses.contains(clean) || blockedMacAddresses.contains(macAddress.trim());
     }
 
     public void blockMacAddress(String macAddress, long durationMs, String reason) {
-        // No-op for local Bluetooth RFCOMM peers
+        if (macAddress == null || macAddress.isEmpty()) return;
+        String clean = macAddress.trim().toUpperCase(Locale.US);
+        blockedMacAddresses.add(clean);
+        blockedMacAddresses.add(macAddress.trim());
+        disconnect(macAddress);
     }
 
     public void unblockMacAddress(String macAddress) {
-        // No-op
+        if (macAddress == null || macAddress.isEmpty()) return;
+        String clean = macAddress.trim().toUpperCase(Locale.US);
+        blockedMacAddresses.remove(clean);
+        blockedMacAddresses.remove(macAddress.trim());
     }
 
     public static synchronized BluetoothConnectionManager getInstance() {
@@ -334,6 +347,12 @@ public class BluetoothConnectionManager {
 
         String devAddr = device.getAddress();
         String devAddrUpper = devAddr != null ? devAddr.toUpperCase(Locale.US) : "";
+
+        if (isMacBlocked(devAddr) || isMacBlocked(devAddrUpper)) {
+            Log.w(TAG, "Socket connected from blocked/deleted MAC: " + devAddr + ", closing socket.");
+            try { socket.close(); } catch (Exception ignored) {}
+            return;
+        }
 
         ConnectThread ct = connectingThreads.remove(devAddrUpper);
         if (ct == null && devAddr != null) ct = connectingThreads.remove(devAddr);
@@ -726,7 +745,7 @@ public class BluetoothConnectionManager {
             @Override
             public void run() {
                 if (isRunning && mmOutStream != null) {
-                    sendPacket((byte) 0x05, new byte[0]);
+                    sendPacket((byte) 0x03, new byte[0]); // TYPE_PING (0x03)
                     keepAliveHandler.postDelayed(this, 3500L);
                 }
             }
@@ -756,7 +775,7 @@ public class BluetoothConnectionManager {
                             mmInStream.readFully(payloadData);
                         }
 
-                        if (type == 0x05) { // TYPE_PING
+                        if (type == 0x03) { // TYPE_PING (0x03)
                             continue;
                         }
 

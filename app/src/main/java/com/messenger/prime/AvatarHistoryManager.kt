@@ -111,6 +111,17 @@ object AvatarHistoryManager {
     fun getContactAvatarHistory(context: Context, addressOrName: String): List<String> {
         if (addressOrName.isBlank()) return emptyList()
         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val myName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: ""
+        val isGeneric = addressOrName.equals("Собеседник", ignoreCase = true) ||
+                        addressOrName.equals("Prime Собеседник", ignoreCase = true) ||
+                        addressOrName.equals("Пользователь", ignoreCase = true) ||
+                        addressOrName.equals("Prime User", ignoreCase = true) ||
+                        addressOrName.equals("Контакт", ignoreCase = true)
+        val isLocal = addressOrName.equals(currentUser, ignoreCase = true) || addressOrName.equals(myName, ignoreCase = true)
+
+        if (isLocal || isGeneric) return emptyList()
+
         val json = sharedPrefs.getString("contact_avatar_history_$addressOrName", "[]") ?: "[]"
         val list = mutableListOf<String>()
         try {
@@ -150,9 +161,7 @@ object AvatarHistoryManager {
         if (list.isEmpty()) {
             val candidates = arrayOf(
                 File(context.filesDir, "rec_avatar_$addressOrName.gif"),
-                File(context.filesDir, "rec_avatar_$addressOrName.jpg"),
-                File(context.filesDir, "avatar_$addressOrName.gif"),
-                File(context.filesDir, "avatar_$addressOrName.jpg")
+                File(context.filesDir, "rec_avatar_$addressOrName.jpg")
             )
             for (f in candidates) {
                 if (f.exists() && f.length() > 0) {
@@ -169,6 +178,17 @@ object AvatarHistoryManager {
     fun saveContactAvatarHistory(context: Context, addressOrName: String, history: List<String>) {
         if (addressOrName.isBlank()) return
         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val myName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: ""
+        val isGeneric = addressOrName.equals("Собеседник", ignoreCase = true) ||
+                        addressOrName.equals("Prime Собеседник", ignoreCase = true) ||
+                        addressOrName.equals("Пользователь", ignoreCase = true) ||
+                        addressOrName.equals("Prime User", ignoreCase = true) ||
+                        addressOrName.equals("Контакт", ignoreCase = true)
+        val isLocal = addressOrName.equals(currentUser, ignoreCase = true) || addressOrName.equals(myName, ignoreCase = true)
+
+        if (isLocal || isGeneric) return
+
         val array = JSONArray()
         history.forEach { array.put(it) }
 
