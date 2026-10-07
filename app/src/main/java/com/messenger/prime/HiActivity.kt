@@ -8,16 +8,23 @@ import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.animation.AnimationUtils
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -27,8 +34,10 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
+import com.google.android.material.button.MaterialButton
 import com.messenger.prime.databinding.ActivityHiBinding
+import eightbitlab.com.blurview.BlurView
 
 class HiActivity : AppCompatActivity() {
 
@@ -70,8 +79,8 @@ class HiActivity : AppCompatActivity() {
             binding.btnExit,
             binding.ivLogo,
             binding.textSwitcherSlogan,
+            binding.composePromoCard,
             binding.btnPrime,
-            binding.btnPermissions,
             binding.tvLicense
         )
     }
@@ -81,7 +90,6 @@ class HiActivity : AppCompatActivity() {
     private val requestAllPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
-        updatePermissionsButtonUi()
         val missing = getMissingPermissions()
         if (missing.isEmpty()) {
             PrimeNotification.show(this, "Разрешения приняты! Переходим...")
@@ -89,7 +97,6 @@ class HiActivity : AppCompatActivity() {
                 isPendingNavigationAfterPermissions = false
                 binding.btnPrime.isEnabled = false
                 binding.btnExit.isEnabled = false
-                binding.btnPermissions.isEnabled = false
                 stopDynamicSequence()
                 fadeOutAndNavigateToLogin()
             }
@@ -142,6 +149,17 @@ class HiActivity : AppCompatActivity() {
             }
         }
 
+        binding.composePromoCard.setContent {
+            PrimeTheme {
+                PrimeFeaturePromoCard(
+                    onSlideChanged = { prefix, button ->
+                        binding.textSwitcherSlogan.setText(prefix)
+                        binding.textSwitcherButton.setText(button)
+                    }
+                )
+            }
+        }
+
         setupTextSwitcher()
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         binding.tvLicense.setTextColor(if (isDark) Color.WHITE else Color.parseColor("#64748B"))
@@ -163,29 +181,15 @@ class HiActivity : AppCompatActivity() {
             windowInsets
         }
 
-        val fadeIn = AnimationUtils.loadAnimation(this, android.R.anim.fade_in)
-        fadeIn.duration = 1000
-        binding.ivLogo.startAnimation(fadeIn)
-        binding.textSwitcherSlogan.startAnimation(fadeIn)
-        binding.btnPrime.startAnimation(fadeIn)
-        binding.btnPermissions.startAnimation(fadeIn)
-
-        updatePermissionsButtonUi()
-
-        binding.btnPermissions.setOnClickListener {
-            isPendingNavigationAfterPermissions = false
-            showPermissionsDialog()
-        }
+        runIntroHeroAnimation()
 
         binding.btnPrime.setOnClickListener {
             val missing = getMissingPermissions()
             if (missing.isNotEmpty()) {
-                isPendingNavigationAfterPermissions = true
-                showPermissionsDialog()
+                showPermissionsBlurDialog()
             } else {
                 binding.btnPrime.isEnabled = false
                 binding.btnExit.isEnabled = false
-                binding.btnPermissions.isEnabled = false
                 stopDynamicSequence()
                 fadeOutAndNavigateToLogin()
             }
@@ -237,29 +241,152 @@ class HiActivity : AppCompatActivity() {
         }
     }
 
-    private fun updatePermissionsButtonUi() {
-        val missing = getMissingPermissions()
-        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        if (missing.isEmpty()) {
-            binding.btnPermissions.text = "Все разрешения приняты ✓"
-            binding.btnPermissions.strokeColor = ColorStateList.valueOf(Color.parseColor("#4CAF50"))
-            binding.btnPermissions.setTextColor(Color.parseColor("#4CAF50"))
-            binding.btnPermissions.iconTint = ColorStateList.valueOf(Color.parseColor("#4CAF50"))
-        } else {
-            binding.btnPermissions.text = "Разрешения приложения (${missing.size})"
-            val strokeColor = if (isDark) Color.parseColor("#80FFFFFF") else Color.parseColor("#800F172A")
-            val textColor = if (isDark) Color.WHITE else Color.parseColor("#0F172A")
-            binding.btnPermissions.strokeColor = ColorStateList.valueOf(strokeColor)
-            binding.btnPermissions.setTextColor(textColor)
-            binding.btnPermissions.iconTint = ColorStateList.valueOf(textColor)
+    private fun showPermissionsBlurDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_permissions_blur, null)
+        val blurCard = dialogView.findViewById<BlurView>(R.id.blurPermissionsCard)
+        val btnAcceptAll = dialogView.findViewById<MaterialButton>(R.id.btnAcceptAllPermissions)
+        val btnContinueWithout = dialogView.findViewById<MaterialButton>(R.id.btnContinueWithoutPermissions)
+        val btnExitApp = dialogView.findViewById<MaterialButton>(R.id.btnExitApp)
+
+        if (blurCard != null) {
+            val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content)
+                ?: window.decorView as ViewGroup
+            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val overlayColor = if (isDark) Color.parseColor("#450F172A") else Color.parseColor("#45154B87")
+            blurCard.setupBlur(rootView, 20f, overlayColor, window.decorView.background)
         }
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && dialog.window != null) {
+            try {
+                dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                val params = dialog.window?.attributes
+                if (params != null) {
+                    params.blurBehindRadius = 60
+                    dialog.window?.attributes = params
+                }
+            } catch (_: Throwable) {}
+        }
+
+        btnAcceptAll?.setOnClickListener {
+            dialog.dismiss()
+            isPendingNavigationAfterPermissions = true
+            val missing = getMissingPermissions()
+            if (missing.isNotEmpty()) {
+                requestAllPermissionsLauncher.launch(missing.toTypedArray())
+            } else {
+                fadeOutAndNavigateToLogin()
+            }
+        }
+
+        btnContinueWithout?.setOnClickListener {
+            dialog.dismiss()
+            binding.btnPrime.isEnabled = false
+            binding.btnExit.isEnabled = false
+            stopDynamicSequence()
+            fadeOutAndNavigateToLogin()
+        }
+
+        btnExitApp?.setOnClickListener {
+            dialog.dismiss()
+            finishAffinity()
+        }
+
+        blurCard?.apply {
+            alpha = 0f
+            scaleX = 0.85f
+            scaleY = 0.85f
+            translationY = 50f
+            animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .translationY(0f)
+                .setDuration(300L)
+                .setInterpolator(OvershootInterpolator(1.1f))
+                .start()
+        }
+
+        dialog.show()
     }
 
-    private fun showPermissionsDialog() {
-        val missing = getMissingPermissions()
-        if (missing.isEmpty()) return
+    private fun runIntroHeroAnimation() {
+        // Изначально гарантируем полную невидимость до начала анимации
+        binding.btnExit.visibility = View.INVISIBLE
+        binding.btnExit.alpha = 0f
+        binding.btnExit.translationX = -60f
 
-        requestAllPermissionsLauncher.launch(missing.toTypedArray())
+        binding.centerContainer.visibility = View.INVISIBLE
+        binding.centerContainer.alpha = 0f
+        binding.centerContainer.translationY = 80f
+
+        binding.tvLicense.visibility = View.INVISIBLE
+        binding.tvLicense.alpha = 0f
+        binding.tvLicense.translationY = 50f
+
+        binding.ivLogo.visibility = View.INVISIBLE
+        binding.ivLogo.alpha = 0f
+        binding.ivLogo.scaleX = 0.5f
+        binding.ivLogo.scaleY = 0.5f
+
+        binding.root.post {
+            val screenHeight = resources.displayMetrics.heightPixels.toFloat()
+            val logoCenterInTop = binding.ivLogo.top + binding.ivLogo.height / 2f
+            val deltaY = (screenHeight / 2f) - logoCenterInTop
+
+            binding.ivLogo.translationY = deltaY
+            binding.ivLogo.visibility = View.VISIBLE
+
+            // 1. Появление логотипа в центре
+            binding.ivLogo.animate()
+                .alpha(1f)
+                .scaleX(1.15f)
+                .scaleY(1.15f)
+                .setDuration(550L)
+                .setInterpolator(FastOutSlowInInterpolator())
+                .withEndAction {
+                    // 2. Плавный отъезд логотипа наверх к стрелке назад
+                    binding.ivLogo.animate()
+                        .translationY(0f)
+                        .scaleX(1.0f)
+                        .scaleY(1.0f)
+                        .setDuration(750L)
+                        .setInterpolator(FastOutSlowInInterpolator())
+                        .withEndAction {
+                            // 3. Выезд остального интерфейса из тени:
+                            binding.btnExit.visibility = View.VISIBLE
+                            binding.btnExit.animate()
+                                .alpha(1f)
+                                .translationX(0f)
+                                .setDuration(500L)
+                                .setInterpolator(DecelerateInterpolator())
+                                .start()
+
+                            binding.centerContainer.visibility = View.VISIBLE
+                            binding.centerContainer.animate()
+                                .alpha(1f)
+                                .translationY(0f)
+                                .setDuration(600L)
+                                .setInterpolator(DecelerateInterpolator())
+                                .start()
+
+                            binding.tvLicense.visibility = View.VISIBLE
+                            binding.tvLicense.animate()
+                                .alpha(1f)
+                                .translationY(0f)
+                                .setStartDelay(120L)
+                                .setDuration(550L)
+                                .setInterpolator(DecelerateInterpolator())
+                                .start()
+                        }
+                        .start()
+                }
+                .start()
+        }
     }
 
     private fun setupTextSwitcher() {
@@ -304,10 +431,9 @@ class HiActivity : AppCompatActivity() {
     }
 
     private fun startDynamicSequence() {
-        if (isSequenceRunning) return
-        isSequenceRunning = true
+        // Оставляем управление текстом промо-блоку для 100% синхронизации
+        isSequenceRunning = false
         handler.removeCallbacks(dynamicRunnable)
-        handler.post(dynamicRunnable)
     }
 
     private fun stopDynamicSequence() {
@@ -325,8 +451,6 @@ class HiActivity : AppCompatActivity() {
             }
             binding.btnPrime.isEnabled = true
             binding.btnExit.isEnabled = true
-            binding.btnPermissions.isEnabled = true
-            updatePermissionsButtonUi()
             startDynamicSequence()
         }
     }

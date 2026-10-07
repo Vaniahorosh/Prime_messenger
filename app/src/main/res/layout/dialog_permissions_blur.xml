@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="12dp">
+
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/blurPermissionsCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_floating_island"
+        android:outlineProvider="background"
+        android:clipToOutline="true"
+        android:elevation="16dp">
+
+        <!-- Основной прокручиваемый контейнер для гарантии видимости на любых экранах -->
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fillViewport="true"
+            android:overScrollMode="ifContentScrolls">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <!-- Заголовок с иконкой -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageView
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:src="@drawable/ic_settings"
+                        app:tint="#38BDF8" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:gravity="center"
+                        android:text="Доступ к функциям Prime Messenger"
+                        android:textColor="@color/white"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:gravity="center"
+                        android:text="Для работы всех возможностей мессенджера (онлайн и без интернета) рекомендуются следующие разрешения:"
+                        android:textColor="#B3FFFFFF"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- Список разрешений, работающих на практике -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical">
+
+                    <!-- 1. Камера -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:paddingVertical="5dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_marginTop="2dp"
+                            android:src="@drawable/ic_camera"
+                            app:tint="#38BDF8" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Камера"
+                                android:textColor="@color/white"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="1dp"
+                                android:text="Используется в фоторедакторе и чате для моментальной съемки и отправки фотографий."
+                                android:textColor="#B3FFFFFF"
+                                android:textSize="11sp"
+                                android:lineSpacingExtra="1dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- 2. Контакты -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal"
+                        android:paddingVertical="5dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_marginTop="2dp"
+                            android:src="@drawable/ic_person"
+                            app:tint="#4ADE80" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Контакты"
+                                android:textColor="@color/white"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="1dp"
+                                android:text="Используется для поиска друзей и автоматического создания диалогов из вашей телефонной книги."
+                                android:textColor="#B3FFFFFF"
+                                android:textSize="11sp"
+                                android:lineSpacingExtra="1dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- 3. Bluetooth P2P -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal"
+                        android:paddingVertical="5dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_marginTop="2dp"
+                            android:src="@drawable/ic_nav_devices"
+                            app:tint="#EAB308" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Bluetooth устройств"
+                                android:textColor="@color/white"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="1dp"
+                                android:text="Задействуется сервисом PrimeBluetoothService для поиска собеседников и обмена сообщениями без интернета."
+                                android:textColor="#B3FFFFFF"
+                                android:textSize="11sp"
+                                android:lineSpacingExtra="1dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- 4. Поиск устройств поблизости (Геолокация) -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal"
+                        android:paddingVertical="5dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_marginTop="2dp"
+                            android:src="@drawable/ic_search"
+                            app:tint="#38BDF8" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Поиск поблизости"
+                                android:textColor="@color/white"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="1dp"
+                                android:text="Требуется операционной системой Android для сканирования Bluetooth-устройств поблизости."
+                                android:textColor="#B3FFFFFF"
+                                android:textSize="11sp"
+                                android:lineSpacingExtra="1dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- 5. Уведомления -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal"
+                        android:paddingVertical="5dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_marginTop="2dp"
+                            android:src="@drawable/ic_notifications_off"
+                            app:tint="#F43F5E" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Уведомления"
+                                android:textColor="@color/white"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="1dp"
+                                android:text="Используется сервисом PrimeNotification для показа входящих сообщений и быстрого ответа из шторки."
+                                android:textColor="#B3FFFFFF"
+                                android:textSize="11sp"
+                                android:lineSpacingExtra="1dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- 6. Галерея и медиафайлы -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal"
+                        android:paddingVertical="5dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_marginTop="2dp"
+                            android:src="@drawable/ic_photo"
+                            app:tint="#A855F7" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Галерея и файлы"
+                                android:textColor="@color/white"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="1dp"
+                                android:text="Используется MediaSaveUtils для сохранения скачанных медиафайлов и выбора картинок для чата."
+                                android:textColor="#B3FFFFFF"
+                                android:textSize="11sp"
+                                android:lineSpacingExtra="1dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <!-- Нижний блок из 3 расширенных кнопок -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:orientation="vertical">
+
+                    <!-- 1. Принять все -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAcceptAllPermissions"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:backgroundTint="#22C55E"
+                        android:text="Принять все разрешения"
+                        android:textColor="@color/white"
+                        android:textSize="13.5sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="14dp"
+                        app:icon="@drawable/ic_done"
+                        app:iconGravity="textStart"
+                        app:iconSize="18dp"
+                        app:iconTint="@color/white" />
+
+                    <!-- 2. Продолжить без разрешений (Расширенный размер с гарантированным вмещением текста) -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnContinueWithoutPermissions"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="8dp"
+                        android:paddingHorizontal="10dp"
+                        android:text="Продолжить без разрешений"
+                        android:textColor="@color/white"
+                        android:textSize="13sp"
+                        app:cornerRadius="14dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        app:strokeColor="#B3FFFFFF"
+                        app:strokeWidth="1.5dp" />
+
+                    <!-- 3. Выйти из приложения -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnExitApp"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:layout_marginTop="4dp"
+                        android:text="Выйти из приложения"
+                        android:textColor="#EF4444"
+                        android:textSize="12sp"
+                        app:icon="@drawable/ic_cancel"
+                        app:iconGravity="textStart"
+                        app:iconSize="16dp"
+                        app:iconTint="#EF4444" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+
+    </eightbitlab.com.blurview.BlurView>
+</FrameLayout>
