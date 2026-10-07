@@ -2236,6 +2236,7 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         checkNotificationPermission()
+        UpdateChecker.checkForUpdates(this)
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         sharedPrefs.registerOnSharedPreferenceChangeListener(prefListener)
