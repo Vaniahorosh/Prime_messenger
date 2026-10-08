@@ -32,13 +32,13 @@ object ValidationUtils {
      */
     fun validateLogin(login: String, sharedPrefs: SharedPreferences? = null, currentLogin: String? = null): String? {
         val trimmed = login.trim()
-        if (trimmed.isEmpty()) return "Введите логин"
-        if (trimmed.length < 3) return "Логин минимум 3 символа"
-        if (trimmed.length > 25) return "Логин максимум 25 символов"
-        if (!isValidLoginFormat(trimmed)) return "Только латиница, цифры и _"
-        if (isRestricted(trimmed)) return "Этот логин защищен системой"
+        if (trimmed.isEmpty()) return "Логин не может быть пустым. Пожалуйста, придумайте уникальное имя пользователя."
+        if (trimmed.length < 3) return "Слишком короткий логин (минимум 3 символа). Добавьте еще несколько букв или цифр."
+        if (trimmed.length > 25) return "Слишком длинный логин (максимум 25 символов). Постарайтесь сделать его короче."
+        if (!isValidLoginFormat(trimmed)) return "В логине допускаются только латинские буквы (a-z, A-Z), цифры (0-9) и знак подчеркивания (_). Пробелы и кириллица запрещены."
+        if (isRestricted(trimmed)) return "Этот логин зарезервирован системой. Пожалуйста, выберите другой."
         if (sharedPrefs != null && trimmed != currentLogin && sharedPrefs.contains(trimmed)) {
-            return "Этот логин уже занят на устройстве"
+            return "Этот логин уже занят другим профилем на данном устройстве. Попробуйте добавить цифры или изменить имя."
         }
         return null
     }
@@ -48,19 +48,19 @@ object ValidationUtils {
      */
     fun validateName(name: String): String? {
         val trimmed = name.trim()
-        if (trimmed.isEmpty()) return "Как вас зовут?"
-        if (trimmed.length < 2) return "Имя слишком короткое"
-        if (trimmed.length > 30) return "Имя слишком длинное"
-        if (isRestricted(trimmed)) return "Это имя защищено системой"
+        if (trimmed.isEmpty()) return "Имя не может быть пустым. Как к вам обращаться?"
+        if (trimmed.length < 2) return "Имя должно содержать минимум 2 символа."
+        if (trimmed.length > 30) return "Имя слишком длинное (максимум 30 символов)."
+        if (isRestricted(trimmed)) return "Это имя защищено системой. Выберите другое."
         return null
     }
 
     /**
-     * Валидация пароля.
+     * Валидация пароля
      */
     fun validatePassword(password: String): String? {
-        if (password.isEmpty()) return "Введите пароль"
-        if (password.length < 8) return "Пароль минимум 8 символов"
+        if (password.isEmpty()) return "Пароль не может быть пустым."
+        if (password.length < 8) return "Пароль слишком короткий (минимум 8 символов). Для безопасности используйте более длинный пароль."
         return null
     }
 

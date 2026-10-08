@@ -228,7 +228,9 @@ object ColorAccentManager {
                colorInt == Color.parseColor("#4D9FFF") ||
                colorInt == Color.parseColor("#CC154B87") ||
                colorInt == Color.parseColor("#CC4D9FFF") ||
-               colorInt == Color.parseColor("#154A86")
+               colorInt == Color.parseColor("#154A86") ||
+               colorInt == Color.parseColor("#007BFF") || // Встречается в LoginActivity
+               colorInt == Color.parseColor("#38BDF8")    // Встречается в иконках диалогов
     }
 
     @JvmStatic

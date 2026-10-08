@@ -251,6 +251,8 @@ class SettingsActivity : AppCompatActivity() {
         
         setContentView(R.layout.activity_settings)
 
+        UpdateChecker.checkForUpdates(this)
+
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
 
@@ -579,12 +581,54 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private fun showAvatarChoiceDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_choose_avatar, null)
+        val dialog = MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
+            .setView(dialogView)
+            .create()
+
+        val btnGallery = dialogView.findViewById<View>(R.id.btnGallery)
+        val avatars = listOf<Pair<ImageView?, String>>(
+            Pair(dialogView.findViewById(R.id.ivAv1), "android.resource://${packageName}/${R.drawable.avatar_1}"),
+            Pair(dialogView.findViewById(R.id.ivAv2), "android.resource://${packageName}/${R.drawable.avatar_2}"),
+            Pair(dialogView.findViewById(R.id.ivAv3), "android.resource://${packageName}/${R.drawable.avatar_3}"),
+            Pair(dialogView.findViewById(R.id.ivAv4), "android.resource://${packageName}/${R.drawable.avatar_4}"),
+            Pair(dialogView.findViewById(R.id.ivAv5), "android.resource://${packageName}/${R.drawable.avatar_5}")
+        )
+
+        btnGallery?.setOnClickListener {
+            dialog.dismiss()
+            pickImage.launch("image/*")
+        }
+
+        avatars.forEach { (iv, uri) ->
+            iv?.setOnClickListener {
+                dialog.dismiss()
+                AvatarHistoryManager.addMyAvatar(this@SettingsActivity, uri)
+                currentAvatarIndex = 0
+                currentAvatarUri = uri
+                avatarUriState.value = uri
+
+                val b = binding
+                if (b != null) {
+                    updatePhotoCardImage(b)
+                }
+                applyAvatarState(uri)
+                Executors.newSingleThreadExecutor().execute { sendProfileUpdateOverBluetooth() }
+                sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
+                PrimeNotification.show(this@SettingsActivity, "Аватарка обновлена")
+            }
+        }
+
+        dialog.show()
+    }
+
     private fun setupBlurButtons(b: ActivitySettingsContentBinding, darkTheme: Boolean) {
         b.btnBackWP.setOnClickListener {
             if (isPhotoMenuMode.value) togglePhotoMenuMode(false)
             else onBackPressedDispatcher.onBackPressed()
         }
-        b.btnChangePhotoWP.setOnClickListener { pickImage.launch("image/*") }
+        b.btnChangePhotoWP.setOnClickListener { showAvatarChoiceDialog() }
         b.btnLogoutWP.setOnClickListener {
             if (isPhotoMenuMode.value) openFullPhoto()
             else showLogoutDialog()
@@ -599,7 +643,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         b.photoCard.setOnClickListener {
             if (currentAvatarUri != null) togglePhotoMenuMode(!isPhotoMenuMode.value)
-            else pickImage.launch("image/*")
+            else showAvatarChoiceDialog()
         }
         b.photoCard.setOnLongClickListener {
             if (currentAvatarUri != null) {
@@ -608,9 +652,14 @@ class SettingsActivity : AppCompatActivity() {
             } else false
         }
         b.btnBackNP.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
-        b.btnChangePhotoNP.setOnClickListener { pickImage.launch("image/*") }
+        b.btnChangePhotoNP.setOnClickListener { showAvatarChoiceDialog() }
         b.btnLogoutNP.setOnClickListener { showLogoutDialog() }
         b.btnExtraSettingsNP.setOnClickListener { b.nestedScrollView.smoothScrollTo(0, 1000) }
+
+        b.btnCheckUpdate.setOnClickListener {
+            UpdateChecker.checkForUpdates(this, manualCheck = true)
+            PrimeNotification.show(this, "Поиск обновлений...")
+        }
     }
 
     private fun setupListeners(b: ActivitySettingsContentBinding) {
@@ -618,7 +667,7 @@ class SettingsActivity : AppCompatActivity() {
         
         b.btnLogoutNP.setOnClickListener { showLogoutDialog() }
         
-        b.btnChangePhotoNP.setOnClickListener { pickImage.launch("image/*") }
+        b.btnChangePhotoNP.setOnClickListener { showAvatarChoiceDialog() }
 
         b.btnExtraSettingsNP.setOnClickListener {
             b.nestedScrollView.smoothScrollTo(0, 1000)
@@ -635,22 +684,90 @@ class SettingsActivity : AppCompatActivity() {
             "dark" -> "Темная"
             else -> "Системная"
         }
-        b.cardTheme.addBounceTouchEffect()
-        b.cardLavaBg.addBounceTouchEffect()
         b.cardGithub.addBounceTouchEffect()
-        b.cardColorAccent.addBounceTouchEffect()
         b.cardThanks.addBounceTouchEffect()
 
-        b.cardTheme.setOnClickListener { showThemeDialog(b) }
+        // Color Accent Card - Inline Options
+        b.tvAccentSummary.text = ColorAccentManager.getAccentSummary(this)
+        
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        b.vAccentColorPreview.backgroundTintList = ColorStateList.valueOf(accentColor)
+        
+        // Setup Monet Switch
+        b.switchMonetAccent.isChecked = ColorAccentManager.getAccentType(this) == ColorAccentManager.ACCENT_TYPE_SYSTEM
+        b.switchMonetAccent.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                ColorAccentManager.setAccentSystem(this)
+            } else {
+                ColorAccentManager.setAccentDefault(this)
+            }
+            restartApp()
+        }
 
+        // Setup Swatches
+        val dp36 = (36 * resources.displayMetrics.density).toInt()
+        val dp8 = (8 * resources.displayMetrics.density).toInt()
+        b.layoutSwatches.removeAllViews()
+
+        ColorAccentManager.PRESET_COLORS.forEach { preset ->
+            val swatchColor = if (isDark) preset.darkColor else preset.lightColor
+            val btn = com.google.android.material.button.MaterialButton(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp36, dp36).apply {
+                    marginEnd = dp8
+                }
+                insetTop = 0
+                insetBottom = 0
+                cornerRadius = dp36 / 2
+                backgroundTintList = ColorStateList.valueOf(swatchColor)
+                if (swatchColor == accentColor) {
+                    strokeColor = ColorStateList.valueOf(android.graphics.Color.WHITE)
+                    strokeWidth = (2 * resources.displayMetrics.density).toInt()
+                } else {
+                    strokeWidth = 0
+                }
+                setOnClickListener {
+                    ColorAccentManager.setAccentCustom(this@SettingsActivity, swatchColor)
+                    restartApp()
+                }
+            }
+            b.layoutSwatches.addView(btn)
+        }
+
+        b.btnCustomPicker.setOnClickListener {
+            // Future feature: show color picker spectrum
+            PrimeNotification.show(this, "Выбор цвета из спектра будет добавлен в будущем")
+        }
+
+        // Theme Options Inline
+        val currentTheme = sharedPrefs.getString("app_theme", "system")
+        b.rbThemeSystem.isChecked = currentTheme == "system"
+        b.rbThemeLight.isChecked = currentTheme == "light"
+        b.rbThemeDark.isChecked = currentTheme == "dark"
+
+        b.rgThemeOptions.setOnCheckedChangeListener { _, checkedId ->
+            val newTheme = when (checkedId) {
+                R.id.rbThemeLight -> "light"
+                R.id.rbThemeDark -> "dark"
+                else -> "system"
+            }
+            applyThemeChange(newTheme)
+        }
+
+        // Lava Background Preview
         b.switchLavaBg.setOnCheckedChangeListener(null)
         b.switchLavaBg.isChecked = sharedPrefs.getBoolean("settings_lava_bg", true)
         b.switchLavaBg.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("settings_lava_bg", isChecked).apply()
-            restartApp()
+            LavaBackgroundState.onActivityResumed()
         }
-        b.cardLavaBg.setOnClickListener {
-            b.switchLavaBg.isChecked = !b.switchLavaBg.isChecked
+
+        b.composeLavaPreview.setContent {
+            PrimeTheme(darkTheme = isDark) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AnimatedBackground(darkTheme = isDark)
+                }
+            }
         }
 
         b.cardGithub.setOnClickListener {
@@ -661,9 +778,6 @@ class SettingsActivity : AppCompatActivity() {
                 e.printStackTrace()
             }
         }
-
-        updateAccentUi(b)
-        b.cardColorAccent.setOnClickListener { showColorAccentDialog(b) }
 
         setupThanksCard(b)
         setupStorageSection(b)
@@ -2207,5 +2321,10 @@ class SettingsActivity : AppCompatActivity() {
             restartApp()
         }
         isThemeDialogVisible.value = false
+    }
+
+    override fun onDestroy() {
+        stopWobbling()
+        super.onDestroy()
     }
 }

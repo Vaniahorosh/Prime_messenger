@@ -87,6 +87,8 @@ class LoginActivity : AppCompatActivity() {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
         
+        UpdateChecker.checkForUpdates(this)
+        
         setupEdgeToEdge()
 
         val sharedPreferences = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
@@ -139,9 +141,20 @@ class LoginActivity : AppCompatActivity() {
                                 }
                             }
 
-                            // Smooth avatar fade in
-                            b.flLoginAvatar.alpha = 0f
-                            b.flLoginAvatar.animate().alpha(1f).setDuration(500L).start()
+                            // Каскадная плавная анимация появления элементов
+                            val animatableViews = listOf(b.btnBack, b.tsTitle, b.flLoginAvatar, b.loginBlurCard)
+                            
+                            animatableViews.forEach { 
+                                it.alpha = 0f 
+                                if (it != b.btnBack) {
+                                    it.translationY = 50f
+                                }
+                            }
+
+                            b.btnBack.animate().alpha(1f).setDuration(400L).start()
+                            b.tsTitle.animate().alpha(1f).translationY(0f).setDuration(500L).setStartDelay(100L).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+                            b.flLoginAvatar.animate().alpha(1f).translationY(0f).setDuration(500L).setStartDelay(150L).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+                            b.loginBlurCard.animate().alpha(1f).translationY(0f).setDuration(500L).setStartDelay(200L).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
 
                             setupContrastColors(b, darkTheme)
 
@@ -252,6 +265,33 @@ class LoginActivity : AppCompatActivity() {
                             b.flRegisterAvatar.setOnClickListener {
                                 if (isRegistrationMode) {
                                     photoPickerLauncher.launch("image/*")
+                                }
+                            }
+
+                            // Setup predefined avatars
+                            val avatars = listOf(
+                                b.ivAvatar1 to "android.resource://${packageName}/${R.drawable.avatar_1}",
+                                b.ivAvatar2 to "android.resource://${packageName}/${R.drawable.avatar_2}",
+                                b.ivAvatar3 to "android.resource://${packageName}/${R.drawable.avatar_3}",
+                                b.ivAvatar4 to "android.resource://${packageName}/${R.drawable.avatar_4}",
+                                b.ivAvatar5 to "android.resource://${packageName}/${R.drawable.avatar_5}"
+                            )
+
+                            avatars.forEach { (imageView, uriString) ->
+                                imageView.setOnClickListener {
+                                    if (isRegistrationMode) {
+                                        avatarUri = android.net.Uri.parse(uriString)
+                                        Glide.with(this@LoginActivity)
+                                            .load(avatarUri)
+                                            .centerCrop()
+                                            .into(b.ivRegisterAvatar)
+                                        b.tvSelectPhoto.visibility = View.GONE
+                                        
+                                        // Очищаем выделение со всех
+                                        avatars.forEach { (iv, _) -> iv.strokeWidth = 2f }
+                                        // Выделяем текущую (увеличиваем рамку или меняем цвет)
+                                        imageView.strokeWidth = 6f
+                                    }
                                 }
                             }
 
@@ -498,10 +538,15 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun setupContrastColors(b: ActivityLoginContentBinding, darkTheme: Boolean) {
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
         val titleColor = if (darkTheme) android.graphics.Color.parseColor("#F1F5F9") else android.graphics.Color.parseColor("#0F172A")
         val subtitleColor = if (darkTheme) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
         val iconTint = if (darkTheme) android.graphics.Color.WHITE else android.graphics.Color.parseColor("#1E293B")
-        
+        val hintColorList = android.content.res.ColorStateList.valueOf(if (darkTheme) android.graphics.Color.parseColor("#B0FFFFFF") else android.graphics.Color.parseColor("#64748B"))
+        val boxBgColor = if (darkTheme) android.graphics.Color.parseColor("#1AFFFFFF") else android.graphics.Color.parseColor("#10000000")
+        val strokeColorList = android.content.res.ColorStateList.valueOf(if (darkTheme) android.graphics.Color.WHITE else accentColor)
+
+        b.tvTitle.setTextColor(titleColor)
         b.tvSubtitle.setTextColor(subtitleColor)
         b.btnBack.setColorFilter(iconTint)
         
@@ -509,7 +554,24 @@ class LoginActivity : AppCompatActivity() {
         b.etName.setTextColor(titleColor)
         b.etPassword.setTextColor(titleColor)
         
+        b.inputLayoutLogin.defaultHintTextColor = hintColorList
+        b.inputLayoutName.defaultHintTextColor = hintColorList
+        b.inputLayoutPassword.defaultHintTextColor = hintColorList
+
+        b.inputLayoutLogin.boxBackgroundColor = boxBgColor
+        b.inputLayoutName.boxBackgroundColor = boxBgColor
+        b.inputLayoutPassword.boxBackgroundColor = boxBgColor
+
+        b.inputLayoutLogin.setBoxStrokeColorStateList(strokeColorList)
+        b.inputLayoutName.setBoxStrokeColorStateList(strokeColorList)
+        b.inputLayoutPassword.setBoxStrokeColorStateList(strokeColorList)
+
         b.inputLayoutPassword.setEndIconTintList(android.content.res.ColorStateList.valueOf(iconTint))
+
+        b.btnToggleMode.setTextColor(titleColor)
+        b.btnToggleMode.backgroundTintList = android.content.res.ColorStateList.valueOf(
+            if (darkTheme) android.graphics.Color.parseColor("#30FFFFFF") else android.graphics.Color.parseColor("#20000000")
+        )
     }
 
     private fun hideKeyboard() {

@@ -69,9 +69,83 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     private var baseColor = Color.TRANSPARENT
     private var baseAlpha = 30
 
+    private val unitPaths = mutableMapOf<ShapeType, Path>()
+
     init {
         brandLogoDrawable = ContextCompat.getDrawable(context, R.drawable.ic_prime_statusbar)
+        initUnitPaths()
         updateThemeColors()
+    }
+
+    private fun initUnitPaths() {
+        // Pre-calculate normalized unit paths (radius = 1.0f) to eliminate trig calculations during onDraw
+        unitPaths[ShapeType.TRIANGLE] = Path().apply {
+            moveTo(0f, -1f)
+            lineTo(1f, 1f)
+            lineTo(-1f, 1f)
+            close()
+        }
+        unitPaths[ShapeType.DIAMOND] = Path().apply {
+            moveTo(0f, -1f)
+            lineTo(1f, 0f)
+            lineTo(0f, 1f)
+            lineTo(-1f, 0f)
+            close()
+        }
+        unitPaths[ShapeType.PENTAGON] = Path().apply {
+            for (i in 0 until 5) {
+                val angle = (i * 2 * Math.PI / 5 - Math.PI / 2).toFloat()
+                val x = cos(angle)
+                val y = sin(angle)
+                if (i == 0) moveTo(x, y) else lineTo(x, y)
+            }
+            close()
+        }
+        unitPaths[ShapeType.HEXAGON] = Path().apply {
+            for (i in 0 until 6) {
+                val angle = (i * Math.PI / 3 - Math.PI / 2).toFloat()
+                val x = cos(angle).toFloat()
+                val y = sin(angle).toFloat()
+                if (i == 0) moveTo(x, y) else lineTo(x, y)
+            }
+            close()
+        }
+        unitPaths[ShapeType.STAR_5] = Path().apply {
+            for (i in 0 until 10) {
+                val r = if (i % 2 == 0) 1f else 0.45f
+                val angle = (i * Math.PI / 5 - Math.PI / 2).toFloat()
+                val x = (r * cos(angle)).toFloat()
+                val y = (r * sin(angle)).toFloat()
+                if (i == 0) moveTo(x, y) else lineTo(x, y)
+            }
+            close()
+        }
+        unitPaths[ShapeType.STAR_8] = Path().apply {
+            for (i in 0 until 16) {
+                val r = if (i % 2 == 0) 1f else 0.5f
+                val angle = (i * Math.PI / 8).toFloat()
+                val x = (r * cos(angle)).toFloat()
+                val y = (r * sin(angle)).toFloat()
+                if (i == 0) moveTo(x, y) else lineTo(x, y)
+            }
+            close()
+        }
+        unitPaths[ShapeType.CROSS] = Path().apply {
+            val w = 0.35f
+            moveTo(-w, -1f); lineTo(w, -1f)
+            lineTo(w, -w); lineTo(1f, -w)
+            lineTo(1f, w); lineTo(w, w)
+            lineTo(w, 1f); lineTo(-w, 1f)
+            lineTo(-w, w); lineTo(-1f, w)
+            lineTo(-1f, -w); lineTo(-w, -w)
+            close()
+        }
+        unitPaths[ShapeType.HEART] = Path().apply {
+            moveTo(0f, 0.35f)
+            cubicTo(-1f, -0.6f, -0.5f, -1.2f, 0f, -0.4f)
+            cubicTo(0.5f, -1.2f, 1f, -0.6f, 0f, 0.35f)
+            close()
+        }
     }
 
     fun updateThemeColors() {
@@ -168,6 +242,7 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     }
 
     fun startEntranceAnimation() {
+        if (animator?.isStarted == true) return
         animator?.cancel()
         animProgress = 0f
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
@@ -177,6 +252,21 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                 invalidate()
             }
             start()
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        animator?.cancel()
+        animator = null
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (visibility != VISIBLE) {
+            animator?.pause()
+        } else if (animator?.isPaused == true) {
+            animator?.resume()
         }
     }
 
@@ -235,23 +325,6 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                     rectF.set(-radius, -radius, radius, radius)
                     canvas.drawRoundRect(rectF, radius * 0.35f, radius * 0.35f, paint)
                 }
-                ShapeType.TRIANGLE -> {
-                    path.reset()
-                    path.moveTo(0f, -radius)
-                    path.lineTo(radius, radius)
-                    path.lineTo(-radius, radius)
-                    path.close()
-                    canvas.drawPath(path, paint)
-                }
-                ShapeType.DIAMOND -> {
-                    path.reset()
-                    path.moveTo(0f, -radius)
-                    path.lineTo(radius, 0f)
-                    path.lineTo(0f, radius)
-                    path.lineTo(-radius, 0f)
-                    path.close()
-                    canvas.drawPath(path, paint)
-                }
                 ShapeType.RING -> {
                     canvas.drawCircle(0f, 0f, radius, strokePaint)
                 }
@@ -259,75 +332,9 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                     rectF.set(-radius * 1.2f, -radius * 0.6f, radius * 1.2f, radius * 0.6f)
                     canvas.drawRoundRect(rectF, radius * 0.6f, radius * 0.6f, paint)
                 }
-                ShapeType.PENTAGON -> {
-                    path.reset()
-                    for (i in 0 until 5) {
-                        val angle = (i * 2 * Math.PI / 5 - Math.PI / 2).toFloat()
-                        val x = radius * cos(angle)
-                        val y = radius * sin(angle)
-                        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                    }
-                    path.close()
-                    canvas.drawPath(path, paint)
-                }
-                ShapeType.HEXAGON -> {
-                    path.reset()
-                    for (i in 0 until 6) {
-                        val angle = (i * Math.PI / 3 - Math.PI / 2).toFloat()
-                        val x = (radius * cos(angle)).toFloat()
-                        val y = (radius * sin(angle)).toFloat()
-                        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                    }
-                    path.close()
-                    canvas.drawPath(path, paint)
-                }
-                ShapeType.STAR_5 -> {
-                    path.reset()
-                    for (i in 0 until 10) {
-                        val r = if (i % 2 == 0) radius else radius * 0.45f
-                        val angle = (i * Math.PI / 5 - Math.PI / 2).toFloat()
-                        val x = (r * cos(angle)).toFloat()
-                        val y = (r * sin(angle)).toFloat()
-                        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                    }
-                    path.close()
-                    canvas.drawPath(path, paint)
-                }
-                ShapeType.STAR_8 -> {
-                    path.reset()
-                    for (i in 0 until 16) {
-                        val r = if (i % 2 == 0) radius else radius * 0.5f
-                        val angle = (i * Math.PI / 8).toFloat()
-                        val x = (r * cos(angle)).toFloat()
-                        val y = (r * sin(angle)).toFloat()
-                        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                    }
-                    path.close()
-                    canvas.drawPath(path, paint)
-                }
-                ShapeType.CROSS -> {
-                    val w = radius * 0.35f
-                    path.reset()
-                    path.moveTo(-w, -radius); path.lineTo(w, -radius)
-                    path.lineTo(w, -w); path.lineTo(radius, -w)
-                    path.lineTo(radius, w); path.lineTo(w, w)
-                    path.lineTo(w, radius); path.lineTo(-w, radius)
-                    path.lineTo(-w, w); path.lineTo(-radius, w)
-                    path.lineTo(-radius, -w); path.lineTo(-w, -w)
-                    path.close()
-                    canvas.drawPath(path, paint)
-                }
                 ShapeType.CONCENTRIC_RINGS -> {
                     canvas.drawCircle(0f, 0f, radius, strokePaint)
                     canvas.drawCircle(0f, 0f, radius * 0.5f, strokePaint)
-                }
-                ShapeType.HEART -> {
-                    path.reset()
-                    path.moveTo(0f, radius * 0.35f)
-                    path.cubicTo(-radius, -radius * 0.6f, -radius * 0.5f, -radius * 1.2f, 0f, -radius * 0.4f)
-                    path.cubicTo(radius * 0.5f, -radius * 1.2f, radius, -radius * 0.6f, 0f, radius * 0.35f)
-                    path.close()
-                    canvas.drawPath(path, paint)
                 }
                 ShapeType.FLOWER_4 -> {
                     canvas.drawCircle(-radius * 0.35f, 0f, radius * 0.5f, paint)
@@ -342,6 +349,14 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                         drawable.setTint(baseColor)
                         drawable.alpha = currentAlpha
                         drawable.draw(canvas)
+                    }
+                }
+                else -> {
+                    unitPaths[shape.type]?.let { unitPath ->
+                        canvas.save()
+                        canvas.scale(radius, radius)
+                        canvas.drawPath(unitPath, paint)
+                        canvas.restore()
                     }
                 }
             }

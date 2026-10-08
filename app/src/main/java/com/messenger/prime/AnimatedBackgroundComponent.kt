@@ -286,6 +286,10 @@ fun GlassCard(
 
 @Composable
 private fun LavaShape(instance: LavaShapeInstance) {
+    var currentPoly by remember(instance.id) { mutableStateOf(instance.currentPolygon) }
+    var targetPoly by remember(instance.id) { mutableStateOf(instance.targetPolygon) }
+    var lastMorphTimeState by remember(instance.id) { mutableLongStateOf(instance.lastMorphTime) }
+
     val infiniteTransition = rememberInfiniteTransition(label = "lava")
     
     // Ticker for frame updates
@@ -296,28 +300,33 @@ private fun LavaShape(instance: LavaShapeInstance) {
         label = "ticker"
     )
 
-    // Using side-effect to handle multi-step morphing logic
+    // Using side-effect to handle multi-step morphing logic safely
     val currentTime = SystemClock.uptimeMillis()
     val totalElapsed = currentTime - LavaBackgroundState.startTime
     
     // Update morphing targets
     LaunchedEffect(elapsed) {
-        val morphElapsed = SystemClock.uptimeMillis() - instance.lastMorphTime
+        val morphElapsed = SystemClock.uptimeMillis() - lastMorphTimeState
         if (morphElapsed >= instance.morphDuration) {
-            instance.currentPolygon = instance.targetPolygon
-            instance.targetPolygon = createRandomPolygon()
-            instance.lastMorphTime = SystemClock.uptimeMillis()
+            currentPoly = targetPoly
+            targetPoly = createRandomPolygon()
+            lastMorphTimeState = SystemClock.uptimeMillis()
+            instance.currentPolygon = currentPoly
+            instance.targetPolygon = targetPoly
+            instance.lastMorphTime = lastMorphTimeState
         }
     }
 
-    val morphProgress = ((SystemClock.uptimeMillis() - instance.lastMorphTime).toFloat() / instance.morphDuration)
+    val morphProgress = ((currentTime - lastMorphTimeState).toFloat() / instance.morphDuration)
         .coerceIn(0f, 1f)
-    // Applying FastOutSlowInEasing manually for the morph
     val easedMorphProgress = FastOutSlowInEasing.transform(morphProgress)
     
-    val morph = remember(instance.currentPolygon, instance.targetPolygon) {
-        Morph(instance.currentPolygon, instance.targetPolygon)
+    val morph = remember(currentPoly, targetPoly) {
+        Morph(currentPoly, targetPoly)
     }
+
+    val nativePath = remember { android.graphics.Path() }
+    val boundsRect = remember { android.graphics.RectF() }
 
     Canvas(
         modifier = Modifier.fillMaxSize()
@@ -341,7 +350,7 @@ private fun LavaShape(instance: LavaShapeInstance) {
         translate(xPos, yPos) {
             rotate(rotation) {
                 val sizePx = instance.size.toPx() * scale
-                val path = morph.toComposePath(easedMorphProgress, sizePx)
+                val path = morph.toComposePath(easedMorphProgress, sizePx, nativePath, boundsRect)
                 
                 drawPath(
                     path = path,
@@ -386,25 +395,29 @@ private fun NoiseOverlay() {
 
 // --- Extension ---
 
-fun Morph.toComposePath(progress: Float, size: Float): Path {
-    val p = android.graphics.Path()
+fun Morph.toComposePath(
+    progress: Float,
+    size: Float,
+    reuseNativePath: android.graphics.Path = android.graphics.Path(),
+    reuseBounds: android.graphics.RectF = android.graphics.RectF()
+): Path {
+    reuseNativePath.rewind()
     val features = this.asCubics(progress)
     var isFirst = true
     features.forEach { cubic ->
         if (isFirst) {
-            p.moveTo(cubic.anchor0X * size, cubic.anchor0Y * size)
+            reuseNativePath.moveTo(cubic.anchor0X * size, cubic.anchor0Y * size)
             isFirst = false
         }
-        p.cubicTo(
+        reuseNativePath.cubicTo(
             cubic.control0X * size, cubic.control0Y * size,
             cubic.control1X * size, cubic.control1Y * size,
             cubic.anchor1X * size, cubic.anchor1Y * size
         )
     }
-    p.close()
+    reuseNativePath.close()
     
-    val bounds = android.graphics.RectF()
-    p.computeBounds(bounds, true)
-    p.offset(-bounds.centerX(), -bounds.centerY())
-    return p.asComposePath()
+    reuseNativePath.computeBounds(reuseBounds, true)
+    reuseNativePath.offset(-reuseBounds.centerX(), -reuseBounds.centerY())
+    return reuseNativePath.asComposePath()
 }

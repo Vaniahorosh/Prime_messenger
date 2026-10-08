@@ -327,7 +327,7 @@ class ChatListAdapter(
             binding.ivMuteStatus.visibility = if (chat.isMuted) View.VISIBLE else View.GONE
         }
 
-        if (diffBundle.containsKey("avatarUri") || diffBundle.containsKey("name")) {
+        if (diffBundle.containsKey("avatarUri")) {
             super.onBindViewHolder(holder, position, payloads)
         }
     }
@@ -355,9 +355,6 @@ class ChatListAdapter(
 
                 holder.resetReveal()
 
-                try {
-                    Glide.with(context).clear(binding.ivUserAvatar)
-                } catch (_: Exception) {}
                 binding.ivUserAvatar.setImageDrawable(null)
                 binding.tvUserInitials.visibility = View.GONE
                 binding.ivUserAvatar.visibility = View.INVISIBLE
@@ -421,15 +418,80 @@ class ChatListAdapter(
                     binding.tvUserInitials.visibility = View.GONE
                 } else {
                     var avatarLoaded = false
-                    val avatarToLoad = chat.avatarUri ?: AvatarManager.getContactAvatarUriOrFile(context, chat.id, chat.name, chat.id)
-
-                    if (!avatarToLoad.isNullOrEmpty()) {
+                    if (!chat.avatarUri.isNullOrEmpty()) {
                         try {
-                            loadAvatarIntoView(context, avatarToLoad, binding.ivUserAvatar, chat.name)
-                            binding.ivUserAvatar.visibility = View.VISIBLE
-                            binding.tvUserInitials.visibility = View.GONE
-                            avatarLoaded = true
-                        } catch (_: Exception) {}
+                            val uri = chat.avatarUri.toUri()
+                            val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
+                            if (file != null && file.exists()) {
+                                loadAvatarFileIntoView(context, file, binding.ivUserAvatar)
+                                binding.ivUserAvatar.visibility = View.VISIBLE
+                                binding.tvUserInitials.visibility = View.GONE
+                                avatarLoaded = true
+                            } else {
+                                loadAvatarUriIntoView(context, uri, binding.ivUserAvatar)
+                                binding.ivUserAvatar.visibility = View.VISIBLE
+                                binding.tvUserInitials.visibility = View.GONE
+                                avatarLoaded = true
+                            }
+                        } catch (_: Exception) {
+                            avatarLoaded = false
+                        }
+                    }
+
+                    if (!avatarLoaded) {
+                        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                        val prefAvatar = sharedPrefs.getString("contact_avatar_${chat.id}", null)
+                            ?: sharedPrefs.getString("${chat.id}_avatarUri", null)
+                            ?: sharedPrefs.getString("${chat.id}_avatar", null)
+
+                        if (!prefAvatar.isNullOrEmpty()) {
+                            try {
+                                val uri = prefAvatar.toUri()
+                                val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
+                                if (file != null && file.exists()) {
+                                    loadAvatarFileIntoView(context, file, binding.ivUserAvatar)
+                                } else {
+                                    loadAvatarUriIntoView(context, uri, binding.ivUserAvatar)
+                                }
+                                binding.ivUserAvatar.visibility = View.VISIBLE
+                                binding.tvUserInitials.visibility = View.GONE
+                                avatarLoaded = true
+                            } catch (_: Exception) {}
+                        }
+                    }
+
+                    if (!avatarLoaded) {
+                        val isGeneric = chat.name.equals("Собеседник", ignoreCase = true) ||
+                                        chat.name.equals("Prime Собеседник", ignoreCase = true) ||
+                                        chat.name.equals("Пользователь", ignoreCase = true) ||
+                                        chat.name.equals("Prime User", ignoreCase = true) ||
+                                        chat.name.equals("Контакт", ignoreCase = true)
+
+                        val possibleFiles = mutableListOf<File>()
+                        if (!chat.id.isNullOrEmpty()) {
+                            possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.id}.gif"))
+                            possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.id}.jpg"))
+                            possibleFiles.add(File(context.filesDir, "avatar_${chat.id}.gif"))
+                            possibleFiles.add(File(context.filesDir, "avatar_${chat.id}.jpg"))
+                        }
+                        if (!isGeneric && !chat.name.isNullOrEmpty()) {
+                            possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.name}.gif"))
+                            possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.name}.jpg"))
+                            possibleFiles.add(File(context.filesDir, "avatar_${chat.name}.gif"))
+                            possibleFiles.add(File(context.filesDir, "avatar_${chat.name}.jpg"))
+                        }
+
+                        for (targetFile in possibleFiles) {
+                            if (targetFile.exists() && targetFile.length() > 0) {
+                                try {
+                                    loadAvatarFileIntoView(context, targetFile, binding.ivUserAvatar)
+                                    binding.ivUserAvatar.visibility = View.VISIBLE
+                                    binding.tvUserInitials.visibility = View.GONE
+                                    avatarLoaded = true
+                                    break
+                                } catch (_: Exception) {}
+                            }
+                        }
                     }
 
                     if (!avatarLoaded) {

@@ -70,43 +70,51 @@ private object M3ExpressiveShapes {
 }
 
 // Convert Morph progress (0..1) to Compose Path using fixed intrinsic centroid (0,0)
-private fun Morph.toComposePathForLoading(progress: Float, radius: Float): Path {
-    val androidPath = AndroidPath()
+private fun Morph.toComposePathForLoading(
+    progress: Float,
+    radius: Float,
+    reuseNativePath: AndroidPath = AndroidPath()
+): Path {
+    reuseNativePath.rewind()
     val cubics = this.asCubics(progress)
     var isFirst = true
     cubics.forEach { cubic ->
         if (isFirst) {
-            androidPath.moveTo(cubic.anchor0X * radius, cubic.anchor0Y * radius)
+            reuseNativePath.moveTo(cubic.anchor0X * radius, cubic.anchor0Y * radius)
             isFirst = false
         }
-        androidPath.cubicTo(
+        reuseNativePath.cubicTo(
             cubic.control0X * radius, cubic.control0Y * radius,
             cubic.control1X * radius, cubic.control1Y * radius,
             cubic.anchor1X * radius, cubic.anchor1Y * radius
         )
     }
-    androidPath.close()
-    return androidPath.asComposePath()
+    reuseNativePath.close()
+    return reuseNativePath.asComposePath()
 }
 
 // Convert Morph progress (0..1) to Android Path using fixed intrinsic centroid (0,0)
-private fun Morph.toAndroidPathForLoading(progress: Float, radius: Float): AndroidPath {
-    val androidPath = AndroidPath()
+private fun Morph.toAndroidPathForLoading(
+    progress: Float,
+    radius: Float,
+    reuseNativePath: AndroidPath = AndroidPath()
+): AndroidPath {
+    reuseNativePath.rewind()
     val cubics = this.asCubics(progress)
     var isFirst = true
     cubics.forEach { cubic ->
         if (isFirst) {
-            androidPath.moveTo(cubic.anchor0X * radius, cubic.anchor0Y * radius)
+            reuseNativePath.moveTo(cubic.anchor0X * radius, cubic.anchor0Y * radius)
             isFirst = false
         }
-        androidPath.cubicTo(
+        reuseNativePath.cubicTo(
             cubic.control0X * radius, cubic.control0Y * radius,
             cubic.control1X * radius, cubic.control1Y * radius,
             cubic.anchor1X * radius, cubic.anchor1Y * radius
         )
     }
-    androidPath.close()
-    return androidPath
+    reuseNativePath.close()
+    return reuseNativePath
 }
 
 /**
@@ -143,6 +151,8 @@ fun M3ExpressiveLoadingIndicator(
         label = "pulse"
     )
 
+    val nativePath = remember { AndroidPath() }
+
     Box(
         modifier = modifier.size(size),
         contentAlignment = Alignment.Center
@@ -155,7 +165,7 @@ fun M3ExpressiveLoadingIndicator(
             val segmentProgress = morphProgress - currentSegment
 
             val activeMorph = M3ExpressiveShapes.morphs[currentSegment]
-            val path = activeMorph.toComposePathForLoading(segmentProgress, radiusPx)
+            val path = activeMorph.toComposePathForLoading(segmentProgress, radiusPx, nativePath)
 
             // Translate to exact center of Canvas and draw stationary morphing shape
             translate(center.x, center.y) {
@@ -210,6 +220,7 @@ class M3ExpressiveLoadingView @JvmOverloads constructor(
         color = 0x40FFFFFF
     }
 
+    private val reusableNativePath = AndroidPath()
     private var animProgress = 0f
     private var animator: ValueAnimator? = null
 
@@ -223,6 +234,7 @@ class M3ExpressiveLoadingView @JvmOverloads constructor(
     }
 
     private fun startAnimation() {
+        if (animator?.isStarted == true) return
         animator?.cancel()
         animator = ValueAnimator.ofFloat(0f, 4f).apply {
             duration = 3200
@@ -238,7 +250,7 @@ class M3ExpressiveLoadingView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (animator?.isStarted != true) {
+        if (visibility == VISIBLE) {
             startAnimation()
         }
     }
@@ -246,6 +258,16 @@ class M3ExpressiveLoadingView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         animator?.cancel()
+        animator = null
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (visibility == VISIBLE) {
+            startAnimation()
+        } else {
+            animator?.cancel()
+        }
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -261,7 +283,7 @@ class M3ExpressiveLoadingView @JvmOverloads constructor(
         val segmentProgress = animProgress - currentSegment
 
         val activeMorph = M3ExpressiveShapes.morphs[currentSegment]
-        val path = activeMorph.toAndroidPathForLoading(segmentProgress, radius)
+        val path = activeMorph.toAndroidPathForLoading(segmentProgress, radius, reusableNativePath)
 
         // Translate to exact center of View and draw stationary morphing shape
         canvas.save()

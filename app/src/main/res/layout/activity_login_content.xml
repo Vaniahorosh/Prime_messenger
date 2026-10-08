@@ -123,7 +123,7 @@
                             android:layout_height="wrap_content"
                             android:text="Выбрать\nфото"
                             android:textAlignment="center"
-                            android:textColor="#007BFF"
+                            android:textColor="?attr/colorPrimary"
                             android:textStyle="bold"
                             android:layout_gravity="center" />
                     </FrameLayout>
@@ -252,7 +252,7 @@
                         android:text="Регистрация"
                         app:backgroundTint="#40FFFFFF"
                         android:textColor="@color/white"
-                        app:cornerRadius="8dp" />
+                        app:cornerRadius="16dp" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnRegisterSubmit"
@@ -263,7 +263,7 @@
                         android:visibility="gone"
                         app:backgroundTint="#007BFF"
                         android:textColor="@color/white"
-                        app:cornerRadius="24dp"
+                        app:cornerRadius="16dp"
                         app:strokeColor="#80007BFF"
                         app:strokeWidth="2dp" />
 
@@ -303,13 +303,14 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Или выберите из 5 готовых аватаров"
-                            android:textColor="#007BFF"
+                            android:textColor="?attr/colorPrimary"
                             android:textSize="12sp" />
                         <View
+                            android:id="@+id/vAvatarsLine"
                             android:layout_width="0dp"
                             android:layout_height="2dp"
                             android:layout_weight="1"
-                            android:background="#007BFF"
+                            android:background="?attr/colorPrimary"
                             android:layout_marginStart="8dp" />
                     </LinearLayout>
 
@@ -321,43 +322,58 @@
                         android:gravity="center">
 
                         <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/ivAvatar1"
                             android:layout_width="48dp"
                             android:layout_height="48dp"
                             android:layout_marginEnd="8dp"
                             android:background="#20FFFFFF"
-                            app:shapeAppearanceOverlay="@style/RoundedDialogShape"
-                            app:strokeColor="#007BFF"
+                            android:src="@drawable/avatar_1"
+                            android:scaleType="centerCrop"
+                            app:shapeAppearanceOverlay="@style/SquareFABShape"
+                            app:strokeColor="?attr/colorPrimary"
                             app:strokeWidth="2dp"/>
                         <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/ivAvatar2"
                             android:layout_width="48dp"
                             android:layout_height="48dp"
                             android:layout_marginEnd="8dp"
                             android:background="#20FFFFFF"
-                            app:shapeAppearanceOverlay="@style/RoundedDialogShape"
-                            app:strokeColor="#007BFF"
+                            android:src="@drawable/avatar_2"
+                            android:scaleType="centerCrop"
+                            app:shapeAppearanceOverlay="@style/SquareFABShape"
+                            app:strokeColor="?attr/colorPrimary"
                             app:strokeWidth="2dp"/>
                         <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/ivAvatar3"
                             android:layout_width="48dp"
                             android:layout_height="48dp"
                             android:layout_marginEnd="8dp"
                             android:background="#20FFFFFF"
-                            app:shapeAppearanceOverlay="@style/RoundedDialogShape"
-                            app:strokeColor="#007BFF"
+                            android:src="@drawable/avatar_3"
+                            android:scaleType="centerCrop"
+                            app:shapeAppearanceOverlay="@style/SquareFABShape"
+                            app:strokeColor="?attr/colorPrimary"
                             app:strokeWidth="2dp"/>
                         <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/ivAvatar4"
                             android:layout_width="48dp"
                             android:layout_height="48dp"
                             android:layout_marginEnd="8dp"
                             android:background="#20FFFFFF"
-                            app:shapeAppearanceOverlay="@style/RoundedDialogShape"
-                            app:strokeColor="#007BFF"
+                            android:src="@drawable/avatar_4"
+                            android:scaleType="centerCrop"
+                            app:shapeAppearanceOverlay="@style/SquareFABShape"
+                            app:strokeColor="?attr/colorPrimary"
                             app:strokeWidth="2dp"/>
                         <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/ivAvatar5"
                             android:layout_width="48dp"
                             android:layout_height="48dp"
                             android:background="#20FFFFFF"
-                            app:shapeAppearanceOverlay="@style/RoundedDialogShape"
-                            app:strokeColor="#007BFF"
+                            android:src="@drawable/avatar_5"
+                            android:scaleType="centerCrop"
+                            app:shapeAppearanceOverlay="@style/SquareFABShape"
+                            app:strokeColor="?attr/colorPrimary"
                             app:strokeWidth="2dp"/>
                     </LinearLayout>
                 </LinearLayout>

@@ -73,6 +73,7 @@ class PrimeSplashView @JvmOverloads constructor(
     private val fastOutSlowIn = FastOutSlowInInterpolator()
     private val overshootInterpolator = OvershootInterpolator(1.25f)
 
+    private var masterAnimator: ValueAnimator? = null
     private var onAnimationFinished: (() -> Unit)? = null
 
     fun setOnAnimationFinishedListener(listener: () -> Unit) {
@@ -84,10 +85,18 @@ class PrimeSplashView @JvmOverloads constructor(
         startSmoothMasterAnimation()
     }
 
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        masterAnimator?.cancel()
+        masterAnimator = null
+        onAnimationFinished = null
+    }
+
     private fun startSmoothMasterAnimation() {
         val totalDurationMs = 380L
 
-        val masterAnimator = ValueAnimator.ofFloat(0f, totalDurationMs.toFloat()).apply {
+        masterAnimator?.cancel()
+        masterAnimator = ValueAnimator.ofFloat(0f, totalDurationMs.toFloat()).apply {
             duration = totalDurationMs
             interpolator = LinearInterpolator()
             addUpdateListener { anim ->
@@ -107,7 +116,7 @@ class PrimeSplashView @JvmOverloads constructor(
             }
         }
 
-        masterAnimator.addListener(object : AnimatorListenerAdapter() {
+        masterAnimator?.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(animation: Animator) {
                 postDelayed({
                     onAnimationFinished?.invoke()
@@ -115,7 +124,7 @@ class PrimeSplashView @JvmOverloads constructor(
             }
         })
 
-        masterAnimator.start()
+        masterAnimator?.start()
     }
 
     private fun calculateDotWaveScale(timeMs: Float, startMs: Float, durationMs: Float): Float {

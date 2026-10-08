@@ -109,6 +109,8 @@ class HiActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
+        
+        UpdateChecker.checkForUpdates(this)
 
         val sharedPreferences = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val isLoggedIn = sharedPreferences.getBoolean("is_logged_in", false)
@@ -164,6 +166,7 @@ class HiActivity : AppCompatActivity() {
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         binding.tvLicense.setTextColor(if (isDark) Color.WHITE else Color.parseColor("#64748B"))
         binding.btnExit.setColorFilter(if (isDark) Color.WHITE else Color.parseColor("#1E293B"))
+        binding.ivLogo.setColorFilter(ColorAccentManager.getCurrentAccentColor(this))
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -247,12 +250,20 @@ class HiActivity : AppCompatActivity() {
         val btnAcceptAll = dialogView.findViewById<MaterialButton>(R.id.btnAcceptAllPermissions)
         val btnContinueWithout = dialogView.findViewById<MaterialButton>(R.id.btnContinueWithoutPermissions)
         val btnExitApp = dialogView.findViewById<MaterialButton>(R.id.btnExitApp)
+        
+        // Применяем кастомный акцентный цвет ко всем элементам (иконкам, кнопкам) внутри диалога
+        ColorAccentManager.tintViewTree(dialogView, ColorAccentManager.getCurrentAccentColor(this))
 
         if (blurCard != null) {
             val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content)
                 ?: window.decorView as ViewGroup
             val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            val overlayColor = if (isDark) Color.parseColor("#450F172A") else Color.parseColor("#45154B87")
+            
+            // Используем акцентный цвет для блюра с прозрачностью ~27% (45 в HEX), если светлая тема
+            val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+            val translucentAccent = (accentColor and 0x00FFFFFF) or 0x45000000
+            
+            val overlayColor = if (isDark) Color.parseColor("#450F172A") else translucentAccent
             blurCard.setupBlur(rootView, 20f, overlayColor, window.decorView.background)
         }
 
@@ -392,7 +403,10 @@ class HiActivity : AppCompatActivity() {
     private fun setupTextSwitcher() {
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val generalTextColor = if (isDark) Color.WHITE else Color.parseColor("#1E293B")
-        val buttonTextColor = if (isDark) Color.WHITE else Color.parseColor("#154B87")
+        
+        // Use user-selected accent color instead of hardcoded "#154B87", maintaining readability for dark themes
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val buttonTextColor = if (isDark) Color.WHITE else accentColor
 
         binding.textSwitcherSlogan.setFactory {
             TextView(this).apply {
@@ -445,6 +459,8 @@ class HiActivity : AppCompatActivity() {
         super.onResume()
         LavaBackgroundState.onActivityResumed()
         if (::binding.isInitialized) {
+            ColorAccentManager.tintViewTree(binding.root, ColorAccentManager.getCurrentAccentColor(this))
+            
             allViews.forEach { view ->
                 view.animate().cancel()
                 view.alpha = 1f
@@ -468,18 +484,28 @@ class HiActivity : AppCompatActivity() {
 
     private fun fadeOutAndNavigateToLogin() {
         LavaBackgroundState.onTransitionStart()
-        val fadeOutDuration = 600L
+        val fadeOutDuration = 400L
 
-        allViews.forEach { view ->
+        allViews.forEachIndexed { index, view ->
             view.animate()
                 .alpha(0f)
+                .translationY(-30f)
                 .setDuration(fadeOutDuration)
+                .setStartDelay(index * 30L)
+                .setInterpolator(android.view.animation.AccelerateInterpolator())
                 .start()
         }
 
-        val intent = Intent(this, LoginActivity::class.java)
-        startActivity(intent)
-        PrimeTransitions.applyOpenTransition(this)
+        handler.postDelayed({
+            val intent = Intent(this, LoginActivity::class.java)
+            startActivity(intent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                overrideActivityTransition(android.app.Activity.OVERRIDE_TRANSITION_OPEN, android.R.anim.fade_in, android.R.anim.fade_out)
+            } else {
+                @Suppress("DEPRECATION")
+                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+            }
+        }, 250)
     }
 
     override fun finish() {

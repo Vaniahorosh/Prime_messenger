@@ -432,6 +432,7 @@ class ChatListActivity : AppCompatActivity() {
     private lateinit var binding: ActivityChatListContentBinding
     private lateinit var adapter: ChatListAdapter
     private var allChats: List<ChatModel> = ArrayList()
+    private var highlightPulseAnimator: ObjectAnimator? = null
 
     private lateinit var connectivityManager: ConnectivityManager
     private var isNetworkConnected = true

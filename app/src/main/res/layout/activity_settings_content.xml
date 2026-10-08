@@ -164,13 +164,13 @@
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
                                 app:iconSize="24dp"
-                                app:iconTint="@color/prime_danger_light" />
+                                app:iconTint="@color/prime_danger" />
                             <TextView
                                 android:id="@+id/tvLogoutWP"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Выход"
-                                android:textColor="@color/prime_danger_light"
+                                android:textColor="@color/prime_danger"
                                 android:textSize="11sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
@@ -324,7 +324,7 @@
                         android:id="@+id/tvUserNameStatic"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/white"
+                        android:textColor="@color/prime_text_primary"
                         android:textSize="26sp"
                         android:textStyle="bold"
                         android:gravity="center"
@@ -340,7 +340,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="32dp"
                         android:text="в сети"
-                        android:textColor="#E6FFFFFF"
+                        android:textColor="@color/prime_text_secondary"
                         android:textSize="14sp" />
 
                     <LinearLayout
@@ -370,12 +370,12 @@
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
                                 app:iconSize="24dp"
-                                app:iconTint="@color/white" />
+                                app:iconTint="@color/prime_text_primary" />
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Назад"
-                                android:textColor="@color/white"
+                                android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
                                 android:textSize="11sp"
                                 android:textStyle="bold" />
@@ -403,12 +403,12 @@
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
                                 app:iconSize="24dp"
-                                app:iconTint="@color/white" />
+                                app:iconTint="@color/prime_text_primary" />
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Фото"
-                                android:textColor="@color/white"
+                                android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
                                 android:textSize="11sp"
                                 android:textStyle="bold" />
@@ -435,12 +435,12 @@
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
                                 app:iconSize="24dp"
-                                app:iconTint="@color/prime_danger_light" />
+                                app:iconTint="@color/prime_danger" />
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Выход"
-                                android:textColor="@color/prime_danger_light"
+                                android:textColor="@color/prime_danger"
                                 android:textSize="11sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
@@ -467,12 +467,12 @@
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
                                 app:iconSize="24dp"
-                                app:iconTint="@color/white" />
+                                app:iconTint="@color/prime_text_primary" />
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Настройки"
-                                android:textColor="@color/white"
+                                android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
                                 android:textSize="11sp"
                                 android:textStyle="bold" />
@@ -754,46 +754,83 @@
                         app:cardBackgroundColor="@color/prime_surface"
                         app:cardCornerRadius="24dp"
                         app:cardElevation="0dp"
-                        app:strokeWidth="0dp"
-                        android:clickable="true"
-                        android:focusable="true">
+                        app:strokeWidth="0dp">
 
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal"
+                            android:orientation="vertical"
                             android:padding="20dp">
 
-                            <ImageView
-                                android:layout_width="32dp"
-                                android:layout_height="32dp"
-                                android:layout_marginEnd="16dp"
-                                android:src="@drawable/ic_tema"
-                                app:tint="@color/prime_brand" />
-
                             <LinearLayout
-                                android:layout_width="0dp"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_weight="1"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:paddingBottom="12dp">
+
+                                <ImageView
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:layout_marginEnd="16dp"
+                                    android:src="@drawable/ic_tema"
+                                    app:tint="@color/prime_brand" />
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="Тема оформления"
+                                        android:textColor="@color/prime_brand"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvThemeSummary"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="4dp"
+                                        android:text="Системная"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <!-- Блок с настройками темы -->
+                            <RadioGroup
+                                android:id="@+id/rgThemeOptions"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
                                 android:orientation="vertical">
 
-                                <TextView
+                                <RadioButton
+                                    android:id="@+id/rbThemeSystem"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="Тема оформления"
-                                    android:textColor="@color/prime_brand"
-                                    android:textStyle="bold" />
+                                    android:text="Системная (по умолчанию)"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="14sp" />
 
-                                <TextView
-                                    android:id="@+id/tvThemeSummary"
+                                <RadioButton
+                                    android:id="@+id/rbThemeLight"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginTop="4dp"
-                                    android:text="Системная"
-                                    android:textColor="@color/prime_text_secondary"
-                                    android:textSize="12sp" />
-                            </LinearLayout>
+                                    android:text="Светлая"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="14sp" />
+
+                                <RadioButton
+                                    android:id="@+id/rbThemeDark"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="Темная"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="14sp" />
+                            </RadioGroup>
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
@@ -806,54 +843,113 @@
                         app:cardBackgroundColor="@color/prime_surface"
                         app:cardCornerRadius="24dp"
                         app:cardElevation="0dp"
-                        app:strokeWidth="0dp"
-                        android:clickable="true"
-                        android:focusable="true">
+                        app:strokeWidth="0dp">
 
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal"
+                            android:orientation="vertical"
                             android:padding="20dp">
 
-                            <ImageView
-                                android:layout_width="32dp"
-                                android:layout_height="32dp"
-                                android:layout_marginEnd="16dp"
-                                android:src="@drawable/ic_pipette"
-                                app:tint="@color/prime_brand" />
-
                             <LinearLayout
-                                android:layout_width="0dp"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical">
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:paddingBottom="12dp">
 
-                                <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:text="Цветовой акцент"
-                                    android:textColor="@color/prime_brand"
-                                    android:textStyle="bold" />
+                                <ImageView
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:layout_marginEnd="16dp"
+                                    android:src="@drawable/ic_pipette"
+                                    app:tint="@color/prime_brand" />
 
-                                <TextView
-                                    android:id="@+id/tvAccentSummary"
-                                    android:layout_width="match_parent"
+                                <LinearLayout
+                                    android:layout_width="0dp"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginTop="4dp"
-                                    android:text="Фирменный"
-                                    android:textColor="@color/prime_text_secondary"
-                                    android:textSize="12sp" />
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="Цветовой акцент"
+                                        android:textColor="@color/prime_brand"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvAccentSummary"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="4dp"
+                                        android:text="Фирменный"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+
+                                <View
+                                    android:id="@+id/vAccentColorPreview"
+                                    android:layout_width="28dp"
+                                    android:layout_height="28dp"
+                                    android:layout_marginStart="12dp"
+                                    android:background="@drawable/bg_brush_preview"
+                                    android:backgroundTint="@color/prime_brand" />
                             </LinearLayout>
 
-                            <View
-                                android:id="@+id/vAccentColorPreview"
-                                android:layout_width="28dp"
-                                android:layout_height="28dp"
-                                android:layout_marginStart="12dp"
-                                android:background="@drawable/bg_brush_preview"
-                                android:backgroundTint="@color/prime_brand" />
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical"
+                                android:layout_marginBottom="8dp">
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Системный цвет (Monet)"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="14sp" />
+
+                                <com.google.android.material.materialswitch.MaterialSwitch
+                                    android:id="@+id/switchMonetAccent"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    app:showText="false" />
+                            </LinearLayout>
+
+                            <!-- Горизонтальная палитра -->
+                            <HorizontalScrollView
+                                android:id="@+id/scrollPalette"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:overScrollMode="never"
+                                android:scrollbars="none"
+                                android:layout_marginBottom="8dp">
+
+                                <LinearLayout
+                                    android:id="@+id/layoutSwatches"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical" />
+                            </HorizontalScrollView>
+
+                            <!-- Кнопка вызова точного спектра -->
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnCustomPicker"
+                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="48dp"
+                                android:text="Спектр"
+                                android:textColor="?attr/colorPrimary"
+                                android:textAllCaps="false"
+                                android:textStyle="bold"
+                                app:cornerRadius="12dp"
+                                app:strokeColor="?attr/colorPrimary"
+                                app:icon="@drawable/ic_pipette"
+                                app:iconTint="?attr/colorPrimary" />
 
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
@@ -867,52 +963,69 @@
                         app:cardBackgroundColor="@color/prime_surface"
                         app:cardCornerRadius="24dp"
                         app:cardElevation="0dp"
-                        app:strokeWidth="0dp"
-                        android:clickable="true"
-                        android:focusable="true">
+                        app:strokeWidth="0dp">
 
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal"
+                            android:orientation="vertical"
                             android:padding="20dp">
 
-                            <ImageView
-                                android:layout_width="32dp"
-                                android:layout_height="32dp"
-                                android:layout_marginEnd="16dp"
-                                android:src="@drawable/ic_live_fon"
-                                app:tint="@color/prime_brand" />
-
                             <LinearLayout
-                                android:layout_width="0dp"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical">
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:paddingBottom="12dp">
 
-                                <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:text="Живой фон"
-                                    android:textColor="@color/prime_brand"
-                                    android:textStyle="bold" />
+                                <ImageView
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:layout_marginEnd="16dp"
+                                    android:src="@drawable/ic_live_fon"
+                                    app:tint="@color/prime_brand" />
 
-                                <TextView
-                                    android:layout_width="match_parent"
+                                <LinearLayout
+                                    android:layout_width="0dp"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginTop="4dp"
-                                    android:text="Анимированные фигуры на фоне экрана настроек и в информациях о собеседнике"
-                                    android:textColor="@color/prime_text_secondary"
-                                    android:textSize="12sp" />
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="Живой фон"
+                                        android:textColor="@color/prime_brand"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="4dp"
+                                        android:text="Анимированные фигуры на фоне"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+
+                                <com.google.android.material.materialswitch.MaterialSwitch
+                                    android:id="@+id/switchLavaBg"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:checked="true"
+                                    app:showText="false" />
                             </LinearLayout>
 
-                            <com.google.android.material.materialswitch.MaterialSwitch
-                                android:id="@+id/switchLavaBg"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:checked="true"
-                                app:showText="false" />
+                            <androidx.cardview.widget.CardView
+                                android:layout_width="match_parent"
+                                android:layout_height="80dp"
+                                app:cardCornerRadius="12dp"
+                                app:cardElevation="0dp">
+
+                                <androidx.compose.ui.platform.ComposeView
+                                    android:id="@+id/composeLavaPreview"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent" />
+                            </androidx.cardview.widget.CardView>
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
@@ -1069,7 +1182,7 @@
                                             android:checked="true"
                                             android:clickable="false"
                                             android:text="Островок"
-                                            android:textColor="@color/white"
+                                            android:textColor="@color/prime_text_primary"
                                             android:textSize="13sp"
                                             android:textStyle="bold" />
                                     </LinearLayout>
@@ -1168,7 +1281,7 @@
                                             android:checked="false"
                                             android:clickable="false"
                                             android:text="Панель"
-                                            android:textColor="@color/white"
+                                            android:textColor="@color/prime_text_primary"
                                             android:textSize="13sp"
                                             android:textStyle="bold" />
                                     </LinearLayout>
@@ -1899,6 +2012,21 @@
 
                         </FrameLayout>
                     </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Кнопка проверки обновлений -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCheckUpdate"
+                        android:layout_width="match_parent"
+                        android:layout_height="54dp"
+                        android:layout_marginBottom="32dp"
+                        android:layout_marginHorizontal="8dp"
+                        android:text="Проверить обновления"
+                        app:icon="@drawable/ic_download"
+                        app:iconGravity="textStart"
+                        app:cornerRadius="16dp"
+                        app:backgroundTint="?attr/colorPrimary"
+                        app:iconTint="@color/white"
+                        android:textColor="@color/white" />
 
                 </LinearLayout>
 

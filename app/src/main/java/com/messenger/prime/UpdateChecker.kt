@@ -23,7 +23,7 @@ import kotlin.concurrent.thread
 
 object UpdateChecker {
 
-    fun checkForUpdates(activity: Activity) {
+    fun checkForUpdates(activity: Activity, manualCheck: Boolean = false) {
         thread {
             try {
                 val url = URL("https://api.github.com/repos/Vaniahorosh/Prime_messenger/releases/latest")
@@ -64,10 +64,23 @@ object UpdateChecker {
                         Handler(Looper.getMainLooper()).post {
                             showUpdateDialog(activity, remoteVersion, releaseNotes, releaseUrl, apkDownloadUrl)
                         }
+                    } else if (manualCheck) {
+                        Handler(Looper.getMainLooper()).post {
+                            PrimeNotification.show(activity, "У вас последняя версия ($localVersion) ✓")
+                        }
+                    }
+                } else if (manualCheck) {
+                    Handler(Looper.getMainLooper()).post {
+                        PrimeNotification.show(activity, "Ошибка проверки обновлений")
                     }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                if (manualCheck) {
+                    Handler(Looper.getMainLooper()).post {
+                        PrimeNotification.show(activity, "Нет подключения к серверу")
+                    }
+                }
             }
         }
     }

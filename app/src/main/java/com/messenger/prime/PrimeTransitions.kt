@@ -3,11 +3,7 @@ package com.messenger.prime
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
-import android.graphics.Outline
 import android.os.Build
-import android.view.View
-import android.view.ViewOutlineProvider
-import androidx.core.app.ActivityOptionsCompat
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrInterface
@@ -121,47 +117,12 @@ object PrimeTransitions {
 
     /**
      * Helper method to start an Activity with transition and notify background lava animation state.
-     * Uses [ActivityOptionsCompat] for seamless window animation preparation across all API levels.
      */
     @JvmStatic
     fun startActivityWithTransition(activity: Activity, intent: Intent) {
         LavaBackgroundState.onTransitionStart()
-        val options = ActivityOptionsCompat.makeCustomAnimation(
-            activity,
-            R.anim.prime_open_enter,
-            R.anim.prime_open_exit
-        )
-        activity.startActivity(intent, options.toBundle())
+        activity.startActivity(intent)
         applyOpenTransition(activity)
-    }
-
-    /**
-     * Helper method to start an Activity with custom enter/exit transition animations.
-     */
-    @JvmStatic
-    fun startActivityWithCustomTransition(
-        activity: Activity,
-        intent: Intent,
-        enterAnim: Int,
-        exitAnim: Int
-    ) {
-        LavaBackgroundState.onTransitionStart()
-        val options = ActivityOptionsCompat.makeCustomAnimation(
-            activity,
-            enterAnim,
-            exitAnim
-        )
-        activity.startActivity(intent, options.toBundle())
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            activity.overrideActivityTransition(
-                Activity.OVERRIDE_TRANSITION_OPEN,
-                enterAnim,
-                exitAnim
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            activity.overridePendingTransition(enterAnim, exitAnim)
-        }
     }
 
     /**
@@ -177,97 +138,187 @@ object PrimeTransitions {
     /**
      * Attaches Slidr swipe-to-dismiss gesture to the activity across all API levels.
      * Dynamically converts the Activity to translucent while dragging so the underlying Activity
-     * is rendered during the swipe gesture, with Material 3 interactive scaling, corner rounding,
-     * and depth elevation shadow.
+     * is rendered during the swipe gesture, while preserving non-translucent window status for
+     * Android 14+ native Predictive Back gestures.
      */
     @JvmStatic
     @JvmOverloads
     fun attachSlidr(activity: Activity, customListener: SlidrListener? = null): SlidrInterface? {
         val config = activity.resources.configuration
-        val isTablet = config.screenWidthDp >= 480 || config.smallestScreenWidthDp >= 480
+        // Material Design 3 window size classes: 600dp+ is Medium/Expanded (multi-pane possible)
+        val isMultiPane = config.screenWidthDp >= 600 || config.smallestScreenWidthDp >= 600
 
-        if (isTablet) {
+        if (isMultiPane) {
             activity.window.setBackgroundDrawableResource(R.color.prime_base)
             return null
         }
 
-        val rootContent: View = activity.findViewById(android.R.id.content)
-            ?: activity.window.decorView
+        // On Android 14+ with Predictive Back, edge swipes are consumed by the system gesture.
+        // We intercept the predictive back callback to implement a real-time, interactive slide
+        // that strictly follows the finger, mimicking iOS swipe-to-dismiss.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && activity is androidx.activity.ComponentActivity) {
+            val backCallback = object : androidx.activity.OnBackPressedCallback(true) {
+                var isLeftEdge = false
+                var screenWidth = 0f
+                var contentView: android.view.View? = null
+                var prevContentView: android.view.View? = null
 
-        val density = activity.resources.displayMetrics.density
-        val maxCornerRadiusPx = 28f * density
-        val maxElevationPx = 16f * density
+                override fun handleOnBackStarted(backEvent: androidx.activity.BackEventCompat) {
+                    isLeftEdge = backEvent.swipeEdge == androidx.activity.BackEventCompat.EDGE_LEFT
+                    screenWidth = activity.resources.displayMetrics.widthPixels.toFloat()
+                    contentView = activity.findViewById(android.R.id.content)
+                    
+                    val prevAct = PrimeApplication.getPreviousActivity()
+                    prevContentView = prevAct?.findViewById(android.R.id.content)
+                    
+                    // Make window fully transparent during interactive swipe so previous activity is visible
+                    activity.window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+                    customListener?.onSlideOpened()
+                }
 
-        var originalOutlineProvider: ViewOutlineProvider? = null
-        var originalClipToOutline = false
-        var isDragging = false
+                override fun handleOnBackProgressed(backEvent: androidx.activity.BackEventCompat) {
+                    val content = contentView ?: return
+                    if (isLeftEdge) {
+                        // The user is swiping from the left edge.
+                        // Translate the entire content exactly following the finger X coordinate.
+                        content.translationX = backEvent.touchX
+                        
+                        // Calculate progress
+                        val progress = (backEvent.touchX / screenWidth).coerceIn(0f, 1f)
+                        
+                        // Apply interactive dark scrim to the decor view background
+                        val alpha = (0.55f * (1f - progress) * 255).toInt()
+                        activity.window.decorView.setBackgroundColor(Color.argb(alpha, 0, 0, 0))
+                        
+                        // Interactive depth reveal for previous activity
+                        prevContentView?.let {
+                            val scale = 0.96f + (0.04f * progress)
+                            it.scaleX = scale
+                            it.scaleY = scale
+                        }
+                        
+                        customListener?.onSlideChange(progress)
+                    } else {
+                        // For the right edge, fallback to a subtle scale down (similar to system default)
+                        val scale = 1f - (0.05f * backEvent.progress)
+                        content.scaleX = scale
+                        content.scaleY = scale
+                    }
+                }
 
+                override fun handleOnBackCancelled() {
+                    val content = contentView ?: return
+                    // Gesture cancelled, animate back to normal smoothly
+                    content.animate()
+                        .translationX(0f)
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(250)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+                        .setUpdateListener {
+                            if (isLeftEdge) {
+                                val progress = (content.translationX / screenWidth).coerceIn(0f, 1f)
+                                val alpha = (0.55f * (1f - progress) * 255).toInt()
+                                activity.window.decorView.setBackgroundColor(Color.argb(alpha, 0, 0, 0))
+                                
+                                prevContentView?.let { prev ->
+                                    val scale = 0.96f + (0.04f * progress)
+                                    prev.scaleX = scale
+                                    prev.scaleY = scale
+                                }
+                            }
+                        }
+                        .withEndAction {
+                            activity.window.decorView.setBackgroundColor(Color.TRANSPARENT)
+                            prevContentView?.scaleX = 1f
+                            prevContentView?.scaleY = 1f
+                        }
+                        .start()
+                }
+
+                override fun handleOnBackPressed() {
+                    val content = contentView ?: return
+                    if (isLeftEdge) {
+                        isSlidrDismissing = true
+                        customListener?.onSlideClosed()
+                        // Animate the rest of the way off the screen interactively
+                        content.animate()
+                            .translationX(screenWidth)
+                            .setDuration(200)
+                            .setInterpolator(android.view.animation.AccelerateDecelerateInterpolator())
+                            .setUpdateListener {
+                                val progress = (content.translationX / screenWidth).coerceIn(0f, 1f)
+                                val alpha = (0.55f * (1f - progress) * 255).toInt()
+                                activity.window.decorView.setBackgroundColor(Color.argb(alpha, 0, 0, 0))
+                                
+                                prevContentView?.let { prev ->
+                                    val scale = 0.96f + (0.04f * progress)
+                                    prev.scaleX = scale
+                                    prev.scaleY = scale
+                                }
+                            }
+                            .withEndAction {
+                                prevContentView?.scaleX = 1f
+                                prevContentView?.scaleY = 1f
+                                activity.finish()
+                                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
+                                activity.window.decorView.post { isSlidrDismissing = false }
+                            }
+                            .start()
+                    } else {
+                        content.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(150)
+                            .withEndAction {
+                                activity.finish()
+                                applyCloseTransition(activity)
+                            }
+                            .start()
+                    }
+                }
+            }
+            activity.onBackPressedDispatcher.addCallback(activity, backCallback)
+        }
+
+        // Apply Slidr for API < 34 AND for non-edge FULL-SCREEN swipes on API 34+
         val slidrConfig = SlidrConfig.Builder()
             .position(SlidrPosition.LEFT)
+            .edge(false) // Full-screen swipe: drag from anywhere!
+            .edgeSize(0f)
             .scrimColor(Color.BLACK)
-            .scrimStartAlpha(0.65f)
+            .scrimStartAlpha(0.55f)
             .scrimEndAlpha(0.0f)
-            .velocityThreshold(1200f)
-            .distanceThreshold(0.20f)
+            .velocityThreshold(2400f)
+            .distanceThreshold(0.25f)
             .listener(object : SlidrListener {
+                var prevContentView: android.view.View? = null
+                
                 override fun onSlideStateChanged(state: Int) {
-                    if (state == 0 && isDragging) { // IDLE state
-                        isDragging = false
-                        resetViewProperties(rootContent, originalOutlineProvider, originalClipToOutline)
-                    }
                     customListener?.onSlideStateChanged(state)
                 }
 
                 override fun onSlideChange(percent: Float) {
-                    val clampedPercent = percent.coerceIn(0f, 1f)
-
-                    if (clampedPercent > 0f && !isDragging) {
-                        isDragging = true
-                        rootContent.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-                        originalOutlineProvider = rootContent.outlineProvider
-                        originalClipToOutline = rootContent.clipToOutline
-                        rootContent.clipToOutline = true
-                    } else if (clampedPercent == 0f && isDragging) {
-                        isDragging = false
-                        resetViewProperties(rootContent, originalOutlineProvider, originalClipToOutline)
+                    val p = percent.coerceIn(0f, 1f)
+                    prevContentView?.let {
+                        val scale = 0.96f + (0.04f * p)
+                        it.scaleX = scale
+                        it.scaleY = scale
                     }
-
-                    if (isDragging) {
-                        // 1. Interactive scale-down during hand swipe (1.0 -> 0.96)
-                        val scale = 1.0f - (clampedPercent * 0.04f)
-                        rootContent.scaleX = scale
-                        rootContent.scaleY = scale
-
-                        // 2. Dynamic rounded corner clipping during swipe (0dp -> 28dp)
-                        val cornerRadius = clampedPercent * maxCornerRadiusPx
-                        rootContent.outlineProvider = object : ViewOutlineProvider() {
-                            override fun getOutline(view: View, outline: Outline) {
-                                outline.setRoundRect(0, 0, view.width, view.height, cornerRadius)
-                            }
-                        }
-                        rootContent.invalidateOutline()
-
-                        // 3. Elevation depth shadow over background activity
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            rootContent.outlineAmbientShadowColor = 0x40000000
-                            rootContent.outlineSpotShadowColor = 0x60000000
-                        }
-                        rootContent.translationZ = clampedPercent * maxElevationPx
-                    }
-
                     customListener?.onSlideChange(percent)
                 }
 
                 override fun onSlideOpened() {
-                    isDragging = false
-                    resetViewProperties(rootContent, originalOutlineProvider, originalClipToOutline)
+                    val prevAct = PrimeApplication.getPreviousActivity()
+                    prevContentView = prevAct?.findViewById(android.R.id.content)
                     customListener?.onSlideOpened()
                 }
 
                 override fun onSlideClosed(): Boolean {
+                    prevContentView?.scaleX = 1f
+                    prevContentView?.scaleY = 1f
+                    
                     isSlidrDismissing = true
-                    isDragging = false
-                    resetViewProperties(rootContent, originalOutlineProvider, originalClipToOutline)
                     val customHandled = customListener?.onSlideClosed() ?: false
                     if (!customHandled) {
                         activity.finish()
@@ -287,20 +338,6 @@ object PrimeTransitions {
                 }
             })
             .build()
-
         return Slidr.attach(activity, slidrConfig)
-    }
-
-    private fun resetViewProperties(
-        view: View,
-        originalOutlineProvider: ViewOutlineProvider?,
-        originalClipToOutline: Boolean
-    ) {
-        view.scaleX = 1.0f
-        view.scaleY = 1.0f
-        view.translationZ = 0f
-        view.outlineProvider = originalOutlineProvider
-        view.clipToOutline = originalClipToOutline
-        view.setLayerType(View.LAYER_TYPE_NONE, null)
     }
 }
