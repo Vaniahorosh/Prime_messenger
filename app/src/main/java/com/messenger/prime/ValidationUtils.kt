@@ -1,11 +1,12 @@
 package com.messenger.prime
 
+import android.content.SharedPreferences
+
 /**
  * Утилиты для жесткой валидации ввода в приложении.
  */
 object ValidationUtils {
 
-    // Список запрещенных слов в максимально нормализованном виде
     private val restrictedKeywords = listOf(
         "prime",
         "прайм",
@@ -19,28 +20,55 @@ object ValidationUtils {
     )
 
     /**
-     * Проверяет формат логина: только строчная латиница, цифры и подчеркивание.
+     * Проверяет формат логина: только латиница, цифры и подчеркивание.
      */
     fun isValidLoginFormat(text: String): Boolean {
-        val regex = Regex("^[a-z0-9_]+$")
+        val regex = Regex("^[a-zA-Z0-9_]+$")
         return regex.matches(text)
     }
 
     /**
-     * Возвращает конкретную причину ошибки валидации или null, если текст корректен.
+     * Полная валидация логина с учетом формата, длины, спецслов и уникальности.
+     */
+    fun validateLogin(login: String, sharedPrefs: SharedPreferences? = null, currentLogin: String? = null): String? {
+        val trimmed = login.trim()
+        if (trimmed.isEmpty()) return "Введите логин"
+        if (trimmed.length < 3) return "Логин минимум 3 символа"
+        if (trimmed.length > 25) return "Логин максимум 25 символов"
+        if (!isValidLoginFormat(trimmed)) return "Только латиница, цифры и _"
+        if (isRestricted(trimmed)) return "Этот логин защищен системой"
+        if (sharedPrefs != null && trimmed != currentLogin && sharedPrefs.contains(trimmed)) {
+            return "Этот логин уже занят на устройстве"
+        }
+        return null
+    }
+
+    /**
+     * Валидация отображаемого имени пользователя.
+     */
+    fun validateName(name: String): String? {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return "Как вас зовут?"
+        if (trimmed.length < 2) return "Имя слишком короткое"
+        if (trimmed.length > 30) return "Имя слишком длинное"
+        if (isRestricted(trimmed)) return "Это имя защищено системой"
+        return null
+    }
+
+    /**
+     * Валидация пароля.
+     */
+    fun validatePassword(password: String): String? {
+        if (password.isEmpty()) return "Введите пароль"
+        if (password.length < 8) return "Пароль минимум 8 символов"
+        return null
+    }
+
+    /**
+     * Возвращает конкретную причину ошибки валидации или null, если текст корректен (совместимость).
      */
     fun getValidationError(text: String, isLogin: Boolean): String? {
-        if (text.isEmpty()) return null
-
-        if (isLogin && !isValidLoginFormat(text)) {
-            return "Используйте латиницу, цифры и _"
-        }
-
-        if (isRestricted(text)) {
-            return "Это имя защищено системой"
-        }
-
-        return null
+        return if (isLogin) validateLogin(text) else validateName(text)
     }
 
     /**
@@ -49,14 +77,9 @@ object ValidationUtils {
     fun isRestricted(text: String?): Boolean {
         if (text.isNullOrBlank()) return false
 
-        // 1. Предварительная очистка: нижний регистр и удаление ВСЕГО, что не буквы и не цифры
-        // Это убьет попытки обхода через "p.r.i.m.e", "s u p p o r t" и т.д.
         val baseClean = text.lowercase().replace(Regex("[^\\p{L}\\p{N}]"), "")
-
-        // 2. Полная нормализация гомоглифов (сведение похожих знаков к одному "скелету")
         val skeleton = normalizeToSkeleton(baseClean)
 
-        // 3. Проверка на вхождение
         return restrictedKeywords.any { keyword ->
             val normalizedKeyword = normalizeToSkeleton(keyword.replace(Regex("[^\\p{L}\\p{N}]"), ""))
             skeleton.contains(normalizedKeyword) || baseClean.contains(normalizedKeyword)
@@ -68,7 +91,6 @@ object ValidationUtils {
      */
     private fun normalizeToSkeleton(input: String): String {
         val mapping = mapOf(
-            // Кириллица -> Латиница (скелетные совпадения)
             'а' to 'a', 'б' to 'b', 'в' to 'v', 'г' to 'g', 'д' to 'd',
             'е' to 'e', 'ё' to 'e', 'ж' to 'z', 'з' to 'z', 'и' to 'i',
             'й' to 'i', 'к' to 'k', 'л' to 'l', 'м' to 'm', 'н' to 'n',
@@ -76,7 +98,6 @@ object ValidationUtils {
             'у' to 'y', 'ф' to 'f', 'х' to 'x', 'ц' to 'c', 'ч' to 'c',
             'ш' to 's', 'щ' to 's', 'ы' to 'i', 'э' to 'e', 'ю' to 'u',
             'я' to 'a', 'і' to 'i', 'ј' to 'j', 'ь' to 'b', 'ъ' to 'b',
-            // Спецсимволы и цифры, похожие на буквы
             '@' to 'a', '4' to 'a', '0' to 'o', '3' to 'e', '1' to 'i',
             '!' to 'i', '$' to 's', '5' to 's', '7' to 't', '8' to 'b',
             '|' to 'l', 'v' to 'v', 'w' to 'v'

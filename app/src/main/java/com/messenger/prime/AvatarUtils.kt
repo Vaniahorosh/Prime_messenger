@@ -1,6 +1,8 @@
 package com.messenger.prime
 
+import android.bluetooth.BluetoothAdapter
 import android.content.Context
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.widget.ImageView
 import androidx.core.graphics.toColorInt
@@ -32,13 +34,14 @@ object AvatarManager {
         if (identity.isNullOrBlank()) return true
         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        val myDisplayName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: currentUser
-        val myLocalName = sharedPrefs.getString("my_name", "") ?: ""
+        val myDisplayName = sharedPrefs.getString("my_name", null)
+            ?: sharedPrefs.getString("my_local_name", null)
+            ?: sharedPrefs.getString("current_user_name", null)
+            ?: sharedPrefs.getString("${currentUser}_name", currentUser) ?: currentUser
 
         val trimmed = identity.trim()
         return trimmed.equals(currentUser, ignoreCase = true) ||
                 trimmed.equals(myDisplayName, ignoreCase = true) ||
-                trimmed.equals(myLocalName, ignoreCase = true) ||
                 trimmed.equals("my", ignoreCase = true) ||
                 trimmed.equals("me", ignoreCase = true) ||
                 isGenericIdentity(trimmed)
@@ -47,6 +50,251 @@ object AvatarManager {
     @JvmStatic
     fun isProtectedIdentity(context: Context, identity: String?): Boolean {
         return isLocalUserIdentity(context, identity) || isGenericIdentity(identity)
+    }
+
+    @JvmStatic
+    fun getMyDisplayName(context: Context): String {
+        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val savedName = sharedPrefs.getString("my_name", null)
+            ?: sharedPrefs.getString("my_local_name", null)
+            ?: sharedPrefs.getString("current_user_name", null)
+            ?: sharedPrefs.getString("${currentUser}_name", null)
+        return if (!savedName.isNullOrBlank()) savedName else if (currentUser.isNotBlank()) currentUser else "Мой профиль"
+    }
+
+    @JvmStatic
+    fun getMyAvatarUri(context: Context): String? {
+        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val candidates = listOfNotNull(
+            sharedPrefs.getString("my_avatar", null),
+            sharedPrefs.getString("my_local_avatar", null),
+            sharedPrefs.getString("my_avatar_uri", null),
+            if (currentUser.isNotEmpty()) sharedPrefs.getString("${currentUser}_avatar", null) else null,
+            if (currentUser.isNotEmpty()) sharedPrefs.getString("${currentUser}_avatarUri", null) else null
+        )
+
+        for (candidate in candidates) {
+            if (candidate.isNotBlank()) {
+                val (_, file) = parseAvatarModelAndFile(candidate)
+                if (file == null || file.exists()) {
+                    return candidate
+                }
+            }
+        }
+
+        val history = AvatarHistoryManager.getMyAvatarHistory(context)
+        if (history.isNotEmpty()) {
+            return history.first()
+        }
+
+        if (currentUser.isNotEmpty()) {
+            val possibleFiles = arrayOf(
+                File(context.filesDir, "avatar_$currentUser.gif"),
+                File(context.filesDir, "avatar_$currentUser.jpg")
+            )
+            for (f in possibleFiles) {
+                if (f.exists() && f.length() > 0) {
+                    return Uri.fromFile(f).toString()
+                }
+            }
+        }
+        return null
+    }
+
+    @JvmStatic
+    fun getContactDisplayName(
+        context: Context,
+        contactId: String?,
+        deviceAddress: String? = null,
+        fallbackName: String? = null
+    ): String {
+        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val keys = mutableListOf<String>()
+        if (!deviceAddress.isNullOrBlank()) {
+            keys.add("contact_name_$deviceAddress")
+            keys.add("${deviceAddress}_name")
+        }
+        if (!contactId.isNullOrBlank()) {
+            keys.add("contact_name_$contactId")
+            keys.add("${contactId}_name")
+        }
+        if (!fallbackName.isNullOrBlank()) {
+            keys.add("contact_name_$fallbackName")
+            keys.add("${fallbackName}_name")
+        }
+
+        for (key in keys) {
+            val saved = sharedPrefs.getString(key, null)
+            if (!saved.isNullOrBlank() && saved != "1" && saved != "null") {
+                val isBt = try { BluetoothAdapter.checkBluetoothAddress(saved) } catch (_: Exception) { false }
+                return if (isBt) "Собеседник" else saved
+            }
+        }
+
+        val nameCandidate = when {
+            !fallbackName.isNullOrBlank() -> fallbackName
+            !contactId.isNullOrBlank() -> contactId
+            else -> "Собеседник"
+        }
+        val isBt = try { BluetoothAdapter.checkBluetoothAddress(nameCandidate) } catch (_: Exception) { false }
+        return if (isBt) "Собеседник" else nameCandidate
+    }
+
+    @JvmStatic
+    fun getContactAvatarUriOrFile(
+        context: Context,
+        contactId: String?,
+        contactName: String? = null,
+        deviceAddress: String? = null
+    ): String? {
+        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val keys = mutableListOf<String>()
+        if (!deviceAddress.isNullOrBlank()) {
+            keys.add("contact_avatar_$deviceAddress")
+            keys.add("${deviceAddress}_avatarUri")
+            keys.add("${deviceAddress}_avatar")
+        }
+        if (!contactId.isNullOrBlank()) {
+            keys.add("contact_avatar_$contactId")
+            keys.add("${contactId}_avatarUri")
+            keys.add("${contactId}_avatar")
+        }
+        if (!contactName.isNullOrBlank()) {
+            keys.add("contact_avatar_$contactName")
+            keys.add("${contactName}_avatarUri")
+            keys.add("${contactName}_avatar")
+        }
+
+        for (key in keys) {
+            val valStr = sharedPrefs.getString(key, null)
+            if (!valStr.isNullOrBlank()) {
+                val (_, file) = parseAvatarModelAndFile(valStr)
+                if (file == null || file.exists()) {
+                    return valStr
+                }
+            }
+        }
+
+        val filesDir = context.filesDir
+        val fileCandidates = mutableListOf<File>()
+        if (!deviceAddress.isNullOrBlank() && !isProtectedIdentity(context, deviceAddress)) {
+            fileCandidates.add(File(filesDir, "rec_avatar_$deviceAddress.gif"))
+            fileCandidates.add(File(filesDir, "rec_avatar_$deviceAddress.jpg"))
+        }
+        if (!contactId.isNullOrBlank() && !isProtectedIdentity(context, contactId)) {
+            fileCandidates.add(File(filesDir, "rec_avatar_$contactId.gif"))
+            fileCandidates.add(File(filesDir, "rec_avatar_$contactId.jpg"))
+        }
+        if (!contactName.isNullOrBlank() && !isProtectedIdentity(context, contactName)) {
+            fileCandidates.add(File(filesDir, "rec_avatar_$contactName.gif"))
+            fileCandidates.add(File(filesDir, "rec_avatar_$contactName.jpg"))
+        }
+
+        val foundFile = fileCandidates.firstOrNull { it.exists() && it.length() > 0 }
+        if (foundFile != null) {
+            return Uri.fromFile(foundFile).toString()
+        }
+        return null
+    }
+
+    @JvmStatic
+    fun clearContactAvatar(
+        context: Context,
+        contactId: String?,
+        contactName: String? = null,
+        deviceAddress: String? = null
+    ) {
+        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val editor = sharedPrefs.edit()
+
+        val keysToRemove = mutableListOf<String>()
+        val targets = listOfNotNull(contactId, contactName, deviceAddress).filter { it.isNotBlank() }
+
+        targets.forEach { target ->
+            keysToRemove.add("contact_avatar_$target")
+            keysToRemove.add("${target}_avatar")
+            keysToRemove.add("${target}_avatarUri")
+            keysToRemove.add("contact_avatar_history_$target")
+
+            val gifFile = File(context.filesDir, "rec_avatar_$target.gif")
+            val jpgFile = File(context.filesDir, "rec_avatar_$target.jpg")
+            if (gifFile.exists()) try { gifFile.delete() } catch (_: Exception) {}
+            if (jpgFile.exists()) try { jpgFile.delete() } catch (_: Exception) {}
+        }
+
+        keysToRemove.forEach { key -> editor.remove(key) }
+        editor.apply()
+    }
+
+    @JvmStatic
+    fun clearMyAvatar(context: Context) {
+        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+
+        val editor = sharedPrefs.edit()
+            .remove("my_avatar")
+            .remove("my_local_avatar")
+            .remove("my_avatar_uri")
+            .remove("my_avatar_history")
+
+        if (currentUser.isNotEmpty()) {
+            editor.remove("${currentUser}_avatar")
+                .remove("${currentUser}_avatarUri")
+
+            val gifFile = File(context.filesDir, "avatar_$currentUser.gif")
+            val jpgFile = File(context.filesDir, "avatar_$currentUser.jpg")
+            if (gifFile.exists()) try { gifFile.delete() } catch (_: Exception) {}
+            if (jpgFile.exists()) try { jpgFile.delete() } catch (_: Exception) {}
+        }
+        editor.apply()
+    }
+
+    @JvmStatic
+    fun syncActiveUserProfile(
+        context: Context,
+        login: String,
+        name: String,
+        avatarUriStr: String? = null
+    ) {
+        if (login.isBlank()) return
+        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val editor = sharedPrefs.edit()
+
+        editor.putBoolean("is_logged_in", true)
+        editor.putString("current_user", login)
+
+        if (name.isNotBlank()) {
+            editor.putString("${login}_name", name)
+            editor.putString("my_name", name)
+            editor.putString("my_local_name", name)
+            editor.putString("current_user_name", name)
+        }
+
+        val resolvedAvatar = if (!avatarUriStr.isNullOrBlank()) {
+            avatarUriStr
+        } else {
+            sharedPrefs.getString("${login}_avatar", null)
+                ?: sharedPrefs.getString("${login}_avatarUri", null)
+                ?: getMyAvatarUri(context)
+        }
+
+        if (!resolvedAvatar.isNullOrBlank()) {
+            editor.putString("${login}_avatar", resolvedAvatar)
+            editor.putString("${login}_avatarUri", resolvedAvatar)
+            editor.putString("my_avatar", resolvedAvatar)
+            editor.putString("my_local_avatar", resolvedAvatar)
+            editor.putString("my_avatar_uri", resolvedAvatar)
+            AvatarHistoryManager.addMyAvatar(context, resolvedAvatar)
+        }
+
+        editor.apply()
+
+        try {
+            context.sendBroadcast(android.content.Intent("com.messenger.prime.NAME_CHANGED").setPackage(context.packageName))
+            context.sendBroadcast(android.content.Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(context.packageName))
+        } catch (_: Exception) {}
     }
 
     @JvmStatic
@@ -76,58 +324,74 @@ object AvatarManager {
     }
 }
 
-fun loadAvatarFileIntoView(context: Context, file: File, imageView: ImageView) {
+fun loadAvatarIntoView(
+    context: Context,
+    avatarSource: Any?,
+    imageView: ImageView,
+    fallbackName: String = ""
+) {
     try {
         Glide.with(context).clear(imageView)
     } catch (_: Exception) {}
 
-    val isGif = file.name.lowercase().endsWith(".gif")
-    val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
-    val signatureKey = ObjectKey(if (file.exists()) "${file.absolutePath}_${file.lastModified()}" else file.name)
-    if (isGif) {
-        Glide.with(context)
-            .asGif()
-            .load(file)
-            .centerCrop()
-            .signature(signatureKey)
-            .placeholder(R.drawable.ic_person)
-            .into(imageView)
-    } else {
-        Glide.with(context)
-            .load(file)
-            .transform(CenterCrop(), RoundedCorners(radiusPx))
-            .signature(signatureKey)
-            .placeholder(R.drawable.ic_person)
-            .into(imageView)
+    var loaded = false
+    val (model, file) = when (avatarSource) {
+        is String -> parseAvatarModelAndFile(avatarSource)
+        is Uri -> Pair(avatarSource, if (avatarSource.scheme == "file" && avatarSource.path != null) File(avatarSource.path!!) else null)
+        is File -> Pair(avatarSource, avatarSource)
+        else -> Pair(avatarSource, null)
+    }
+
+    if (model != null) {
+        if (file == null || file.exists()) {
+            val sourceStr = avatarSource.toString().lowercase(Locale.US)
+            val isGif = sourceStr.endsWith(".gif") || sourceStr.contains("gif")
+            val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
+            val signatureKey = ObjectKey(if (file != null && file.exists()) "${file.absolutePath}_${file.lastModified()}" else avatarSource.toString())
+
+            try {
+                if (isGif) {
+                    Glide.with(context)
+                        .asGif()
+                        .load(model)
+                        .centerCrop()
+                        .signature(signatureKey)
+                        .placeholder(R.drawable.ic_person)
+                        .into(imageView)
+                } else {
+                    Glide.with(context)
+                        .load(model)
+                        .transform(CenterCrop(), RoundedCorners(radiusPx))
+                        .signature(signatureKey)
+                        .placeholder(R.drawable.ic_person)
+                        .into(imageView)
+                }
+                loaded = true
+            } catch (_: Exception) {}
+        }
+    }
+
+    if (!loaded) {
+        if (fallbackName.isNotBlank()) {
+            val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
+            val drawable = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = radiusPx.toFloat()
+                setColor(getAvatarColor(fallbackName))
+            }
+            imageView.setImageDrawable(drawable)
+        } else {
+            imageView.setImageResource(R.drawable.ic_person)
+        }
     }
 }
 
-fun loadAvatarUriIntoView(context: Context, uri: Uri, imageView: ImageView) {
-    try {
-        Glide.with(context).clear(imageView)
-    } catch (_: Exception) {}
+fun loadAvatarFileIntoView(context: Context, file: File, imageView: ImageView) {
+    loadAvatarIntoView(context, file, imageView)
+}
 
-    val uriStr = uri.toString().lowercase()
-    val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif")
-    val radiusPx = (14 * context.resources.displayMetrics.density).toInt()
-    val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
-    val signatureKey = ObjectKey(if (file != null && file.exists()) "${file.absolutePath}_${file.lastModified()}" else uri.toString())
-    if (isGif) {
-        Glide.with(context)
-            .asGif()
-            .load(uri)
-            .centerCrop()
-            .signature(signatureKey)
-            .placeholder(R.drawable.ic_person)
-            .into(imageView)
-    } else {
-        Glide.with(context)
-            .load(uri)
-            .transform(CenterCrop(), RoundedCorners(radiusPx))
-            .signature(signatureKey)
-            .placeholder(R.drawable.ic_person)
-            .into(imageView)
-    }
+fun loadAvatarUriIntoView(context: Context, uri: Uri, imageView: ImageView) {
+    loadAvatarIntoView(context, uri, imageView)
 }
 
 fun getAvatarColor(name: String): Int {

@@ -2532,50 +2532,20 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private Bitmap getAvatarBitmapForUser(Context context, String author) {
         if (context == null) return null;
 
-        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-        String currentUser = sp.getString("current_user", "");
-
         boolean isLocal = author == null || author.isEmpty() ||
-                author.equalsIgnoreCase("my") || author.equalsIgnoreCase("me") ||
-                (localUsername != null && author.equalsIgnoreCase(localUsername)) ||
-                (!currentUser.isEmpty() && author.equalsIgnoreCase(currentUser));
+                AvatarManager.isLocalUserIdentity(context, author);
 
         if (isLocal) {
-            if (!currentUser.isEmpty()) {
-                String localAvatarUri = sp.getString(currentUser + "_avatar", null);
-                if (localAvatarUri != null && !localAvatarUri.isEmpty()) {
-                    Bitmap bmp = loadBitmapFromUriString(context, localAvatarUri);
-                    if (bmp != null) return bmp;
-                }
-                File fCurrent = new File(context.getFilesDir(), "avatar_" + currentUser + ".jpg");
-                if (fCurrent.exists()) {
-                    try {
-                        Bitmap bmp = BitmapFactory.decodeFile(fCurrent.getAbsolutePath());
-                        if (bmp != null) return bmp;
-                    } catch (Exception ignored) {}
-                }
-            }
-            if (localUsername != null && !localUsername.isEmpty()) {
-                File fLocal = new File(context.getFilesDir(), "avatar_" + localUsername + ".jpg");
-                if (fLocal.exists()) {
-                    try {
-                        Bitmap bmp = BitmapFactory.decodeFile(fLocal.getAbsolutePath());
-                        if (bmp != null) return bmp;
-                    } catch (Exception ignored) {}
-                }
+            String myAvatar = AvatarManager.getMyAvatarUri(context);
+            if (myAvatar != null && !myAvatar.isEmpty()) {
+                Bitmap bmp = loadBitmapFromUriString(context, myAvatar);
+                if (bmp != null) return bmp;
             }
         } else {
-            if (author != null && !author.isEmpty()) {
-                File fAuthor = new File(context.getFilesDir(), "rec_avatar_" + author + ".jpg");
-                if (!fAuthor.exists()) {
-                    fAuthor = new File(context.getFilesDir(), "rec_avatar_" + author + ".gif");
-                }
-                if (fAuthor.exists()) {
-                    try {
-                        Bitmap bmp = BitmapFactory.decodeFile(fAuthor.getAbsolutePath());
-                        if (bmp != null) return bmp;
-                    } catch (Exception ignored) {}
-                }
+            String contactAvatar = AvatarManager.getContactAvatarUriOrFile(context, author, author, null);
+            if (contactAvatar != null && !contactAvatar.isEmpty()) {
+                Bitmap bmp = loadBitmapFromUriString(context, contactAvatar);
+                if (bmp != null) return bmp;
             }
         }
 
@@ -2583,19 +2553,25 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     private Bitmap loadBitmapFromUriString(Context context, String uriStr) {
+        if (uriStr == null || uriStr.isEmpty()) return null;
         try {
-            Uri uri = Uri.parse(uriStr);
+            Uri uri;
+            if (uriStr.startsWith("content://") || uriStr.startsWith("file://") || uriStr.startsWith("http")) {
+                uri = Uri.parse(uriStr);
+            } else {
+                uri = Uri.fromFile(new File(uriStr));
+            }
+
             if ("file".equals(uri.getScheme()) && uri.getPath() != null) {
                 File f = new File(uri.getPath());
                 if (f.exists()) {
                     return BitmapFactory.decodeFile(f.getAbsolutePath());
                 }
             } else {
-                InputStream is = context.getContentResolver().openInputStream(uri);
-                if (is != null) {
-                    Bitmap bmp = BitmapFactory.decodeStream(is);
-                    is.close();
-                    return bmp;
+                try (InputStream is = context.getContentResolver().openInputStream(uri)) {
+                    if (is != null) {
+                        return BitmapFactory.decodeStream(is);
+                    }
                 }
             }
         } catch (Exception ignored) {}

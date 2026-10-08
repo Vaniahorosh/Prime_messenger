@@ -314,16 +314,9 @@ class GlobalSearchActivity : AppCompatActivity() {
 
         val profileAvatarIv = navView.findViewById<ImageView>(R.id.ivNavProfileAvatar)
         if (profileAvatarIv != null) {
-            val myAvatar = sharedPrefs.getString("my_avatar", null)
-                ?: sharedPrefs.getString("my_local_avatar", null)
-            if (!myAvatar.isNullOrEmpty()) {
-                val (_, file) = parseAvatarModelAndFile(myAvatar)
-                if (file != null && file.exists()) {
-                    Glide.with(this).load(file).into(profileAvatarIv)
-                } else {
-                    Glide.with(this).load(myAvatar).into(profileAvatarIv)
-                }
-            }
+            val myAvatar = AvatarManager.getMyAvatarUri(this)
+            val myName = AvatarManager.getMyDisplayName(this)
+            loadAvatarIntoView(this, myAvatar, profileAvatarIv, myName)
         }
 
         val blurNavView = navView as? eightbitlab.com.blurview.BlurView
@@ -387,14 +380,8 @@ class GlobalSearchActivity : AppCompatActivity() {
 
                     if (targetUser.isEmpty()) continue
 
-                    val contactName = sharedPrefs.getString("contact_name_$devAddr", null)
-                        ?: sharedPrefs.getString("${devAddr}_name", null)
-                        ?: targetUser
-                    val displayContactName = if (BluetoothAdapter.checkBluetoothAddress(contactName)) "Собеседник" else contactName
-
-                    val avatarUri = sharedPrefs.getString("contact_avatar_$devAddr", null)
-                        ?: sharedPrefs.getString("${devAddr}_avatar", null)
-                        ?: sharedPrefs.getString("contact_avatar_$targetUser", null)
+                    val displayContactName = AvatarManager.getContactDisplayName(this@GlobalSearchActivity, targetUser, devAddr, targetUser)
+                    val avatarUri = AvatarManager.getContactAvatarUriOrFile(this@GlobalSearchActivity, targetUser, displayContactName, devAddr)
 
                     val lowerQuery = query.lowercase(Locale.ROOT)
 
@@ -517,13 +504,9 @@ class GlobalSearchActivity : AppCompatActivity() {
                 holder.tvSnippet.text = item.snippet
             }
 
-            if (!item.avatarUri.isNullOrEmpty()) {
-                val (_, file) = parseAvatarModelAndFile(item.avatarUri)
-                if (file != null && file.exists()) {
-                    Glide.with(holder.itemView.context).load(file).into(holder.ivAvatar)
-                } else {
-                    Glide.with(holder.itemView.context).load(item.avatarUri).into(holder.ivAvatar)
-                }
+            val avatarToLoad = item.avatarUri ?: AvatarManager.getContactAvatarUriOrFile(holder.itemView.context, item.targetUsername, item.title, item.deviceAddress)
+            if (!avatarToLoad.isNullOrEmpty()) {
+                loadAvatarIntoView(holder.itemView.context, avatarToLoad, holder.ivAvatar, item.title)
             } else {
                 holder.ivAvatar.setImageResource(R.drawable.ic_person)
             }

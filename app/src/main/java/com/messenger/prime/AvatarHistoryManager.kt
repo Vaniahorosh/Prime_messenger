@@ -77,16 +77,10 @@ object AvatarHistoryManager {
                 editor.putString("${currentUser}_avatar", active)
                     .putString("${currentUser}_avatarUri", active)
             }
+            editor.apply()
         } else {
-            editor.remove("my_avatar")
-                .remove("my_local_avatar")
-                .remove("my_avatar_uri")
-            if (currentUser.isNotEmpty()) {
-                editor.remove("${currentUser}_avatar")
-                    .remove("${currentUser}_avatarUri")
-            }
+            AvatarManager.clearMyAvatar(context)
         }
-        editor.apply()
     }
 
     fun addMyAvatar(context: Context, newAvatarUri: String) {
@@ -199,11 +193,10 @@ object AvatarHistoryManager {
             val active = history.first()
             editor.putString("contact_avatar_$addressOrName", active)
                 .putString("${addressOrName}_avatar", active)
+            editor.apply()
         } else {
-            editor.remove("contact_avatar_$addressOrName")
-                .remove("${addressOrName}_avatar")
+            AvatarManager.clearContactAvatar(context, addressOrName)
         }
-        editor.apply()
     }
 
     fun addContactAvatar(context: Context, addressOrName: String, newAvatarUri: String) {

@@ -577,7 +577,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private final SharedPreferences.OnSharedPreferenceChangeListener profileChangeListener = (sharedPreferences, key) -> {
         try {
             String currentUser = sharedPreferences.getString("current_user", "");
-            if (key != null && (key.equals("my_local_name") || key.equals("my_local_avatar") || key.equals("current_user_name") || key.equals(currentUser + "_name") || key.equals(currentUser + "_avatar"))) {
+            if (key != null && (key.equals("my_name") || key.equals("my_avatar") || key.equals("my_local_name") || key.equals("my_local_avatar") || key.equals("current_user_name") || key.equals(currentUser + "_name") || key.equals(currentUser + "_avatar"))) {
                 reloadLocalProfileFromSettings();
                 if (isConnectionActive()) {
                     String handshake = "HANDSHAKE:login=" + currentUser + ";name=" + localUsername + ";version=" + getAppVersionCode(getApplicationContext());
@@ -1904,15 +1904,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 finish();
             } else if ("com.messenger.prime.AVATAR_CHANGED".equals(action) || "com.messenger.prime.NAME_CHANGED".equals(action)) {
                 reloadLocalProfileFromSettings();
-                SharedPreferences prefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-                String updatedContactName = (deviceAddress != null && !deviceAddress.isEmpty()) ? prefs.getString("contact_name_" + deviceAddress, null) : null;
-                if (updatedContactName != null && !updatedContactName.isEmpty()) {
-                    targetUsername = updatedContactName;
+                String updatedName = AvatarManager.getContactDisplayName(ChatPersonActivity.this, targetUsername, deviceAddress, targetUsername);
+                if (!updatedName.isEmpty()) {
+                    targetUsername = updatedName;
                     if (tvChatName != null) tvChatName.setText(formatDisplayName(targetUsername));
                 }
-                String contactAvatar = (deviceAddress != null && !deviceAddress.isEmpty()) ? prefs.getString("contact_avatar_" + deviceAddress, null) : null;
+                String contactAvatar = AvatarManager.getContactAvatarUriOrFile(ChatPersonActivity.this, targetUsername, targetUsername, deviceAddress);
                 if (contactAvatar == null) contactAvatar = remoteAvatarUri;
                 updateAvatarUi(contactAvatar, targetUsername);
+                sendLocalAvatar(true);
             } else if (BluetoothDevice.ACTION_FOUND.equals(action) || BluetoothDevice.ACTION_UUID.equals(action)) {
                 BluetoothDevice dev = null;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -2856,78 +2856,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         ImageView ivChatAvatar = findViewById(R.id.ivChatAvatar);
         if (ivChatAvatar == null) return;
 
-        try {
-            Glide.get(this).clearMemory();
-        } catch (Exception ignored) {}
+        String avatarToLoad = AvatarManager.getContactAvatarUriOrFile(this, targetUsername, name, deviceAddress);
+        if (avatarToLoad == null) avatarToLoad = avatarUri;
 
-        SharedPreferences prefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-        String contactAvatar = (deviceAddress != null && !deviceAddress.isEmpty())
-                ? prefs.getString("contact_avatar_" + deviceAddress, null)
-                : null;
-        if (contactAvatar == null || contactAvatar.isEmpty()) {
-            contactAvatar = avatarUri;
+        if (avatarToLoad != null && !avatarToLoad.isEmpty()) {
+            AvatarUtilsKt.loadAvatarIntoView(this, avatarToLoad, ivChatAvatar, name != null ? name : "");
+        } else {
+            Bitmap letterBmp = createLetterAvatar(name != null ? name : "P", 120);
+            ivChatAvatar.setImageBitmap(letterBmp);
         }
-
-        File foundFile = null;
-        String avatarPathToLoad = (contactAvatar != null && !contactAvatar.isEmpty()) ? contactAvatar : avatarUri;
-        if (avatarPathToLoad != null && !avatarPathToLoad.isEmpty()) {
-            Uri parsed = Uri.parse(avatarPathToLoad);
-            if ("file".equalsIgnoreCase(parsed.getScheme()) && parsed.getPath() != null) {
-                File f = new File(parsed.getPath());
-                if (f.exists() && f.length() > 0) {
-                    foundFile = f;
-                }
-            } else {
-                File f = new File(avatarPathToLoad);
-                if (f.exists() && f.length() > 0) {
-                    foundFile = f;
-                }
-            }
-        }
-
-        if (foundFile == null) {
-            File[] candidates = new File[]{
-                    deviceAddress != null ? new File(getFilesDir(), "rec_avatar_" + deviceAddress + ".gif") : null,
-                    (name != null && !isLocalUserKey(name)) ? new File(getFilesDir(), "rec_avatar_" + name + ".gif") : null,
-                    deviceAddress != null ? new File(getFilesDir(), "rec_avatar_" + deviceAddress + ".jpg") : null,
-                    (name != null && !isLocalUserKey(name)) ? new File(getFilesDir(), "rec_avatar_" + name + ".jpg") : null
-            };
-            for (File f : candidates) {
-                if (f != null && f.exists() && f.length() > 0) {
-                    foundFile = f;
-                    break;
-                }
-            }
-        }
-
-        int radiusPx = (int) (14 * getResources().getDisplayMetrics().density);
-        long sigTime = foundFile != null ? foundFile.lastModified() : System.currentTimeMillis();
-
-        if (foundFile != null) {
-            boolean isGif = foundFile.getName().toLowerCase(Locale.US).endsWith(".gif");
-            if (isGif) {
-                Glide.with(this)
-                        .asGif()
-                        .load(foundFile)
-                        .centerCrop()
-                        .signature(new ObjectKey(sigTime))
-                        .transition(DrawableTransitionOptions.withCrossFade(300))
-                        .placeholder(R.drawable.ic_person)
-                        .into(ivChatAvatar);
-            } else {
-                Glide.with(this)
-                        .load(foundFile)
-                        .transform(new CenterCrop(), new RoundedCorners(radiusPx))
-                        .signature(new ObjectKey(sigTime))
-                        .transition(DrawableTransitionOptions.withCrossFade(300))
-                        .placeholder(R.drawable.ic_person)
-                        .into(ivChatAvatar);
-            }
-            return;
-        }
-
-        Bitmap letterBmp = createLetterAvatar(name != null ? name : "P", 120);
-        ivChatAvatar.setImageBitmap(letterBmp);
     }
 
     private int getAvatarColor(String name) {
@@ -3914,33 +3851,20 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (!isConnectionActive()) return;
         runOnIoThread(() -> {
             try {
-                SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-                String currentUser = sharedPrefs.getString("current_user", "");
-                String localAvatarUri = sharedPrefs.getString("my_local_avatar", null);
-                if (localAvatarUri == null || localAvatarUri.isEmpty()) {
-                    localAvatarUri = sharedPrefs.getString("my_avatar_uri", null);
-                }
-                if (localAvatarUri == null || localAvatarUri.isEmpty()) {
-                    localAvatarUri = sharedPrefs.getString(currentUser + "_avatar", "");
-                }
-                if (localAvatarUri == null || localAvatarUri.isEmpty()) {
-                    localAvatarUri = sharedPrefs.getString(currentUser + "_avatarUri", "");
-                }
-
-                if (localAvatarUri == null || localAvatarUri.isEmpty()) {
-                    File f = new File(getFilesDir(), "avatar_" + currentUser + ".gif");
-                    if (!f.exists()) f = new File(getFilesDir(), "avatar_" + currentUser + ".jpg");
-                    if (f.exists()) {
-                        localAvatarUri = Uri.fromFile(f).toString();
-                    }
-                }
-
-                if (!localAvatarUri.isEmpty()) {
+                String localAvatarUri = AvatarManager.getMyAvatarUri(this);
+                if (localAvatarUri != null && !localAvatarUri.isEmpty()) {
                     boolean isGif = localAvatarUri.toLowerCase(Locale.US).endsWith(".gif") || localAvatarUri.toLowerCase(Locale.US).contains("gif");
                     byte[] avatarBytes = null;
 
+                    Uri uri;
+                    if (localAvatarUri.startsWith("content://") || localAvatarUri.startsWith("file://") || localAvatarUri.startsWith("http")) {
+                        uri = Uri.parse(localAvatarUri);
+                    } else {
+                        uri = Uri.fromFile(new File(localAvatarUri));
+                    }
+
                     if (isGif) {
-                        try (InputStream is = getContentResolver().openInputStream(Uri.parse(localAvatarUri));
+                        try (InputStream is = getContentResolver().openInputStream(uri);
                              ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                             if (is != null) {
                                 byte[] buf = new byte[8192];
@@ -3952,7 +3876,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             }
                         }
                     } else {
-                        Bitmap bitmap = decodeSampledBitmapFromUri(Uri.parse(localAvatarUri), 256, 256);
+                        Bitmap bitmap = decodeSampledBitmapFromUri(uri, 256, 256);
                         if (bitmap != null) {
                             ByteArrayOutputStream baos = new ByteArrayOutputStream();
                             bitmap.compress(Bitmap.CompressFormat.JPEG, 82, baos);
@@ -3972,6 +3896,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                         lastSentAvatarChecksum = checksum;
                         sendPacket(TYPE_AVATAR, avatarBytes);
+                    } else {
+                        if (force || !"EMPTY_AVATAR".equals(lastSentAvatarChecksum)) {
+                            lastSentAvatarChecksum = "EMPTY_AVATAR";
+                            sendPacket(TYPE_AVATAR, new byte[0]);
+                        }
                     }
                 } else {
                     if (force || !"EMPTY_AVATAR".equals(lastSentAvatarChecksum)) {
@@ -4507,10 +4436,22 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     break;
 
                 case TYPE_AVATAR:
-                    if (payload.length > 0) {
-                        final byte[] avatarPayload = payload;
-                        runOnIoThread(() -> {
-                            try {
+                    final byte[] avatarPayload = payload;
+                    runOnIoThread(() -> {
+                        try {
+                            if (avatarPayload == null || avatarPayload.length == 0) {
+                                AvatarManager.clearContactAvatar(this, targetUsername, targetUsername, deviceAddress);
+                                remoteAvatarUri = null;
+                                updatePersistedChatAvatar(targetUsername, null);
+                                sendBroadcast(new Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(getPackageName()));
+                                runOnUiThread(() -> {
+                                    if (!isFinishing() && !isDestroyed()) {
+                                        updateAvatarUi(null, targetUsername);
+                                        saveLastMessageToChatList(null, null, false, "ONLINE");
+                                    }
+                                    ChatListNotifier.INSTANCE.notifyChanged();
+                                });
+                            } else {
                                 boolean isGif = avatarPayload.length > 3 && avatarPayload[0] == (byte)'G' && avatarPayload[1] == (byte)'I' && avatarPayload[2] == (byte)'F';
                                 String ext = isGif ? ".gif" : ".jpg";
                                 File avatarFile = ChatHistoryManager.saveBytesToAtomicFile(this, "rec_avatar_" + targetUsername + ext, avatarPayload);
@@ -4532,6 +4473,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                     AvatarHistoryManager.INSTANCE.addContactAvatar(this, targetUsername, avatarUri);
                                 }
                                 editor.apply();
+                                remoteAvatarUri = avatarUri;
                                 updatePersistedChatAvatar(targetUsername, avatarUri);
                                 sendBroadcast(new Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(getPackageName()));
 
@@ -4542,11 +4484,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                     }
                                     ChatListNotifier.INSTANCE.notifyChanged();
                                 });
-                            } catch (Exception e) {
-                                Log.e(TAG, "Failed to save received avatar", e);
                             }
-                        });
-                    }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to save received avatar", e);
+                        }
+                    });
                     break;
 
                 case TYPE_CHAT_DELETED:
@@ -5312,23 +5254,19 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     } else if (type == TYPE_AVATAR) {
                         try {
                             String sender = getRemoteUsername();
-                            boolean isGif = payload.length > 3 && payload[0] == (byte)'G' && payload[1] == (byte)'I' && payload[2] == (byte)'F';
-                            String ext = isGif ? ".gif" : ".jpg";
                             if (payload == null || payload.length == 0) {
-                                File avatarFile = new File(getFilesDir(), "rec_avatar_" + sender + ext);
-                                if (avatarFile.exists()) avatarFile.delete();
-                                if (deviceAddress != null && !deviceAddress.isEmpty()) {
-                                    File devFile = new File(getFilesDir(), "rec_avatar_" + deviceAddress + ext);
-                                    if (devFile.exists()) devFile.delete();
-                                }
+                                AvatarManager.clearContactAvatar(getApplicationContext(), sender, sender, deviceAddress);
                                 updatePersistedChatAvatar(sender, null);
-                                if (sender.equalsIgnoreCase(ChatPersonActivity.this.targetUsername)) {
+                                sendBroadcast(new Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(getPackageName()));
+                                if (sender != null && sender.equalsIgnoreCase(ChatPersonActivity.this.targetUsername)) {
                                     remoteAvatarUri = null;
                                     if (activeUiHandler != null) {
                                         activeUiHandler.post(() -> updateAvatarUi(null, sender));
                                     }
                                 }
                             } else {
+                                boolean isGif = payload.length > 3 && payload[0] == (byte)'G' && payload[1] == (byte)'I' && payload[2] == (byte)'F';
+                                String ext = isGif ? ".gif" : ".jpg";
                                 File avatarFile = ChatHistoryManager.saveBytesToAtomicFile(getApplicationContext(), "rec_avatar_" + sender + ext, payload);
                                 if (avatarFile == null) return;
 

@@ -374,54 +374,29 @@ fun RadarAnimation() {
 @Composable
 fun CachedAvatarView(name: String, macAddress: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val sharedPrefs = remember { context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE) }
 
     val avatarUriStr = remember(name, macAddress) {
-        val spAvatar = if (macAddress.isNotEmpty()) sharedPrefs.getString("contact_avatar_$macAddress", null) else null
-        spAvatar ?: (if (name.isNotEmpty()) sharedPrefs.getString("contact_avatar_$name", null) else null)
-        ?: (if (macAddress.isNotEmpty()) sharedPrefs.getString("${macAddress}_avatarUri", null) else null)
-        ?: (if (name.isNotEmpty()) sharedPrefs.getString("${name}_avatarUri", null) else null)
-        ?: (if (macAddress.isNotEmpty()) sharedPrefs.getString("${macAddress}_avatar", null) else null)
-        ?: (if (name.isNotEmpty()) sharedPrefs.getString("${name}_avatar", null) else null)
+        AvatarManager.getContactAvatarUriOrFile(context, name, name, macAddress)
     }
 
     var bitmap by remember(name, macAddress, avatarUriStr) { mutableStateOf<ImageBitmap?>(null) }
 
     LaunchedEffect(name, macAddress, avatarUriStr) {
         withContext(Dispatchers.IO) {
-            val candidates = mutableListOf<File>()
-            if (!avatarUriStr.isNullOrEmpty()) {
-                val parsed = Uri.parse(avatarUriStr)
-                if ("file".equals(parsed.scheme, ignoreCase = true) && parsed.path != null) {
-                    candidates.add(File(parsed.path!!))
-                } else {
-                    candidates.add(File(avatarUriStr))
-                }
-            }
-            val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-            val myName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: ""
-            val isGenericName = name.equals("Собеседник", ignoreCase = true) ||
-                                name.equals("Prime Собеседник", ignoreCase = true) ||
-                                name.equals("Пользователь", ignoreCase = true) ||
-                                name.equals("Prime User", ignoreCase = true) ||
-                                name.equals("Контакт", ignoreCase = true)
-            val isLocalName = name.equals(currentUser, ignoreCase = true) || name.equals(myName, ignoreCase = true)
-            val isLocalMac = macAddress.equals(currentUser, ignoreCase = true) || macAddress.equals(myName, ignoreCase = true)
-
-            if (macAddress.isNotEmpty() && !isLocalMac && !isGenericName) {
-                candidates.add(File(context.filesDir, "rec_avatar_$macAddress.gif"))
-                candidates.add(File(context.filesDir, "rec_avatar_$macAddress.jpg"))
-            }
-            if (name.isNotEmpty() && !isLocalName && !isGenericName) {
-                candidates.add(File(context.filesDir, "rec_avatar_$name.gif"))
-                candidates.add(File(context.filesDir, "rec_avatar_$name.jpg"))
-            }
-
-            val foundFile = candidates.firstOrNull { it.exists() && it.length() > 0 }
-            if (foundFile != null) {
+            val resolved = avatarUriStr ?: AvatarManager.getContactAvatarUriOrFile(context, name, name, macAddress)
+            if (!resolved.isNullOrEmpty()) {
                 try {
-                    BitmapFactory.decodeFile(foundFile.absolutePath)?.let { bmp ->
-                        bitmap = bmp.asImageBitmap()
+                    val (model, file) = parseAvatarModelAndFile(resolved)
+                    if (file != null && file.exists() && file.length() > 0) {
+                        BitmapFactory.decodeFile(file.absolutePath)?.let { bmp ->
+                            bitmap = bmp.asImageBitmap()
+                        }
+                    } else if (model is Uri) {
+                        context.contentResolver.openInputStream(model)?.use { stream ->
+                            BitmapFactory.decodeStream(stream)?.let { bmp ->
+                                bitmap = bmp.asImageBitmap()
+                            }
+                        }
                     }
                 } catch (_: Exception) {}
             }
@@ -3213,16 +3188,8 @@ class ChatListActivity : AppCompatActivity() {
 
     private fun refreshUserUi() {
         if (!::binding.isInitialized) return
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-        val name = sharedPrefs.getString("my_name", null)
-            ?: sharedPrefs.getString("my_local_name", null)
-            ?: sharedPrefs.getString("current_user_name", null)
-            ?: sharedPrefs.getString("${currentUser}_name", "Мой профиль") ?: "Мой профиль"
-        val avatar = sharedPrefs.getString("my_avatar", null)
-            ?: sharedPrefs.getString("my_local_avatar", null)
-            ?: sharedPrefs.getString("my_avatar_uri", null)
-            ?: sharedPrefs.getString("${currentUser}_avatar", null)
+        val name = AvatarManager.getMyDisplayName(this)
+        val avatar = AvatarManager.getMyAvatarUri(this)
 
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
         val bg = GradientDrawable().apply {
@@ -3233,39 +3200,9 @@ class ChatListActivity : AppCompatActivity() {
         binding.layoutIslandHeader.islandHeaderItem.background = bg
 
         var loaded = false
-        val possibleFiles = listOfNotNull(
-            if (!avatar.isNullOrEmpty()) {
-                val uri = avatar.toUri()
-                if ("file" == uri.scheme && uri.path != null) File(uri.path!!) else File(avatar)
-            } else null,
-            File(filesDir, "avatar_$currentUser.gif"),
-            File(filesDir, "avatar_$currentUser.jpg")
-        )
-
-        val avatarFile = possibleFiles.firstOrNull { it.exists() && it.length() > 0 }
-        if (avatarFile != null && avatarFile.exists()) {
+        if (!avatar.isNullOrEmpty()) {
             try {
-                val isGif = avatarFile.name.lowercase().endsWith(".gif")
-                val radiusPx = (14 * resources.displayMetrics.density).toInt()
-                val signatureKey = ObjectKey(avatarFile.lastModified())
-                if (isGif) {
-                    Glide.with(this)
-                        .asGif()
-                        .load(avatarFile)
-                        .override(200, 200)
-                        .centerCrop()
-                        .signature(signatureKey)
-                        .placeholder(R.drawable.ic_person)
-                        .into(binding.layoutIslandHeader.ivHeaderAvatar)
-                } else {
-                    Glide.with(this)
-                        .load(avatarFile)
-                        .override(200, 200)
-                        .transform(CenterCrop(), RoundedCorners(radiusPx))
-                        .signature(signatureKey)
-                        .placeholder(R.drawable.ic_person)
-                        .into(binding.layoutIslandHeader.ivHeaderAvatar)
-                }
+                loadAvatarIntoView(this, avatar, binding.layoutIslandHeader.ivHeaderAvatar, name)
                 binding.layoutIslandHeader.tvHeaderInitials.visibility = View.GONE
                 binding.layoutIslandHeader.ivHeaderAvatar.visibility = View.VISIBLE
                 loaded = true
@@ -3492,19 +3429,9 @@ class ChatListActivity : AppCompatActivity() {
 
         val profileAvatarIv = navView.findViewById<ImageView>(R.id.ivNavProfileAvatar)
         if (profileAvatarIv != null) {
-            val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-            val myAvatar = sharedPrefs.getString("my_avatar", null)
-                ?: sharedPrefs.getString("my_local_avatar", null)
-            if (!myAvatar.isNullOrEmpty()) {
-                val (_, file) = parseAvatarModelAndFile(myAvatar)
-                if (file != null && file.exists()) {
-                    Glide.with(this).load(file).into(profileAvatarIv)
-                } else {
-                    Glide.with(this).load(myAvatar).into(profileAvatarIv)
-                }
-            } else {
-                profileAvatarIv.setImageResource(R.drawable.ic_person)
-            }
+            val myAvatar = AvatarManager.getMyAvatarUri(this)
+            val myName = AvatarManager.getMyDisplayName(this)
+            loadAvatarIntoView(this, myAvatar, profileAvatarIv, myName)
         }
 
         val blurNavView = navView as? eightbitlab.com.blurview.BlurView
@@ -3878,10 +3805,7 @@ class ChatListActivity : AppCompatActivity() {
                             val idStr = item.optString("id", System.currentTimeMillis().toString() + i)
                             val nameStr = item.optString("name", "Контакт")
 
-                            val savedName = sharedPrefs.getString("contact_name_$idStr", null)
-                                ?: sharedPrefs.getString("${idStr}_name", null)
-                            val rawFinalName = if (!savedName.isNullOrEmpty() && savedName != "1") savedName else nameStr
-                            val finalName = if (BluetoothAdapter.checkBluetoothAddress(rawFinalName)) "Собеседник" else rawFinalName
+                            val finalName = AvatarManager.getContactDisplayName(this@ChatListActivity, idStr, idStr, nameStr)
 
                             if (myName.isNotEmpty() && finalName.equals(myName, ignoreCase = true)) {
                                 continue
@@ -3913,10 +3837,8 @@ class ChatListActivity : AppCompatActivity() {
                             val rawActState = item.optString("activityState", "IDLE")
                             val actState = if ("TYPING".equals(rawActState, ignoreCase = true) && !isTyping) "IDLE" else rawActState
 
-                            val savedAvatar = sharedPrefs.getString("contact_avatar_$idStr", null)
-                                ?: sharedPrefs.getString("${idStr}_avatar", null)
-                                ?: sharedPrefs.getString("${idStr}_avatarUri", null)
-                            val finalAvatar = if (!savedAvatar.isNullOrEmpty()) savedAvatar else (if (rawAvatar.isNullOrEmpty()) null else rawAvatar)
+                            val resolvedAvatar = AvatarManager.getContactAvatarUriOrFile(this@ChatListActivity, idStr, finalName, idStr)
+                            val finalAvatar = if (!resolvedAvatar.isNullOrEmpty()) resolvedAvatar else (if (rawAvatar.isNullOrEmpty()) null else rawAvatar)
 
                             val isConnectedInManager = BluetoothConnectionManager.getInstance().isConnected(idStr) ||
                                 BluetoothConnectionManager.getInstance().isConnected(finalName)

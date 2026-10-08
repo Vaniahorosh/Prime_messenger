@@ -1,169 +1,368 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/rootConstraint"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
     android:background="@android:color/transparent">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/rootConstraint"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingBottom="32dp">
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
 
-        <ImageView
-            android:id="@+id/btnBack"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="12dp"
-            android:layout_marginTop="16dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="12dp"
-            android:src="@drawable/ic_arrow_back"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:tint="@color/white" />
-
-        <!-- Центрированный контейнер для основного контента -->
-        <LinearLayout
-            android:id="@+id/centerContainer"
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/loginBlurCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:layout_marginHorizontal="24dp"
-            android:layout_marginTop="16dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
-
-            <TextView
-                android:id="@+id/tvTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Приветствуем!"
-                android:textColor="@color/white"
-                android:textSize="28sp"
-                android:textStyle="bold"
-                android:shadowColor="#40000000"
-                android:shadowDx="2"
-                android:shadowDy="2"
-                android:shadowRadius="4"
-                android:layout_marginBottom="32dp" />
+            android:layout_margin="16dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_glass_card"
+            app:blurOverlayColor="#00000000">
 
             <androidx.constraintlayout.widget.ConstraintLayout
-                android:id="@+id/glassCard"
+                android:id="@+id/contentContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_glass_card"
                 android:padding="24dp">
+
+                <ImageView
+                    android:id="@+id/btnBack"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="12dp"
+                    android:src="@drawable/ic_arrow_back"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:tint="@color/white" />
+
+                <TextSwitcher
+                    android:id="@+id/tsTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/btnBack" />
+
+                <TextView
+                    android:id="@+id/tvTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="Приветствуем!"
+                    android:textColor="@color/white"
+                    android:textSize="26sp"
+                    android:textStyle="bold"
+                    android:textAlignment="center"
+                    android:visibility="gone"
+                    tools:ignore="MissingConstraints" />
 
                 <TextView
                     android:id="@+id/tvSubtitle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="Давайте выполним вход, но если вы тут впервые, то введите желаемый логин."
-                    android:textAlignment="center"
+                    android:text="Войдите в аккаунт, или введите желаемый логин для создания"
                     android:textColor="@color/white"
                     android:alpha="0.8"
-                    android:textSize="14sp"
-                    app:layout_constraintEnd_toEndOf="parent"
+                    android:textSize="12sp"
+                    android:textAlignment="center"
+                    android:layout_marginTop="8dp"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tsTitle" />
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputLayoutLogin"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                <!-- Avatar Container -->
+                <FrameLayout
+                    android:id="@+id/flAvatarContainer"
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:layout_marginTop="24dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvSubtitle">
+
+                    <!-- Login Avatar Section -->
+                    <FrameLayout
+                        android:id="@+id/flLoginAvatar"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:visibility="visible">
+
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/ivLoginAvatar"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:src="@drawable/ic_prime_logo_vector"
+                            android:scaleType="centerCrop"
+                            android:background="#1AFFFFFF"
+                            app:shapeAppearanceOverlay="@style/RoundedDialogShape" />
+                    </FrameLayout>
+
+                    <!-- Registration Avatar Section -->
+                    <FrameLayout
+                        android:id="@+id/flRegisterAvatar"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:visibility="gone">
+
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/ivRegisterAvatar"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:background="#1AFFFFFF"
+                            app:shapeAppearanceOverlay="@style/RoundedDialogShape" />
+
+                        <TextView
+                            android:id="@+id/tvSelectPhoto"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Выбрать\nфото"
+                            android:textAlignment="center"
+                            android:textColor="#007BFF"
+                            android:textStyle="bold"
+                            android:layout_gravity="center" />
+                    </FrameLayout>
+                </FrameLayout>
+
+                <!-- Inputs Section (Centered) -->
+                <LinearLayout
+                    android:id="@+id/llInputs"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="24dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/flAvatarContainer">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/inputLayoutLogin"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Логин"
+                        app:boxBackgroundColor="#1AFFFFFF"
+                        app:boxStrokeWidth="0dp"
+                        app:boxStrokeWidthFocused="1dp"
+                        app:boxStrokeColor="@color/white"
+                        app:boxCornerRadiusTopStart="8dp"
+                        app:boxCornerRadiusTopEnd="8dp"
+                        app:boxCornerRadiusBottomStart="8dp"
+                        app:boxCornerRadiusBottomEnd="8dp"
+                        app:hintTextColor="@color/white">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etLogin"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:maxLength="15"
+                            android:inputType="textNoSuggestions"
+                            android:imeOptions="actionNext"
+                            android:textColor="@color/white" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/inputLayoutName"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:hint="Ваше имя"
+                        android:visibility="gone"
+                        app:boxBackgroundColor="#1AFFFFFF"
+                        app:boxStrokeWidth="0dp"
+                        app:boxStrokeWidthFocused="1dp"
+                        app:boxStrokeColor="@color/white"
+                        app:boxCornerRadiusTopStart="8dp"
+                        app:boxCornerRadiusTopEnd="8dp"
+                        app:boxCornerRadiusBottomStart="8dp"
+                        app:boxCornerRadiusBottomEnd="8dp"
+                        app:hintTextColor="@color/white">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etName"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:maxLength="26"
+                            android:inputType="textPersonName"
+                            android:imeOptions="actionNext"
+                            android:textColor="@color/white" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <LinearLayout
+                        android:id="@+id/llPasswordContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal"
+                        android:visibility="gone">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/inputLayoutPassword"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="Пароль"
+                            app:boxBackgroundColor="#1AFFFFFF"
+                            app:boxStrokeWidth="0dp"
+                            app:boxStrokeWidthFocused="1dp"
+                            app:boxStrokeColor="@color/white"
+                            app:boxCornerRadiusTopStart="8dp"
+                            app:boxCornerRadiusTopEnd="8dp"
+                            app:boxCornerRadiusBottomStart="8dp"
+                            app:boxCornerRadiusBottomEnd="8dp"
+                            app:endIconMode="password_toggle"
+                            app:endIconTint="@color/white"
+                            app:hintTextColor="@color/white">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etPassword"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="textPassword"
+                                android:imeOptions="actionDone"
+                                android:textColor="@color/white" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.floatingactionbutton.FloatingActionButton
+                            android:id="@+id/btnSubmitArrow"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_gravity="center_vertical"
+                            app:srcCompat="@drawable/ic_arrow_forward"
+                            app:backgroundTint="#007BFF"
+                            app:tint="@color/white"
+                            app:fabSize="mini"
+                            app:elevation="0dp"
+                            app:shapeAppearanceOverlay="@style/RoundedDialogShape"/>
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/btnToggleMode"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="Регистрация"
+                        app:backgroundTint="#40FFFFFF"
+                        android:textColor="@color/white"
+                        app:cornerRadius="8dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnRegisterSubmit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="Быть в прайме!"
+                        android:visibility="gone"
+                        app:backgroundTint="#007BFF"
+                        android:textColor="@color/white"
+                        app:cornerRadius="24dp"
+                        app:strokeColor="#80007BFF"
+                        app:strokeWidth="2dp" />
+
+                    <TextView
+                        android:id="@+id/tvError"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/bg_error_island"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="10dp"
+                        android:textColor="@color/white"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:visibility="gone"
+                        android:textAlignment="center" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/clBottomAvatars"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="24dp"
-                    android:hint="Логин"
-                    app:boxBackgroundColor="@color/glass_white_10"
-                    app:boxStrokeWidth="0dp"
-                    app:boxStrokeWidthFocused="1dp"
-                    app:boxStrokeColor="@color/white"
-                    app:boxCornerRadiusTopStart="16dp"
-                    app:boxCornerRadiusTopEnd="16dp"
-                    app:boxCornerRadiusBottomStart="16dp"
-                    app:boxCornerRadiusBottomEnd="16dp"
-                    app:hintTextColor="@color/white"
-                    app:placeholderTextColor="@color/glass_white_30"
-                    app:layout_constraintEnd_toEndOf="parent"
+                    android:orientation="vertical"
+                    android:visibility="gone"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/tvSubtitle">
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/llInputs">
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etLogin"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:maxLength="15"
-                        android:inputType="textNoSuggestions"
-                        android:imeOptions="actionDone"
-                        android:textColor="@color/white" />
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:id="@+id/tvAvatarsHint"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Или выберите из 5 готовых аватаров"
+                            android:textColor="#007BFF"
+                            android:textSize="12sp" />
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="2dp"
+                            android:layout_weight="1"
+                            android:background="#007BFF"
+                            android:layout_marginStart="8dp" />
+                    </LinearLayout>
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputLayoutPassword"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:hint="Пароль"
-                    android:visibility="gone"
-                    app:boxBackgroundColor="@color/glass_white_10"
-                    app:boxStrokeWidth="0dp"
-                    app:boxStrokeWidthFocused="1dp"
-                    app:boxStrokeColor="@color/white"
-                    app:boxCornerRadiusTopStart="16dp"
-                    app:boxCornerRadiusTopEnd="16dp"
-                    app:boxCornerRadiusBottomStart="16dp"
-                    app:boxCornerRadiusBottomEnd="16dp"
-                    app:endIconMode="password_toggle"
-                    app:endIconTint="@color/white"
-                    app:hintTextColor="@color/white"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/inputLayoutLogin">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etPassword"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="textPassword"
-                        android:imeOptions="actionDone"
-                        android:textColor="@color/white" />
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:orientation="horizontal"
+                        android:layout_marginTop="16dp"
+                        android:gravity="center">
 
-                <TextView
-                    android:id="@+id/tvError"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Неверный пароль"
-                    android:textColor="@color/prime_danger_light"
-                    android:textStyle="bold"
-                    android:visibility="gone"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/inputLayoutPassword" />
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:layout_marginEnd="8dp"
+                            android:background="#20FFFFFF"
+                            app:shapeAppearanceOverlay="@style/RoundedDialogShape"
+                            app:strokeColor="#007BFF"
+                            app:strokeWidth="2dp"/>
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:layout_marginEnd="8dp"
+                            android:background="#20FFFFFF"
+                            app:shapeAppearanceOverlay="@style/RoundedDialogShape"
+                            app:strokeColor="#007BFF"
+                            app:strokeWidth="2dp"/>
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:layout_marginEnd="8dp"
+                            android:background="#20FFFFFF"
+                            app:shapeAppearanceOverlay="@style/RoundedDialogShape"
+                            app:strokeColor="#007BFF"
+                            app:strokeWidth="2dp"/>
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:layout_marginEnd="8dp"
+                            android:background="#20FFFFFF"
+                            app:shapeAppearanceOverlay="@style/RoundedDialogShape"
+                            app:strokeColor="#007BFF"
+                            app:strokeWidth="2dp"/>
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:background="#20FFFFFF"
+                            app:shapeAppearanceOverlay="@style/RoundedDialogShape"
+                            app:strokeColor="#007BFF"
+                            app:strokeWidth="2dp"/>
+                    </LinearLayout>
+                </LinearLayout>
 
             </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <com.google.android.material.floatingactionbutton.FloatingActionButton
-                android:id="@+id/btnForward"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:layout_gravity="end"
-                app:backgroundTint="@color/login_button_background"
-                app:tint="@color/login_button_tint"
-                android:src="@drawable/ic_arrow_forward"
-                app:shapeAppearanceOverlay="@style/SquareFABShape"
-                app:elevation="8dp"/>
-
-        </LinearLayout>
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
-</ScrollView>
+        </eightbitlab.com.blurview.BlurView>
+    </ScrollView>
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -235,13 +235,7 @@ class PersonInformationActivity : AppCompatActivity() {
     private var currentAvatarIndex = 0
 
     private fun setupHeaderUi() {
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-        val targetAddr = deviceAddress ?: ""
-
-        val contactName = if (targetAddr.isNotEmpty()) {
-            sharedPrefs.getString("contact_name_$targetAddr", null) ?: targetUsername
-        } else targetUsername
-        val displayContactName = if (BluetoothAdapter.checkBluetoothAddress(contactName)) "Собеседник" else contactName
+        val displayContactName = AvatarManager.getContactDisplayName(this, targetUsername, deviceAddress, targetUsername)
         binding.tvUserNameWP.text = displayContactName
 
         setupAvatarCardSwipe()
@@ -539,6 +533,7 @@ class PersonInformationActivity : AppCompatActivity() {
         }
 
         // 3. Complete cleanup of history, avatars, files, and SharedPreferences keys
+        AvatarManager.clearContactAvatar(this, targetUsername, targetUsername, deviceAddress)
         ChatHistoryManager.deleteHistoryCompletely(this, targetUsername, deviceAddress)
 
         val chatDeletedIntent = Intent("com.messenger.prime.CHAT_DELETED").apply {

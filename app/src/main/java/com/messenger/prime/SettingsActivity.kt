@@ -876,18 +876,9 @@ class SettingsActivity : AppCompatActivity() {
 
         val profileAvatarIv = navView.findViewById<ImageView>(R.id.ivNavProfileAvatar)
         if (profileAvatarIv != null) {
-            val myAvatar = sharedPrefs.getString("my_avatar", null)
-                ?: sharedPrefs.getString("my_local_avatar", null)
-            if (!myAvatar.isNullOrEmpty()) {
-                val (_, file) = parseAvatarModelAndFile(myAvatar)
-                if (file != null && file.exists()) {
-                    Glide.with(this).load(file).into(profileAvatarIv)
-                } else {
-                    Glide.with(this).load(myAvatar).into(profileAvatarIv)
-                }
-            } else {
-                profileAvatarIv.setImageResource(R.drawable.ic_person)
-            }
+            val myAvatar = AvatarManager.getMyAvatarUri(this)
+            val myName = AvatarManager.getMyDisplayName(this)
+            loadAvatarIntoView(this, myAvatar, profileAvatarIv, myName)
         }
 
         val blurNavView = navView as? eightbitlab.com.blurview.BlurView
@@ -1915,16 +1906,12 @@ class SettingsActivity : AppCompatActivity() {
         b.btnSaveAccount.setOnClickListener {
             val newName = b.etSettingsName.text.toString().trim()
             val newLogin = b.etSettingsLogin.text.toString().trim()
-            val newPass = b.etSettingsPassword.text.toString()
+            val newPass = b.etSettingsPassword.text?.toString() ?: ""
             val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
             
-            val errorName = if (newName.isEmpty()) "Имя не может быть пустым" else ValidationUtils.getValidationError(newName, false)
-            var errorLogin = when {
-                newLogin.isEmpty() -> "Логин не может быть пустым"
-                newLogin != currentLoginInDB && sharedPrefs.contains(newLogin) -> "Этот логин уже занят"
-                else -> ValidationUtils.getValidationError(newLogin, true)
-            }
-            var errorPass = if (newPass.length < 8) "Минимум 8 символов" else null
+            val errorName = ValidationUtils.validateName(newName)
+            val errorLogin = ValidationUtils.validateLogin(newLogin, sharedPrefs, currentLoginInDB)
+            val errorPass = ValidationUtils.validatePassword(newPass)
             
             if (errorName != null || errorLogin != null || errorPass != null) {
                 if (errorName != null) { b.inputLayoutName.error = errorName; b.inputLayoutName.shake() }
@@ -1937,20 +1924,43 @@ class SettingsActivity : AppCompatActivity() {
             val oldLogin = currentLoginInDB
             val oldPass = currentPassInDB
 
-            sharedPrefs.edit().apply {
-                putString("my_name", newName)
-                putString("my_local_name", newName)
-                putString("current_user_name", newName)
-                if (newLogin != currentLoginInDB) {
-                    val avatar = sharedPrefs.getString("${currentLoginInDB}_avatar", null)
-                    putString("current_user", newLogin); putString(newLogin, newPass); putString("${newLogin}_name", newName)
-                    if (avatar != null) putString("${newLogin}_avatar", avatar)
-                    remove(currentLoginInDB); remove("${currentLoginInDB}_name"); remove("${currentLoginInDB}_avatar")
-                } else { putString("${currentLoginInDB}_name", newName); putString(currentLoginInDB, newPass) }
-                apply()
+            if (newLogin != currentLoginInDB) {
+                val oldAvatar = sharedPrefs.getString("${currentLoginInDB}_avatar", null)
+                    ?: sharedPrefs.getString("${currentLoginInDB}_avatarUri", null)
+
+                sharedPrefs.edit().apply {
+                    remove(currentLoginInDB)
+                    remove("${currentLoginInDB}_name")
+                    remove("${currentLoginInDB}_avatar")
+                    remove("${currentLoginInDB}_avatarUri")
+                    putString(newLogin, newPass)
+                    putString("${newLogin}_name", newName)
+                    if (oldAvatar != null) {
+                        putString("${newLogin}_avatar", oldAvatar)
+                        putString("${newLogin}_avatarUri", oldAvatar)
+                    }
+                    apply()
+                }
+
+                val oldGif = File(filesDir, "avatar_$currentLoginInDB.gif")
+                val oldJpg = File(filesDir, "avatar_$currentLoginInDB.jpg")
+                if (oldGif.exists()) {
+                    try { oldGif.renameTo(File(filesDir, "avatar_$newLogin.gif")) } catch (_: Exception) {}
+                }
+                if (oldJpg.exists()) {
+                    try { oldJpg.renameTo(File(filesDir, "avatar_$newLogin.jpg")) } catch (_: Exception) {}
+                }
+            } else {
+                sharedPrefs.edit().apply {
+                    putString("${currentLoginInDB}_name", newName)
+                    putString(currentLoginInDB, newPass)
+                    apply()
+                }
             }
+
+            AvatarManager.syncActiveUserProfile(this, newLogin, newName)
+
             currentNameInDB = newName; currentLoginInDB = newLogin; currentPassInDB = newPass
-            sendBroadcast(Intent("com.messenger.prime.NAME_CHANGED").setPackage(packageName))
             sendProfileUpdateOverBluetooth()
             
             b.tvUserNameStatic.text = newName
@@ -1961,12 +1971,13 @@ class SettingsActivity : AppCompatActivity() {
                 sharedPrefs.edit().apply {
                     if (newLogin != oldLogin) {
                         val currentAvatar = sharedPrefs.getString("${newLogin}_avatar", null)
-                        putString("current_user", oldLogin); putString(oldLogin, oldPass); putString("${oldLogin}_name", oldName)
-                        if (currentAvatar != null) putString("${oldLogin}_avatar", currentAvatar)
                         remove(newLogin); remove("${newLogin}_name"); remove("${newLogin}_avatar")
+                        putString(oldLogin, oldPass); putString("${oldLogin}_name", oldName)
+                        if (currentAvatar != null) putString("${oldLogin}_avatar", currentAvatar)
                     } else { putString("${oldLogin}_name", oldName); putString(oldLogin, oldPass) }
                     apply()
                 }
+                AvatarManager.syncActiveUserProfile(this, oldLogin, oldName)
                 currentNameInDB = oldName; currentLoginInDB = oldLogin; currentPassInDB = oldPass
                 b.etSettingsName.setText(oldName); b.etSettingsLogin.setText(oldLogin); b.etSettingsPassword.setText(oldPass)
                 b.tvUserNameStatic.text = oldName
@@ -2024,23 +2035,22 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun sendProfileUpdateOverBluetooth() {
         try {
+            val myDisplayName = AvatarManager.getMyDisplayName(this)
+            val localAvatarUri = AvatarManager.getMyAvatarUri(this)
             val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-            val currentUser = sharedPrefs.getString("current_user", "") ?: return
-            val myDisplayName = sharedPrefs.getString("my_name", null)
-                ?: sharedPrefs.getString("my_local_name", null)
-                ?: sharedPrefs.getString("current_user_name", null)
-                ?: sharedPrefs.getString("${currentUser}_name", currentUser) ?: currentUser
-            val localAvatarUri = sharedPrefs.getString("my_avatar", null)
-                ?: sharedPrefs.getString("my_local_avatar", null)
-                ?: sharedPrefs.getString("my_avatar_uri", null)
-                ?: sharedPrefs.getString("${currentUser}_avatar", "") ?: ""
+            val currentUser = sharedPrefs.getString("current_user", "") ?: ""
 
-            val handshake = "HANDSHAKE:login=$currentUser;name=$myDisplayName;avatar=$localAvatarUri;version=${ChatPersonActivity.getAppVersionCode(this)}"
+            val handshake = "HANDSHAKE:login=$currentUser;name=$myDisplayName;avatar=${localAvatarUri ?: ""};version=${ChatPersonActivity.getAppVersionCode(this)}"
             BluetoothConnectionManager.getInstance().broadcastPacket(0x01.toByte(), handshake.toByteArray(Charsets.UTF_8))
 
-            if (localAvatarUri.isNotEmpty()) {
+            if (!localAvatarUri.isNullOrEmpty()) {
                 try {
-                    val isStream = contentResolver.openInputStream(Uri.parse(localAvatarUri))
+                    val uri = if (localAvatarUri.startsWith("content://") || localAvatarUri.startsWith("file://") || localAvatarUri.startsWith("http")) {
+                        Uri.parse(localAvatarUri)
+                    } else {
+                        Uri.fromFile(File(localAvatarUri))
+                    }
+                    val isStream = contentResolver.openInputStream(uri)
                     if (isStream != null) {
                         val bitmap = BitmapFactory.decodeStream(isStream)
                         isStream.close()
@@ -2054,6 +2064,8 @@ class SettingsActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
+            } else {
+                BluetoothConnectionManager.getInstance().broadcastPacket(0x07.toByte(), byteArrayOf())
             }
         } catch (e: Exception) {
             e.printStackTrace()

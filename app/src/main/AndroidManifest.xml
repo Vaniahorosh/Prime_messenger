@@ -70,10 +70,7 @@
             android:theme="@style/Theme.Prime.Swipe"
             android:exported="false" />
 
-        <activity
-            android:name=".RegisterActivity"
-            android:theme="@style/Theme.Prime.Swipe"
-            android:windowSoftInputMode="adjustResize" />
+
 
         <activity
             android:name=".ChatListActivity"

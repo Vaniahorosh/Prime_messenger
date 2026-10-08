@@ -1,47 +1,87 @@
 package com.messenger.prime
 
-import android.animation.AnimatorListenerAdapter
-import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
-import android.os.Build
+import android.net.Uri
 import android.os.Bundle
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.TextView
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.transition.TransitionManager
+import com.bumptech.glide.Glide
 import com.messenger.prime.databinding.ActivityLoginContentBinding
-import com.r0adkll.slidr.Slidr
-import com.r0adkll.slidr.model.SlidrConfig
-import com.r0adkll.slidr.model.SlidrPosition
-import kotlin.math.max
-
+import java.io.File
+import java.io.FileOutputStream
 
 class LoginActivity : AppCompatActivity() {
 
     private var binding: ActivityLoginContentBinding? = null
     private var isPasswordState = false
+    private var isRegistrationMode = false
+    private var avatarUri: Uri? = null
+
+    private val photoPickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) {
+            val uriStr = uri.toString().lowercase()
+            val mime = try { contentResolver.getType(uri) } catch (_: Exception) { null }
+            val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif") || "image/gif".equals(mime, ignoreCase = true)
+
+            if (isGif) {
+                try {
+                    val login = binding?.etLogin?.text?.toString()?.trim() ?: "temp"
+                    val destFile = File(filesDir, "avatar_$login.gif")
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        FileOutputStream(destFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    avatarUri = Uri.fromFile(destFile)
+                } catch (_: Exception) {
+                    avatarUri = uri
+                }
+                binding?.ivRegisterAvatar?.let { iv ->
+                    Glide.with(this).asGif().load(avatarUri ?: uri).centerCrop().into(iv)
+                }
+                binding?.tvSelectPhoto?.visibility = View.GONE
+                PrimeNotification.show(this, "GIF-аватарка выбрана")
+            } else {
+                val intent = Intent(this, PhotoEditorActivity::class.java)
+                intent.putExtra("EXTRA_IMAGE_URI", uri.toString())
+                photoEditorLauncher.launch(intent)
+                PrimeTransitions.applyOpenTransition(this)
+            }
+        }
+    }
+
+    private val photoEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val editedUriStr = result.data?.getStringExtra("EDITED_IMAGE_URI") 
+                ?: result.data?.getStringExtra("EXTRA_IMAGE_URI")
+            if (editedUriStr != null) {
+                avatarUri = Uri.parse(editedUriStr)
+                binding?.ivRegisterAvatar?.let { iv ->
+                    Glide.with(this).load(avatarUri).centerCrop().into(iv)
+                }
+                binding?.tvSelectPhoto?.visibility = View.GONE
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ColorAccentManager.applyAccentToActivity(this)
@@ -56,9 +96,7 @@ class LoginActivity : AppCompatActivity() {
             PrimeTheme(darkTheme = darkTheme) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     LavaBackgroundState.onActivityResumed()
-                    AnimatedBackground(
-                        darkTheme = darkTheme
-                    )
+                    AnimatedBackground(darkTheme = darkTheme)
                     
                     AndroidView(
                         factory = { _ ->
@@ -69,11 +107,6 @@ class LoginActivity : AppCompatActivity() {
                             ViewCompat.setOnApplyWindowInsetsListener(view) { _, windowInsets ->
                                 val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
                                 val density = resources.displayMetrics.density
-
-                                (b.btnBack.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-                                    lp.topMargin = insets.top + (12 * density).toInt()
-                                    b.btnBack.layoutParams = lp
-                                }
                                 b.rootConstraint.setPadding(
                                     b.rootConstraint.paddingLeft,
                                     b.rootConstraint.paddingTop,
@@ -83,104 +116,152 @@ class LoginActivity : AppCompatActivity() {
                                 windowInsets
                             }
 
-                            val contentViews = listOf(b.tvTitle, b.tvSubtitle, b.inputLayoutLogin)
-                            contentViews.forEach { it.alpha = 1f }
+                            // Setup TextSwitcher
+                            b.tsTitle.setFactory {
+                                val textView = TextView(this@LoginActivity)
+                                textView.textSize = 26f
+                                textView.setTextColor(if (darkTheme) android.graphics.Color.parseColor("#F1F5F9") else android.graphics.Color.parseColor("#0F172A"))
+                                textView.setTypeface(null, android.graphics.Typeface.BOLD)
+                                textView.textAlignment = View.TEXT_ALIGNMENT_CENTER
+                                textView
+                            }
+                            b.tsTitle.inAnimation = android.view.animation.AnimationUtils.loadAnimation(this@LoginActivity, android.R.anim.slide_in_left)
+                            b.tsTitle.outAnimation = android.view.animation.AnimationUtils.loadAnimation(this@LoginActivity, android.R.anim.slide_out_right)
+                            b.tsTitle.setText("Приветствуем!")
+
+                            b.loginBlurCard.setupBlur(b.rootConstraint, 20f)
 
                             b.btnBack.setOnClickListener {
-                                onBackPressedDispatcher.onBackPressed()
-                            }
-
-                            // Apply contrast colors to XML elements
-                            setupContrastColors(b, darkTheme)
-
-                            b.etLogin.setOnClickListener {
-                                if (isPasswordState) {
-                                    showLoginStep(b)
+                                if (isRegistrationMode) {
+                                    toggleMode(b)
+                                } else {
+                                    onBackPressedDispatcher.onBackPressed()
                                 }
                             }
 
+                            // Smooth avatar fade in
+                            b.flLoginAvatar.alpha = 0f
+                            b.flLoginAvatar.animate().alpha(1f).setDuration(500L).start()
+
+                            setupContrastColors(b, darkTheme)
+
+                            b.etLogin.addTextChangedListener(object : android.text.TextWatcher {
+                                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                                    val login = s?.toString()?.trim() ?: ""
+                                    hideError(b)
+                                    b.inputLayoutLogin.error = null
+                                    
+                                    if (isRegistrationMode) {
+                                        if (login.isNotEmpty() && sharedPreferences.contains(login)) {
+                                            showError(b, "Этот логин уже занят на устройстве")
+                                        }
+                                        return
+                                    }
+                                    
+                                    if (login.isNotEmpty() && sharedPreferences.contains(login)) {
+                                        // Found user
+                                        val name = sharedPreferences.getString("${login}_name", login) ?: login
+                                        b.tsTitle.setText("Это вы, $name?")
+                                        b.btnToggleMode.text = "Нет это не я"
+                                        
+                                        b.llPasswordContainer.visibility = View.VISIBLE
+                                        b.llPasswordContainer.translationY = -50f
+                                        b.llPasswordContainer.alpha = 0f
+                                        b.llPasswordContainer.animate().translationY(0f).alpha(1f).setDuration(300L)
+                                            .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+                                            
+                                        isPasswordState = true
+                                        
+                                        val savedAvatarUri = sharedPreferences.getString("${login}_avatar", null)
+                                            ?: sharedPreferences.getString("${login}_avatarUri", null)
+                                        if (!savedAvatarUri.isNullOrEmpty()) {
+                                            loadAvatarIntoView(this@LoginActivity, savedAvatarUri, b.ivLoginAvatar, name)
+                                        } else {
+                                            Glide.with(this@LoginActivity).clear(b.ivLoginAvatar)
+                                            b.ivLoginAvatar.setImageResource(R.drawable.ic_prime_logo_vector)
+                                        }
+                                    } else {
+                                        // User not found
+                                        b.tsTitle.setText("Приветствуем!")
+                                        b.btnToggleMode.text = "Регистрация"
+                                        
+                                        if (b.llPasswordContainer.visibility == View.VISIBLE) {
+                                            b.llPasswordContainer.animate().translationY(-30f).alpha(0f).setDuration(200L).withEndAction {
+                                                b.llPasswordContainer.visibility = View.GONE
+                                            }.start()
+                                        }
+                                        isPasswordState = false
+                                        Glide.with(this@LoginActivity).clear(b.ivLoginAvatar)
+                                        b.ivLoginAvatar.setImageResource(R.drawable.ic_prime_logo_vector)
+                                    }
+                                }
+                                override fun afterTextChanged(s: android.text.Editable?) {}
+                            })
+
+                            val textHideErrorWatcher = object : android.text.TextWatcher {
+                                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                                    hideError(b)
+                                }
+                                override fun afterTextChanged(s: android.text.Editable?) {}
+                            }
+                            b.etName.addTextChangedListener(textHideErrorWatcher)
+                            b.etPassword.addTextChangedListener(textHideErrorWatcher)
+
+                            // Setup submit actions
                             val editorActionListener = TextView.OnEditorActionListener { _, actionId, _ ->
-                                if (actionId == EditorInfo.IME_ACTION_DONE ||
-                                    actionId == EditorInfo.IME_ACTION_GO ||
-                                    actionId == EditorInfo.IME_ACTION_NEXT) {
-                                    b.btnForward.performClick()
+                                if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_NEXT) {
+                                    if (isRegistrationMode) {
+                                        b.btnRegisterSubmit.performClick()
+                                    } else if (isPasswordState) {
+                                        submitLogin(b, sharedPreferences)
+                                    }
                                     true
                                 } else false
                             }
 
-                            b.etLogin.setOnEditorActionListener(editorActionListener)
                             b.etPassword.setOnEditorActionListener(editorActionListener)
-
-                            b.btnForward.setOnClickListener {
-                                val login = b.etLogin.text.toString().trim()
-                                if (login.isEmpty()) {
-                                    b.inputLayoutLogin.error = "Введите логин"
-                                    b.inputLayoutLogin.shake()
-                                    b.btnForward.shake()
-                                    return@setOnClickListener
-                                }
-
-                                val error = ValidationUtils.getValidationError(login, isLogin = true)
-                                if (error != null) {
-                                    b.inputLayoutLogin.error = error
-                                    b.inputLayoutLogin.shake()
-                                    b.btnForward.shake()
-                                    return@setOnClickListener
-                                }
-                                b.inputLayoutLogin.error = null
-
-                                if (!isPasswordState) {
-                                    if (sharedPreferences.contains(login)) {
-                                        showPasswordStep(b)
-                                    } else {
-                                        LavaBackgroundState.onTransitionStart()
-                                        
-                                        // Fade out content before navigation
-                                        b.root.animate()
-                                            .alpha(0f)
-                                            .setDuration(600L)
-                                            .start()
-
-                                        val intent = Intent(this@LoginActivity, RegisterActivity::class.java)
-                                        intent.putExtra("EXTRA_LOGIN", login)
-                                        startActivity(intent)
-                                        PrimeTransitions.applyOpenTransition(this@LoginActivity)
-                                    }
-                                } else {
-                                    val password = b.etPassword.text.toString()
-                                    val savedPassword = sharedPreferences.getString(login, "")
-                                    if (password == savedPassword) {
-                                        b.tvError.visibility = View.GONE
-                                        sharedPreferences.edit().apply {
-                                            putBoolean("is_logged_in", true)
-                                            putString("current_user", login)
-                                            apply()
+                            
+                            b.inputLayoutLogin.setEndIconOnClickListener {
+                                if (!isRegistrationMode) {
+                                    val login = b.etLogin.text.toString().trim()
+                                    if (login.isNotEmpty()) {
+                                        if (sharedPreferences.contains(login)) {
+                                            b.etPassword.requestFocus()
+                                            showKeyboard(b.etPassword)
+                                        } else {
+                                            toggleMode(b)
                                         }
-                                        LavaBackgroundState.onTransitionStart()
-                                        startActivity(Intent(this@LoginActivity, ChatListActivity::class.java))
-                                        PrimeTransitions.applyOpenTransition(this@LoginActivity)
-                                        finishAffinity()
-                                    } else {
-                                        b.tvError.visibility = View.VISIBLE
-                                        b.inputLayoutPassword.shake()
-                                        b.btnForward.shake()
                                     }
                                 }
                             }
                             
+                            b.btnSubmitArrow.setOnClickListener {
+                                if (!isRegistrationMode) submitLogin(b, sharedPreferences)
+                            }
+
+                            b.btnToggleMode.setOnClickListener {
+                                toggleMode(b)
+                            }
+
+                            b.btnRegisterSubmit.setOnClickListener {
+                                submitRegistration(b, sharedPreferences)
+                            }
+                            
+                            b.flRegisterAvatar.setOnClickListener {
+                                if (isRegistrationMode) {
+                                    photoPickerLauncher.launch("image/*")
+                                }
+                            }
+
                             view
                         },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .statusBarsPadding()
-                            .imePadding()
+                        modifier = Modifier.fillMaxSize().statusBarsPadding().imePadding()
                     )
 
-                    // Blur for navigation bar
                     BlurView(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.BottomCenter)
+                        modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
                             .windowInsetsBottomHeight(WindowInsets.navigationBars)
                             .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp),
                         blurRadius = 20.dp,
@@ -189,7 +270,231 @@ class LoginActivity : AppCompatActivity() {
                 }
             }
         }
+    }
 
+    private fun toggleMode(b: ActivityLoginContentBinding) {
+        isRegistrationMode = !isRegistrationMode
+        
+        val transition = androidx.transition.AutoTransition()
+        transition.duration = 400
+        transition.interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+        TransitionManager.beginDelayedTransition(b.contentContainer, transition)
+        
+        if (isRegistrationMode) {
+            b.tsTitle.setText("Давайте создадим профиль!")
+            b.tvSubtitle.visibility = View.GONE
+            
+            b.flLoginAvatar.visibility = View.GONE
+            b.flRegisterAvatar.visibility = View.VISIBLE
+            
+            b.inputLayoutName.visibility = View.VISIBLE
+            b.inputLayoutName.alpha = 1f
+            b.btnRegisterSubmit.visibility = View.VISIBLE
+            b.btnRegisterSubmit.alpha = 1f
+            b.clBottomAvatars.visibility = View.VISIBLE
+            b.clBottomAvatars.alpha = 1f
+            
+            b.llPasswordContainer.visibility = View.VISIBLE
+            b.llPasswordContainer.translationY = 0f
+            b.llPasswordContainer.alpha = 1f
+            b.btnSubmitArrow.visibility = View.GONE
+            
+            b.btnToggleMode.visibility = View.GONE
+            
+            // Clear avatar state for new registration
+            avatarUri = null
+            Glide.with(this).clear(b.ivRegisterAvatar)
+            b.ivRegisterAvatar.setImageDrawable(null)
+            b.tvSelectPhoto.visibility = View.VISIBLE
+            b.tvSelectPhoto.alpha = 1f
+            
+            val login = b.etLogin.text.toString().trim()
+            if (login.isNotEmpty() && getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).contains(login)) {
+                 showError(b, "Этот логин уже занят на устройстве")
+            } else {
+                 hideError(b)
+            }
+        } else {
+            b.tsTitle.setText("Приветствуем!")
+            b.tvSubtitle.visibility = View.VISIBLE
+            
+            b.flRegisterAvatar.visibility = View.GONE
+            b.flLoginAvatar.visibility = View.VISIBLE
+            
+            b.inputLayoutName.visibility = View.GONE
+            b.inputLayoutName.alpha = 0f
+            b.btnRegisterSubmit.visibility = View.GONE
+            b.btnRegisterSubmit.alpha = 0f
+            b.clBottomAvatars.visibility = View.GONE
+            b.clBottomAvatars.alpha = 0f
+            b.tvSelectPhoto.visibility = View.GONE
+            b.tvSelectPhoto.alpha = 0f
+            
+            b.btnToggleMode.visibility = View.VISIBLE
+            b.btnSubmitArrow.visibility = View.VISIBLE
+            
+            // Clear avatar state when exiting registration
+            avatarUri = null
+            Glide.with(this).clear(b.ivLoginAvatar)
+            b.ivLoginAvatar.setImageResource(R.drawable.ic_prime_logo_vector)
+            
+            // Re-trigger login text watcher to restore UI state
+            val currentText = b.etLogin.text
+            b.etLogin.text = currentText
+        }
+    }
+
+    private fun submitLogin(b: ActivityLoginContentBinding, sharedPreferences: android.content.SharedPreferences) {
+        val login = b.etLogin.text.toString().trim()
+        val password = b.etPassword.text.toString()
+
+        val loginError = ValidationUtils.validateLogin(login, null)
+        if (loginError != null) {
+            showError(b, loginError)
+            return
+        }
+
+        val passError = ValidationUtils.validatePassword(password)
+        if (passError != null) {
+            showError(b, passError)
+            return
+        }
+
+        val savedPassword = sharedPreferences.getString(login, null)
+        if (savedPassword == null) {
+            showError(b, "Пользователь не найден")
+            return
+        }
+
+        if (password == savedPassword) {
+            hideError(b)
+            val savedName = sharedPreferences.getString("${login}_name", login) ?: login
+            val savedAvatar = sharedPreferences.getString("${login}_avatar", null) ?: sharedPreferences.getString("${login}_avatarUri", null)
+            
+            AvatarManager.syncActiveUserProfile(this, login, savedName, savedAvatar)
+
+            LavaBackgroundState.onTransitionStart()
+            startActivity(Intent(this, ChatListActivity::class.java))
+            PrimeTransitions.applyOpenTransition(this)
+            finishAffinity()
+        } else {
+            showError(b, "Неверный пароль")
+        }
+    }
+
+    private fun submitRegistration(b: ActivityLoginContentBinding, sharedPreferences: android.content.SharedPreferences) {
+        val login = b.etLogin.text.toString().trim()
+        val name = b.etName.text.toString().trim()
+        val password = b.etPassword.text.toString()
+
+        val loginError = ValidationUtils.validateLogin(login, sharedPreferences)
+        if (loginError != null) {
+            showError(b, loginError)
+            return
+        }
+
+        val nameError = ValidationUtils.validateName(name)
+        if (nameError != null) {
+            showError(b, nameError)
+            return
+        }
+
+        val passError = ValidationUtils.validatePassword(password)
+        if (passError != null) {
+            showError(b, passError)
+            return
+        }
+
+        hideError(b)
+
+        var finalAvatarStr: String? = null
+        if (avatarUri != null) {
+            try {
+                val timestamp = System.currentTimeMillis()
+                val isGif = avatarUri.toString().lowercase().contains(".gif")
+                val ext = if (isGif) ".gif" else ".jpg"
+                val permFile = File(filesDir, "my_profile_avatar_${timestamp}$ext")
+                
+                contentResolver.openInputStream(avatarUri!!)?.use { input ->
+                    FileOutputStream(permFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                if (permFile.exists() && permFile.length() > 0) {
+                    finalAvatarStr = Uri.fromFile(permFile).toString()
+                } else {
+                    finalAvatarStr = avatarUri.toString()
+                }
+            } catch (_: Exception) {
+                finalAvatarStr = avatarUri.toString()
+            }
+        }
+
+        sharedPreferences.edit().apply {
+            putString(login, password)
+            apply()
+        }
+
+        AvatarManager.syncActiveUserProfile(this, login, name, finalAvatarStr)
+
+        LavaBackgroundState.onTransitionStart()
+        startActivity(Intent(this, ChatListActivity::class.java))
+        PrimeTransitions.applyOpenTransition(this)
+        finishAffinity()
+    }
+
+    private fun triggerVibration() {
+        try {
+            val vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+                vibratorManager?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            }
+
+            if (vibrator?.hasVibrator() == true) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    vibrator.vibrate(android.os.VibrationEffect.createOneShot(100L, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(100L)
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun showError(b: ActivityLoginContentBinding, message: String) {
+        b.tvError.text = message
+        if (b.tvError.visibility != View.VISIBLE) {
+            b.tvError.visibility = View.VISIBLE
+            b.tvError.alpha = 0f
+            b.tvError.scaleX = 0.85f
+            b.tvError.scaleY = 0.85f
+            b.tvError.animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(250L)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.2f))
+                .start()
+        }
+        b.tvError.shake()
+        triggerVibration()
+    }
+
+    private fun hideError(b: ActivityLoginContentBinding) {
+        if (b.tvError.visibility == View.VISIBLE) {
+            b.tvError.animate()
+                .alpha(0f)
+                .scaleX(0.9f)
+                .scaleY(0.9f)
+                .setDuration(150L)
+                .withEndAction {
+                    b.tvError.visibility = View.GONE
+                }
+                .start()
+        }
     }
 
     private fun setupContrastColors(b: ActivityLoginContentBinding, darkTheme: Boolean) {
@@ -197,47 +502,14 @@ class LoginActivity : AppCompatActivity() {
         val subtitleColor = if (darkTheme) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
         val iconTint = if (darkTheme) android.graphics.Color.WHITE else android.graphics.Color.parseColor("#1E293B")
         
-        b.tvTitle.setTextColor(titleColor)
         b.tvSubtitle.setTextColor(subtitleColor)
         b.btnBack.setColorFilter(iconTint)
         
         b.etLogin.setTextColor(titleColor)
+        b.etName.setTextColor(titleColor)
         b.etPassword.setTextColor(titleColor)
         
         b.inputLayoutPassword.setEndIconTintList(android.content.res.ColorStateList.valueOf(iconTint))
-        b.inputLayoutLogin.setEndIconTintList(android.content.res.ColorStateList.valueOf(iconTint))
-        b.inputLayoutLogin.defaultHintTextColor = android.content.res.ColorStateList.valueOf(subtitleColor)
-        b.inputLayoutPassword.defaultHintTextColor = android.content.res.ColorStateList.valueOf(subtitleColor)
-        
-        // Input layouts background and stroke
-        val inputBg = if (darkTheme) android.graphics.Color.argb(153, 15, 23, 42) else android.graphics.Color.argb(153, 255, 255, 255)
-        b.inputLayoutLogin.boxBackgroundColor = inputBg
-        b.inputLayoutPassword.boxBackgroundColor = inputBg
-    }
-
-    private fun showPasswordStep(b: ActivityLoginContentBinding) {
-        val root = b.btnBack.parent as ViewGroup
-        TransitionManager.beginDelayedTransition(root)
-        b.inputLayoutPassword.visibility = View.VISIBLE
-        b.etLogin.isFocusable = false
-        b.etLogin.isFocusableInTouchMode = false
-        isPasswordState = true
-        b.etPassword.requestFocus()
-        showKeyboard(b.etPassword)
-    }
-
-    private fun showLoginStep(b: ActivityLoginContentBinding) {
-        val root = b.btnBack.parent as ViewGroup
-        TransitionManager.beginDelayedTransition(root)
-        b.inputLayoutPassword.visibility = View.GONE
-        b.etPassword.text?.clear()
-        b.tvError.visibility = View.GONE
-        b.inputLayoutPassword.error = null
-        b.etLogin.isFocusable = true
-        b.etLogin.isFocusableInTouchMode = true
-        b.etLogin.requestFocus()
-        showKeyboard(b.etLogin)
-        isPasswordState = false
     }
 
     private fun hideKeyboard() {
@@ -279,11 +551,5 @@ class LoginActivity : AppCompatActivity() {
     override fun onDestroy() {
         binding = null
         super.onDestroy()
-    }
-
-    override fun finish() {
-        LavaBackgroundState.onTransitionStart()
-        super.finish()
-        PrimeTransitions.applyCloseTransition(this)
     }
 }

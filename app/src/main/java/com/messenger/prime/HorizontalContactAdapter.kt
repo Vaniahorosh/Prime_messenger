@@ -28,65 +28,17 @@ class HorizontalContactAdapter(
         val context = holder.itemView.context
         val binding = holder.binding
 
-        val isBtAddress = try {
-            BluetoothAdapter.checkBluetoothAddress(contact.name)
-        } catch (_: Exception) {
-            false
-        }
-        val displayName = if (isBtAddress) "Собеседник" else contact.name
+        val displayName = AvatarManager.getContactDisplayName(context, contact.id, contact.id, contact.name)
         binding.tvName.text = displayName
 
-        try {
-            com.bumptech.glide.Glide.with(context).clear(binding.ivAvatar)
-        } catch (_: Exception) {}
-        binding.ivAvatar.setImageDrawable(null)
+        val avatarSource = contact.avatarUri ?: AvatarManager.getContactAvatarUriOrFile(context, contact.id, displayName, contact.id)
 
         var loaded = false
-        if (!contact.avatarUri.isNullOrEmpty()) {
+        if (!avatarSource.isNullOrEmpty()) {
             try {
-                val uri = contact.avatarUri.toUri()
-                val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
-                if (file != null) {
-                    if (file.exists() && file.length() > 0) {
-                        loadAvatarFileIntoView(context, file, binding.ivAvatar)
-                        loaded = true
-                    }
-                } else {
-                    loadAvatarUriIntoView(context, uri, binding.ivAvatar)
-                    loaded = true
-                }
+                loadAvatarIntoView(context, avatarSource, binding.ivAvatar, displayName)
+                loaded = true
             } catch (_: Exception) {}
-        }
-
-        if (!loaded) {
-            val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", android.content.Context.MODE_PRIVATE)
-            val currentUser = sharedPrefs.getString("current_user", "") ?: ""
-            val myName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: ""
-            val isGeneric = displayName.equals("Собеседник", ignoreCase = true) ||
-                            displayName.equals("Prime Собеседник", ignoreCase = true) ||
-                            displayName.equals("Пользователь", ignoreCase = true) ||
-                            displayName.equals("Prime User", ignoreCase = true) ||
-                            displayName.equals("Контакт", ignoreCase = true)
-            val isLocalName = contact.name.equals(currentUser, ignoreCase = true) || contact.name.equals(myName, ignoreCase = true)
-            val isLocalId = contact.id.equals(currentUser, ignoreCase = true) || contact.id.equals(myName, ignoreCase = true)
-
-            val possible = mutableListOf<File>()
-            if (!contact.id.isNullOrEmpty() && !isLocalId && !isGeneric) {
-                possible.add(File(context.filesDir, "rec_avatar_${contact.id}.gif"))
-                possible.add(File(context.filesDir, "rec_avatar_${contact.id}.jpg"))
-            }
-            if (!contact.name.isNullOrEmpty() && !isLocalName && !isGeneric) {
-                possible.add(File(context.filesDir, "rec_avatar_${contact.name}.gif"))
-                possible.add(File(context.filesDir, "rec_avatar_${contact.name}.jpg"))
-            }
-
-            val found = possible.firstOrNull { it.exists() && it.length() > 0 }
-            if (found != null) {
-                try {
-                    loadAvatarFileIntoView(context, found, binding.ivAvatar)
-                    loaded = true
-                } catch (_: Exception) {}
-            }
         }
 
         if (loaded) {
