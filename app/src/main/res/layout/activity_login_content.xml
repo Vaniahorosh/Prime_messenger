@@ -49,7 +49,7 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/btnBack" />
 
-                <TextView
+                <com.messenger.prime.OutlinedTextView
                     android:id="@+id/tvTitle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -154,16 +154,16 @@
                         app:boxCornerRadiusTopEnd="8dp"
                         app:boxCornerRadiusBottomStart="8dp"
                         app:boxCornerRadiusBottomEnd="8dp"
-                        app:hintTextColor="@color/white">
+                        app:hintTextColor="#94A3B8">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etLogin"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:maxLength="15"
+                            android:maxLength="25"
                             android:inputType="textNoSuggestions"
                             android:imeOptions="actionNext"
-                            android:textColor="@color/white" />
+                            android:textColor="#94A3B8" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <com.google.android.material.textfield.TextInputLayout
@@ -182,16 +182,16 @@
                         app:boxCornerRadiusTopEnd="8dp"
                         app:boxCornerRadiusBottomStart="8dp"
                         app:boxCornerRadiusBottomEnd="8dp"
-                        app:hintTextColor="@color/white">
+                        app:hintTextColor="#94A3B8">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etName"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:maxLength="26"
+                            android:maxLength="32"
                             android:inputType="textPersonName"
                             android:imeOptions="actionNext"
-                            android:textColor="@color/white" />
+                            android:textColor="#94A3B8" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <LinearLayout
@@ -219,7 +219,7 @@
                             app:boxCornerRadiusBottomEnd="8dp"
                             app:endIconMode="password_toggle"
                             app:endIconTint="@color/white"
-                            app:hintTextColor="@color/white">
+                            app:hintTextColor="#94A3B8">
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/etPassword"
@@ -227,7 +227,7 @@
                                 android:layout_height="wrap_content"
                                 android:inputType="textPassword"
                                 android:imeOptions="actionDone"
-                                android:textColor="@color/white" />
+                                android:textColor="#94A3B8" />
                         </com.google.android.material.textfield.TextInputLayout>
 
                         <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -250,7 +250,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
                         android:text="Регистрация"
-                        app:backgroundTint="#40FFFFFF"
+                        app:backgroundTint="@color/prime_brand"
                         android:textColor="@color/white"
                         app:cornerRadius="16dp" />
 
@@ -261,10 +261,10 @@
                         android:layout_marginTop="16dp"
                         android:text="Быть в прайме!"
                         android:visibility="gone"
-                        app:backgroundTint="#007BFF"
+                        app:backgroundTint="@color/prime_brand"
                         android:textColor="@color/white"
                         app:cornerRadius="16dp"
-                        app:strokeColor="#80007BFF"
+                        app:strokeColor="@color/prime_brand"
                         app:strokeWidth="2dp" />
 
                     <TextView

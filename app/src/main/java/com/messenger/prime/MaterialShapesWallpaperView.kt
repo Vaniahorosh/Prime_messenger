@@ -150,6 +150,12 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
 
     fun updateThemeColors() {
         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val isLavaEnabled = sharedPrefs.getBoolean("settings_lava_bg", true)
+        if (!isLavaEnabled) {
+            shapes.clear()
+            invalidate()
+            return
+        }
         val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
         val darkTheme = when (themePref) {
             "dark" -> true
@@ -272,6 +278,8 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        if (!sharedPrefs.getBoolean("settings_lava_bg", true)) return
         if (shapes.isEmpty() || animProgress <= 0f) return
 
         val maxColRow = (maxCols + maxRows).coerceAtLeast(1)

@@ -167,10 +167,10 @@ object PrimeTransitions {
                     isLeftEdge = backEvent.swipeEdge == androidx.activity.BackEventCompat.EDGE_LEFT
                     screenWidth = activity.resources.displayMetrics.widthPixels.toFloat()
                     contentView = activity.findViewById(android.R.id.content)
-                    
+
                     val prevAct = PrimeApplication.getPreviousActivity()
                     prevContentView = prevAct?.findViewById(android.R.id.content)
-                    
+
                     // Make window fully transparent during interactive swipe so previous activity is visible
                     activity.window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
                     customListener?.onSlideOpened()
@@ -182,21 +182,21 @@ object PrimeTransitions {
                         // The user is swiping from the left edge.
                         // Translate the entire content exactly following the finger X coordinate.
                         content.translationX = backEvent.touchX
-                        
+
                         // Calculate progress
                         val progress = (backEvent.touchX / screenWidth).coerceIn(0f, 1f)
-                        
+
                         // Apply interactive dark scrim to the decor view background
                         val alpha = (0.55f * (1f - progress) * 255).toInt()
                         activity.window.decorView.setBackgroundColor(Color.argb(alpha, 0, 0, 0))
-                        
+
                         // Interactive depth reveal for previous activity
                         prevContentView?.let {
                             val scale = 0.96f + (0.04f * progress)
                             it.scaleX = scale
                             it.scaleY = scale
                         }
-                        
+
                         customListener?.onSlideChange(progress)
                     } else {
                         // For the right edge, fallback to a subtle scale down (similar to system default)
@@ -220,7 +220,7 @@ object PrimeTransitions {
                                 val progress = (content.translationX / screenWidth).coerceIn(0f, 1f)
                                 val alpha = (0.55f * (1f - progress) * 255).toInt()
                                 activity.window.decorView.setBackgroundColor(Color.argb(alpha, 0, 0, 0))
-                                
+
                                 prevContentView?.let { prev ->
                                     val scale = 0.96f + (0.04f * progress)
                                     prev.scaleX = scale
@@ -250,7 +250,7 @@ object PrimeTransitions {
                                 val progress = (content.translationX / screenWidth).coerceIn(0f, 1f)
                                 val alpha = (0.55f * (1f - progress) * 255).toInt()
                                 activity.window.decorView.setBackgroundColor(Color.argb(alpha, 0, 0, 0))
-                                
+
                                 prevContentView?.let { prev ->
                                     val scale = 0.96f + (0.04f * progress)
                                     prev.scaleX = scale
@@ -293,7 +293,7 @@ object PrimeTransitions {
             .distanceThreshold(0.25f)
             .listener(object : SlidrListener {
                 var prevContentView: android.view.View? = null
-                
+
                 override fun onSlideStateChanged(state: Int) {
                     customListener?.onSlideStateChanged(state)
                 }
@@ -317,7 +317,7 @@ object PrimeTransitions {
                 override fun onSlideClosed(): Boolean {
                     prevContentView?.scaleX = 1f
                     prevContentView?.scaleY = 1f
-                    
+
                     isSlidrDismissing = true
                     val customHandled = customListener?.onSlideClosed() ?: false
                     if (!customHandled) {

@@ -914,7 +914,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         tvChatName.setText(formatDisplayName(targetUsername));
 
         try {
-            String json = sharedPreferences.getString("persisted_chats", "[]");
+            String json = ChatHistoryManager.getPersistedChatsJson(this);
             JSONArray array = new JSONArray(json);
             for (int i = 0; i < array.length(); i++) {
                 JSONObject obj = array.getJSONObject(i);
@@ -1902,7 +1902,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             } else if ("com.messenger.prime.CHAT_DELETED".equals(action)) {
                 isChatDeleted = true;
                 finish();
-            } else if ("com.messenger.prime.AVATAR_CHANGED".equals(action) || "com.messenger.prime.NAME_CHANGED".equals(action)) {
+            } else if ("com.messenger.prime.AVATAR_CHANGED".equals(action) || "com.messenger.prime.NAME_CHANGED".equals(action) || "com.messenger.prime.ACCENT_CHANGED".equals(action) || "com.messenger.prime.THEME_CHANGED".equals(action) || "com.messenger.prime.BUBBLE_RADIUS_CHANGED".equals(action) || "com.messenger.prime.AVATAR_RADIUS_CHANGED".equals(action)) {
                 reloadLocalProfileFromSettings();
                 String updatedName = AvatarManager.getContactDisplayName(ChatPersonActivity.this, targetUsername, deviceAddress, targetUsername);
                 if (!updatedName.isEmpty()) {
@@ -1912,7 +1912,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 String contactAvatar = AvatarManager.getContactAvatarUriOrFile(ChatPersonActivity.this, targetUsername, targetUsername, deviceAddress);
                 if (contactAvatar == null) contactAvatar = remoteAvatarUri;
                 updateAvatarUi(contactAvatar, targetUsername);
-                sendLocalAvatar(true);
+                MaterialShapesWallpaperView wallpaperView = findViewById(R.id.vWallpaperBackground);
+                if (wallpaperView != null) wallpaperView.updateThemeColors();
+                if (chatAdapter != null) chatAdapter.notifyDataSetChanged();
             } else if (BluetoothDevice.ACTION_FOUND.equals(action) || BluetoothDevice.ACTION_UUID.equals(action)) {
                 BluetoothDevice dev = null;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -2016,7 +2018,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 }
 
                 try {
-                    String json = sharedPrefs.getString("persisted_chats", "[]");
+                    String json = ChatHistoryManager.getPersistedChatsJson(this);
                     JSONArray array = new JSONArray(json);
                     for (int i = 0; i < array.length(); i++) {
                         JSONObject obj = array.getJSONObject(i);
@@ -2027,7 +2029,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             obj.put("unreadCount", 0);
                         }
                     }
-                    sharedPrefs.edit().putString("persisted_chats", array.toString()).apply();
+                    sharedPrefs.edit().putString(ChatHistoryManager.getPersistedChatsKey(this), array.toString()).apply();
                     ChatListNotifier.INSTANCE.notifyChanged();
                 } catch (Exception ignored) {}
             }
@@ -2054,6 +2056,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             filter.addAction("com.messenger.prime.CHAT_DELETED");
             filter.addAction("com.messenger.prime.AVATAR_CHANGED");
             filter.addAction("com.messenger.prime.NAME_CHANGED");
+            filter.addAction("com.messenger.prime.ACCENT_CHANGED");
+            filter.addAction("com.messenger.prime.THEME_CHANGED");
+            filter.addAction("com.messenger.prime.BUBBLE_RADIUS_CHANGED");
+            filter.addAction("com.messenger.prime.AVATAR_RADIUS_CHANGED");
             ContextCompat.registerReceiver(this, screenReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
         } catch (Exception ignored) {}
 
@@ -2451,7 +2457,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (messageToForward == null) return;
 
         SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
-        String jsonChats = sharedPrefs.getString("persisted_chats", "[]");
+        String jsonChats = ChatHistoryManager.getPersistedChatsJson(this);
         List<String> chatNames = new ArrayList<>();
 
         try {
@@ -2724,19 +2730,26 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (stopAnimation) {
             stopAnimatingStatus();
         }
+        if (tvChatStatus == null) return;
+
+        int textColor = resolveColor(colorResOrValue);
+        CharSequence currentText = tvChatStatus.getText();
+        if (currentText != null && Objects.equals(currentText.toString(), newText) && tvChatStatus.getAlpha() >= 0.95f && tvChatStatus.getTranslationY() == 0f) {
+            tvChatStatus.setTextColor(textColor);
+            return;
+        }
+
         try {
             sendBroadcast(new Intent("com.messenger.prime.STATUS_UPDATED").setPackage(getPackageName()));
         } catch (Exception ignored) {}
-        if (tvChatStatus == null) return;
-        CharSequence currentText = tvChatStatus.getText();
-        if (currentText != null && Objects.equals(currentText.toString(), newText)) return;
 
-        int textColor = resolveColor(colorResOrValue);
+        tvChatStatus.animate().cancel();
         tvChatStatus.animate()
                 .translationY(25f)
                 .alpha(0f)
                 .setDuration(160)
                 .withEndAction(() -> {
+                    if (tvChatStatus == null) return;
                     tvChatStatus.setText(newText);
                     tvChatStatus.setTextColor(textColor);
                     tvChatStatus.setTranslationY(-25f);
@@ -3055,7 +3068,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         try {
             SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-            String json = sharedPrefs.getString("persisted_chats", "[]");
+            String json = ChatHistoryManager.getPersistedChatsJson(this);
             JSONArray array = new JSONArray(json);
             JSONArray newArray = new JSONArray();
             for (int i = 0; i < array.length(); i++) {
@@ -3084,7 +3097,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     newArray.put(obj);
                 }
             }
-            sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply();
+            sharedPrefs.edit().putString(ChatHistoryManager.getPersistedChatsKey(this), newArray.toString()).apply();
             ChatListNotifier.INSTANCE.notifyChanged();
         } catch (Exception e) {
             Log.e(TAG, "Failed to remove deleted chat from persisted_chats", e);
@@ -3143,7 +3156,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     }
                 }
             }
-            String json = sharedPrefs.getString("persisted_chats", "[]");
+            String json = ChatHistoryManager.getPersistedChatsJson(this);
             JSONArray array = new JSONArray(json);
             JSONObject updatedObj = null;
             JSONArray newArray = new JSONArray();
@@ -3234,7 +3247,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 finalArray.put(newArray.get(i));
             }
 
-            sharedPrefs.edit().putString("persisted_chats", finalArray.toString()).apply();
+            sharedPrefs.edit().putString(ChatHistoryManager.getPersistedChatsKey(this), finalArray.toString()).apply();
             ChatListNotifier.INSTANCE.notifyChanged();
         } catch (Exception e) {
             Log.e(TAG, "Failed to update persisted_chats", e);
@@ -3258,7 +3271,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 return;
             }
 
-            String jsonChats = sharedPrefs.getString("persisted_chats", "[]");
+            String jsonChats = ChatHistoryManager.getPersistedChatsJson(this);
             JSONArray chatArray = new JSONArray(jsonChats);
             boolean updated = false;
 
@@ -3329,7 +3342,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 chatArray.put(newChat);
             }
 
-            sharedPrefs.edit().putString("persisted_chats", chatArray.toString()).apply();
+            sharedPrefs.edit().putString(ChatHistoryManager.getPersistedChatsKey(this), chatArray.toString()).apply();
             ChatListNotifier.INSTANCE.notifyChanged();
         } catch (Exception e) {
             Log.e(TAG, "Failed to update persisted_chats", e);
@@ -3340,7 +3353,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (username == null || username.isEmpty()) return;
         try {
             SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-            String json = sharedPrefs.getString("persisted_chats", "[]");
+            String json = ChatHistoryManager.getPersistedChatsJson(this);
             JSONArray array = new JSONArray(json);
             boolean updated = false;
 
@@ -3360,7 +3373,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
 
             if (updated) {
-                sharedPrefs.edit().putString("persisted_chats", array.toString()).apply();
+                sharedPrefs.edit().putString(ChatHistoryManager.getPersistedChatsKey(this), array.toString()).apply();
                 ChatListNotifier.INSTANCE.notifyChanged();
             }
         } catch (Exception e) {
@@ -3376,7 +3389,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (isChatDeleted || targetName == null || targetName.isEmpty()) return;
         try {
             SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-            String json = sharedPrefs.getString("persisted_chats", "[]");
+            String json = ChatHistoryManager.getPersistedChatsJson(this);
             JSONArray array = new JSONArray(json);
             boolean updated = false;
 
@@ -3406,7 +3419,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 }
             }
             if (updated) {
-                sharedPrefs.edit().putString("persisted_chats", array.toString()).apply();
+                sharedPrefs.edit().putString(ChatHistoryManager.getPersistedChatsKey(this), array.toString()).apply();
                 ChatListNotifier.INSTANCE.notifyChanged();
             }
 
@@ -3935,7 +3948,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (isValidMacAddress(targetName)) return targetName;
         try {
             SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-            String jsonChats = sharedPrefs.getString("persisted_chats", "[]");
+            String jsonChats = ChatHistoryManager.getPersistedChatsJson(this);
             JSONArray chatArray = new JSONArray(jsonChats);
             for (int i = 0; i < chatArray.length(); i++) {
                 JSONObject obj = chatArray.getJSONObject(i);

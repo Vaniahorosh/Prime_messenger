@@ -500,7 +500,7 @@ class ChatListAdapter(
                         binding.tvUserInitials.visibility = View.VISIBLE
                         binding.ivUserAvatar.visibility = View.INVISIBLE
                         val color = getAvatarColor(chat.name)
-                        val radiusPx = 0.24f * 54 * context.resources.displayMetrics.density
+                        val radiusPx = getAvatarCornerRadiusPx(context, (54 * context.resources.displayMetrics.density).toInt()).toFloat()
                         val bg = GradientDrawable().apply {
                             shape = GradientDrawable.RECTANGLE
                             cornerRadius = radiusPx

@@ -172,8 +172,7 @@ class GlobalSearchActivity : AppCompatActivity() {
         val tvNavChatsUnreadBadge = navView.findViewById<TextView>(R.id.tvNavChatsUnreadBadge) ?: return
         var totalUnread = 0
         try {
-            val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-            val json = sharedPrefs.getString("persisted_chats", "[]") ?: "[]"
+            val json = ChatHistoryManager.getPersistedChatsJson(this)
             val array = org.json.JSONArray(json)
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
@@ -366,8 +365,7 @@ class GlobalSearchActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             val results = mutableListOf<SearchResultItem>()
-            val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-            val json = sharedPrefs.getString("persisted_chats", "[]") ?: "[]"
+            val json = ChatHistoryManager.getPersistedChatsJson(this@GlobalSearchActivity)
 
             try {
                 val array = JSONArray(json)

@@ -242,10 +242,16 @@ public class BluetoothConnectionManager {
      * Избегает возврата "02:00:00:00:00:00" на Android 6.0+.
      */
     public static boolean isClientInitiator(String localName, String remoteName) {
-        if (localName == null || remoteName == null || localName.isEmpty() || remoteName.isEmpty()) {
+        if (localName == null || remoteName == null || localName.trim().isEmpty() || remoteName.trim().isEmpty()) {
             return true;
         }
-        return localName.toUpperCase(Locale.ROOT).compareTo(remoteName.toUpperCase(Locale.ROOT)) > 0;
+        String loc = localName.trim().toUpperCase(Locale.ROOT);
+        String rem = remoteName.trim().toUpperCase(Locale.ROOT);
+        int comp = loc.compareTo(rem);
+        if (comp != 0) {
+            return comp > 0;
+        }
+        return loc.hashCode() >= rem.hashCode();
     }
 
     /**

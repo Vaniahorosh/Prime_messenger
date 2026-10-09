@@ -84,12 +84,12 @@ public class NotificationReplyReceiver extends BroadcastReceiver {
 
     private void resetUnreadCountAndUpdateLastMessage(Context context, String senderName, String deviceAddr, String lastMsg) {
         try {
-            SharedPreferences sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-            String json = sharedPrefs.getString("persisted_chats", "[]");
+            String json = ChatHistoryManager.getPersistedChatsJson(context);
             JSONArray array = new JSONArray(json);
             JSONArray newArray = new JSONArray();
 
-            String timeStr = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
+            long nowTs = System.currentTimeMillis();
+            String timeStr = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(nowTs));
 
             for (int i = 0; i < array.length(); i++) {
                 JSONObject obj = array.getJSONObject(i);
@@ -100,6 +100,7 @@ public class NotificationReplyReceiver extends BroadcastReceiver {
                     if (lastMsg != null) {
                         obj.put("lastMessage", lastMsg);
                         obj.put("time", timeStr);
+                        obj.put("timestamp", nowTs);
                         obj.put("messageStatus", "SENT");
                     }
                     obj.put("unreadCount", 0);
@@ -107,7 +108,7 @@ public class NotificationReplyReceiver extends BroadcastReceiver {
                 newArray.put(obj);
             }
 
-            sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply();
+            ChatHistoryManager.savePersistedChatsJson(context, newArray.toString());
             ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
         } catch (Exception e) {
             Log.e(TAG, "Failed to update chat list from NotificationReplyReceiver", e);

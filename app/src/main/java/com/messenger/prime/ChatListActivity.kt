@@ -1761,8 +1761,7 @@ class ChatListActivity : AppCompatActivity() {
 
         override fun onForwardMessage(message: ChatMessage?, position: Int) {
             if (message == null) return
-            val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-            val jsonChats = sharedPrefs.getString("persisted_chats", "[]")
+            val jsonChats = ChatHistoryManager.getPersistedChatsJson(activity)
             val chatNames = mutableListOf<String>()
 
             try {
@@ -3089,9 +3088,12 @@ class ChatListActivity : AppCompatActivity() {
                     reloadChatsFromDb()
                     ChatListNotifier.notifyChanged()
                 }
-                "com.messenger.prime.AVATAR_CHANGED", "com.messenger.prime.NAME_CHANGED", "com.messenger.prime.CHAT_METADATA_UPDATED" -> {
+                "com.messenger.prime.AVATAR_CHANGED", "com.messenger.prime.NAME_CHANGED", "com.messenger.prime.CHAT_METADATA_UPDATED", "com.messenger.prime.ACCENT_CHANGED", "com.messenger.prime.THEME_CHANGED", "com.messenger.prime.BUBBLE_RADIUS_CHANGED", "com.messenger.prime.AVATAR_RADIUS_CHANGED" -> {
                     runOnUiThread {
                         refreshUserUi()
+                        if (::adapter.isInitialized) {
+                            adapter.notifyDataSetChanged()
+                        }
                     }
                 }
                 "com.messenger.prime.NAV_STYLE_CHANGED" -> {
@@ -3109,6 +3111,10 @@ class ChatListActivity : AppCompatActivity() {
                 addAction("com.messenger.prime.CHAT_DELETED")
                 addAction("com.messenger.prime.AVATAR_CHANGED")
                 addAction("com.messenger.prime.NAV_STYLE_CHANGED")
+                addAction("com.messenger.prime.ACCENT_CHANGED")
+                addAction("com.messenger.prime.THEME_CHANGED")
+                addAction("com.messenger.prime.BUBBLE_RADIUS_CHANGED")
+                addAction("com.messenger.prime.AVATAR_RADIUS_CHANGED")
             }
             ContextCompat.registerReceiver(this, avatarChangedReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         } catch (_: Exception) {}
@@ -3171,15 +3177,22 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
+    private var reloadJob: Job? = null
+
     private fun reloadChatsFromDb() {
-        lifecycleScope.launch(Dispatchers.IO) {
+        reloadJob?.cancel()
+        reloadJob = lifecycleScope.launch(Dispatchers.IO) {
             val chats = loadContacts()
             withContext(Dispatchers.Main) {
                 chatListState.clear()
                 chatListState.addAll(chats)
                 allChats = ArrayList(chatListState)
                 if (::adapter.isInitialized) {
-                    adapter.updateList(allChats)
+                    if (adapter.isSearchActive && currentSearchQuery.isNotEmpty()) {
+                        performSearchQuery(currentSearchQuery)
+                    } else {
+                        adapter.updateList(allChats)
+                    }
                 }
                 updateEmptyState()
                 scheduleTypingExpiration()
@@ -3217,7 +3230,7 @@ class ChatListActivity : AppCompatActivity() {
             binding.layoutIslandHeader.ivHeaderAvatar.visibility = View.INVISIBLE
             val avatarBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = 0.24f * 48 * resources.displayMetrics.density
+                cornerRadius = getAvatarCornerRadiusPx(this@ChatListActivity, (48 * resources.displayMetrics.density).toInt()).toFloat()
                 setColor(ColorAccentManager.getAvatarColor(name))
             }
             binding.layoutIslandHeader.tvHeaderInitials.background = avatarBg
@@ -3228,8 +3241,7 @@ class ChatListActivity : AppCompatActivity() {
         val tvNavChatsUnreadBadge = navView.findViewById<TextView>(R.id.tvNavChatsUnreadBadge) ?: return
         var totalUnread = 0
         try {
-            val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-            val json = sharedPrefs.getString("persisted_chats", "[]") ?: "[]"
+            val json = ChatHistoryManager.getPersistedChatsJson(this)
             val array = org.json.JSONArray(json)
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
@@ -3585,7 +3597,7 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private fun deleteContact(contact: ChatModel) {
-        val index = chatListState.indexOfFirst { it.id == contact.id || it.name.equals(contact.name, ignoreCase = true) }
+        val index = chatListState.indexOfFirst { it.id.equals(contact.id, ignoreCase = true) }
         if (index == -1) return
         
         val targetName = chatListState[index].name
@@ -3738,7 +3750,6 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
     private fun saveContacts() {
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val array = JSONArray()
         chatListState.forEach { chat ->
             val obj = JSONObject().apply {
@@ -3756,7 +3767,7 @@ class ChatListActivity : AppCompatActivity() {
             }
             array.put(obj)
         }
-        sharedPrefs.edit().putString("persisted_chats", array.toString()).apply()
+        ChatHistoryManager.savePersistedChatsJson(this, array.toString())
     }
     private fun formatSmartTime(timestamp: Long): String {
         if (timestamp <= 0) return "сейчас"
@@ -3788,33 +3799,32 @@ class ChatListActivity : AppCompatActivity() {
 
     private fun loadContacts(): List<ChatModel> {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val myName = sharedPrefs.getString("my_name", null)
-            ?: sharedPrefs.getString("my_local_name", null)
-            ?: sharedPrefs.getString("current_user_name", null) ?: ""
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val myName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: currentUser
 
-        val json = sharedPrefs.getString("persisted_chats", null)
+        val json = ChatHistoryManager.getPersistedChatsJson(this)
         val tempList = ArrayList<Pair<ChatModel, Long>>()
         if (!json.isNullOrEmpty() && json != "[]") {
             try {
                 val array = JSONArray(json)
-                val newArray = JSONArray()
                 val now = System.currentTimeMillis()
                 for (i in 0 until array.length()) {
                     try {
                         val item = array.opt(i)
                         if (item is JSONObject) {
-                            val idStr = item.optString("id", System.currentTimeMillis().toString() + i)
-                            val nameStr = item.optString("name", "Контакт")
+                            val idStr = item.optString("id", System.currentTimeMillis().toString() + i).trim()
+                            if (idStr.isEmpty()) continue
+                            val nameStr = item.optString("name", "Контакт").trim()
 
                             val finalName = AvatarManager.getContactDisplayName(this@ChatListActivity, idStr, idStr, nameStr)
 
-                            if (myName.isNotEmpty() && finalName.equals(myName, ignoreCase = true)) {
+                            if (myName.isNotEmpty() && (finalName.equals(myName, ignoreCase = true) || idStr.equals(currentUser, ignoreCase = true))) {
                                 continue
                             }
 
                             val hasHistory = try {
-                                val hasByName = ChatHistoryManager.hasHistory(this@ChatListActivity, finalName)
-                                if (hasByName) true else ChatHistoryManager.hasHistory(this@ChatListActivity, idStr)
+                                ChatHistoryManager.hasHistory(this@ChatListActivity, finalName) ||
+                                ChatHistoryManager.hasHistory(this@ChatListActivity, idStr)
                             } catch (_: Exception) {
                                 false
                             }
@@ -3826,11 +3836,10 @@ class ChatListActivity : AppCompatActivity() {
                                                 finalName.equals("1", ignoreCase = true) ||
                                                 finalName.equals("Контакт", ignoreCase = true)
                             val hasNoMessages = item.optString("lastMessage", "").isBlank() && !hasHistory
-                            if (isUnknownName && hasNoMessages) {
+                            val isMacAddress = BluetoothAdapter.checkBluetoothAddress(idStr.uppercase(Locale.US))
+                            if (isUnknownName && hasNoMessages && !isMacAddress) {
                                 continue
                             }
-
-                            newArray.put(item)
 
                             val rawAvatar = if (item.isNull("avatarUri")) null else item.optString("avatarUri")
                             val typingUntil = item.optLong("typingUntil", 0L)
@@ -3855,7 +3864,14 @@ class ChatListActivity : AppCompatActivity() {
                             val finalLastMsg = item.optString("lastMessage", "")
                             val finalTime = item.optString("time", "сейчас")
                             val finalMessageStatus = try { MessageStatus.valueOf(item.optString("messageStatus", "NONE")) } catch(e: Exception) { MessageStatus.NONE }
-                            val lastTimestamp = item.optLong("timestamp", 0L)
+                            var lastTimestamp = item.optLong("timestamp", 0L)
+
+                            if (lastTimestamp == 0L) {
+                                val messages = try { ChatHistoryManager.loadMessages(this@ChatListActivity, finalName) } catch (_: Exception) { emptyList() }
+                                if (messages.isNotEmpty()) {
+                                    lastTimestamp = messages.last().timestamp
+                                }
+                            }
 
                             val finalUnreadCount = item.optInt("unreadCount", 0)
 
@@ -3886,10 +3902,12 @@ class ChatListActivity : AppCompatActivity() {
             val ts = pair.second
 
             val isMac = BluetoothAdapter.checkBluetoothAddress(chat.id.uppercase(Locale.US))
-            val key = if (isMac) {
+            val mappedMac = if (!isMac) sharedPrefs.getString("${chat.id}_mac", null) else chat.id.uppercase(Locale.US)
+            
+            val key = if (mappedMac != null && mappedMac.isNotEmpty()) {
+                mappedMac.uppercase(Locale.US)
+            } else if (isMac) {
                 chat.id.uppercase(Locale.US)
-            } else if (chat.name.isNotBlank() && chat.name != "Собеседник" && chat.name != "Prime Собеседник") {
-                chat.name.lowercase(Locale.US)
             } else {
                 chat.id.lowercase(Locale.US)
             }
@@ -3901,16 +3919,26 @@ class ChatListActivity : AppCompatActivity() {
                 val oldChat = existing.first
                 val oldTs = existing.second
 
-                val bestName = if (BluetoothAdapter.checkBluetoothAddress(oldChat.name) && !BluetoothAdapter.checkBluetoothAddress(chat.name)) {
-                    chat.name
-                } else oldChat.name
+                val isOldNameMacOrGeneric = BluetoothAdapter.checkBluetoothAddress(oldChat.name) || oldChat.name == "Собеседник" || oldChat.name == "Prime Собеседник" || oldChat.name == "Контакт"
+                val isNewNameMacOrGeneric = BluetoothAdapter.checkBluetoothAddress(chat.name) || chat.name == "Собеседник" || chat.name == "Prime Собеседник" || chat.name == "Контакт"
 
-                val bestId = if (isMac) chat.id.uppercase(Locale.US) else oldChat.id
-                val bestLastMsg = if (ts > oldTs) chat.lastMessage else if (oldChat.lastMessage.isNotEmpty()) oldChat.lastMessage else chat.lastMessage
-                val bestTime = if (ts > oldTs) chat.time else oldChat.time
+                val bestName = when {
+                    isOldNameMacOrGeneric && !isNewNameMacOrGeneric -> chat.name
+                    !isOldNameMacOrGeneric -> oldChat.name
+                    else -> chat.name
+                }
+
+                val bestId = if (BluetoothAdapter.checkBluetoothAddress(oldChat.id) && !BluetoothAdapter.checkBluetoothAddress(chat.id)) {
+                    chat.id
+                } else {
+                    oldChat.id
+                }
+
+                val bestLastMsg = if (ts >= oldTs && chat.lastMessage.isNotEmpty()) chat.lastMessage else if (oldChat.lastMessage.isNotEmpty()) oldChat.lastMessage else chat.lastMessage
+                val bestTime = if (ts >= oldTs && chat.time.isNotEmpty()) chat.time else oldChat.time
                 val bestAvatar = oldChat.avatarUri ?: chat.avatarUri
                 val bestOnline = if (oldChat.onlineStatus == OnlineStatus.ONLINE || chat.onlineStatus == OnlineStatus.ONLINE) OnlineStatus.ONLINE else OnlineStatus.OFFLINE
-                val bestMsgStatus = if (ts > oldTs) chat.messageStatus else oldChat.messageStatus
+                val bestMsgStatus = if (ts >= oldTs) chat.messageStatus else oldChat.messageStatus
                 val bestUnread = maxOf(oldChat.unreadCount, chat.unreadCount)
                 val bestMuted = oldChat.isMuted || chat.isMuted
                 val bestTyping = oldChat.isTyping || chat.isTyping
@@ -3935,9 +3963,11 @@ class ChatListActivity : AppCompatActivity() {
             }
         }
 
-        val deduplicatedList = dedupMap.values.toList().sortedByDescending { it.second }.map { it.first }
+        val deduplicatedList = dedupMap.values.toList()
+            .sortedWith(compareByDescending<Pair<ChatModel, Long>> { it.first.isTyping }
+                .thenByDescending { it.second })
+            .map { it.first }
 
-        // Save deduplicated contacts back to DB
         val array = JSONArray()
         deduplicatedList.forEach { chat ->
             val obj = JSONObject().apply {
@@ -3955,7 +3985,7 @@ class ChatListActivity : AppCompatActivity() {
             }
             array.put(obj)
         }
-        sharedPrefs.edit().putString("persisted_chats", array.toString()).apply()
+        ChatHistoryManager.savePersistedChatsJson(this, array.toString())
 
         return deduplicatedList
     }

@@ -507,8 +507,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     private void saveBackgroundTypingStateToChatList(String targetName, String deviceAddr, String textData) {
         if (targetName == null || targetName.isEmpty()) return;
         try {
-            SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
-            String json = sharedPrefs.getString("persisted_chats", "[]");
+            String json = ChatHistoryManager.getPersistedChatsJson(this);
             JSONArray array = new JSONArray(json);
             JSONArray newArray = new JSONArray();
             boolean updated = false;
@@ -535,7 +534,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             }
 
             if (updated) {
-                sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply();
+                ChatHistoryManager.savePersistedChatsJson(this, newArray.toString());
                 ChatListNotifier.INSTANCE.notifyChanged();
             }
         } catch (Throwable e) {
@@ -546,8 +545,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     private void saveBackgroundReadReceiptToChatList(String targetName, String deviceAddr, String readMsgId) {
         if (targetName == null || targetName.isEmpty()) return;
         try {
-            SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
-            String json = sharedPrefs.getString("persisted_chats", "[]");
+            String json = ChatHistoryManager.getPersistedChatsJson(this);
             JSONArray array = new JSONArray(json);
             JSONArray newArray = new JSONArray();
             boolean updated = false;
@@ -569,7 +567,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             }
 
             if (updated) {
-                sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply();
+                ChatHistoryManager.savePersistedChatsJson(this, newArray.toString());
                 ChatListNotifier.INSTANCE.notifyChanged();
             }
         } catch (Throwable e) {
@@ -580,8 +578,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     private void saveBackgroundPresenceToChatList(String targetName, String deviceAddr, boolean isOnline) {
         if (targetName == null || targetName.isEmpty()) return;
         try {
-            SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
-            String json = sharedPrefs.getString("persisted_chats", "[]");
+            String json = ChatHistoryManager.getPersistedChatsJson(this);
             JSONArray array = new JSONArray(json);
             JSONArray newArray = new JSONArray();
             boolean updated = false;
@@ -602,7 +599,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             }
 
             if (updated) {
-                sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply();
+                ChatHistoryManager.savePersistedChatsJson(this, newArray.toString());
                 ChatListNotifier.INSTANCE.notifyChanged();
             }
         } catch (Throwable e) {
@@ -857,14 +854,14 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     private void saveBackgroundLastMessageToChatList(String targetName, String deviceAddr, String lastMsg) {
         if (targetName == null || targetName.isEmpty()) return;
         try {
-            SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
-
-            String json = sharedPrefs.getString("persisted_chats", "[]");
+            String json = ChatHistoryManager.getPersistedChatsJson(this);
             JSONArray array = new JSONArray(json);
             JSONArray newArray = new JSONArray();
             JSONObject updatedObj = null;
+            boolean foundMatch = false;
 
-            String timeStr = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
+            long nowTs = System.currentTimeMillis();
+            String timeStr = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(nowTs));
 
             for (int i = 0; i < array.length(); i++) {
                 JSONObject obj = array.getJSONObject(i);
@@ -872,18 +869,26 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 String id = obj.optString("id", "");
 
                 boolean isGenericName = "Собеседник".equalsIgnoreCase(targetName) || "Prime Собеседник".equalsIgnoreCase(targetName) || "Контакт".equalsIgnoreCase(targetName);
-                boolean isMatch = (deviceAddr != null && !deviceAddr.isEmpty() && deviceAddr.equalsIgnoreCase(id))
+                boolean isMatch = !foundMatch && ((deviceAddr != null && !deviceAddr.isEmpty() && deviceAddr.equalsIgnoreCase(id))
                         || (targetName != null && !targetName.isEmpty() && targetName.equalsIgnoreCase(id))
-                        || (!isGenericName && user.equalsIgnoreCase(targetName) && !BluetoothAdapter.checkBluetoothAddress(user));
+                        || (!isGenericName && user.equalsIgnoreCase(targetName) && !BluetoothAdapter.checkBluetoothAddress(user)));
 
                 if (isMatch) {
+                    foundMatch = true;
                     obj.put("lastMessage", lastMsg);
                     obj.put("time", timeStr);
+                    obj.put("timestamp", nowTs);
                     obj.put("onlineStatus", "ONLINE");
                     
                     int currentUnread = obj.optInt("unreadCount", 0);
                     obj.put("unreadCount", currentUnread + 1);
                     
+                    if (deviceAddr != null && !deviceAddr.isEmpty() && BluetoothAdapter.checkBluetoothAddress(deviceAddr)) {
+                        obj.put("id", deviceAddr);
+                    }
+                    if (targetName != null && !targetName.isEmpty() && !BluetoothAdapter.checkBluetoothAddress(targetName) && !isGenericName) {
+                        obj.put("name", targetName);
+                    }
                     updatedObj = obj;
                 } else {
                     newArray.put(obj);
@@ -897,13 +902,14 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 updatedObj.put("name", saveName);
                 updatedObj.put("lastMessage", lastMsg);
                 updatedObj.put("time", timeStr);
+                updatedObj.put("timestamp", nowTs);
                 updatedObj.put("onlineStatus", "ONLINE");
                 updatedObj.put("messageStatus", "NONE");
                 updatedObj.put("unreadCount", 1);
             }
             newArray.put(updatedObj);
 
-            sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply();
+            ChatHistoryManager.savePersistedChatsJson(this, newArray.toString());
             ChatListNotifier.INSTANCE.notifyChanged();
         } catch (Throwable e) {
             Log.e(TAG, "Failed to save background last message", e);

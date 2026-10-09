@@ -21,6 +21,7 @@ import android.os.Build
 import android.os.Bundle
 import android.content.res.ColorStateList
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.text.Editable
 import android.text.SpannableString
@@ -695,55 +696,31 @@ class SettingsActivity : AppCompatActivity() {
         b.vAccentColorPreview.backgroundTintList = ColorStateList.valueOf(accentColor)
         
         // Setup Monet Switch
-        b.switchMonetAccent.isChecked = ColorAccentManager.getAccentType(this) == ColorAccentManager.ACCENT_TYPE_SYSTEM
+        b.switchMonetAccent.setOnCheckedChangeListener(null)
+        b.switchMonetAccent.isChecked = (ColorAccentManager.getAccentType(this) == ColorAccentManager.ACCENT_TYPE_SYSTEM)
         b.switchMonetAccent.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 ColorAccentManager.setAccentSystem(this)
-            } else {
+            } else if (ColorAccentManager.getAccentType(this) == ColorAccentManager.ACCENT_TYPE_SYSTEM) {
                 ColorAccentManager.setAccentDefault(this)
             }
-            restartApp()
+            onAccentColorChanged(b)
         }
 
         // Setup Swatches
-        val dp36 = (36 * resources.displayMetrics.density).toInt()
-        val dp8 = (8 * resources.displayMetrics.density).toInt()
-        b.layoutSwatches.removeAllViews()
-
-        ColorAccentManager.PRESET_COLORS.forEach { preset ->
-            val swatchColor = if (isDark) preset.darkColor else preset.lightColor
-            val btn = com.google.android.material.button.MaterialButton(this).apply {
-                layoutParams = LinearLayout.LayoutParams(dp36, dp36).apply {
-                    marginEnd = dp8
-                }
-                insetTop = 0
-                insetBottom = 0
-                cornerRadius = dp36 / 2
-                backgroundTintList = ColorStateList.valueOf(swatchColor)
-                if (swatchColor == accentColor) {
-                    strokeColor = ColorStateList.valueOf(android.graphics.Color.WHITE)
-                    strokeWidth = (2 * resources.displayMetrics.density).toInt()
-                } else {
-                    strokeWidth = 0
-                }
-                setOnClickListener {
-                    ColorAccentManager.setAccentCustom(this@SettingsActivity, swatchColor)
-                    restartApp()
-                }
-            }
-            b.layoutSwatches.addView(btn)
-        }
+        setupSwatches(b)
 
         b.btnCustomPicker.setOnClickListener {
-            // Future feature: show color picker spectrum
-            PrimeNotification.show(this, "Выбор цвета из спектра будет добавлен в будущем")
+            showColorAccentDialog(b)
         }
 
         // Theme Options Inline
-        val currentTheme = sharedPrefs.getString("app_theme", "system")
+        val currentTheme = sharedPrefs.getString("app_theme", "system") ?: "system"
         b.rbThemeSystem.isChecked = currentTheme == "system"
         b.rbThemeLight.isChecked = currentTheme == "light"
         b.rbThemeDark.isChecked = currentTheme == "dark"
+
+        updateThemeChatPreview(b, currentTheme)
 
         b.rgThemeOptions.setOnCheckedChangeListener { _, checkedId ->
             val newTheme = when (checkedId) {
@@ -751,23 +728,32 @@ class SettingsActivity : AppCompatActivity() {
                 R.id.rbThemeDark -> "dark"
                 else -> "system"
             }
+            updateThemeChatPreview(b, newTheme)
             applyThemeChange(newTheme)
         }
 
         // Lava Background Preview
-        b.switchLavaBg.setOnCheckedChangeListener(null)
-        b.switchLavaBg.isChecked = sharedPrefs.getBoolean("settings_lava_bg", true)
-        b.switchLavaBg.setOnCheckedChangeListener { _, isChecked ->
-            sharedPrefs.edit().putBoolean("settings_lava_bg", isChecked).apply()
-            LavaBackgroundState.onActivityResumed()
-        }
-
-        b.composeLavaPreview.setContent {
-            PrimeTheme(darkTheme = isDark) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    AnimatedBackground(darkTheme = isDark)
+        val updateLavaPreview = { isChecked: Boolean ->
+            b.composeLavaPreview.setContent {
+                PrimeTheme(darkTheme = isDark) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        AnimatedBackground(darkTheme = isDark, ignoreSettingsToggle = false)
+                    }
                 }
             }
+        }
+
+        b.switchLavaBg.setOnCheckedChangeListener(null)
+        val isLavaOn = sharedPrefs.getBoolean("settings_lava_bg", true)
+        b.switchLavaBg.isChecked = isLavaOn
+        updateLavaPreview(isLavaOn)
+
+        b.switchLavaBg.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("settings_lava_bg", isChecked).apply()
+            updateLavaPreview(isChecked)
+            LavaBackgroundState.onActivityResumed()
+            sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+            restartApp()
         }
 
         b.cardGithub.setOnClickListener {
@@ -782,6 +768,8 @@ class SettingsActivity : AppCompatActivity() {
         setupThanksCard(b)
         setupStorageSection(b)
         setupNavStyleSection(b)
+        setupBubbleRadiusSection(b)
+        setupAvatarRadiusSection(b)
     }
 
     private fun setupNavStyleSection(b: ActivitySettingsContentBinding) {
@@ -825,8 +813,7 @@ class SettingsActivity : AppCompatActivity() {
         val tvNavChatsUnreadBadge = navView.findViewById<TextView>(R.id.tvNavChatsUnreadBadge) ?: return
         var totalUnread = 0
         try {
-            val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-            val json = sharedPrefs.getString("persisted_chats", "[]") ?: "[]"
+            val json = ChatHistoryManager.getPersistedChatsJson(this)
             val array = org.json.JSONArray(json)
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
@@ -1462,9 +1449,93 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun updateAccentUi(b: ActivitySettingsContentBinding) {
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val colorStateList = ColorStateList.valueOf(accentColor)
+
+        // Tint all card titles & headers
+        b.tvTitleTheme.setTextColor(accentColor)
+        b.tvTitleAccent.setTextColor(accentColor)
+        b.tvTitleAvatarRadius.setTextColor(accentColor)
+        b.tvTitleLava.setTextColor(accentColor)
+        b.tvTitleNavStyle.setTextColor(accentColor)
+        b.tvTitleStorage.setTextColor(accentColor)
+
+        // Tint value texts
         b.tvAccentSummary.text = ColorAccentManager.getAccentSummary(this)
-        b.vAccentColorPreview.backgroundTintList = ColorStateList.valueOf(accentColor)
+        b.vAccentColorPreview.backgroundTintList = colorStateList
+        b.tvBubbleRadiusValue.setTextColor(accentColor)
+        b.tvAvatarRadiusValue.setTextColor(accentColor)
+
+        // Tint all card header icons
+        b.ivIconTheme.imageTintList = colorStateList
+        b.ivIconAccent.imageTintList = colorStateList
+        b.ivIconAvatarRadius.imageTintList = colorStateList
+        b.ivIconLava.imageTintList = colorStateList
+        b.ivIconNavStyle.imageTintList = colorStateList
+        b.ivIconStorage.imageTintList = colorStateList
+        b.ivThanksIcon.imageTintList = colorStateList
+
+        // Tint sliders
+        b.sliderBubbleRadius.thumbTintList = colorStateList
+        b.sliderBubbleRadius.trackActiveTintList = colorStateList
+        b.sliderAvatarRadius.thumbTintList = colorStateList
+        b.sliderAvatarRadius.trackActiveTintList = colorStateList
+
+        // Spectrum button
+        b.btnCustomPicker.setTextColor(accentColor)
+        b.btnCustomPicker.strokeColor = colorStateList
+        b.btnCustomPicker.iconTint = colorStateList
+
         ColorAccentManager.tintViewTree(b.root, accentColor)
+    }
+
+    private fun setupSwatches(b: ActivitySettingsContentBinding) {
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val accentType = ColorAccentManager.getAccentType(this)
+        val dp36 = (36 * resources.displayMetrics.density).toInt()
+        val dp8 = (8 * resources.displayMetrics.density).toInt()
+        b.layoutSwatches.removeAllViews()
+
+        ColorAccentManager.PRESET_COLORS.forEachIndexed { index, preset ->
+            val swatchColor = if (isDark) preset.darkColor else preset.lightColor
+            val isSelected = when (accentType) {
+                ColorAccentManager.ACCENT_TYPE_SYSTEM -> false
+                ColorAccentManager.ACCENT_TYPE_DEFAULT -> index == 0
+                ColorAccentManager.ACCENT_TYPE_CUSTOM -> (swatchColor == accentColor) || (preset.lightColor == accentColor || preset.darkColor == accentColor)
+                else -> index == 0
+            }
+
+            val btn = com.google.android.material.button.MaterialButton(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp36, dp36).apply {
+                    marginEnd = dp8
+                }
+                insetTop = 0
+                insetBottom = 0
+                cornerRadius = dp36 / 2
+                backgroundTintList = ColorStateList.valueOf(swatchColor)
+                if (isSelected) {
+                    strokeColor = ColorStateList.valueOf(android.graphics.Color.WHITE)
+                    strokeWidth = (2.5f * resources.displayMetrics.density).toInt()
+                } else {
+                    strokeWidth = 0
+                }
+                setOnClickListener {
+                    if (index == 0) {
+                        ColorAccentManager.setAccentDefault(this@SettingsActivity)
+                    } else {
+                        ColorAccentManager.setAccentCustom(this@SettingsActivity, swatchColor)
+                    }
+                    onAccentColorChanged(b)
+                }
+            }
+            b.layoutSwatches.addView(btn)
+        }
+    }
+
+    private fun onAccentColorChanged(b: ActivitySettingsContentBinding) {
+        updateAccentUi(b)
+        sendBroadcast(Intent("com.messenger.prime.ACCENT_CHANGED").setPackage(packageName))
+        restartApp()
     }
 
     private fun showColorAccentDialog(b: ActivitySettingsContentBinding) {
@@ -1534,17 +1605,11 @@ class SettingsActivity : AppCompatActivity() {
         dialogBinding.switchMonetAccent.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 ColorAccentManager.setAccentSystem(this)
-                updateAccentUi(b)
-                sendBroadcast(Intent("com.messenger.prime.ACCENT_CHANGED").setPackage(packageName))
-                dialog.dismiss()
-                restartApp()
             } else {
                 ColorAccentManager.setAccentDefault(this)
-                updateAccentUi(b)
-                updateControlsState(false)
-                sendBroadcast(Intent("com.messenger.prime.ACCENT_CHANGED").setPackage(packageName))
-                restartApp()
             }
+            onAccentColorChanged(b)
+            dialog.dismiss()
         }
 
         dialogBinding.layoutSwatches.removeAllViews()
@@ -1573,10 +1638,8 @@ class SettingsActivity : AppCompatActivity() {
 
                 setOnClickListener {
                     ColorAccentManager.setAccentCustom(this@SettingsActivity, colorInt)
-                    updateAccentUi(b)
-                    sendBroadcast(Intent("com.messenger.prime.ACCENT_CHANGED").setPackage(packageName))
+                    onAccentColorChanged(b)
                     dialog.dismiss()
-                    restartApp()
                 }
             }
             dialogBinding.layoutSwatches.addView(swatch)
@@ -1589,10 +1652,8 @@ class SettingsActivity : AppCompatActivity() {
 
         dialogBinding.btnResetDefault.setOnClickListener {
             ColorAccentManager.setAccentDefault(this)
-            updateAccentUi(b)
-            sendBroadcast(Intent("com.messenger.prime.ACCENT_CHANGED").setPackage(packageName))
+            onAccentColorChanged(b)
             dialog.dismiss()
-            restartApp()
         }
 
         dialog.show()
@@ -1729,10 +1790,8 @@ class SettingsActivity : AppCompatActivity() {
             } catch (_: Exception) {}
 
             ColorAccentManager.setAccentCustom(this, selectedColorInt)
-            updateAccentUi(b)
-            sendBroadcast(Intent("com.messenger.prime.ACCENT_CHANGED").setPackage(packageName))
+            onAccentColorChanged(b)
             dialog.dismiss()
-            restartApp()
         }
 
         dialog.show()
@@ -2239,7 +2298,16 @@ class SettingsActivity : AppCompatActivity() {
                 BluetoothConnectionManager.getInstance().disconnect()
                 BluetoothSocketHolder.clearSocket()
                 PrimeBluetoothService.stopService(this)
-                getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).edit().putBoolean("is_logged_in", false).apply()
+                getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).edit()
+                    .putBoolean("is_logged_in", false)
+                    .remove("current_user")
+                    .remove("current_user_name")
+                    .remove("my_name")
+                    .remove("my_avatar")
+                    .remove("my_local_name")
+                    .remove("my_local_avatar")
+                    .remove("my_avatar_uri")
+                    .apply()
                 startActivity(Intent(this, LoginActivity::class.java))
                 PrimeTransitions.applyOpenTransition(this)
                 finishAffinity()
@@ -2305,6 +2373,118 @@ class SettingsActivity : AppCompatActivity() {
         finishAffinity()
     }
 
+    private fun updateThemeChatPreview(b: ActivitySettingsContentBinding, themeStr: String) {
+        val isSystemDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val isDark = when (themeStr) {
+            "light" -> false
+            "dark" -> true
+            else -> isSystemDark
+        }
+
+        val density = resources.displayMetrics.density
+
+        val containerBg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 16 * density
+            setColor(if (isDark) android.graphics.Color.parseColor("#151D2A") else android.graphics.Color.parseColor("#F1F5F9"))
+        }
+        b.layoutThemeChatPreviewBg.background = containerBg
+        b.cardThemeChatPreview.strokeColor = if (isDark) android.graphics.Color.parseColor("#33FFFFFF") else android.graphics.Color.parseColor("#1A000000")
+
+        val avatarRadiusPx = getAvatarCornerRadiusPx(this, (28 * density).toInt())
+        val avatarBg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = avatarRadiusPx.toFloat()
+            setColor(ColorAccentManager.getAvatarColor("Prime"))
+        }
+        b.tvPreviewAvatar.background = avatarBg
+
+        b.layoutPreviewIncomingBubble.background = ColorAccentManager.createIncomingBubbleDrawable(this)
+        b.tvPreviewIncomingText.setTextColor(if (isDark) android.graphics.Color.parseColor("#F8FAFC") else android.graphics.Color.parseColor("#0F172A"))
+        b.tvPreviewIncomingTime.setTextColor(if (isDark) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B"))
+
+        b.layoutPreviewOutgoingBubble.background = ColorAccentManager.createOutgoingBubbleDrawable(this)
+        b.tvPreviewOutgoingText.setTextColor(android.graphics.Color.WHITE)
+        b.tvPreviewOutgoingTime.setTextColor(android.graphics.Color.parseColor("#CCFFFFFF"))
+        b.ivPreviewOutgoingStatus.imageTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#CCFFFFFF"))
+    }
+
+    private fun setupBubbleRadiusSection(b: ActivitySettingsContentBinding) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val savedPercent = sharedPrefs.getInt("settings_bubble_radius_percent", 50)
+
+        b.sliderBubbleRadius.value = savedPercent.toFloat()
+
+        val updateLabel = { percent: Int ->
+            val minDp = 4
+            val maxDp = 28
+            val dpVal = minDp + (maxDp - minDp) * (percent / 100f)
+            b.tvBubbleRadiusValue.text = "${dpVal.toInt()} dp"
+        }
+        updateLabel(savedPercent)
+
+        b.sliderBubbleRadius.addOnChangeListener { _, value, fromUser ->
+            val percent = value.toInt()
+            sharedPrefs.edit().putInt("settings_bubble_radius_percent", percent).apply()
+            updateLabel(percent)
+            val currentTheme = sharedPrefs.getString("app_theme", "system") ?: "system"
+            updateThemeChatPreview(b, currentTheme)
+            if (fromUser) {
+                sendBroadcast(Intent("com.messenger.prime.BUBBLE_RADIUS_CHANGED").setPackage(packageName))
+            }
+        }
+    }
+
+    private fun setupAvatarRadiusSection(b: ActivitySettingsContentBinding) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val savedPercent = sharedPrefs.getInt("settings_avatar_radius_percent", 50)
+
+        b.sliderAvatarRadius.value = savedPercent.toFloat()
+
+        val updateAvatarPreview = { percent: Int ->
+            b.tvAvatarRadiusValue.text = "$percent%"
+
+            val density = resources.displayMetrics.density
+            val viewSizePx = (48 * density).toInt()
+            val radiusPx = getAvatarCornerRadiusPx(this, viewSizePx)
+
+            val initialsBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = radiusPx.toFloat()
+                setColor(ColorAccentManager.getAvatarColor("Prime"))
+            }
+            b.tvAvatarPreviewInitials.background = initialsBg
+
+            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            b.layoutAvatarPreviewBg.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 16 * density
+                setColor(if (isDark) android.graphics.Color.parseColor("#151D2A") else android.graphics.Color.parseColor("#F1F5F9"))
+            }
+            b.cardAvatarPreviewBlock.strokeColor = if (isDark) android.graphics.Color.parseColor("#33FFFFFF") else android.graphics.Color.parseColor("#1A000000")
+
+            b.ivAvatarPreviewImage.clipToOutline = true
+            b.ivAvatarPreviewImage.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = radiusPx.toFloat()
+                setColor(android.graphics.Color.TRANSPARENT)
+            }
+        }
+
+        updateAvatarPreview(savedPercent)
+
+        b.sliderAvatarRadius.addOnChangeListener { _, value, fromUser ->
+            val percent = value.toInt()
+            sharedPrefs.edit().putInt("settings_avatar_radius_percent", percent).apply()
+            updateAvatarPreview(percent)
+            val currentTheme = sharedPrefs.getString("app_theme", "system") ?: "system"
+            updateThemeChatPreview(b, currentTheme)
+            if (fromUser) {
+                sendBroadcast(Intent("com.messenger.prime.AVATAR_RADIUS_CHANGED").setPackage(packageName))
+            }
+        }
+    }
+
     private fun applyThemeChange(newTheme: String) {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentTheme = sharedPrefs.getString("app_theme", "system")
@@ -2318,7 +2498,16 @@ class SettingsActivity : AppCompatActivity() {
                 else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
             }
             AppCompatDelegate.setDefaultNightMode(mode)
-            restartApp()
+            binding?.let { b ->
+                b.tvThemeSummary.text = when(newTheme) {
+                    "light" -> "Светлая"
+                    "dark" -> "Темная"
+                    else -> "Системная"
+                }
+                updateThemeChatPreview(b, newTheme)
+                setupSwatches(b)
+            }
+            sendBroadcast(Intent("com.messenger.prime.THEME_CHANGED").setPackage(packageName))
         }
         isThemeDialogVisible.value = false
     }

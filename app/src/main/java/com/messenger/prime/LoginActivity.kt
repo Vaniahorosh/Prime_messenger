@@ -11,6 +11,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -93,6 +94,18 @@ class LoginActivity : AppCompatActivity() {
 
         val sharedPreferences = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
 
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val b = binding
+                if (isRegistrationMode && b != null) {
+                    toggleMode(b)
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+
         setContent {
             val darkTheme = isSystemInDarkTheme()
             PrimeTheme(darkTheme = darkTheme) {
@@ -120,9 +133,18 @@ class LoginActivity : AppCompatActivity() {
 
                             // Setup TextSwitcher
                             b.tsTitle.setFactory {
-                                val textView = TextView(this@LoginActivity)
+                                val textView = OutlinedTextView(this@LoginActivity)
                                 textView.textSize = 26f
-                                textView.setTextColor(if (darkTheme) android.graphics.Color.parseColor("#F1F5F9") else android.graphics.Color.parseColor("#0F172A"))
+                                val density = resources.displayMetrics.density
+                                if (!darkTheme) {
+                                    textView.setTextColor(android.graphics.Color.WHITE)
+                                    textView.strokeColor = android.graphics.Color.BLACK
+                                    textView.strokeWidthPx = 3f * density
+                                    textView.isStrokeEnabled = true
+                                } else {
+                                    textView.setTextColor(android.graphics.Color.parseColor("#F1F5F9"))
+                                    textView.isStrokeEnabled = false
+                                }
                                 textView.setTypeface(null, android.graphics.Typeface.BOLD)
                                 textView.textAlignment = View.TEXT_ALIGNMENT_CENTER
                                 textView
@@ -134,11 +156,7 @@ class LoginActivity : AppCompatActivity() {
                             b.loginBlurCard.setupBlur(b.rootConstraint, 20f)
 
                             b.btnBack.setOnClickListener {
-                                if (isRegistrationMode) {
-                                    toggleMode(b)
-                                } else {
-                                    onBackPressedDispatcher.onBackPressed()
-                                }
+                                onBackPressedDispatcher.onBackPressed()
                             }
 
                             // Каскадная плавная анимация появления элементов
@@ -175,14 +193,16 @@ class LoginActivity : AppCompatActivity() {
                                     if (login.isNotEmpty() && sharedPreferences.contains(login)) {
                                         // Found user
                                         val name = sharedPreferences.getString("${login}_name", login) ?: login
-                                        b.tsTitle.setText("Это вы, $name?")
+                                        setTitleText(b, "Это вы, $name?")
                                         b.btnToggleMode.text = "Нет это не я"
                                         
-                                        b.llPasswordContainer.visibility = View.VISIBLE
-                                        b.llPasswordContainer.translationY = -50f
-                                        b.llPasswordContainer.alpha = 0f
-                                        b.llPasswordContainer.animate().translationY(0f).alpha(1f).setDuration(300L)
-                                            .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+                                        if (b.llPasswordContainer.visibility != View.VISIBLE) {
+                                            b.llPasswordContainer.visibility = View.VISIBLE
+                                            b.llPasswordContainer.translationY = -50f
+                                            b.llPasswordContainer.alpha = 0f
+                                            b.llPasswordContainer.animate().translationY(0f).alpha(1f).setDuration(300L)
+                                                .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+                                        }
                                             
                                         isPasswordState = true
                                         
@@ -196,7 +216,7 @@ class LoginActivity : AppCompatActivity() {
                                         }
                                     } else {
                                         // User not found
-                                        b.tsTitle.setText("Приветствуем!")
+                                        setTitleText(b, "Приветствуем!")
                                         b.btnToggleMode.text = "Регистрация"
                                         
                                         if (b.llPasswordContainer.visibility == View.VISIBLE) {
@@ -222,8 +242,38 @@ class LoginActivity : AppCompatActivity() {
                             b.etName.addTextChangedListener(textHideErrorWatcher)
                             b.etPassword.addTextChangedListener(textHideErrorWatcher)
 
-                            // Setup submit actions
-                            val editorActionListener = TextView.OnEditorActionListener { _, actionId, _ ->
+                            // Setup keyboard action for login field (Next key)
+                            b.etLogin.setOnEditorActionListener { _, actionId, _ ->
+                                if (actionId == EditorInfo.IME_ACTION_NEXT || actionId == EditorInfo.IME_ACTION_DONE) {
+                                    val login = b.etLogin.text?.toString()?.trim() ?: ""
+                                    if (login.isNotEmpty()) {
+                                        if (sharedPreferences.contains(login)) {
+                                            b.etPassword.requestFocus()
+                                            showKeyboard(b.etPassword)
+                                        } else {
+                                            if (!isRegistrationMode) {
+                                                toggleMode(b)
+                                            }
+                                            b.etName.requestFocus()
+                                            showKeyboard(b.etName)
+                                        }
+                                    } else {
+                                        showError(b, "Введите логин")
+                                    }
+                                    true
+                                } else false
+                            }
+
+                            b.etName.setOnEditorActionListener { _, actionId, _ ->
+                                if (actionId == EditorInfo.IME_ACTION_NEXT || actionId == EditorInfo.IME_ACTION_DONE) {
+                                    b.etPassword.requestFocus()
+                                    showKeyboard(b.etPassword)
+                                    true
+                                } else false
+                            }
+
+                            // Setup submit action for password field
+                            b.etPassword.setOnEditorActionListener { _, actionId, _ ->
                                 if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_NEXT) {
                                     if (isRegistrationMode) {
                                         b.btnRegisterSubmit.performClick()
@@ -233,8 +283,6 @@ class LoginActivity : AppCompatActivity() {
                                     true
                                 } else false
                             }
-
-                            b.etPassword.setOnEditorActionListener(editorActionListener)
                             
                             b.inputLayoutLogin.setEndIconOnClickListener {
                                 if (!isRegistrationMode) {
@@ -312,6 +360,13 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
+    private fun setTitleText(b: ActivityLoginContentBinding, newTitle: String) {
+        val currentText = (b.tsTitle.currentView as? TextView)?.text?.toString()
+        if (currentText != newTitle) {
+            b.tsTitle.setText(newTitle)
+        }
+    }
+
     private fun toggleMode(b: ActivityLoginContentBinding) {
         isRegistrationMode = !isRegistrationMode
         
@@ -321,7 +376,7 @@ class LoginActivity : AppCompatActivity() {
         TransitionManager.beginDelayedTransition(b.contentContainer, transition)
         
         if (isRegistrationMode) {
-            b.tsTitle.setText("Давайте создадим профиль!")
+            setTitleText(b, "Давайте создадим профиль!")
             b.tvSubtitle.visibility = View.GONE
             
             b.flLoginAvatar.visibility = View.GONE
@@ -539,24 +594,42 @@ class LoginActivity : AppCompatActivity() {
 
     private fun setupContrastColors(b: ActivityLoginContentBinding, darkTheme: Boolean) {
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val density = resources.displayMetrics.density
         val titleColor = if (darkTheme) android.graphics.Color.parseColor("#F1F5F9") else android.graphics.Color.parseColor("#0F172A")
         val subtitleColor = if (darkTheme) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
         val iconTint = if (darkTheme) android.graphics.Color.WHITE else android.graphics.Color.parseColor("#1E293B")
-        val hintColorList = android.content.res.ColorStateList.valueOf(if (darkTheme) android.graphics.Color.parseColor("#B0FFFFFF") else android.graphics.Color.parseColor("#64748B"))
+        val lightGrayColor = android.graphics.Color.parseColor("#94A3B8")
+        val hintColorList = android.content.res.ColorStateList.valueOf(lightGrayColor)
         val boxBgColor = if (darkTheme) android.graphics.Color.parseColor("#1AFFFFFF") else android.graphics.Color.parseColor("#10000000")
         val strokeColorList = android.content.res.ColorStateList.valueOf(if (darkTheme) android.graphics.Color.WHITE else accentColor)
 
-        b.tvTitle.setTextColor(titleColor)
+        if (!darkTheme) {
+            b.tvTitle.setTextColor(android.graphics.Color.WHITE)
+            b.tvTitle.strokeColor = android.graphics.Color.BLACK
+            b.tvTitle.strokeWidthPx = 3f * density
+            b.tvTitle.isStrokeEnabled = true
+        } else {
+            b.tvTitle.setTextColor(titleColor)
+        }
+
         b.tvSubtitle.setTextColor(subtitleColor)
         b.btnBack.setColorFilter(iconTint)
         
-        b.etLogin.setTextColor(titleColor)
-        b.etName.setTextColor(titleColor)
-        b.etPassword.setTextColor(titleColor)
+        b.etLogin.setTextColor(lightGrayColor)
+        b.etName.setTextColor(lightGrayColor)
+        b.etPassword.setTextColor(lightGrayColor)
+
+        b.etLogin.setHintTextColor(lightGrayColor)
+        b.etName.setHintTextColor(lightGrayColor)
+        b.etPassword.setHintTextColor(lightGrayColor)
         
         b.inputLayoutLogin.defaultHintTextColor = hintColorList
         b.inputLayoutName.defaultHintTextColor = hintColorList
         b.inputLayoutPassword.defaultHintTextColor = hintColorList
+
+        b.inputLayoutLogin.setHintTextColor(hintColorList)
+        b.inputLayoutName.setHintTextColor(hintColorList)
+        b.inputLayoutPassword.setHintTextColor(hintColorList)
 
         b.inputLayoutLogin.boxBackgroundColor = boxBgColor
         b.inputLayoutName.boxBackgroundColor = boxBgColor
@@ -568,10 +641,12 @@ class LoginActivity : AppCompatActivity() {
 
         b.inputLayoutPassword.setEndIconTintList(android.content.res.ColorStateList.valueOf(iconTint))
 
-        b.btnToggleMode.setTextColor(titleColor)
-        b.btnToggleMode.backgroundTintList = android.content.res.ColorStateList.valueOf(
-            if (darkTheme) android.graphics.Color.parseColor("#30FFFFFF") else android.graphics.Color.parseColor("#20000000")
-        )
+        b.btnToggleMode.setTextColor(android.graphics.Color.WHITE)
+        b.btnToggleMode.backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+
+        b.btnRegisterSubmit.setTextColor(android.graphics.Color.WHITE)
+        b.btnRegisterSubmit.backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+        b.btnRegisterSubmit.strokeColor = android.content.res.ColorStateList.valueOf(accentColor)
     }
 
     private fun hideKeyboard() {

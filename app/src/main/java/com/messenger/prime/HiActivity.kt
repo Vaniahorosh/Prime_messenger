@@ -166,7 +166,7 @@ class HiActivity : AppCompatActivity() {
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         binding.tvLicense.setTextColor(if (isDark) Color.WHITE else Color.parseColor("#64748B"))
         binding.btnExit.setColorFilter(if (isDark) Color.WHITE else Color.parseColor("#1E293B"))
-        binding.ivLogo.setColorFilter(ColorAccentManager.getCurrentAccentColor(this))
+        binding.ivLogo.setColorFilter(if (isDark) ColorAccentManager.getCurrentAccentColor(this) else Color.WHITE)
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -254,13 +254,32 @@ class HiActivity : AppCompatActivity() {
         // Применяем кастомный акцентный цвет ко всем элементам (иконкам, кнопкам) внутри диалога
         ColorAccentManager.tintViewTree(dialogView, ColorAccentManager.getCurrentAccentColor(this))
 
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+
+        if (!isDark) {
+            // В светлой теме переводим весь текст в окне выбора разрешений в фирменный цвет
+            fun applyBrandTextColor(view: View) {
+                if (view is ViewGroup) {
+                    for (i in 0 until view.childCount) {
+                        applyBrandTextColor(view.getChildAt(i))
+                    }
+                }
+                if (view is TextView && view !is MaterialButton) {
+                    view.setTextColor(accentColor)
+                }
+            }
+            applyBrandTextColor(dialogView)
+
+            btnContinueWithout?.setTextColor(accentColor)
+            btnContinueWithout?.strokeColor = ColorStateList.valueOf(accentColor)
+        }
+
         if (blurCard != null) {
             val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content)
                 ?: window.decorView as ViewGroup
-            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
             
             // Используем акцентный цвет для блюра с прозрачностью ~27% (45 в HEX), если светлая тема
-            val accentColor = ColorAccentManager.getCurrentAccentColor(this)
             val translucentAccent = (accentColor and 0x00FFFFFF) or 0x45000000
             
             val overlayColor = if (isDark) Color.parseColor("#450F172A") else translucentAccent
@@ -402,17 +421,25 @@ class HiActivity : AppCompatActivity() {
 
     private fun setupTextSwitcher() {
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val generalTextColor = if (isDark) Color.WHITE else Color.parseColor("#1E293B")
         
         // Use user-selected accent color instead of hardcoded "#154B87", maintaining readability for dark themes
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
         val buttonTextColor = if (isDark) Color.WHITE else accentColor
+        val density = resources.displayMetrics.density
 
         binding.textSwitcherSlogan.setFactory {
-            TextView(this).apply {
+            OutlinedTextView(this).apply {
                 gravity = Gravity.CENTER
                 textSize = 20f
-                setTextColor(generalTextColor)
+                if (!isDark) {
+                    setTextColor(Color.WHITE)
+                    strokeColor = Color.BLACK
+                    strokeWidthPx = 4f * density
+                    isStrokeEnabled = true
+                } else {
+                    setTextColor(Color.WHITE)
+                    isStrokeEnabled = false
+                }
                 setTypeface(null, Typeface.BOLD)
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
@@ -460,6 +487,8 @@ class HiActivity : AppCompatActivity() {
         LavaBackgroundState.onActivityResumed()
         if (::binding.isInitialized) {
             ColorAccentManager.tintViewTree(binding.root, ColorAccentManager.getCurrentAccentColor(this))
+            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            binding.ivLogo.setColorFilter(if (isDark) ColorAccentManager.getCurrentAccentColor(this) else Color.WHITE)
             
             allViews.forEach { view ->
                 view.animate().cancel()

@@ -33,6 +33,55 @@ public class ChatHistoryManager {
     private static final String PREF_NAME = "PrimeChatHistory";
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
 
+    public static String getCurrentUser(Context context) {
+        if (context == null) return "";
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        return sp.getString("current_user", "");
+    }
+
+    public static String getPersistedChatsKey(Context context) {
+        if (context == null) return "persisted_chats";
+        String user = getCurrentUser(context);
+        return (user != null && !user.trim().isEmpty()) ? ("persisted_chats_" + user.trim()) : "persisted_chats";
+    }
+
+    public static String getPersistedChatsJson(Context context) {
+        if (context == null) return "[]";
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        String userKey = getPersistedChatsKey(context);
+        String json = sp.getString(userKey, null);
+        if ((json == null || json.trim().isEmpty() || "[]".equals(json.trim())) && !userKey.equals("persisted_chats")) {
+            String legacy = sp.getString("persisted_chats", "[]");
+            if (legacy != null && !legacy.trim().isEmpty() && !"[]".equals(legacy.trim())) {
+                json = legacy;
+                sp.edit().putString(userKey, legacy).apply();
+            }
+        }
+        return (json != null && !json.trim().isEmpty()) ? json : "[]";
+    }
+
+    public static synchronized void savePersistedChatsJson(Context context, String jsonStr) {
+        if (context == null || jsonStr == null) return;
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        String userKey = getPersistedChatsKey(context);
+        SharedPreferences.Editor editor = sp.edit();
+        editor.putString(userKey, jsonStr);
+        if (!userKey.equals("persisted_chats")) {
+            editor.putString("persisted_chats", jsonStr);
+        }
+        editor.apply();
+    }
+
+    public static String getHistoryStorageKey(Context context, String nameOrAddress) {
+        if (context == null || nameOrAddress == null || nameOrAddress.trim().isEmpty()) return "";
+        String baseKey = getStorageKey(context, nameOrAddress);
+        String user = getCurrentUser(context);
+        if (user != null && !user.trim().isEmpty()) {
+            return user.trim() + "_" + baseKey;
+        }
+        return baseKey;
+    }
+
     public static File saveBytesToAtomicFile(Context context, String fileName, byte[] bytes) {
         if (context == null || fileName == null || bytes == null || bytes.length == 0) return null;
         try {
@@ -152,7 +201,7 @@ public class ChatHistoryManager {
             }
 
             try {
-                String json = localDb.getString("persisted_chats", "[]");
+                String json = getPersistedChatsJson(appContext);
                 JSONArray array = new JSONArray(json);
                 JSONArray newArray = new JSONArray();
                 for (int i = 0; i < array.length(); i++) {
@@ -168,7 +217,7 @@ public class ChatHistoryManager {
                         newArray.put(obj);
                     }
                 }
-                dbEdit.putString("persisted_chats", newArray.toString());
+                savePersistedChatsJson(appContext, newArray.toString());
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -416,7 +465,8 @@ public class ChatHistoryManager {
         if (context == null || targetUsername == null || targetUsername.isEmpty()) return;
         try {
             SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-            String json = sp.getString("persisted_chats", "[]");
+            String userKey = getPersistedChatsKey(context);
+            String json = getPersistedChatsJson(context);
             JSONArray array = new JSONArray(json);
             JSONArray newArray = new JSONArray();
             boolean updated = false;
@@ -434,7 +484,7 @@ public class ChatHistoryManager {
             }
 
             if (updated) {
-                sp.edit().putString("persisted_chats", newArray.toString()).apply();
+                sp.edit().putString(userKey, newArray.toString()).apply();
             }
         } catch (Exception e) {
             Log.e("ChatHistoryManager", "Failed to clear unread count in persisted_chats", e);
@@ -483,7 +533,7 @@ public class ChatHistoryManager {
                 return mappedName.trim();
             }
             try {
-                String json = sp.getString("persisted_chats", "[]");
+                String json = getPersistedChatsJson(context);
                 JSONArray array = new JSONArray(json);
                 for (int i = 0; i < array.length(); i++) {
                     JSONObject obj = array.getJSONObject(i);
@@ -520,21 +570,22 @@ public class ChatHistoryManager {
     public static boolean hasHistory(Context context, String targetUsername) {
         if (context == null || targetUsername == null || targetUsername.isEmpty()) return false;
 
-        String key = getStorageKey(context, targetUsername);
+        String userKey = getHistoryStorageKey(context, targetUsername);
+        String baseKey = getStorageKey(context, targetUsername);
         
-        File file = new File(context.getFilesDir(), "history_" + key + ".json");
+        File file = new File(context.getFilesDir(), "history_" + userKey + ".json");
         if (file.exists() && file.length() > 2) return true;
         
-        if (!key.equalsIgnoreCase(targetUsername)) {
-            File altFile = new File(context.getFilesDir(), "history_" + targetUsername + ".json");
+        if (!userKey.equalsIgnoreCase(baseKey)) {
+            File altFile = new File(context.getFilesDir(), "history_" + baseKey + ".json");
             if (altFile.exists() && altFile.length() > 2) return true;
         }
 
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        String json = prefs.getString("history_" + key, null);
+        String json = prefs.getString("history_" + userKey, null);
 
-        if ((json == null || json.isEmpty()) && !key.equalsIgnoreCase(targetUsername)) {
-            json = prefs.getString("history_" + targetUsername, null);
+        if ((json == null || json.isEmpty()) && !userKey.equalsIgnoreCase(baseKey)) {
+            json = prefs.getString("history_" + baseKey, null);
         }
 
         return json != null && json.length() > 2;
@@ -544,10 +595,11 @@ public class ChatHistoryManager {
         List<ChatMessage> list = new ArrayList<>();
         if (context == null || targetUsername == null || targetUsername.isEmpty()) return list;
 
-        String key = getStorageKey(context, targetUsername);
+        String userKey = getHistoryStorageKey(context, targetUsername);
+        String baseKey = getStorageKey(context, targetUsername);
         String json = null;
         
-        File file = new File(context.getFilesDir(), "history_" + key + ".json");
+        File file = new File(context.getFilesDir(), "history_" + userKey + ".json");
         if (file.exists()) {
             try {
                 android.util.AtomicFile atomicFile = new android.util.AtomicFile(file);
@@ -557,8 +609,8 @@ public class ChatHistoryManager {
             }
         }
         
-        if ((json == null || json.isEmpty()) && !key.equalsIgnoreCase(targetUsername)) {
-            File altFile = new File(context.getFilesDir(), "history_" + targetUsername + ".json");
+        if ((json == null || json.isEmpty()) && !userKey.equalsIgnoreCase(baseKey)) {
+            File altFile = new File(context.getFilesDir(), "history_" + baseKey + ".json");
             if (altFile.exists()) {
                 try {
                     android.util.AtomicFile atomicFile = new android.util.AtomicFile(altFile);
@@ -571,10 +623,10 @@ public class ChatHistoryManager {
 
         if (json == null || json.isEmpty()) {
             SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-            json = prefs.getString("history_" + key, null);
+            json = prefs.getString("history_" + userKey, null);
 
-            if ((json == null || json.isEmpty()) && !key.equalsIgnoreCase(targetUsername)) {
-                json = prefs.getString("history_" + targetUsername, null);
+            if ((json == null || json.isEmpty()) && !userKey.equalsIgnoreCase(baseKey)) {
+                json = prefs.getString("history_" + baseKey, null);
             }
         }
 
@@ -671,7 +723,8 @@ public class ChatHistoryManager {
 
     public static void saveHistoryList(Context context, String targetUsername, List<ChatMessage> history) {
         if (context == null || targetUsername == null || targetUsername.isEmpty()) return;
-        String key = getStorageKey(context, targetUsername);
+        String userKey = getHistoryStorageKey(context, targetUsername);
+        String baseKey = getStorageKey(context, targetUsername);
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         JSONArray array = new JSONArray();
         try {
@@ -705,10 +758,13 @@ public class ChatHistoryManager {
             }
             
             String jsonStr = array.toString();
-            saveBytesToAtomicFile(context, "history_" + key + ".json", jsonStr.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            saveBytesToAtomicFile(context, "history_" + userKey + ".json", jsonStr.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             
-            if (prefs.contains("history_" + key)) {
-                prefs.edit().remove("history_" + key).apply();
+            if (prefs.contains("history_" + userKey)) {
+                prefs.edit().remove("history_" + userKey).apply();
+            }
+            if (!userKey.equalsIgnoreCase(baseKey) && prefs.contains("history_" + baseKey)) {
+                prefs.edit().remove("history_" + baseKey).apply();
             }
         } catch (Exception e) {
             Log.e("ChatHistoryManager", "Failed to save history to file", e);

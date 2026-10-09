@@ -20,7 +20,15 @@ object AvatarHistoryManager {
 
     fun getMyAvatarHistory(context: Context): List<String> {
         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val json = sharedPrefs.getString("my_avatar_history", "[]") ?: "[]"
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val historyKey = if (currentUser.isNotEmpty()) "my_avatar_history_$currentUser" else "my_avatar_history"
+        
+        var json = sharedPrefs.getString(historyKey, null)
+        if (json == null && currentUser.isNotEmpty()) {
+            json = sharedPrefs.getString("my_avatar_history", "[]")
+        }
+        if (json == null) json = "[]"
+
         val list = mutableListOf<String>()
         try {
             val array = JSONArray(json)
@@ -39,7 +47,8 @@ object AvatarHistoryManager {
 
         // Fallback to legacy single avatar if history is empty
         if (list.isEmpty()) {
-            val legacy = sharedPrefs.getString("my_avatar", null)
+            val legacy = (if (currentUser.isNotEmpty()) sharedPrefs.getString("${currentUser}_avatar", null) else null)
+                ?: sharedPrefs.getString("my_avatar", null)
                 ?: sharedPrefs.getString("my_local_avatar", null)
                 ?: sharedPrefs.getString("my_avatar_uri", null)
             if (!legacy.isNullOrBlank()) {
@@ -47,12 +56,6 @@ object AvatarHistoryManager {
                 if (legacyFile == null || legacyFile.exists()) {
                     list.add(legacy)
                     saveMyAvatarHistory(context, list)
-                } else {
-                    sharedPrefs.edit()
-                        .remove("my_avatar")
-                        .remove("my_local_avatar")
-                        .remove("my_avatar_uri")
-                        .apply()
                 }
             }
         }
@@ -62,11 +65,12 @@ object AvatarHistoryManager {
     fun saveMyAvatarHistory(context: Context, history: List<String>) {
         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val historyKey = if (currentUser.isNotEmpty()) "my_avatar_history_$currentUser" else "my_avatar_history"
         val array = JSONArray()
         history.forEach { array.put(it) }
 
         val editor = sharedPrefs.edit()
-            .putString("my_avatar_history", array.toString())
+            .putString(historyKey, array.toString())
 
         if (history.isNotEmpty()) {
             val active = history.first()
@@ -116,7 +120,13 @@ object AvatarHistoryManager {
 
         if (isLocal || isGeneric) return emptyList()
 
-        val json = sharedPrefs.getString("contact_avatar_history_$addressOrName", "[]") ?: "[]"
+        val historyKey = if (currentUser.isNotEmpty()) "contact_avatar_history_${currentUser}_$addressOrName" else "contact_avatar_history_$addressOrName"
+        var json = sharedPrefs.getString(historyKey, null)
+        if (json == null && currentUser.isNotEmpty()) {
+            json = sharedPrefs.getString("contact_avatar_history_$addressOrName", "[]")
+        }
+        if (json == null) json = "[]"
+
         val list = mutableListOf<String>()
         try {
             val array = JSONArray(json)
@@ -134,7 +144,8 @@ object AvatarHistoryManager {
         } catch (_: Exception) {}
 
         if (list.isEmpty()) {
-            val legacy = sharedPrefs.getString("contact_avatar_$addressOrName", null)
+            val legacy = (if (currentUser.isNotEmpty()) sharedPrefs.getString("contact_avatar_${currentUser}_$addressOrName", null) else null)
+                ?: sharedPrefs.getString("contact_avatar_$addressOrName", null)
                 ?: sharedPrefs.getString("${addressOrName}_avatar", null)
                 ?: sharedPrefs.getString("${addressOrName}_avatarUri", null)
             if (!legacy.isNullOrBlank()) {
@@ -142,22 +153,20 @@ object AvatarHistoryManager {
                 if (legacyFile == null || legacyFile.exists()) {
                     list.add(legacy)
                     saveContactAvatarHistory(context, addressOrName, list)
-                } else {
-                    sharedPrefs.edit()
-                        .remove("contact_avatar_$addressOrName")
-                        .remove("${addressOrName}_avatar")
-                        .remove("${addressOrName}_avatarUri")
-                        .apply()
                 }
             }
         }
 
         if (list.isEmpty()) {
-            val candidates = arrayOf(
-                File(context.filesDir, "rec_avatar_$addressOrName.gif"),
-                File(context.filesDir, "rec_avatar_$addressOrName.jpg")
-            )
-            for (f in candidates) {
+            val fileCandidates = mutableListOf<File>()
+            if (currentUser.isNotEmpty()) {
+                fileCandidates.add(File(context.filesDir, "rec_avatar_${currentUser}_$addressOrName.gif"))
+                fileCandidates.add(File(context.filesDir, "rec_avatar_${currentUser}_$addressOrName.jpg"))
+            }
+            fileCandidates.add(File(context.filesDir, "rec_avatar_$addressOrName.gif"))
+            fileCandidates.add(File(context.filesDir, "rec_avatar_$addressOrName.jpg"))
+
+            for (f in fileCandidates) {
                 if (f.exists() && f.length() > 0) {
                     val uriStr = Uri.fromFile(f).toString()
                     list.add(uriStr)
@@ -186,11 +195,14 @@ object AvatarHistoryManager {
         val array = JSONArray()
         history.forEach { array.put(it) }
 
-        val editor = sharedPrefs.edit()
-            .putString("contact_avatar_history_$addressOrName", array.toString())
+        val historyKey = if (currentUser.isNotEmpty()) "contact_avatar_history_${currentUser}_$addressOrName" else "contact_avatar_history_$addressOrName"
+        val editor = sharedPrefs.edit().putString(historyKey, array.toString())
 
         if (history.isNotEmpty()) {
             val active = history.first()
+            if (currentUser.isNotEmpty()) {
+                editor.putString("contact_avatar_${currentUser}_$addressOrName", active)
+            }
             editor.putString("contact_avatar_$addressOrName", active)
                 .putString("${addressOrName}_avatar", active)
             editor.apply()

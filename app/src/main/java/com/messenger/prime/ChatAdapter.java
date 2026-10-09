@@ -1722,6 +1722,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
 
         void bind(ChatMessage message, boolean showDateHeader, OnMessageLongClickListener listener, int position) {
+            if (layoutIncomingBubble != null) {
+                layoutIncomingBubble.setBackground(ColorAccentManager.createIncomingBubbleDrawable(itemView.getContext()));
+            }
+
             View layoutUnreadHeader = itemView.findViewById(R.id.layoutUnreadHeader);
             if (layoutUnreadHeader != null) {
                 layoutUnreadHeader.setVisibility(message.isFirstUnread() ? View.VISIBLE : View.GONE);

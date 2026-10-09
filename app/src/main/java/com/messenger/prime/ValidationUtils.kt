@@ -44,23 +44,24 @@ object ValidationUtils {
     }
 
     /**
-     * Валидация отображаемого имени пользователя.
+     * Валидация отображаемого имени пользователя (до 32 символов).
      */
     fun validateName(name: String): String? {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return "Имя не может быть пустым. Как к вам обращаться?"
         if (trimmed.length < 2) return "Имя должно содержать минимум 2 символа."
-        if (trimmed.length > 30) return "Имя слишком длинное (максимум 30 символов)."
+        if (trimmed.length > 32) return "Имя слишком длинное (максимум 32 символа)."
         if (isRestricted(trimmed)) return "Это имя защищено системой. Выберите другое."
         return null
     }
 
     /**
-     * Валидация пароля
+     * Валидация пароля (от 8 до 32 символов).
      */
     fun validatePassword(password: String): String? {
         if (password.isEmpty()) return "Пароль не может быть пустым."
         if (password.length < 8) return "Пароль слишком короткий (минимум 8 символов). Для безопасности используйте более длинный пароль."
+        if (password.length > 32) return "Пароль слишком длинный (максимум 32 символа)."
         return null
     }
 

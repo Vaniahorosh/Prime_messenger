@@ -224,28 +224,69 @@ object ColorAccentManager {
 
     @JvmStatic
     fun isBrandColor(colorInt: Int): Boolean {
-        return colorInt == Color.parseColor("#154B87") ||
-               colorInt == Color.parseColor("#4D9FFF") ||
-               colorInt == Color.parseColor("#CC154B87") ||
-               colorInt == Color.parseColor("#CC4D9FFF") ||
-               colorInt == Color.parseColor("#154A86") ||
-               colorInt == Color.parseColor("#007BFF") || // Встречается в LoginActivity
-               colorInt == Color.parseColor("#38BDF8")    // Встречается в иконках диалогов
+        if (colorInt == 0) return false
+        val isBrandHex = colorInt == Color.parseColor("#154B87") ||
+                        colorInt == Color.parseColor("#4D9FFF") ||
+                        colorInt == Color.parseColor("#CC154B87") ||
+                        colorInt == Color.parseColor("#CC4D9FFF") ||
+                        colorInt == Color.parseColor("#154A86") ||
+                        colorInt == Color.parseColor("#007BFF") ||
+                        colorInt == Color.parseColor("#38BDF8")
+        if (isBrandHex) return true
+
+        return PRESET_COLORS.any { it.lightColor == colorInt || it.darkColor == colorInt }
+    }
+
+    @JvmStatic
+    fun getBubbleCornerRadiusPx(context: Context): Float {
+        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val percent = sp.getInt("settings_bubble_radius_percent", 50)
+        val density = context.resources.displayMetrics.density
+        val minDp = 4f
+        val maxDp = 28f
+        val dp = minDp + (maxDp - minDp) * (percent / 100f)
+        return dp * density
+    }
+
+    @JvmStatic
+    fun createIncomingBubbleDrawable(context: Context): GradientDrawable {
+        val radiusPx = getBubbleCornerRadiusPx(context)
+        val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val density = context.resources.displayMetrics.density
+        val tailRadius = 4 * density
+        val radii = floatArrayOf(
+            radiusPx, radiusPx,
+            radiusPx, radiusPx,
+            radiusPx, radiusPx,
+            tailRadius, tailRadius
+        )
+
+        val bgCol = if (isDark) Color.parseColor("#263343") else Color.WHITE
+        val strokeCol = if (isDark) Color.parseColor("#3A4A5B") else Color.parseColor("#E2E8F0")
+
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadii = radii
+            setColor(bgCol)
+            setStroke((0.5f * density).toInt(), strokeCol)
+        }
     }
 
     @JvmStatic
     fun createOutgoingBubbleDrawable(context: Context): GradientDrawable {
+        val radiusPx = getBubbleCornerRadiusPx(context)
         val accentColor = getCurrentAccentColor(context)
         val hsv = FloatArray(3)
         Color.colorToHSV(accentColor, hsv)
         hsv[2] = (hsv[2] * 1.15f).coerceAtMost(1.0f)
 
         val density = context.resources.displayMetrics.density
+        val tailRadius = 4 * density
         val radii = floatArrayOf(
-            20 * density, 20 * density,
-            20 * density, 20 * density,
-            4 * density, 4 * density,
-            20 * density, 20 * density
+            radiusPx, radiusPx,
+            radiusPx, radiusPx,
+            tailRadius, tailRadius,
+            radiusPx, radiusPx
         )
 
         return GradientDrawable(

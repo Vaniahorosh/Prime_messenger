@@ -82,12 +82,12 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
     private fun resetUnreadCountAndUpdateLastMessage(context: Context, senderName: String, deviceAddr: String, lastMsg: String?) {
         try {
-            val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-            val json = sharedPrefs.getString("persisted_chats", "[]") ?: "[]"
+            val json = ChatHistoryManager.getPersistedChatsJson(context)
             val array = JSONArray(json)
             val newArray = JSONArray()
 
-            val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+            val nowTs = System.currentTimeMillis()
+            val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(nowTs))
 
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
@@ -98,6 +98,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     if (lastMsg != null) {
                         obj.put("lastMessage", lastMsg)
                         obj.put("time", timeStr)
+                        obj.put("timestamp", nowTs)
                         obj.put("messageStatus", "SENT")
                     }
                     obj.put("unreadCount", 0)
@@ -105,7 +106,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 newArray.put(obj)
             }
 
-            sharedPrefs.edit().putString("persisted_chats", newArray.toString()).apply()
+            ChatHistoryManager.savePersistedChatsJson(context, newArray.toString())
             ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate)
         } catch (_: Exception) {}
     }
