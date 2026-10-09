@@ -60,7 +60,13 @@ object UpdateChecker {
                     val remoteVersion = tagName.replace("v", "").replace("V", "").trim()
                     val localVersion = currentVersion.replace("v", "").replace("V", "").trim()
 
+                    val sp = activity.getSharedPreferences("PrimeLocalDB", Activity.MODE_PRIVATE)
+                    val ignoredVersion = sp.getString("ignored_update_version", "")
+
                     if (isNewerVersion(localVersion, remoteVersion)) {
+                        if (!manualCheck && ignoredVersion == remoteVersion) {
+                            return@thread
+                        }
                         Handler(Looper.getMainLooper()).post {
                             showUpdateDialog(activity, remoteVersion, releaseNotes, releaseUrl, apkDownloadUrl)
                         }
@@ -112,18 +118,92 @@ object UpdateChecker {
     ) {
         if (activity.isFinishing || activity.isDestroyed) return
 
-        PrimeBlurDialog.show(
-            activity = activity,
-            title = "Доступно обновление $version!",
-            message = "Вышла новая версия приложения с новыми функциями и исправлениями.\n\nЧто нового:\n$notes",
-            positiveText = "Скачать",
-            negativeText = "Позже",
-            iconRes = R.drawable.ic_download,
-            onPositive = {
+        val isDark = (activity.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val accentColor = ColorAccentManager.getCurrentAccentColor(activity)
+
+        val container = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val maxScrollHeight = (activity.resources.displayMetrics.heightPixels * 0.32).toInt()
+        val scrollView = androidx.core.widget.NestedScrollView(activity).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            isNestedScrollingEnabled = true
+            overScrollMode = android.view.View.OVER_SCROLL_IF_CONTENT_SCROLLS
+        }
+
+        val scrollContent = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 0, 0, 10)
+        }
+
+        val tvIntro = TextView(activity).apply {
+            text = "Вышла новая версия приложения с новыми функциями и исправлениями."
+            setTextColor(if (isDark) android.graphics.Color.parseColor("#CBD5E1") else android.graphics.Color.parseColor("#334155"))
+            textSize = 14f
+            setPadding(0, 0, 0, 12)
+        }
+
+        val tvNotesHeader = TextView(activity).apply {
+            text = "Что нового в $version:"
+            setTextColor(if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK)
+            textSize = 14f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setPadding(0, 4, 0, 8)
+        }
+
+        val tvNotesBody = TextView(activity).apply {
+            text = notes.trim().ifEmpty { "Доступна новая версия!" }
+            setTextColor(if (isDark) android.graphics.Color.parseColor("#E2E8F0") else android.graphics.Color.parseColor("#1E293B"))
+            textSize = 13.5f
+            setLineSpacing(2f, 1.2f)
+        }
+
+        scrollContent.addView(tvIntro)
+        scrollContent.addView(tvNotesHeader)
+        scrollContent.addView(tvNotesBody)
+        scrollView.addView(scrollContent)
+
+        scrollView.post {
+            if (scrollView.height > maxScrollHeight) {
+                val params = scrollView.layoutParams
+                params.height = maxScrollHeight
+                scrollView.layoutParams = params
+            }
+        }
+
+        container.addView(scrollView)
+
+        var alertDialog: AlertDialog? = null
+
+        val btnDownload = com.google.android.material.button.MaterialButton(activity).apply {
+            text = "Скачать"
+            cornerRadius = (16 * activity.resources.displayMetrics.density).toInt()
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (48 * activity.resources.displayMetrics.density).toInt()
+            ).apply {
+                topMargin = (16 * activity.resources.displayMetrics.density).toInt()
+            }
+            if (isDark) {
+                backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
+                setTextColor(accentColor)
+            } else {
+                backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+                setTextColor(android.graphics.Color.WHITE)
+            }
+            setOnClickListener {
+                alertDialog?.dismiss()
                 if (apkUrl != null) {
                     downloadAndInstallApk(activity, apkUrl)
                 } else {
-                    // Fallback to browser if no APK asset was found
                     try {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(releaseUrl))
                         activity.startActivity(intent)
@@ -132,6 +212,70 @@ object UpdateChecker {
                     }
                 }
             }
+        }
+
+        val secondaryRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = (8 * activity.resources.displayMetrics.density).toInt()
+            }
+        }
+
+        val btnLater = com.google.android.material.button.MaterialButton(
+            activity, null, android.R.attr.borderlessButtonStyle
+        ).apply {
+            text = "Позже"
+            textSize = 13f
+            setTextColor(if (isDark) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B"))
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                (44 * activity.resources.displayMetrics.density).toInt(),
+                1f
+            ).apply {
+                marginEnd = (4 * activity.resources.displayMetrics.density).toInt()
+            }
+            setOnClickListener {
+                alertDialog?.dismiss()
+            }
+        }
+
+        val btnIgnore = com.google.android.material.button.MaterialButton(
+            activity, null, android.R.attr.borderlessButtonStyle
+        ).apply {
+            text = "Больше не показывать"
+            textSize = 12f
+            setTextColor(if (isDark) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B"))
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                (44 * activity.resources.displayMetrics.density).toInt(),
+                1.3f
+            ).apply {
+                marginStart = (4 * activity.resources.displayMetrics.density).toInt()
+            }
+            setOnClickListener {
+                val sp = activity.getSharedPreferences("PrimeLocalDB", Activity.MODE_PRIVATE)
+                sp.edit().putString("ignored_update_version", version).apply()
+                PrimeNotification.show(activity, "Обновление $version скрыто")
+                alertDialog?.dismiss()
+            }
+        }
+
+        secondaryRow.addView(btnLater)
+        secondaryRow.addView(btnIgnore)
+
+        container.addView(btnDownload)
+        container.addView(secondaryRow)
+
+        alertDialog = PrimeBlurDialog.show(
+            activity = activity,
+            title = "Доступно обновление $version!",
+            customView = container,
+            positiveText = "",
+            negativeText = null,
+            iconRes = R.drawable.ic_download
         )
     }
 

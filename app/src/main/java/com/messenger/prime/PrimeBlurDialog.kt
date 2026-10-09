@@ -87,22 +87,6 @@ object PrimeBlurDialog {
             customContainer.visibility = View.GONE
         }
 
-        btnPositive.text = positiveText
-        if (isPositiveDanger) {
-            btnPositive.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(activity, R.color.prime_danger))
-            btnPositive.setTextColor(Color.WHITE)
-        } else {
-            val isDark = (activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            val accentColor = ColorAccentManager.getCurrentAccentColor(activity)
-            if (isDark) {
-                btnPositive.backgroundTintList = ColorStateList.valueOf(Color.WHITE)
-                btnPositive.setTextColor(accentColor)
-            } else {
-                btnPositive.backgroundTintList = ColorStateList.valueOf(accentColor)
-                btnPositive.setTextColor(Color.WHITE)
-            }
-        }
-
         val dialog = AlertDialog.Builder(activity)
             .setView(dialogView)
             .create()
@@ -119,9 +103,29 @@ object PrimeBlurDialog {
             } catch (_: Throwable) {}
         }
 
-        btnPositive.setOnClickListener {
-            dialog.dismiss()
-            onPositive?.invoke()
+        if (positiveText.isNotEmpty()) {
+            btnPositive.text = positiveText
+            btnPositive.visibility = View.VISIBLE
+            if (isPositiveDanger) {
+                btnPositive.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(activity, R.color.prime_danger))
+                btnPositive.setTextColor(Color.WHITE)
+            } else {
+                val isDark = (activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+                val accentColor = ColorAccentManager.getCurrentAccentColor(activity)
+                if (isDark) {
+                    btnPositive.backgroundTintList = ColorStateList.valueOf(Color.WHITE)
+                    btnPositive.setTextColor(accentColor)
+                } else {
+                    btnPositive.backgroundTintList = ColorStateList.valueOf(accentColor)
+                    btnPositive.setTextColor(Color.WHITE)
+                }
+            }
+            btnPositive.setOnClickListener {
+                dialog.dismiss()
+                onPositive?.invoke()
+            }
+        } else {
+            btnPositive.visibility = View.GONE
         }
 
         if (negativeText != null) {
@@ -134,6 +138,8 @@ object PrimeBlurDialog {
         } else {
             btnNegative.visibility = View.GONE
         }
+
+        (btnPositive.parent as? View)?.visibility = if (positiveText.isNotEmpty() || negativeText != null) View.VISIBLE else View.GONE
 
         // Инновационная пружинная анимация появления BlurCard
         if (blurCard != null) {
