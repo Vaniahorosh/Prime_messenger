@@ -204,6 +204,17 @@ object UpdateChecker {
 
     private fun installApk(activity: Activity, apkFile: File) {
         try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                if (!activity.packageManager.canRequestPackageInstalls()) {
+                    val settingsIntent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                        data = Uri.parse("package:${activity.packageName}")
+                    }
+                    activity.startActivity(settingsIntent)
+                    PrimeNotification.show(activity, "Разрешите установку неизвестных приложений")
+                    return
+                }
+            }
+
             val intent = Intent(Intent.ACTION_VIEW)
             val apkUri = FileProvider.getUriForFile(
                 activity,
@@ -211,10 +222,19 @@ object UpdateChecker {
                 apkFile
             )
             intent.setDataAndType(apkUri, "application/vnd.android.package-archive")
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+            val resInfoList = activity.packageManager.queryIntentActivities(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            for (resolveInfo in resInfoList) {
+                val packageName = resolveInfo.activityInfo.packageName
+                activity.grantUriPermission(packageName, apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
             activity.startActivity(intent)
         } catch (e: Exception) {
             e.printStackTrace()
+            PrimeNotification.show(activity, "Ошибка запуска установки APK")
         }
     }
 
