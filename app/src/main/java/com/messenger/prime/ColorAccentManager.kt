@@ -23,6 +23,15 @@ object ColorAccentManager {
     const val ACCENT_TYPE_SYSTEM = "system"
     const val ACCENT_TYPE_CUSTOM = "custom"
 
+    @Volatile private var cachedAccentType: String? = null
+    @Volatile private var cachedAccentColor: Int? = null
+
+    @JvmStatic
+    fun clearCache() {
+        cachedAccentType = null
+        cachedAccentColor = null
+    }
+
     val PRESET_COLORS = listOf(
         PresetColor("Фирменный", 0xFF154B87.toInt(), 0xFF4D9FFF.toInt(), 0),
         PresetColor("Изумрудный", 0xFF00897B.toInt(), 0xFF26A69A.toInt(), R.style.ThemeOverlay_Prime_Emerald),
@@ -42,16 +51,20 @@ object ColorAccentManager {
 
     @JvmStatic
     fun getAccentType(context: Context): String {
+        cachedAccentType?.let { return it }
         val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        return sp.getString("accent_type", ACCENT_TYPE_DEFAULT) ?: ACCENT_TYPE_DEFAULT
+        val type = sp.getString("accent_type", ACCENT_TYPE_DEFAULT) ?: ACCENT_TYPE_DEFAULT
+        cachedAccentType = type
+        return type
     }
 
     @JvmStatic
     fun getCurrentAccentColor(context: Context): Int {
+        cachedAccentColor?.let { return it }
         val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val type = sp.getString("accent_type", ACCENT_TYPE_DEFAULT) ?: ACCENT_TYPE_DEFAULT
 
-        return when (type) {
+        val color = when (type) {
             ACCENT_TYPE_SYSTEM -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     try {
@@ -68,6 +81,8 @@ object ColorAccentManager {
             }
             else -> getDefaultColor(context)
         }
+        cachedAccentColor = color
+        return color
     }
 
     @JvmStatic
@@ -100,6 +115,7 @@ object ColorAccentManager {
 
     @JvmStatic
     fun setAccentDefault(context: Context) {
+        clearCache()
         val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         sp.edit()
             .putString("accent_type", ACCENT_TYPE_DEFAULT)
@@ -109,6 +125,7 @@ object ColorAccentManager {
 
     @JvmStatic
     fun setAccentSystem(context: Context) {
+        clearCache()
         val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         sp.edit()
             .putString("accent_type", ACCENT_TYPE_SYSTEM)
@@ -125,6 +142,7 @@ object ColorAccentManager {
 
     @JvmStatic
     fun setAccentCustom(context: Context, colorInt: Int) {
+        clearCache()
         val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         sp.edit()
             .putString("accent_type", ACCENT_TYPE_CUSTOM)

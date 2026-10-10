@@ -25,17 +25,17 @@ class OutlinedTextView @JvmOverloads constructor(
             val originalTextColor = currentTextColor
             val p = paint
 
-            // 1. Draw outline stroke
+            // 1. Draw outline stroke without calling setTextColor to avoid re-invalidation
             p.style = Paint.Style.STROKE
             p.strokeWidth = strokeWidthPx
             p.strokeJoin = Paint.Join.ROUND
             p.strokeCap = Paint.Cap.ROUND
-            setTextColor(strokeColor)
+            p.color = strokeColor
             super.onDraw(canvas)
 
             // 2. Draw text fill on top
             p.style = Paint.Style.FILL
-            setTextColor(originalTextColor)
+            p.color = originalTextColor
             super.onDraw(canvas)
         } else {
             super.onDraw(canvas)

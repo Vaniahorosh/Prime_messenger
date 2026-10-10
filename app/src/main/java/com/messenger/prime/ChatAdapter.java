@@ -13,6 +13,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.media.MediaMetadataRetriever;
+import android.widget.Toast;
 import androidx.recyclerview.widget.DiffUtil;
 import com.bumptech.glide.Glide;
 import java.util.Objects;
@@ -987,6 +988,87 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             TextView tvDownloadPercent,
             ImageButton btnCancelDownload
     ) {
+        View layoutMusicContainer = layoutFileContainer != null && layoutFileContainer.getParent() != null ?
+                ((View) layoutFileContainer.getParent()).findViewById(R.id.layoutMusicContainer) : null;
+
+        if (message.isMusic()) {
+            if (layoutMediaContainer != null) layoutMediaContainer.setVisibility(View.GONE);
+            if (videoMessagePreview != null) videoMessagePreview.setVisibility(View.GONE);
+            if (layoutFileContainer != null) layoutFileContainer.setVisibility(View.GONE);
+
+            if (layoutMusicContainer != null) {
+                layoutMusicContainer.setVisibility(View.VISIBLE);
+
+                ImageView ivMusicCover = layoutMusicContainer.findViewById(R.id.ivMusicCover);
+                ImageView btnMusicPlayPause = layoutMusicContainer.findViewById(R.id.btnMusicPlayPause);
+                TextView tvMusicTitle = layoutMusicContainer.findViewById(R.id.tvMusicTitle);
+                TextView tvMusicArtist = layoutMusicContainer.findViewById(R.id.tvMusicArtist);
+                TextView tvMusicDuration = layoutMusicContainer.findViewById(R.id.tvMusicDuration);
+                ImageView btnMusicDownload = layoutMusicContainer.findViewById(R.id.btnMusicDownload);
+
+                String path = message.getImagePath() != null ? message.getImagePath() : "";
+                TrackItem trackItem = PrimeMusicManager.INSTANCE.extractMetadata(layoutMusicContainer.getContext(), path);
+
+                String title = message.getTrackTitle() != null && !message.getTrackTitle().isEmpty() ? message.getTrackTitle() : trackItem.getTitle();
+                String artist = message.getArtistName() != null && !message.getArtistName().isEmpty() ? message.getArtistName() : trackItem.getArtist();
+                String duration = message.getAudioDuration() != null && !message.getAudioDuration().isEmpty() ? message.getAudioDuration() : trackItem.getDurationStr();
+
+                if (tvMusicTitle != null) tvMusicTitle.setText(title);
+                if (tvMusicArtist != null) tvMusicArtist.setText(artist);
+                if (tvMusicDuration != null) tvMusicDuration.setText(duration);
+
+                if (ivMusicCover != null) {
+                    if (trackItem.getCoverPath() != null) {
+                        Glide.with(layoutMusicContainer.getContext())
+                                .load(trackItem.getCoverPath())
+                                .placeholder(R.drawable.ic_music)
+                                .error(R.drawable.ic_music)
+                                .into(ivMusicCover);
+                    } else {
+                        ivMusicCover.setImageResource(R.drawable.ic_music);
+                    }
+                }
+
+                boolean isPlayingThis = PrimeMusicManager.INSTANCE.isPlaying() &&
+                        PrimeMusicManager.INSTANCE.getCurrentTrack() != null &&
+                        path.equals(PrimeMusicManager.INSTANCE.getCurrentTrack().getPath());
+
+                if (btnMusicPlayPause != null) {
+                    btnMusicPlayPause.setImageResource(isPlayingThis ? R.drawable.ic_media_pause : R.drawable.ic_media_play);
+                    btnMusicPlayPause.setOnClickListener(v -> {
+                        if (isPlayingThis) {
+                            PrimeMusicManager.INSTANCE.togglePlayPause(v.getContext());
+                        } else {
+                            PrimeMusicManager.INSTANCE.playTrack(v.getContext(), trackItem, java.util.Collections.singletonList(trackItem));
+                        }
+                        notifyItemChanged(position);
+                    });
+                }
+
+                if (btnMusicDownload != null) {
+                    boolean isSaved = PrimeMusicManager.INSTANCE.isTrackInCollection(layoutMusicContainer.getContext(), path);
+                    btnMusicDownload.setImageResource(isSaved ? R.drawable.ic_done : R.drawable.ic_download);
+                    btnMusicDownload.setOnClickListener(v -> {
+                        TrackItem saved = PrimeMusicManager.INSTANCE.saveTrackToCollection(v.getContext(), path, title, artist);
+                        if (saved != null) {
+                            Toast.makeText(v.getContext(), "Сохранено в коллекцию", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(v.getContext(), "Трек уже в коллекции", Toast.LENGTH_SHORT).show();
+                        }
+                        btnMusicDownload.setImageResource(R.drawable.ic_done);
+                    });
+                }
+
+                layoutMusicContainer.setOnClickListener(v -> {
+                    PrimeMusicPlayerDialog playerDialog = new PrimeMusicPlayerDialog(v.getContext());
+                    playerDialog.show(trackItem, java.util.Collections.singletonList(trackItem));
+                });
+            }
+            return;
+        } else {
+            if (layoutMusicContainer != null) layoutMusicContainer.setVisibility(View.GONE);
+        }
+
         if (message.isFile()) {
             if (layoutMediaContainer != null) layoutMediaContainer.setVisibility(View.GONE);
             if (videoMessagePreview != null) videoMessagePreview.setVisibility(View.GONE);

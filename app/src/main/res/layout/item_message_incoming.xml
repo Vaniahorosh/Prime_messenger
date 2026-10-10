@@ -339,6 +339,104 @@
             </FrameLayout>
         </LinearLayout>
 
+        <!-- Контейнер для музыки -->
+        <LinearLayout
+            android:id="@+id/layoutMusicContainer"
+            android:layout_width="240dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/bg_pending_attachment"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone">
+
+            <FrameLayout
+                android:layout_width="48dp"
+                android:layout_height="48dp">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/ivMusicCover"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_person"
+                    app:shapeAppearanceOverlay="@style/Rounded16dpImageView" />
+
+                <ImageView
+                    android:id="@+id/btnMusicPlayPause"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_circular_mode_active"
+                    android:contentDescription="Воспроизвести"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_media_play"
+                    app:tint="@color/white" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvMusicTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="@color/prime_text_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    tools:text="Название трека" />
+
+                <TextView
+                    android:id="@+id/tvMusicArtist"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="@color/prime_text_secondary"
+                    android:textSize="11sp"
+                    tools:text="Исполнитель" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="2dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvMusicDuration"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/prime_brand"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        tools:text="03:45" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
+
+                    <ImageView
+                        android:id="@+id/btnMusicDownload"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:contentDescription="Сохранить в коллекцию"
+                        android:src="@drawable/ic_download"
+                        app:tint="@color/prime_brand" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
         <!-- Цитата ответа на другое сообщение -->
         <LinearLayout
             android:id="@+id/layoutQuotedReply"

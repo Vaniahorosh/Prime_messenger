@@ -231,176 +231,316 @@
                         app:strokeColor="@color/prime_brand"
                         app:strokeWidth="1dp" />
                 </LinearLayout>
+
+                <!-- Section 4: Музыка -->
+                <LinearLayout
+                    android:id="@+id/layoutSectionMusic"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <!-- Music Filter Tabs: On Device vs Saved -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnMusicTabDevice"
+                            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="32dp"
+                            android:layout_marginEnd="6dp"
+                            android:paddingHorizontal="12dp"
+                            android:paddingVertical="0dp"
+                            android:text="На устройстве"
+                            android:textColor="@color/white"
+                            android:textSize="11sp"
+                            app:backgroundTint="@color/prime_brand"
+                            app:cornerRadius="16dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnMusicTabSaved"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="32dp"
+                            android:paddingHorizontal="12dp"
+                            android:paddingVertical="0dp"
+                            android:text="Сохраненные"
+                            android:textColor="@color/prime_brand"
+                            android:textSize="11sp"
+                            app:cornerRadius="16dp"
+                            app:strokeColor="@color/prime_brand"
+                            app:strokeWidth="1dp" />
+                    </LinearLayout>
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1">
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvMusicGrid"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:clipToPadding="false"
+                            android:paddingBottom="100dp"
+                            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+                        <TextView
+                            android:id="@+id/tvMusicEmpty"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="Музыка не найдена"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="14sp"
+                            android:visibility="gone" />
+                    </FrameLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnOpenSystemAudioPicker"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="56dp"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="0dp"
+                        android:text="Выбрать аудиофайл"
+                        android:textColor="@color/prime_brand"
+                        android:textSize="12sp"
+                        app:cornerRadius="18dp"
+                        app:icon="@drawable/ic_music"
+                        app:iconSize="16dp"
+                        app:iconTint="@color/prime_brand"
+                        app:strokeColor="@color/prime_brand"
+                        app:strokeWidth="1dp" />
+                </LinearLayout>
             </FrameLayout>
 
         </LinearLayout>
 
-        <!-- Bottom Floating Island Overlay (Floats Over Content, Allowing Scroll Underneath) -->
-        <LinearLayout
+        <!-- Bottom Floating Island Overlay (Horizontal Scrollable Tabs) -->
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
             android:layout_marginTop="8dp"
             android:layout_marginBottom="4dp"
-            android:background="@drawable/bg_date_bubble"
-            android:elevation="8dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="6dp">
+            android:elevation="8dp">
 
-            <!-- Mode 1: GIF -->
-            <LinearLayout
-                android:id="@+id/layoutModeCamera"
-                android:layout_width="0dp"
+            <HorizontalScrollView
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:paddingVertical="4dp">
+                android:background="@drawable/bg_date_bubble"
+                android:fillViewport="true"
+                android:scrollbars="none">
 
-                <FrameLayout
-                    android:id="@+id/vModeCameraBg"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:background="@drawable/bg_circular_mode_active">
-
-                    <ImageView
-                        android:id="@+id/ivModeCameraIcon"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:layout_gravity="center"
-                        android:contentDescription="GIF"
-                        android:src="@drawable/ic_prime_gif" />
-                </FrameLayout>
-
-                <TextView
-                    android:id="@+id/tvModeCameraLabel"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:text="GIF"
-                    android:textColor="@color/prime_brand"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="6dp">
 
-            <!-- Mode 2: Фото -->
-            <LinearLayout
-                android:id="@+id/layoutModePhoto"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:paddingVertical="4dp">
+                    <!-- Mode 1: GIF -->
+                    <LinearLayout
+                        android:id="@+id/layoutModeCamera"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="4dp">
 
-                <FrameLayout
-                    android:id="@+id/vModePhotoBg"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:background="@drawable/bg_circular_mode_idle">
+                        <FrameLayout
+                            android:id="@+id/vModeCameraBg"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:background="@drawable/bg_circular_mode_active">
 
-                    <ImageView
-                        android:id="@+id/ivModePhotoIcon"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:layout_gravity="center"
-                        android:contentDescription="Фото"
-                        android:src="@drawable/ic_photo"
-                        app:tint="@color/prime_text_secondary" />
-                </FrameLayout>
+                            <ImageView
+                                android:id="@+id/ivModeCameraIcon"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="GIF"
+                                android:src="@drawable/ic_prime_gif" />
+                        </FrameLayout>
 
-                <TextView
-                    android:id="@+id/tvModePhotoLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:text="Фото"
-                    android:textColor="@color/prime_text_secondary"
-                    android:textSize="12sp" />
-            </LinearLayout>
+                        <TextView
+                            android:id="@+id/tvModeCameraLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="GIF"
+                            android:textColor="@color/prime_brand"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
 
-            <!-- Mode 3: Файлы -->
-            <LinearLayout
-                android:id="@+id/layoutModeFiles"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:paddingVertical="4dp">
+                    <!-- Mode 2: Фото -->
+                    <LinearLayout
+                        android:id="@+id/layoutModePhoto"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="4dp">
 
-                <FrameLayout
-                    android:id="@+id/vModeFilesBg"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:background="@drawable/bg_circular_mode_idle">
+                        <FrameLayout
+                            android:id="@+id/vModePhotoBg"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:background="@drawable/bg_circular_mode_idle">
 
-                    <ImageView
-                        android:id="@+id/ivModeFilesIcon"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:layout_gravity="center"
-                        android:contentDescription="Файлы"
-                        android:src="@drawable/ic_file"
-                        app:tint="@color/prime_text_secondary" />
-                </FrameLayout>
+                            <ImageView
+                                android:id="@+id/ivModePhotoIcon"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Фото"
+                                android:src="@drawable/ic_photo"
+                                app:tint="@color/prime_text_secondary" />
+                        </FrameLayout>
 
-                <TextView
-                    android:id="@+id/tvModeFilesLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:text="Файлы"
-                    android:textColor="@color/prime_text_secondary"
-                    android:textSize="12sp" />
-            </LinearLayout>
+                        <TextView
+                            android:id="@+id/tvModePhotoLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="Фото"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
 
-            <!-- Confirm Send Button with Badge (Far Right inside Island) -->
-            <FrameLayout
-                android:id="@+id/layoutConfirmContainer"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="2dp"
-                android:visibility="gone"
-                tools:visibility="visible">
+                    <!-- Mode 3: Файлы -->
+                    <LinearLayout
+                        android:id="@+id/layoutModeFiles"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="4dp">
 
-                <com.google.android.material.floatingactionbutton.FloatingActionButton
-                    android:id="@+id/btnConfirmAttachment"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:contentDescription="Отправить"
-                    android:src="@android:drawable/ic_menu_send"
-                    app:backgroundTint="@color/prime_brand"
-                    app:fabCustomSize="42dp"
-                    app:maxImageSize="20dp"
-                    app:tint="@color/white" />
+                        <FrameLayout
+                            android:id="@+id/vModeFilesBg"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:background="@drawable/bg_circular_mode_idle">
 
-                <!-- Opaque Badge Counter -->
-                <TextView
-                    android:id="@+id/tvConfirmBadgeCounter"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_gravity="top|end"
-                    android:alpha="1.0"
-                    android:background="@drawable/bg_date_bubble"
-                    android:backgroundTint="#FFFFFFFF"
-                    android:elevation="12dp"
-                    android:gravity="center"
-                    android:text="1"
-                    android:textColor="@color/prime_brand"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
-            </FrameLayout>
-        </LinearLayout>
+                            <ImageView
+                                android:id="@+id/ivModeFilesIcon"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Файлы"
+                                android:src="@drawable/ic_file"
+                                app:tint="@color/prime_text_secondary" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/tvModeFilesLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="Файлы"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <!-- Mode 4: Музыка -->
+                    <LinearLayout
+                        android:id="@+id/layoutModeMusic"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="4dp">
+
+                        <FrameLayout
+                            android:id="@+id/vModeMusicBg"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:background="@drawable/bg_circular_mode_idle">
+
+                            <ImageView
+                                android:id="@+id/ivModeMusicIcon"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Музыка"
+                                android:src="@drawable/ic_music"
+                                app:tint="@color/prime_text_secondary" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/tvModeMusicLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="Музыка"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <!-- Confirm Send Button with Badge (Far Right inside Island) -->
+                    <FrameLayout
+                        android:id="@+id/layoutConfirmContainer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_marginEnd="2dp"
+                        android:visibility="gone"
+                        tools:visibility="visible">
+
+                        <com.google.android.material.floatingactionbutton.FloatingActionButton
+                            android:id="@+id/btnConfirmAttachment"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:contentDescription="Отправить"
+                            android:src="@android:drawable/ic_menu_send"
+                            app:backgroundTint="@color/prime_brand"
+                            app:fabCustomSize="42dp"
+                            app:maxImageSize="20dp"
+                            app:tint="@color/white" />
+
+                        <!-- Opaque Badge Counter -->
+                        <TextView
+                            android:id="@+id/tvConfirmBadgeCounter"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_gravity="top|end"
+                            android:alpha="1.0"
+                            android:background="@drawable/bg_date_bubble"
+                            android:backgroundTint="#FFFFFFFF"
+                            android:elevation="12dp"
+                            android:gravity="center"
+                            android:text="1"
+                            android:textColor="@color/prime_brand"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+                    </FrameLayout>
+                </LinearLayout>
+            </HorizontalScrollView>
+        </FrameLayout>
 
     </FrameLayout>
 </eightbitlab.com.blurview.BlurView>

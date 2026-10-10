@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8"?>
+<eightbitlab.com.blurview.BlurView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/blurViewPlayerSheet"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_floating_island"
+    android:outlineProvider="background"
+    android:clipToOutline="true"
+    android:paddingStart="16dp"
+    android:paddingTop="12dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <!-- Top Drag Handle -->
+        <View
+            android:id="@+id/vPlayerDragHandle"
+            android:layout_width="40dp"
+            android:layout_height="4dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="16dp"
+            android:alpha="0.4"
+            android:background="@drawable/bg_date_bubble" />
+
+        <!-- Header Title -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:text="АУДИОПЛЕЕР"
+            android:textColor="@color/prime_brand"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08" />
+
+        <!-- Track Cover Art -->
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/ivPlayerCover"
+            android:layout_width="180dp"
+            android:layout_height="180dp"
+            android:layout_marginVertical="8dp"
+            android:elevation="6dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_person"
+            app:shapeAppearanceOverlay="@style/Rounded16dpImageView" />
+
+        <!-- Running Title (Marquee) -->
+        <TextView
+            android:id="@+id/tvPlayerTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:paddingHorizontal="16dp"
+            android:ellipsize="marquee"
+            android:fadingEdge="horizontal"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:gravity="center"
+            android:marqueeRepeatLimit="marquee_forever"
+            android:scrollHorizontally="true"
+            android:singleLine="true"
+            android:textColor="@color/prime_text_primary"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            tools:text="Очень длинное название трека, которое красиво переливается в бегущую строку" />
+
+        <!-- Artist Name -->
+        <TextView
+            android:id="@+id/tvPlayerArtist"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/prime_text_secondary"
+            android:textSize="14sp"
+            tools:text="Исполнитель трека" />
+
+        <!-- Seekbar Progress -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:gravity="center_vertical"
+            android:orientation="vertical">
+
+            <SeekBar
+                android:id="@+id/sbPlayerProgress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxHeight="4dp"
+                android:minHeight="4dp"
+                android:paddingHorizontal="0dp"
+                android:progressTint="@color/prime_brand"
+                android:thumbTint="@color/prime_brand" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tvPlayerCurrentTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textColor="@color/prime_text_secondary"
+                    android:textSize="11sp" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/tvPlayerTotalTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textColor="@color/prime_text_secondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Controls Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btnPlayerSaveCollection"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Сохранить в коллекцию"
+                android:padding="8dp"
+                android:src="@drawable/ic_download"
+                app:tint="@color/prime_brand" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <ImageButton
+                android:id="@+id/btnPlayerPrev"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Предыдущий трек"
+                android:padding="10dp"
+                android:src="@drawable/ic_skip_previous"
+                app:tint="@color/prime_text_primary" />
+
+            <FrameLayout
+                android:id="@+id/btnPlayerPlayPauseContainer"
+                android:layout_width="58dp"
+                android:layout_height="58dp"
+                android:layout_marginHorizontal="16dp"
+                android:background="@drawable/bg_circular_mode_active"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:id="@+id/ivPlayerPlayPause"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Воспроизведение"
+                    android:src="@drawable/ic_media_play"
+                    app:tint="@color/white" />
+            </FrameLayout>
+
+            <ImageButton
+                android:id="@+id/btnPlayerNext"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Следующий трек"
+                android:padding="10dp"
+                android:src="@drawable/ic_skip_next"
+                app:tint="@color/prime_text_primary" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <!-- Spacer balance -->
+            <View
+                android:layout_width="40dp"
+                android:layout_height="40dp" />
+        </LinearLayout>
+
+        <!-- Playlist Divider & Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Очередь воспроизведения"
+                android:textColor="@color/prime_text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:background="@color/prime_text_secondary"
+                android:alpha="0.3" />
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvPlayerPlaylist"
+            android:layout_width="match_parent"
+            android:layout_height="160dp"
+            android:layout_marginTop="8dp"
+            android:clipToPadding="false"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+    </LinearLayout>
+</eightbitlab.com.blurview.BlurView>

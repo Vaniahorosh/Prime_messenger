@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="12dp"
+    android:paddingVertical="8dp">
+
+    <!-- Cover / Play Badge -->
+    <FrameLayout
+        android:layout_width="42dp"
+        android:layout_height="42dp">
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/ivTrackCover"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_person"
+            app:shapeAppearanceOverlay="@style/Rounded16dpImageView" />
+
+        <ImageView
+            android:id="@+id/ivTrackPlayBadge"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_circular_mode_active"
+            android:padding="4dp"
+            android:src="@drawable/ic_media_play"
+            android:visibility="gone"
+            app:tint="@color/white" />
+    </FrameLayout>
+
+    <!-- Title & Artist -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="10dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvTrackTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/prime_text_primary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            tools:text="Название аудиозаписи" />
+
+        <TextView
+            android:id="@+id/tvTrackArtist"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/prime_text_secondary"
+            android:textSize="11sp"
+            tools:text="Исполнитель" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvTrackDuration"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:textColor="@color/prime_text_secondary"
+        android:textSize="11sp"
+        tools:text="03:20" />
+
+    <ImageView
+        android:id="@+id/ivTrackAction"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_download"
+        android:visibility="gone"
+        app:tint="@color/prime_brand" />
+
+</LinearLayout>

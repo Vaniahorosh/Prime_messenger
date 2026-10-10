@@ -231,6 +231,94 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
     </eightbitlab.com.blurview.BlurView>
 
+    <!-- Мини-островок воспроизведения музыки (вылетает из-под шапки) -->
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/layoutMusicIsland"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/bg_floating_island"
+        android:outlineProvider="background"
+        android:elevation="12dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layoutHeader">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="6dp">
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/ivMusicIslandCover"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_music"
+                app:shapeAppearanceOverlay="@style/Rounded16dpImageView" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="6dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvMusicIslandTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="marquee"
+                    android:fadingEdge="horizontal"
+                    android:marqueeRepeatLimit="marquee_forever"
+                    android:scrollHorizontally="true"
+                    android:singleLine="true"
+                    android:textColor="@color/prime_text_primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    tools:text="Название воспроизводимого трека" />
+
+                <TextView
+                    android:id="@+id/tvMusicIslandTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/prime_brand"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    tools:text="01:23 / 03:45" />
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/btnMusicIslandPlayPause"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:background="@drawable/bg_circular_mode_active"
+                android:contentDescription="Пауза"
+                android:padding="6dp"
+                android:src="@drawable/ic_media_pause"
+                app:tint="@color/white" />
+
+            <ImageButton
+                android:id="@+id/btnMusicIslandClose"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginStart="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Скрыть"
+                android:src="@drawable/ic_cancel"
+                app:tint="@color/prime_text_secondary" />
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
+
     <!-- Плавающая плашка даты при скроллинге (текст слева) -->
     <TextView
         android:id="@+id/tvFloatingDate"

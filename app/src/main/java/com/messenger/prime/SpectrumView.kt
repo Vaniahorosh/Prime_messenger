@@ -44,6 +44,10 @@ class SpectrumView(context: Context, attrs: AttributeSet) : View(context, attrs)
         lastHueForShader = hue
     }
 
+    private val rectHue = RectF()
+    private val rectSat = RectF()
+    private val hsvBuffer = FloatArray(3)
+
     override fun onDraw(canvas: Canvas) {
         val width = width.toFloat()
         val height = height.toFloat()
@@ -59,10 +63,10 @@ class SpectrumView(context: Context, attrs: AttributeSet) : View(context, attrs)
         }
 
         val rx = 16f
-        val rectHue = RectF(0f, 0f, width, height / 2f - 4f)
+        rectHue.set(0f, 0f, width, height / 2f - 4f)
         canvas.drawRoundRect(rectHue, rx, rx, huePaint)
 
-        val rectSat = RectF(0f, height / 2f + 4f, width, height)
+        rectSat.set(0f, height / 2f + 4f, width, height)
         canvas.drawRoundRect(rectSat, rx, rx, saturationPaint)
     }
 
@@ -84,7 +88,10 @@ class SpectrumView(context: Context, attrs: AttributeSet) : View(context, attrs)
                 }
             }
 
-            val color = Color.HSVToColor(floatArrayOf(hue, saturation, value))
+            hsvBuffer[0] = hue
+            hsvBuffer[1] = saturation
+            hsvBuffer[2] = value
+            val color = Color.HSVToColor(hsvBuffer)
             onColorChanged?.invoke(color)
             invalidate()
             return true

@@ -17,6 +17,38 @@ import java.util.Locale
 
 object AvatarManager {
 
+    @Volatile private var cachedRadiusPercent: Int? = null
+    private val avatarFileExistenceCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+    @JvmStatic
+    fun clearAvatarRadiusCache() {
+        cachedRadiusPercent = null
+    }
+
+    @JvmStatic
+    fun getCachedRadiusPercent(context: Context): Int {
+        cachedRadiusPercent?.let { return it }
+        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val percent = sp.getInt("settings_avatar_radius_percent", 50)
+        cachedRadiusPercent = percent
+        return percent
+    }
+
+    @JvmStatic
+    fun checkFileExistsCached(file: File): Boolean {
+        val key = file.absolutePath
+        return avatarFileExistenceCache.getOrPut(key) { file.exists() && file.length() > 0 }
+    }
+
+    @JvmStatic
+    fun invalidateAvatarFileCache(file: File? = null) {
+        if (file != null) {
+            avatarFileExistenceCache.remove(file.absolutePath)
+        } else {
+            avatarFileExistenceCache.clear()
+        }
+    }
+
     @JvmStatic
     fun isGenericIdentity(identity: String?): Boolean {
         if (identity == null) return true
@@ -365,7 +397,7 @@ object AvatarManager {
             candidates.add(File(filesDir, "rec_avatar_$contactName.jpg"))
         }
 
-        return candidates.firstOrNull { it.exists() && it.length() > 0 }
+        return candidates.firstOrNull { checkFileExistsCached(it) }
     }
 
     @JvmStatic
@@ -384,8 +416,7 @@ object AvatarManager {
 }
 
 fun getAvatarCornerRadiusPx(context: Context, viewSizePx: Int = (48 * context.resources.displayMetrics.density).toInt()): Int {
-    val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-    val percent = sp.getInt("settings_avatar_radius_percent", 50)
+    val percent = AvatarManager.getCachedRadiusPercent(context)
     val density = context.resources.displayMetrics.density
     val minRadiusPx = 4f * density
     val maxRadiusPx = viewSizePx / 2f
@@ -425,10 +456,10 @@ fun loadAvatarIntoView(
     }
 
     if (model != null) {
-        if (file == null || file.exists()) {
+        if (file == null || AvatarManager.checkFileExistsCached(file)) {
             val sourceStr = avatarSource.toString().lowercase(Locale.US)
             val isGif = sourceStr.endsWith(".gif") || sourceStr.contains("gif")
-            val signatureKey = ObjectKey(if (file != null && file.exists()) "${file.absolutePath}_${file.lastModified()}" else avatarSource.toString())
+            val signatureKey = ObjectKey(if (file != null && AvatarManager.checkFileExistsCached(file)) "${file.absolutePath}_${file.lastModified()}" else avatarSource.toString())
             val isCircle = radiusPx >= (viewSizePx / 2 - 2)
 
             try {

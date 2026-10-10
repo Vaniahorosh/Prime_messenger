@@ -4,9 +4,16 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.app.Activity
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
+import android.os.Build
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -20,6 +27,7 @@ import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.TextSwitcher
 import android.widget.TextView
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import eightbitlab.com.blurview.BlurView as EightBitBlurView
 import kotlin.math.abs
@@ -241,5 +249,68 @@ object PrimeNotification {
             animator.translationY(800f)
         }
         animator.start()
+    }
+
+    private const val MUSIC_NOTIFICATION_ID = 2001
+    private const val MUSIC_CHANNEL_ID = "prime_music_playback_channel"
+
+    @JvmStatic
+    fun showMediaNotification(context: Context, track: TrackItem?, isPlaying: Boolean) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                MUSIC_CHANNEL_ID,
+                "Воспроизведение музыки",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Уведомление плеера Prime Messenger"
+                setSound(null, null)
+                enableVibration(false)
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        if (track == null) {
+            notificationManager.cancel(MUSIC_NOTIFICATION_ID)
+            return
+        }
+
+        val openIntent = Intent(context, ChatListActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingOpenIntent = PendingIntent.getActivity(
+            context,
+            0,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val builder = NotificationCompat.Builder(context, MUSIC_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_music)
+            .setContentTitle(track.title)
+            .setContentText(track.artist)
+            .setSubText(track.durationStr)
+            .setOngoing(isPlaying)
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setContentIntent(pendingOpenIntent)
+
+        if (!track.coverPath.isNullOrEmpty()) {
+            try {
+                val bitmap = BitmapFactory.decodeFile(track.coverPath)
+                if (bitmap != null) {
+                    builder.setLargeIcon(bitmap)
+                }
+            } catch (_: Exception) {}
+        }
+
+        notificationManager.notify(MUSIC_NOTIFICATION_ID, builder.build())
+    }
+
+    @JvmStatic
+    fun cancelMediaNotification(context: Context) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        notificationManager?.cancel(MUSIC_NOTIFICATION_ID)
     }
 }

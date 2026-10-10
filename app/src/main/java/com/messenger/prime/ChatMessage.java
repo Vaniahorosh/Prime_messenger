@@ -10,7 +10,7 @@ import java.util.UUID;
 public class ChatMessage {
 
     public enum MessageType {
-        TEXT, IMAGE, VIDEO, FILE, VOICE
+        TEXT, IMAGE, VIDEO, FILE, VOICE, MUSIC
     }
 
     public static String getSummaryDescription(ChatMessage msg) {
@@ -32,6 +32,14 @@ public class ChatMessage {
             return "Коллаж (" + count + ")";
         }
         MessageType type = msg.getMessageType();
+        if (type == MessageType.MUSIC) {
+            String title = msg.getTrackTitle();
+            String artist = msg.getArtistName();
+            if (title != null && !title.isEmpty()) {
+                return "🎵 " + (artist != null && !artist.isEmpty() ? artist + " - " : "") + title;
+            }
+            return "🎵 Аудиозапись";
+        }
         if (type == MessageType.VIDEO) return "Видео";
         if (type == MessageType.FILE) return "Файл";
         if (type == MessageType.IMAGE) return "Фотография";
@@ -71,6 +79,9 @@ public class ChatMessage {
     private String fileName;
     private long fileSize;
     private String videoDuration;
+    private String trackTitle;
+    private String artistName;
+    private String audioDuration;
     private int downloadProgress = 0;
     private boolean isDownloading = false;
     private int sendingProgress = 0;
@@ -102,6 +113,8 @@ public class ChatMessage {
             String lower = imagePath.toLowerCase();
             if (lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".3gp") || lower.endsWith(".webm") || lower.contains("video")) {
                 this.messageType = MessageType.VIDEO;
+            } else if (lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac")) {
+                this.messageType = MessageType.MUSIC;
             } else {
                 this.messageType = MessageType.IMAGE;
             }
@@ -247,6 +260,39 @@ public class ChatMessage {
         return list;
     }
 
+    public boolean isMusic() {
+        if (messageType == MessageType.MUSIC) return true;
+        if (imagePath != null && !imagePath.startsWith("MULTI:")) {
+            String lower = imagePath.toLowerCase();
+            return lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac");
+        }
+        return false;
+    }
+
+    public String getTrackTitle() {
+        return trackTitle;
+    }
+
+    public void setTrackTitle(String trackTitle) {
+        this.trackTitle = trackTitle;
+    }
+
+    public String getArtistName() {
+        return artistName;
+    }
+
+    public void setArtistName(String artistName) {
+        this.artistName = artistName;
+    }
+
+    public String getAudioDuration() {
+        return audioDuration;
+    }
+
+    public void setAudioDuration(String audioDuration) {
+        this.audioDuration = audioDuration;
+    }
+
     public boolean isVideo() {
         if (messageType == MessageType.VIDEO) return true;
         if (imagePath != null && !imagePath.startsWith("MULTI:")) {
@@ -258,7 +304,7 @@ public class ChatMessage {
 
     public boolean isFile() {
         if (messageType == MessageType.FILE) return true;
-        return fileName != null && !fileName.isEmpty() && !isVideo();
+        return fileName != null && !fileName.isEmpty() && !isVideo() && !isMusic();
     }
 
     public String getMessageId() {
@@ -318,6 +364,8 @@ public class ChatMessage {
             String lower = imagePath.toLowerCase();
             if (lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".3gp") || lower.endsWith(".webm") || lower.contains("video")) {
                 this.messageType = MessageType.VIDEO;
+            } else if (lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac")) {
+                this.messageType = MessageType.MUSIC;
             } else if (this.messageType == MessageType.TEXT || this.messageType == MessageType.FILE) {
                 this.messageType = MessageType.IMAGE;
             }

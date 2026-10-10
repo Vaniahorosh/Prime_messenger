@@ -21,6 +21,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
@@ -223,11 +224,13 @@ fun AnimatedBackground(
     ignoreSettingsToggle: Boolean = true // By default, ignore toggle (for Entry screens)
 ) {
     val context = LocalContext.current
-    val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-    val isEnabled = sharedPrefs.getBoolean("settings_lava_bg", true)
+    val isEnabled = remember(context) {
+        context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).getBoolean("settings_lava_bg", true)
+    }
     
-    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
-    val isLowRam = activityManager?.isLowRamDevice == true
+    val isLowRam = remember(context) {
+        (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.isLowRamDevice == true
+    }
     
     val accentColorInt = ColorAccentManager.getCurrentAccentColor(context)
     val bgColor = if (darkTheme) Color(0xFF1E293B) else Color(accentColorInt)
@@ -290,47 +293,39 @@ private fun LavaShape(instance: LavaShapeInstance) {
     var targetPoly by remember(instance.id) { mutableStateOf(instance.targetPolygon) }
     var lastMorphTimeState by remember(instance.id) { mutableLongStateOf(instance.lastMorphTime) }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "lava")
-    
-    // Ticker for frame updates
-    val elapsed by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing)),
-        label = "ticker"
-    )
-
-    // Using side-effect to handle multi-step morphing logic safely
-    val currentTime = SystemClock.uptimeMillis()
-    val totalElapsed = currentTime - LavaBackgroundState.startTime
-    
-    // Update morphing targets
-    LaunchedEffect(elapsed) {
-        val morphElapsed = SystemClock.uptimeMillis() - lastMorphTimeState
-        if (morphElapsed >= instance.morphDuration) {
-            currentPoly = targetPoly
-            targetPoly = createRandomPolygon()
-            lastMorphTimeState = SystemClock.uptimeMillis()
-            instance.currentPolygon = currentPoly
-            instance.targetPolygon = targetPoly
-            instance.lastMorphTime = lastMorphTimeState
+    LaunchedEffect(instance.id) {
+        while (true) {
+            val now = SystemClock.uptimeMillis()
+            val morphElapsed = now - lastMorphTimeState
+            if (morphElapsed >= instance.morphDuration) {
+                currentPoly = targetPoly
+                targetPoly = createRandomPolygon()
+                lastMorphTimeState = now
+                instance.currentPolygon = currentPoly
+                instance.targetPolygon = targetPoly
+                instance.lastMorphTime = lastMorphTimeState
+            }
+            kotlinx.coroutines.delay(200)
         }
     }
 
-    val morphProgress = ((currentTime - lastMorphTimeState).toFloat() / instance.morphDuration)
-        .coerceIn(0f, 1f)
-    val easedMorphProgress = FastOutSlowInEasing.transform(morphProgress)
-    
     val morph = remember(currentPoly, targetPoly) {
         Morph(currentPoly, targetPoly)
     }
 
     val nativePath = remember { android.graphics.Path() }
     val boundsRect = remember { android.graphics.RectF() }
+    val composePath = remember { androidx.compose.ui.graphics.Path() }
 
     Canvas(
         modifier = Modifier.fillMaxSize()
     ) {
+        val currentTime = SystemClock.uptimeMillis()
+        val totalElapsed = currentTime - LavaBackgroundState.startTime
+        val morphProgress = ((currentTime - lastMorphTimeState).toFloat() / instance.morphDuration)
+            .coerceIn(0f, 1f)
+        val easedMorphProgress = FastOutSlowInEasing.transform(morphProgress)
+
         val t = totalElapsed.toFloat()
         val p = instance.lissajousParams
         
@@ -350,7 +345,7 @@ private fun LavaShape(instance: LavaShapeInstance) {
         translate(xPos, yPos) {
             rotate(rotation) {
                 val sizePx = instance.size.toPx() * scale
-                val path = morph.toComposePath(easedMorphProgress, sizePx, nativePath, boundsRect)
+                val path = morph.toComposePath(easedMorphProgress, sizePx, nativePath, boundsRect, composePath)
                 
                 drawPath(
                     path = path,
@@ -399,8 +394,9 @@ fun Morph.toComposePath(
     progress: Float,
     size: Float,
     reuseNativePath: android.graphics.Path = android.graphics.Path(),
-    reuseBounds: android.graphics.RectF = android.graphics.RectF()
-): Path {
+    reuseBounds: android.graphics.RectF = android.graphics.RectF(),
+    reuseComposePath: androidx.compose.ui.graphics.Path = androidx.compose.ui.graphics.Path()
+): androidx.compose.ui.graphics.Path {
     reuseNativePath.rewind()
     val features = this.asCubics(progress)
     var isFirst = true
@@ -419,5 +415,7 @@ fun Morph.toComposePath(
     
     reuseNativePath.computeBounds(reuseBounds, true)
     reuseNativePath.offset(-reuseBounds.centerX(), -reuseBounds.centerY())
-    return reuseNativePath.asComposePath()
+    return reuseComposePath.apply {
+        asAndroidPath().set(reuseNativePath)
+    }
 }

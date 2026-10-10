@@ -148,9 +148,11 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         }
     }
 
+    private var isLavaEnabled = true
+
     fun updateThemeColors() {
         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val isLavaEnabled = sharedPrefs.getBoolean("settings_lava_bg", true)
+        isLavaEnabled = sharedPrefs.getBoolean("settings_lava_bg", true)
         if (!isLavaEnabled) {
             shapes.clear()
             invalidate()
@@ -278,8 +280,7 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        if (!sharedPrefs.getBoolean("settings_lava_bg", true)) return
+        if (!isLavaEnabled) return
         if (shapes.isEmpty() || animProgress <= 0f) return
 
         val maxColRow = (maxCols + maxRows).coerceAtLeast(1)

@@ -47,6 +47,8 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
+import android.widget.EditText
+import android.widget.Toast
 import com.messenger.prime.events.ChatEvent
 import android.text.Editable
 import android.widget.LinearLayout
@@ -658,16 +660,24 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
+    private var activeEmbeddedChatViewController: EmbeddedChatViewController? = null
+
     private val pickEmbeddedImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        // Deprecated: ChatPersonActivity handles this natively now
+        if (uri != null) {
+            activeEmbeddedChatViewController?.sendImageUri(uri)
+        }
     }
 
     private val pickEmbeddedVideoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        // Deprecated: ChatPersonActivity handles this natively now
+        if (uri != null) {
+            activeEmbeddedChatViewController?.sendVideoOrFileUri(uri, true)
+        }
     }
 
     private val pickEmbeddedFileLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        // Deprecated: ChatPersonActivity handles this natively now
+        if (uri != null) {
+            activeEmbeddedChatViewController?.sendVideoOrFileUri(uri, false)
+        }
     }
 
     private fun onStartChatClicked() {
@@ -789,7 +799,11 @@ class ChatListActivity : AppCompatActivity() {
     @Deprecated("Replaced by WindowManager Activity Embedding")
     private fun getEmbeddedChatController(): EmbeddedChatViewController {
         if (embeddedChatController == null) {
-            embeddedChatController = EmbeddedChatViewController(this, binding.fContainerDetailChat)
+            val controller = EmbeddedChatViewController(this, binding.fContainerDetailChat)
+            embeddedChatController = controller
+            activeEmbeddedChatViewController = controller
+        } else {
+            activeEmbeddedChatViewController = embeddedChatController
         }
         return embeddedChatController!!
     }
@@ -797,7 +811,7 @@ class ChatListActivity : AppCompatActivity() {
     class EmbeddedChatViewController(
         private val activity: ChatListActivity,
         private val container: FrameLayout
-    ) : ChatAdapter.OnMessageActionListener {
+    ) : ChatAdapter.OnMessageActionListener, PrimeMusicManager.PlayerListener {
 
         private var binding: ActivityChatPersonContentBinding? = null
         private var chatAdapter: ChatAdapter? = null
@@ -1467,6 +1481,44 @@ class ChatListActivity : AppCompatActivity() {
             }
         }
 
+        fun sendMusicTrack(track: TrackItem, caption: String? = null) {
+            val targetUser = activeTargetUsername ?: return
+            val targetAddr = if (!activeDeviceAddress.isNullOrEmpty()) activeDeviceAddress!! else targetUser
+            val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val currentUserId = sharedPrefs.getString("current_user", "") ?: ""
+            val myDisplayName = sharedPrefs.getString("${currentUserId}_name", currentUserId) ?: "Пользователь"
+
+            activity.lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val timestamp = System.currentTimeMillis()
+                    val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
+                    val messageId = "${myDisplayName}_${timestamp}_${UUID.randomUUID()}"
+
+                    val summaryText = if (!caption.isNullOrBlank()) caption else "🎵 ${track.artist} - ${track.title}"
+
+                    val msg = ChatMessage(summaryText, time, myDisplayName, true, null, timestamp, track.path, messageId)
+                    msg.messageType = ChatMessage.MessageType.MUSIC
+                    msg.trackTitle = track.title
+                    msg.artistName = track.artist
+                    msg.audioDuration = track.durationStr
+                    msg.messageStatus = MessageStatus.SENT
+
+                    ChatHistoryManager.saveMessage(activity, targetUser, msg)
+
+                    val payloadStr = "$messageId:::${track.path}:::MUSIC:::${track.title}:::${track.artist}:::${track.durationStr}"
+                    val payload = payloadStr.toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+                    BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x0E.toByte(), payload)
+
+                    activity.runOnUiThread {
+                        chatAdapter?.addMessage(msg)
+                        binding?.rvMessages?.scrollToPosition((chatAdapter?.itemCount ?: 1) - 1)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+
         fun closeEmbeddedChat() {
             activeTargetUsername = null
             activeDeviceAddress = null
@@ -1540,20 +1592,122 @@ class ChatListActivity : AppCompatActivity() {
             val layoutModeCamera = dialogView.findViewById<View>(R.id.layoutModeCamera)
             val layoutModePhoto = dialogView.findViewById<View>(R.id.layoutModePhoto)
             val layoutModeFiles = dialogView.findViewById<View>(R.id.layoutModeFiles)
+            val layoutModeMusic = dialogView.findViewById<View>(R.id.layoutModeMusic)
 
             val layoutSectionCamera = dialogView.findViewById<View>(R.id.layoutSectionCamera)
             val layoutSectionPhoto = dialogView.findViewById<View>(R.id.layoutSectionPhoto)
             val layoutSectionFiles = dialogView.findViewById<View>(R.id.layoutSectionFiles)
+            val layoutSectionMusic = dialogView.findViewById<View>(R.id.layoutSectionMusic)
+
+            val rvMusicGrid = dialogView.findViewById<RecyclerView>(R.id.rvMusicGrid)
+            val btnMusicTabDevice = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnMusicTabDevice)
+            val btnMusicTabSaved = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnMusicTabSaved)
+            val btnOpenSystemAudioPicker = dialogView.findViewById<View>(R.id.btnOpenSystemAudioPicker)
+            val tvMusicEmpty = dialogView.findViewById<TextView>(R.id.tvMusicEmpty)
+
+            val vModeCameraBg = dialogView.findViewById<View>(R.id.vModeCameraBg)
+            val vModePhotoBg = dialogView.findViewById<View>(R.id.vModePhotoBg)
+            val vModeFilesBg = dialogView.findViewById<View>(R.id.vModeFilesBg)
+            val vModeMusicBg = dialogView.findViewById<View>(R.id.vModeMusicBg)
+
+            val tvModeCameraLabel = dialogView.findViewById<TextView>(R.id.tvModeCameraLabel)
+            val tvModePhotoLabel = dialogView.findViewById<TextView>(R.id.tvModePhotoLabel)
+            val tvModeFilesLabel = dialogView.findViewById<TextView>(R.id.tvModeFilesLabel)
+            val tvModeMusicLabel = dialogView.findViewById<TextView>(R.id.tvModeMusicLabel)
+
+            val ivModeCameraIcon = dialogView.findViewById<ImageView>(R.id.ivModeCameraIcon)
+            val ivModePhotoIcon = dialogView.findViewById<ImageView>(R.id.ivModePhotoIcon)
+            val ivModeFilesIcon = dialogView.findViewById<ImageView>(R.id.ivModeFilesIcon)
+            val ivModeMusicIcon = dialogView.findViewById<ImageView>(R.id.ivModeMusicIcon)
 
             fun switchMode(mode: Int) {
                 layoutSectionCamera?.visibility = if (mode == 0) View.VISIBLE else View.GONE
                 layoutSectionPhoto?.visibility = if (mode == 1) View.VISIBLE else View.GONE
                 layoutSectionFiles?.visibility = if (mode == 2) View.VISIBLE else View.GONE
+                layoutSectionMusic?.visibility = if (mode == 3) View.VISIBLE else View.GONE
+
+                vModeCameraBg?.setBackgroundResource(if (mode == 0) R.drawable.bg_circular_mode_active else R.drawable.bg_circular_mode_idle)
+                vModePhotoBg?.setBackgroundResource(if (mode == 1) R.drawable.bg_circular_mode_active else R.drawable.bg_circular_mode_idle)
+                vModeFilesBg?.setBackgroundResource(if (mode == 2) R.drawable.bg_circular_mode_active else R.drawable.bg_circular_mode_idle)
+                vModeMusicBg?.setBackgroundResource(if (mode == 3) R.drawable.bg_circular_mode_active else R.drawable.bg_circular_mode_idle)
+
+                val activeCol = ColorAccentManager.getCurrentAccentColor(activity)
+                val idleCol = ContextCompat.getColor(activity, R.color.prime_text_secondary)
+
+                tvModeCameraLabel?.setTextColor(if (mode == 0) activeCol else idleCol)
+                tvModePhotoLabel?.setTextColor(if (mode == 1) activeCol else idleCol)
+                tvModeFilesLabel?.setTextColor(if (mode == 2) activeCol else idleCol)
+                tvModeMusicLabel?.setTextColor(if (mode == 3) activeCol else idleCol)
+
+                val whiteList = ColorStateList.valueOf(android.graphics.Color.WHITE)
+                val idleList = ColorStateList.valueOf(idleCol)
+
+                ivModeCameraIcon?.imageTintList = if (mode == 0) whiteList else idleList
+                ivModePhotoIcon?.imageTintList = if (mode == 1) whiteList else idleList
+                ivModeFilesIcon?.imageTintList = if (mode == 2) whiteList else idleList
+                ivModeMusicIcon?.imageTintList = if (mode == 3) whiteList else idleList
             }
+
+            rvMusicGrid?.layoutManager = LinearLayoutManager(activity)
+            val musicAdapter = MusicTrackAdapter(
+                tracks = emptyList(),
+                onTrackClick = { track ->
+                    sendMusicTrack(track, null)
+                    dialog.dismiss()
+                }
+            )
+            rvMusicGrid?.adapter = musicAdapter
+
+            fun loadMusicTab(tab: Int) {
+                val accentCol = ColorAccentManager.getCurrentAccentColor(activity)
+                val accentList = ColorStateList.valueOf(accentCol)
+
+                if (tab == 0) {
+                    btnMusicTabDevice?.backgroundTintList = accentList
+                    btnMusicTabDevice?.setTextColor(android.graphics.Color.WHITE)
+                    btnMusicTabSaved?.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+                    btnMusicTabSaved?.setTextColor(accentCol)
+                    btnMusicTabSaved?.setStrokeColor(accentList)
+
+                    activity.lifecycleScope.launch(Dispatchers.IO) {
+                        val tracks = PrimeMusicManager.getDeviceTracks(activity)
+                        activity.runOnUiThread {
+                            musicAdapter.updateTracks(tracks)
+                            tvMusicEmpty?.visibility = if (tracks.isEmpty()) View.VISIBLE else View.GONE
+                        }
+                    }
+                } else {
+                    btnMusicTabSaved?.backgroundTintList = accentList
+                    btnMusicTabSaved?.setTextColor(android.graphics.Color.WHITE)
+                    btnMusicTabDevice?.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+                    btnMusicTabDevice?.setTextColor(accentCol)
+                    btnMusicTabDevice?.setStrokeColor(accentList)
+
+                    activity.lifecycleScope.launch(Dispatchers.IO) {
+                        val tracks = PrimeMusicManager.getSavedTracks(activity)
+                        activity.runOnUiThread {
+                            musicAdapter.updateTracks(tracks)
+                            tvMusicEmpty?.visibility = if (tracks.isEmpty()) View.VISIBLE else View.GONE
+                        }
+                    }
+                }
+            }
+
+            btnMusicTabDevice?.setOnClickListener { loadMusicTab(0) }
+            btnMusicTabSaved?.setOnClickListener { loadMusicTab(1) }
 
             layoutModeCamera?.setOnClickListener { switchMode(0) }
             layoutModePhoto?.setOnClickListener { switchMode(1) }
             layoutModeFiles?.setOnClickListener { switchMode(2) }
+            layoutModeMusic?.setOnClickListener {
+                switchMode(3)
+                loadMusicTab(0)
+            }
+
+            btnOpenSystemAudioPicker?.setOnClickListener {
+                dialog.dismiss()
+                activity.pickEmbeddedFileLauncher.launch("audio/*")
+            }
 
             switchMode(1)
 
@@ -1628,6 +1782,102 @@ class ChatListActivity : AppCompatActivity() {
             }
         }
 
+        private var isMusicIslandVisible = false
+
+        private fun setupMusicIsland(b: ActivityChatPersonContentBinding) {
+            b.tvMusicIslandTitle.isSelected = true
+
+            b.btnMusicIslandPlayPause.setOnClickListener {
+                PrimeMusicManager.togglePlayPause(activity)
+            }
+
+            b.btnMusicIslandClose.setOnClickListener {
+                hideMusicIsland(b)
+            }
+
+            b.layoutMusicIsland.setOnClickListener {
+                val track = PrimeMusicManager.getCurrentTrack()
+                if (track != null) {
+                    PrimeMusicPlayerDialog(activity).show(track, PrimeMusicManager.getCurrentPlaylist())
+                }
+            }
+
+            PrimeMusicManager.addListener(this)
+        }
+
+        private fun showMusicIsland(b: ActivityChatPersonContentBinding) {
+            if (isMusicIslandVisible) return
+            isMusicIslandVisible = true
+
+            b.layoutMusicIsland.visibility = View.VISIBLE
+            b.layoutMusicIsland.translationY = -80f
+            b.layoutMusicIsland.alpha = 0f
+
+            b.layoutMusicIsland.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(350)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.1f))
+                .start()
+        }
+
+        private fun hideMusicIsland(b: ActivityChatPersonContentBinding) {
+            if (!isMusicIslandVisible) return
+            isMusicIslandVisible = false
+
+            b.layoutMusicIsland.animate()
+                .translationY(-80f)
+                .alpha(0f)
+                .setDuration(280)
+                .setInterpolator(android.view.animation.AccelerateInterpolator())
+                .withEndAction {
+                    b.layoutMusicIsland.visibility = View.GONE
+                }
+                .start()
+        }
+
+        override fun onTrackChanged(track: TrackItem?) {
+            activity.runOnUiThread {
+                val b = binding ?: return@runOnUiThread
+                if (track != null) {
+                    b.tvMusicIslandTitle.text = "${track.artist} - ${track.title}"
+                    b.tvMusicIslandTime.text = "00:00 / ${track.durationStr}"
+
+                    if (!track.coverPath.isNullOrEmpty()) {
+                        Glide.with(activity)
+                            .load(track.coverPath)
+                            .placeholder(R.drawable.ic_music)
+                            .error(R.drawable.ic_music)
+                            .into(b.ivMusicIslandCover)
+                    } else {
+                        b.ivMusicIslandCover.setImageResource(R.drawable.ic_music)
+                    }
+
+                    showMusicIsland(b)
+                } else {
+                    hideMusicIsland(b)
+                }
+            }
+        }
+
+        override fun onPlaybackStateChanged(isPlaying: Boolean) {
+            activity.runOnUiThread {
+                val b = binding ?: return@runOnUiThread
+                b.btnMusicIslandPlayPause.setImageResource(if (isPlaying) R.drawable.ic_media_pause else R.drawable.ic_media_play)
+            }
+        }
+
+        override fun onProgressUpdated(positionMs: Long, durationMs: Long) {
+            activity.runOnUiThread {
+                val b = binding ?: return@runOnUiThread
+                if (isMusicIslandVisible) {
+                    val posStr = PrimeMusicManager.formatDuration(positionMs)
+                    val durStr = PrimeMusicManager.formatDuration(durationMs)
+                    b.tvMusicIslandTime.text = "$posStr / $durStr"
+                }
+            }
+        }
+
         private fun setupEmbeddedView(b: ActivityChatPersonContentBinding) {
             b.btnBack.visibility = View.GONE
             b.btnCloseEmbeddedChat.visibility = View.VISIBLE
@@ -1639,6 +1889,8 @@ class ChatListActivity : AppCompatActivity() {
                 BluetoothConnectionManager.getInstance().cancelCurrentMediaSend(target)
                 b.layoutSendingProgress.visibility = View.GONE
             }
+
+            setupMusicIsland(b)
 
             ViewCompat.setOnApplyWindowInsetsListener(b.chatRoot) { _, insets ->
                 val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -2292,6 +2544,7 @@ class ChatListActivity : AppCompatActivity() {
                         binding = contentBinding
                         
                         binding.recyclerViewChats.layoutManager = LinearLayoutManager(context)
+                        binding.recyclerViewChats.setHasFixedSize(true)
                         binding.recyclerViewChats.adapter = adapter
                         (binding.recyclerViewChats.itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
                         

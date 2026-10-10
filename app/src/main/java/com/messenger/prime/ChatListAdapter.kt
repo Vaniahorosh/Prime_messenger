@@ -92,6 +92,13 @@ class ChatListAdapter(
     companion object {
         private const val TYPE_CHAT = 0
         private const val TYPE_FOOTER = 1
+        private val WHITESPACE_REGEX = Regex("\\s+")
+        private val bluetoothCheckCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+        private fun isBluetoothAddress(text: String): Boolean {
+            if (text.length != 17) return false
+            return bluetoothCheckCache.getOrPut(text) { BluetoothAdapter.checkBluetoothAddress(text) }
+        }
     }
 
     private val footerDummy = ChatModel(id = "__footer__", name = "", lastMessage = "", time = "", avatarUri = null)
@@ -110,7 +117,7 @@ class ChatListAdapter(
         if (query.isEmpty() || text.isEmpty()) return text
         val normalizedText = text.replace('ё', 'е').replace('Ё', 'Е')
         val normalizedQuery = query.replace('ё', 'е').replace('Ё', 'Е')
-        val tokens = normalizedQuery.split("\\s+".toRegex()).filter { it.isNotEmpty() }
+        val tokens = normalizedQuery.split(WHITESPACE_REGEX).filter { it.isNotEmpty() }
         if (tokens.isEmpty()) return text
 
         val spannable = SpannableString(text)
@@ -213,7 +220,7 @@ class ChatListAdapter(
         val binding = holder.binding
 
         if (diffBundle.containsKey("name")) {
-            val rawName = if (BluetoothAdapter.checkBluetoothAddress(chat.name)) "Собеседник" else chat.name
+            val rawName = if (isBluetoothAddress(chat.name)) "Собеседник" else chat.name
             val accentColor = ColorAccentManager.getCurrentAccentColor(context)
             if (isSearchActive && currentSearchQuery.isNotEmpty()) {
                 binding.tvContactName.text = highlightSearchText(rawName, currentSearchQuery, accentColor)
@@ -272,9 +279,9 @@ class ChatListAdapter(
             if (count > 0) {
                 binding.tvUnreadCounter.visibility = View.VISIBLE
                 binding.tvUnreadCounter.text = if (count > 99) "99+" else count.toString()
-                val counterBg = GradientDrawable().apply { cornerRadius = 100f }
-                counterBg.setColor(if (chat.isMuted) ContextCompat.getColor(context, R.color.prime_text_secondary) else ContextCompat.getColor(context, R.color.prime_brand))
-                binding.tvUnreadCounter.background = counterBg
+                val bg = (binding.tvUnreadCounter.background as? GradientDrawable) ?: GradientDrawable().apply { cornerRadius = 100f }
+                bg.setColor(if (chat.isMuted) ContextCompat.getColor(context, R.color.prime_text_secondary) else ContextCompat.getColor(context, R.color.prime_brand))
+                binding.tvUnreadCounter.background = bg
             } else {
                 binding.tvUnreadCounter.visibility = View.GONE
             }
@@ -305,17 +312,18 @@ class ChatListAdapter(
         }
 
         if (diffBundle.containsKey("onlineStatus")) {
-            val onlineBadge = GradientDrawable().apply { shape = GradientDrawable.OVAL }
             when (chat.onlineStatus) {
                 OnlineStatus.ONLINE -> {
                     binding.viewOnlineStatus.visibility = View.VISIBLE
-                    onlineBadge.setColor(ContextCompat.getColor(context, R.color.prime_success))
-                    binding.viewOnlineStatus.background = onlineBadge
+                    val bg = (binding.viewOnlineStatus.background as? GradientDrawable) ?: GradientDrawable().apply { shape = GradientDrawable.OVAL }
+                    bg.setColor(ContextCompat.getColor(context, R.color.prime_success))
+                    binding.viewOnlineStatus.background = bg
                 }
                 OnlineStatus.BLOCKED -> {
                     binding.viewOnlineStatus.visibility = View.VISIBLE
-                    onlineBadge.setColor(ContextCompat.getColor(context, R.color.prime_danger))
-                    binding.viewOnlineStatus.background = onlineBadge
+                    val bg = (binding.viewOnlineStatus.background as? GradientDrawable) ?: GradientDrawable().apply { shape = GradientDrawable.OVAL }
+                    bg.setColor(ContextCompat.getColor(context, R.color.prime_danger))
+                    binding.viewOnlineStatus.background = bg
                 }
                 OnlineStatus.OFFLINE -> {
                     binding.viewOnlineStatus.visibility = View.GONE
@@ -362,7 +370,7 @@ class ChatListAdapter(
                 val now = System.currentTimeMillis()
                 val isCurrentlyTyping = chat.isTyping || "TYPING".equals(chat.activityState, ignoreCase = true) || (chat.typingUntil > 0 && chat.typingUntil > now)
 
-                val rawName = if (BluetoothAdapter.checkBluetoothAddress(chat.name)) "Собеседник" else chat.name
+                val rawName = if (isBluetoothAddress(chat.name)) "Собеседник" else chat.name
                 val accentColor = ColorAccentManager.getCurrentAccentColor(context)
 
                 if (isSearchActive && currentSearchQuery.isNotEmpty()) {
@@ -422,7 +430,7 @@ class ChatListAdapter(
                         try {
                             val uri = chat.avatarUri.toUri()
                             val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
-                            if (file != null && file.exists()) {
+                            if (file != null && AvatarManager.checkFileExistsCached(file)) {
                                 loadAvatarFileIntoView(context, file, binding.ivUserAvatar)
                                 binding.ivUserAvatar.visibility = View.VISIBLE
                                 binding.tvUserInitials.visibility = View.GONE
@@ -448,7 +456,7 @@ class ChatListAdapter(
                             try {
                                 val uri = prefAvatar.toUri()
                                 val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
-                                if (file != null && file.exists()) {
+                                if (file != null && AvatarManager.checkFileExistsCached(file)) {
                                     loadAvatarFileIntoView(context, file, binding.ivUserAvatar)
                                 } else {
                                     loadAvatarUriIntoView(context, uri, binding.ivUserAvatar)
@@ -482,7 +490,7 @@ class ChatListAdapter(
                         }
 
                         for (targetFile in possibleFiles) {
-                            if (targetFile.exists() && targetFile.length() > 0) {
+                            if (AvatarManager.checkFileExistsCached(targetFile)) {
                                 try {
                                     loadAvatarFileIntoView(context, targetFile, binding.ivUserAvatar)
                                     binding.ivUserAvatar.visibility = View.VISIBLE
@@ -501,11 +509,9 @@ class ChatListAdapter(
                         binding.ivUserAvatar.visibility = View.INVISIBLE
                         val color = getAvatarColor(chat.name)
                         val radiusPx = getAvatarCornerRadiusPx(context, (54 * context.resources.displayMetrics.density).toInt()).toFloat()
-                        val bg = GradientDrawable().apply {
-                            shape = GradientDrawable.RECTANGLE
-                            cornerRadius = radiusPx
-                            setColor(color)
-                        }
+                        val bg = (binding.tvUserInitials.background as? GradientDrawable) ?: GradientDrawable().apply { shape = GradientDrawable.RECTANGLE }
+                        bg.cornerRadius = radiusPx
+                        bg.setColor(color)
                         binding.tvUserInitials.background = bg
                     }
                 }
@@ -531,17 +537,18 @@ class ChatListAdapter(
                     holder.resetReveal()
                 }
 
-                val onlineBadge = GradientDrawable().apply { shape = GradientDrawable.OVAL }
                 when (chat.onlineStatus) {
                     OnlineStatus.ONLINE -> {
                         binding.viewOnlineStatus.visibility = View.VISIBLE
-                        onlineBadge.setColor(ContextCompat.getColor(context, R.color.prime_success))
-                        binding.viewOnlineStatus.background = onlineBadge
+                        val bg = (binding.viewOnlineStatus.background as? GradientDrawable) ?: GradientDrawable().apply { shape = GradientDrawable.OVAL }
+                        bg.setColor(ContextCompat.getColor(context, R.color.prime_success))
+                        binding.viewOnlineStatus.background = bg
                     }
                     OnlineStatus.BLOCKED -> {
                         binding.viewOnlineStatus.visibility = View.VISIBLE
-                        onlineBadge.setColor(ContextCompat.getColor(context, R.color.prime_danger))
-                        binding.viewOnlineStatus.background = onlineBadge
+                        val bg = (binding.viewOnlineStatus.background as? GradientDrawable) ?: GradientDrawable().apply { shape = GradientDrawable.OVAL }
+                        bg.setColor(ContextCompat.getColor(context, R.color.prime_danger))
+                        binding.viewOnlineStatus.background = bg
                     }
                     OnlineStatus.OFFLINE -> {
                         binding.viewOnlineStatus.visibility = View.GONE

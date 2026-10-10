@@ -11,8 +11,8 @@ android {
         applicationId = "com.messenger.prime"
         minSdk = 26
         targetSdk = 37
-        versionCode = 62
-        versionName = "0.62"
+        versionCode = 64
+        versionName = "0.64"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
