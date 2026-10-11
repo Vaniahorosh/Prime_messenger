@@ -4,8 +4,13 @@ import android.content.ContentUris
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.content.Intent
+import android.os.Build
 import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
+import android.support.v4.media.session.MediaSessionCompat
+import android.support.v4.media.session.PlaybackStateCompat
+import android.support.v4.media.MediaMetadataCompat
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -38,6 +43,8 @@ object PrimeMusicManager {
     private var currentTrack: TrackItem? = null
     private var currentPlaylist: List<TrackItem> = emptyList()
     private var currentTrackIndex: Int = -1
+
+    var mediaSession: MediaSessionCompat? = null
 
     private val listeners = mutableListOf<PlayerListener>()
     private val handler = Handler(Looper.getMainLooper())
@@ -74,7 +81,49 @@ object PrimeMusicManager {
     fun getCurrentPlaylist(): List<TrackItem> = currentPlaylist
     fun isPlaying(): Boolean = mediaPlayer?.isPlaying == true
 
+    fun getCurrentPosition(): Long = mediaPlayer?.currentPosition?.toLong() ?: 0L
+
+    private fun initMediaSessionIfNeeded(context: Context) {
+        if (mediaSession != null) return
+        val session = MediaSessionCompat(context, "PrimeMusicSession")
+        session.setCallback(object : MediaSessionCompat.Callback() {
+            override fun onPlay() {
+                togglePlayPause(context)
+            }
+            override fun onPause() {
+                togglePlayPause(context)
+            }
+            override fun onSkipToNext() {
+                playNextTrack(context)
+            }
+            override fun onSkipToPrevious() {
+                playPreviousTrack(context)
+            }
+            override fun onSeekTo(pos: Long) {
+                seekTo(pos.toInt())
+            }
+        })
+        session.isActive = true
+        mediaSession = session
+    }
+
+    private fun updateService(context: Context) {
+        val intent = Intent(context, PrimeMusicService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent)
+        } else {
+            context.startService(intent)
+        }
+    }
+
+    private fun stopService(context: Context) {
+        val intent = Intent(context, PrimeMusicService::class.java)
+        intent.action = "STOP_SERVICE"
+        context.startService(intent)
+    }
+
     fun playTrack(context: Context, track: TrackItem, playlist: List<TrackItem> = listOf(track)) {
+        initMediaSessionIfNeeded(context)
         currentPlaylist = if (playlist.isNotEmpty()) playlist else listOf(track)
         val foundIdx = currentPlaylist.indexOfFirst { it.path == track.path }
         currentTrackIndex = if (foundIdx >= 0) foundIdx else 0
@@ -93,14 +142,33 @@ object PrimeMusicManager {
                 }
             }
             mediaPlayer = mp
+            updateMediaSessionMetadata(track)
             notifyTrackChanged(track)
             notifyPlaybackState(true)
-            PrimeNotification.showMediaNotification(context, track, true)
+            updateService(context)
             handler.post(progressRunnable)
         } catch (e: Exception) {
             e.printStackTrace()
             notifyPlaybackState(false)
         }
+    }
+
+    private fun updateMediaSessionMetadata(track: TrackItem) {
+        val session = mediaSession ?: return
+        val builder = MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, track.title)
+            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, track.artist)
+            .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, track.durationMs)
+        
+        if (!track.coverPath.isNullOrEmpty()) {
+            try {
+                val bitmap = BitmapFactory.decodeFile(track.coverPath)
+                if (bitmap != null) {
+                    builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, bitmap)
+                }
+            } catch (_: Exception) {}
+        }
+        session.setMetadata(builder.build())
     }
 
     fun togglePlayPause(context: Context) {
@@ -117,12 +185,12 @@ object PrimeMusicManager {
             mp.pause()
             handler.removeCallbacks(progressRunnable)
             notifyPlaybackState(false)
-            PrimeNotification.showMediaNotification(context, currentTrack, false)
+            updateService(context)
         } else {
             mp.start()
             handler.post(progressRunnable)
             notifyPlaybackState(true)
-            PrimeNotification.showMediaNotification(context, currentTrack, true)
+            updateService(context)
         }
     }
 
@@ -144,7 +212,8 @@ object PrimeMusicManager {
         mediaPlayer?.seekTo(positionMs)
     }
 
-    fun stopAndReleasePlayer() {
+    @JvmOverloads
+    fun stopAndReleasePlayer(context: Context? = null) {
         handler.removeCallbacks(progressRunnable)
         try {
             mediaPlayer?.stop()
@@ -152,6 +221,9 @@ object PrimeMusicManager {
         } catch (_: Exception) {}
         mediaPlayer = null
         notifyPlaybackState(false)
+        if (context != null) {
+            stopService(context)
+        }
     }
 
     private fun notifyTrackChanged(track: TrackItem?) {
@@ -161,6 +233,21 @@ object PrimeMusicManager {
     }
 
     private fun notifyPlaybackState(isPlaying: Boolean) {
+        val state = if (isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
+        val pos = mediaPlayer?.currentPosition?.toLong() ?: 0L
+        
+        mediaSession?.setPlaybackState(
+            PlaybackStateCompat.Builder()
+                .setState(state, pos, 1f)
+                .setActions(PlaybackStateCompat.ACTION_PLAY or 
+                            PlaybackStateCompat.ACTION_PAUSE or 
+                            PlaybackStateCompat.ACTION_PLAY_PAUSE or 
+                            PlaybackStateCompat.ACTION_SKIP_TO_NEXT or 
+                            PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                            PlaybackStateCompat.ACTION_SEEK_TO)
+                .build()
+        )
+
         for (l in ArrayList(listeners)) {
             l.onPlaybackStateChanged(isPlaying)
         }

@@ -8,7 +8,7 @@
     app:cardElevation="1dp"
     app:cardBackgroundColor="@color/prime_surface"
     app:strokeColor="@color/prime_divider"
-    app:strokeWidth="1dp">
+    app:strokeWidth="0dp">
 
     <FrameLayout
         android:layout_width="match_parent"

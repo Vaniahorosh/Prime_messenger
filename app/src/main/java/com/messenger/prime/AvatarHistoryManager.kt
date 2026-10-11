@@ -24,7 +24,7 @@ object AvatarHistoryManager {
         val historyKey = if (currentUser.isNotEmpty()) "my_avatar_history_$currentUser" else "my_avatar_history"
         
         var json = sharedPrefs.getString(historyKey, null)
-        if (json == null && currentUser.isNotEmpty()) {
+        if (json == null && currentUser.isEmpty()) {
             json = sharedPrefs.getString("my_avatar_history", "[]")
         }
         if (json == null) json = "[]"
@@ -45,12 +45,16 @@ object AvatarHistoryManager {
             }
         } catch (_: Exception) {}
 
-        // Fallback to legacy single avatar if history is empty
+        // Fallback to single avatar if history is empty
         if (list.isEmpty()) {
-            val legacy = (if (currentUser.isNotEmpty()) sharedPrefs.getString("${currentUser}_avatar", null) else null)
-                ?: sharedPrefs.getString("my_avatar", null)
-                ?: sharedPrefs.getString("my_local_avatar", null)
-                ?: sharedPrefs.getString("my_avatar_uri", null)
+            val legacy = if (currentUser.isNotEmpty()) {
+                sharedPrefs.getString("${currentUser}_avatar", null)
+                    ?: sharedPrefs.getString("${currentUser}_avatarUri", null)
+            } else {
+                sharedPrefs.getString("my_avatar", null)
+                    ?: sharedPrefs.getString("my_local_avatar", null)
+                    ?: sharedPrefs.getString("my_avatar_uri", null)
+            }
             if (!legacy.isNullOrBlank()) {
                 val (_, legacyFile) = parseAvatarModelAndFile(legacy)
                 if (legacyFile == null || legacyFile.exists()) {
@@ -74,12 +78,13 @@ object AvatarHistoryManager {
 
         if (history.isNotEmpty()) {
             val active = history.first()
-            editor.putString("my_avatar", active)
-                .putString("my_local_avatar", active)
-                .putString("my_avatar_uri", active)
             if (currentUser.isNotEmpty()) {
                 editor.putString("${currentUser}_avatar", active)
                     .putString("${currentUser}_avatarUri", active)
+            } else {
+                editor.putString("my_avatar", active)
+                    .putString("my_local_avatar", active)
+                    .putString("my_avatar_uri", active)
             }
             editor.apply()
         } else {
@@ -122,7 +127,7 @@ object AvatarHistoryManager {
 
         val historyKey = if (currentUser.isNotEmpty()) "contact_avatar_history_${currentUser}_$addressOrName" else "contact_avatar_history_$addressOrName"
         var json = sharedPrefs.getString(historyKey, null)
-        if (json == null && currentUser.isNotEmpty()) {
+        if (json == null && currentUser.isEmpty()) {
             json = sharedPrefs.getString("contact_avatar_history_$addressOrName", "[]")
         }
         if (json == null) json = "[]"
@@ -144,10 +149,13 @@ object AvatarHistoryManager {
         } catch (_: Exception) {}
 
         if (list.isEmpty()) {
-            val legacy = (if (currentUser.isNotEmpty()) sharedPrefs.getString("contact_avatar_${currentUser}_$addressOrName", null) else null)
-                ?: sharedPrefs.getString("contact_avatar_$addressOrName", null)
-                ?: sharedPrefs.getString("${addressOrName}_avatar", null)
-                ?: sharedPrefs.getString("${addressOrName}_avatarUri", null)
+            val legacy = if (currentUser.isNotEmpty()) {
+                sharedPrefs.getString("contact_avatar_${currentUser}_$addressOrName", null)
+            } else {
+                sharedPrefs.getString("contact_avatar_$addressOrName", null)
+                    ?: sharedPrefs.getString("${addressOrName}_avatar", null)
+                    ?: sharedPrefs.getString("${addressOrName}_avatarUri", null)
+            }
             if (!legacy.isNullOrBlank()) {
                 val (_, legacyFile) = parseAvatarModelAndFile(legacy)
                 if (legacyFile == null || legacyFile.exists()) {
@@ -162,9 +170,10 @@ object AvatarHistoryManager {
             if (currentUser.isNotEmpty()) {
                 fileCandidates.add(File(context.filesDir, "rec_avatar_${currentUser}_$addressOrName.gif"))
                 fileCandidates.add(File(context.filesDir, "rec_avatar_${currentUser}_$addressOrName.jpg"))
+            } else {
+                fileCandidates.add(File(context.filesDir, "rec_avatar_$addressOrName.gif"))
+                fileCandidates.add(File(context.filesDir, "rec_avatar_$addressOrName.jpg"))
             }
-            fileCandidates.add(File(context.filesDir, "rec_avatar_$addressOrName.gif"))
-            fileCandidates.add(File(context.filesDir, "rec_avatar_$addressOrName.jpg"))
 
             for (f in fileCandidates) {
                 if (f.exists() && f.length() > 0) {
@@ -202,9 +211,10 @@ object AvatarHistoryManager {
             val active = history.first()
             if (currentUser.isNotEmpty()) {
                 editor.putString("contact_avatar_${currentUser}_$addressOrName", active)
+            } else {
+                editor.putString("contact_avatar_$addressOrName", active)
+                    .putString("${addressOrName}_avatar", active)
             }
-            editor.putString("contact_avatar_$addressOrName", active)
-                .putString("${addressOrName}_avatar", active)
             editor.apply()
         } else {
             AvatarManager.clearContactAvatar(context, addressOrName)

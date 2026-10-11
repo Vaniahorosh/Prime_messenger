@@ -6,7 +6,4 @@
         android:topRightRadius="18dp"
         android:bottomRightRadius="18dp"
         android:bottomLeftRadius="4dp" />
-    <stroke
-        android:width="0.5dp"
-        android:color="@color/chat_bubble_incoming_stroke" />
 </shape>

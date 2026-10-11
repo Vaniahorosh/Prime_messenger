@@ -292,6 +292,16 @@ private fun LavaShape(instance: LavaShapeInstance) {
     var currentPoly by remember(instance.id) { mutableStateOf(instance.currentPolygon) }
     var targetPoly by remember(instance.id) { mutableStateOf(instance.targetPolygon) }
     var lastMorphTimeState by remember(instance.id) { mutableLongStateOf(instance.lastMorphTime) }
+    var frameTimeNanos by remember { mutableLongStateOf(0L) }
+
+    // Drive 60/120 FPS VSYNC Recomposition Loop
+    LaunchedEffect(Unit) {
+        while (true) {
+            withFrameNanos { time ->
+                frameTimeNanos = time
+            }
+        }
+    }
 
     LaunchedEffect(instance.id) {
         while (true) {
@@ -305,7 +315,7 @@ private fun LavaShape(instance: LavaShapeInstance) {
                 instance.targetPolygon = targetPoly
                 instance.lastMorphTime = lastMorphTimeState
             }
-            kotlinx.coroutines.delay(200)
+            kotlinx.coroutines.delay(100)
         }
     }
 
@@ -320,6 +330,9 @@ private fun LavaShape(instance: LavaShapeInstance) {
     Canvas(
         modifier = Modifier.fillMaxSize()
     ) {
+        @Suppress("UNUSED_VARIABLE")
+        val unusedTick = frameTimeNanos
+
         val currentTime = SystemClock.uptimeMillis()
         val totalElapsed = currentTime - LavaBackgroundState.startTime
         val morphProgress = ((currentTime - lastMorphTimeState).toFloat() / instance.morphDuration)

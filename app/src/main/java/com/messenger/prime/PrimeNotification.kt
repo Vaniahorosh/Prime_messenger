@@ -37,7 +37,20 @@ import kotlin.math.ceil
  * Кастомная система уведомлений ("островков"), заменяющая Toast.
  * Поддерживает таймер обратного отсчета и отмену действия (Undo).
  */
+import android.content.BroadcastReceiver
+import android.support.v4.media.session.MediaSessionCompat
+
 object PrimeNotification {
+
+    class MediaReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                "ACTION_PLAY_PAUSE" -> PrimeMusicManager.togglePlayPause(context)
+                "ACTION_NEXT" -> PrimeMusicManager.playNextTrack(context)
+                "ACTION_PREV" -> PrimeMusicManager.playPreviousTrack(context)
+            }
+        }
+    }
 
     private const val DURATION = 3000L // 3 секунды
 
@@ -255,8 +268,8 @@ object PrimeNotification {
     private const val MUSIC_CHANNEL_ID = "prime_music_playback_channel"
 
     @JvmStatic
-    fun showMediaNotification(context: Context, track: TrackItem?, isPlaying: Boolean) {
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+    fun createMediaNotification(context: Context, track: TrackItem, isPlaying: Boolean, sessionToken: MediaSessionCompat.Token?): android.app.Notification {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -268,12 +281,7 @@ object PrimeNotification {
                 setSound(null, null)
                 enableVibration(false)
             }
-            notificationManager.createNotificationChannel(channel)
-        }
-
-        if (track == null) {
-            notificationManager.cancel(MUSIC_NOTIFICATION_ID)
-            return
+            notificationManager?.createNotificationChannel(channel)
         }
 
         val openIntent = Intent(context, ChatListActivity::class.java).apply {
@@ -286,6 +294,21 @@ object PrimeNotification {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val playPauseIntent = PendingIntent.getBroadcast(
+            context, 1, Intent("ACTION_PLAY_PAUSE").setPackage(context.packageName), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val prevIntent = PendingIntent.getBroadcast(
+            context, 2, Intent("ACTION_PREV").setPackage(context.packageName), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val nextIntent = PendingIntent.getBroadcast(
+            context, 3, Intent("ACTION_NEXT").setPackage(context.packageName), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        val mediaStyle = androidx.media.app.NotificationCompat.MediaStyle().setShowActionsInCompactView(0, 1, 2)
+        if (sessionToken != null) {
+            mediaStyle.setMediaSession(sessionToken)
+        }
+
         val builder = NotificationCompat.Builder(context, MUSIC_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_music)
             .setContentTitle(track.title)
@@ -295,6 +318,10 @@ object PrimeNotification {
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(pendingOpenIntent)
+            .addAction(R.drawable.ic_skip_previous, "Previous", prevIntent)
+            .addAction(if (isPlaying) R.drawable.ic_media_pause else R.drawable.ic_media_play, "Play/Pause", playPauseIntent)
+            .addAction(R.drawable.ic_skip_next, "Next", nextIntent)
+            .setStyle(mediaStyle)
 
         if (!track.coverPath.isNullOrEmpty()) {
             try {
@@ -305,12 +332,6 @@ object PrimeNotification {
             } catch (_: Exception) {}
         }
 
-        notificationManager.notify(MUSIC_NOTIFICATION_ID, builder.build())
-    }
-
-    @JvmStatic
-    fun cancelMediaNotification(context: Context) {
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-        notificationManager?.cancel(MUSIC_NOTIFICATION_ID)
+        return builder.build()
     }
 }

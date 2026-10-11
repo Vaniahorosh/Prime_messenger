@@ -102,10 +102,7 @@ object AvatarManager {
         if (currentUser.isBlank()) return null
         val candidates = listOfNotNull(
             sharedPrefs.getString("${currentUser}_avatar", null),
-            sharedPrefs.getString("${currentUser}_avatarUri", null),
-            sharedPrefs.getString("my_avatar", null),
-            sharedPrefs.getString("my_local_avatar", null),
-            sharedPrefs.getString("my_avatar_uri", null)
+            sharedPrefs.getString("${currentUser}_avatarUri", null)
         )
 
         for (candidate in candidates) {
@@ -149,19 +146,19 @@ object AvatarManager {
             if (!deviceAddress.isNullOrBlank()) keys.add("contact_name_${currentUser}_$deviceAddress")
             if (!contactId.isNullOrBlank()) keys.add("contact_name_${currentUser}_$contactId")
             if (!fallbackName.isNullOrBlank()) keys.add("contact_name_${currentUser}_$fallbackName")
-        }
-
-        if (!deviceAddress.isNullOrBlank()) {
-            keys.add("contact_name_$deviceAddress")
-            keys.add("${deviceAddress}_name")
-        }
-        if (!contactId.isNullOrBlank()) {
-            keys.add("contact_name_$contactId")
-            keys.add("${contactId}_name")
-        }
-        if (!fallbackName.isNullOrBlank()) {
-            keys.add("contact_name_$fallbackName")
-            keys.add("${fallbackName}_name")
+        } else {
+            if (!deviceAddress.isNullOrBlank()) {
+                keys.add("contact_name_$deviceAddress")
+                keys.add("${deviceAddress}_name")
+            }
+            if (!contactId.isNullOrBlank()) {
+                keys.add("contact_name_$contactId")
+                keys.add("${contactId}_name")
+            }
+            if (!fallbackName.isNullOrBlank()) {
+                keys.add("contact_name_$fallbackName")
+                keys.add("${fallbackName}_name")
+            }
         }
 
         for (key in keys) {
@@ -196,22 +193,22 @@ object AvatarManager {
             if (!deviceAddress.isNullOrBlank()) keys.add("contact_avatar_${currentUser}_$deviceAddress")
             if (!contactId.isNullOrBlank()) keys.add("contact_avatar_${currentUser}_$contactId")
             if (!contactName.isNullOrBlank()) keys.add("contact_avatar_${currentUser}_$contactName")
-        }
-
-        if (!deviceAddress.isNullOrBlank()) {
-            keys.add("contact_avatar_$deviceAddress")
-            keys.add("${deviceAddress}_avatarUri")
-            keys.add("${deviceAddress}_avatar")
-        }
-        if (!contactId.isNullOrBlank()) {
-            keys.add("contact_avatar_$contactId")
-            keys.add("${contactId}_avatarUri")
-            keys.add("${contactId}_avatar")
-        }
-        if (!contactName.isNullOrBlank()) {
-            keys.add("contact_avatar_$contactName")
-            keys.add("${contactName}_avatarUri")
-            keys.add("${contactName}_avatar")
+        } else {
+            if (!deviceAddress.isNullOrBlank()) {
+                keys.add("contact_avatar_$deviceAddress")
+                keys.add("${deviceAddress}_avatarUri")
+                keys.add("${deviceAddress}_avatar")
+            }
+            if (!contactId.isNullOrBlank()) {
+                keys.add("contact_avatar_$contactId")
+                keys.add("${contactId}_avatarUri")
+                keys.add("${contactId}_avatar")
+            }
+            if (!contactName.isNullOrBlank()) {
+                keys.add("contact_avatar_$contactName")
+                keys.add("${contactName}_avatarUri")
+                keys.add("${contactName}_avatar")
+            }
         }
 
         for (key in keys) {
@@ -240,19 +237,19 @@ object AvatarManager {
                 fileCandidates.add(File(filesDir, "rec_avatar_${currentUser}_$contactName.gif"))
                 fileCandidates.add(File(filesDir, "rec_avatar_${currentUser}_$contactName.jpg"))
             }
-        }
-
-        if (!deviceAddress.isNullOrBlank() && !isProtectedIdentity(context, deviceAddress)) {
-            fileCandidates.add(File(filesDir, "rec_avatar_$deviceAddress.gif"))
-            fileCandidates.add(File(filesDir, "rec_avatar_$deviceAddress.jpg"))
-        }
-        if (!contactId.isNullOrBlank() && !isProtectedIdentity(context, contactId)) {
-            fileCandidates.add(File(filesDir, "rec_avatar_$contactId.gif"))
-            fileCandidates.add(File(filesDir, "rec_avatar_$contactId.jpg"))
-        }
-        if (!contactName.isNullOrBlank() && !isProtectedIdentity(context, contactName)) {
-            fileCandidates.add(File(filesDir, "rec_avatar_$contactName.gif"))
-            fileCandidates.add(File(filesDir, "rec_avatar_$contactName.jpg"))
+        } else {
+            if (!deviceAddress.isNullOrBlank() && !isProtectedIdentity(context, deviceAddress)) {
+                fileCandidates.add(File(filesDir, "rec_avatar_$deviceAddress.gif"))
+                fileCandidates.add(File(filesDir, "rec_avatar_$deviceAddress.jpg"))
+            }
+            if (!contactId.isNullOrBlank() && !isProtectedIdentity(context, contactId)) {
+                fileCandidates.add(File(filesDir, "rec_avatar_$contactId.gif"))
+                fileCandidates.add(File(filesDir, "rec_avatar_$contactId.jpg"))
+            }
+            if (!contactName.isNullOrBlank() && !isProtectedIdentity(context, contactName)) {
+                fileCandidates.add(File(filesDir, "rec_avatar_$contactName.gif"))
+                fileCandidates.add(File(filesDir, "rec_avatar_$contactName.jpg"))
+            }
         }
 
         val foundFile = fileCandidates.firstOrNull { it.exists() && it.length() > 0 }
@@ -350,15 +347,11 @@ object AvatarManager {
         } else {
             sharedPrefs.getString("${login}_avatar", null)
                 ?: sharedPrefs.getString("${login}_avatarUri", null)
-                ?: getMyAvatarUri(context)
         }
 
         if (!resolvedAvatar.isNullOrBlank()) {
             editor.putString("${login}_avatar", resolvedAvatar)
             editor.putString("${login}_avatarUri", resolvedAvatar)
-            editor.putString("my_avatar", resolvedAvatar)
-            editor.putString("my_local_avatar", resolvedAvatar)
-            editor.putString("my_avatar_uri", resolvedAvatar)
             AvatarHistoryManager.addMyAvatar(context, resolvedAvatar)
         }
 
@@ -410,8 +403,10 @@ object AvatarManager {
         val editor = sharedPrefs.edit()
         if (currentUser.isNotEmpty()) {
             editor.putString("${prefKeySuffix}_${currentUser}_$contactKey", value)
+        } else {
+            editor.putString("${prefKeySuffix}_$contactKey", value)
         }
-        editor.putString("${prefKeySuffix}_$contactKey", value).apply()
+        editor.apply()
     }
 }
 

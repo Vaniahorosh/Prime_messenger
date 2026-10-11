@@ -723,9 +723,8 @@ class ChatListActivity : AppCompatActivity() {
         }
         lastChatLaunchTime = now
 
-        val savedName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("contact_name_$deviceAddress", null)
-            ?: getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${deviceAddress}_name", null)
-        val resolvedTargetName = if (!savedName.isNullOrEmpty() && !BluetoothAdapter.checkBluetoothAddress(savedName)) {
+        val savedName = AvatarManager.getContactDisplayName(this, deviceAddress, deviceAddress, null)
+        val resolvedTargetName = if (!savedName.isNullOrEmpty() && !BluetoothAdapter.checkBluetoothAddress(savedName) && savedName != "Собеседник") {
             savedName
         } else if (targetName.isNotEmpty() && !BluetoothAdapter.checkBluetoothAddress(targetName) && targetName != "Собеседник") {
             targetName
@@ -842,7 +841,7 @@ class ChatListActivity : AppCompatActivity() {
                                 val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                                 val currentUser = sharedPrefs.getString("current_user", "") ?: ""
                                 val myDisplayName = sharedPrefs.getString("${currentUser}_name", currentUser) ?: currentUser
-                                val savedName = sharedPrefs.getString("contact_name_$target", null) ?: activeTargetUsername ?: target
+                                val savedName = AvatarManager.getContactDisplayName(activity, target, activeTargetUsername, target)
 
                                 BluetoothConnectionManager.getInstance().connectToDevice(
                                     bAdapter,
@@ -1035,10 +1034,7 @@ class ChatListActivity : AppCompatActivity() {
             b.layoutInput.visibility = View.VISIBLE
             b.bottomContainer.visibility = View.VISIBLE
 
-            val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-            val savedName = if (!deviceAddress.isNullOrEmpty()) {
-                sharedPrefs.getString("contact_name_$deviceAddress", null) ?: targetUsername
-            } else targetUsername
+            val savedName = AvatarManager.getContactDisplayName(activity, deviceAddress, targetUsername, targetUsername)
             val displayContactName = if (BluetoothAdapter.checkBluetoothAddress(savedName)) "Собеседник" else savedName
 
             b.tvChatName.text = displayContactName
@@ -1047,9 +1043,7 @@ class ChatListActivity : AppCompatActivity() {
                 BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername)
             updateInputState(isConnected)
 
-            val avatarUri = if (!deviceAddress.isNullOrEmpty()) {
-                sharedPrefs.getString("contact_avatar_$deviceAddress", null) ?: sharedPrefs.getString("contact_avatar_$targetUsername", null)
-            } else sharedPrefs.getString("contact_avatar_$targetUsername", null)
+            val avatarUri = AvatarManager.getContactAvatarUriOrFile(activity, targetUsername, savedName, deviceAddress)
 
             if (!avatarUri.isNullOrEmpty()) {
                 val (_, file) = parseAvatarModelAndFile(avatarUri)
@@ -1094,8 +1088,9 @@ class ChatListActivity : AppCompatActivity() {
             }
 
             val history = ChatHistoryManager.loadMessages(activity, targetUsername)
-            val currentUserId = sharedPrefs.getString("current_user", "") ?: ""
-            val myDisplayName = sharedPrefs.getString("${currentUserId}_name", currentUserId) ?: "Пользователь"
+            val sp = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val currentUserId = sp.getString("current_user", "") ?: ""
+            val myDisplayName = sp.getString("${currentUserId}_name", currentUserId) ?: "Пользователь"
 
             chatAdapter = ChatAdapter().apply {
                 setLocalUsername(myDisplayName)
@@ -1331,30 +1326,11 @@ class ChatListActivity : AppCompatActivity() {
             val devAddr = activeDeviceAddress
 
             activity.runOnUiThread {
-                val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-                val savedName = if (!devAddr.isNullOrEmpty()) {
-                    sharedPrefs.getString("contact_name_$devAddr", null)
-                        ?: sharedPrefs.getString("${devAddr}_name", null)
-                        ?: sharedPrefs.getString("contact_name_$user", null)
-                        ?: sharedPrefs.getString("${user}_name", null)
-                        ?: user
-                } else {
-                    sharedPrefs.getString("contact_name_$user", null)
-                        ?: sharedPrefs.getString("${user}_name", null)
-                        ?: user
-                }
+                val savedName = AvatarManager.getContactDisplayName(activity, devAddr, user, user)
                 val displayContactName = if (BluetoothAdapter.checkBluetoothAddress(savedName)) "Собеседник" else savedName
                 b.tvChatName.text = displayContactName
 
-                val avatarUri = if (!devAddr.isNullOrEmpty()) {
-                    sharedPrefs.getString("contact_avatar_$devAddr", null)
-                        ?: sharedPrefs.getString("contact_avatar_$user", null)
-                        ?: sharedPrefs.getString("${devAddr}_avatar", null)
-                        ?: sharedPrefs.getString("${user}_avatar", null)
-                } else {
-                    sharedPrefs.getString("contact_avatar_$user", null)
-                        ?: sharedPrefs.getString("${user}_avatar", null)
-                }
+                val avatarUri = AvatarManager.getContactAvatarUriOrFile(activity, user, savedName, devAddr)
 
                 if (!avatarUri.isNullOrEmpty()) {
                     val (_, file) = parseAvatarModelAndFile(avatarUri)
@@ -1654,7 +1630,8 @@ class ChatListActivity : AppCompatActivity() {
                 onTrackClick = { track ->
                     sendMusicTrack(track, null)
                     dialog.dismiss()
-                }
+                },
+                onSelectionChanged = { _ -> }
             )
             rvMusicGrid?.adapter = musicAdapter
 
@@ -1842,16 +1819,6 @@ class ChatListActivity : AppCompatActivity() {
                 if (track != null) {
                     b.tvMusicIslandTitle.text = "${track.artist} - ${track.title}"
                     b.tvMusicIslandTime.text = "00:00 / ${track.durationStr}"
-
-                    if (!track.coverPath.isNullOrEmpty()) {
-                        Glide.with(activity)
-                            .load(track.coverPath)
-                            .placeholder(R.drawable.ic_music)
-                            .error(R.drawable.ic_music)
-                            .into(b.ivMusicIslandCover)
-                    } else {
-                        b.ivMusicIslandCover.setImageResource(R.drawable.ic_music)
-                    }
 
                     showMusicIsland(b)
                 } else {
@@ -3520,7 +3487,8 @@ class ChatListActivity : AppCompatActivity() {
     ) {
         if (indicatorView == null || labelView == null) return
         val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val visibleInactiveColor = if (isDark) android.graphics.Color.parseColor("#E6FFFFFF") else android.graphics.Color.parseColor("#E6154B87")
+        val inactiveColor = if (isDark) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
+        val activeIconColor = if (isDark) android.graphics.Color.parseColor("#0F172A") else android.graphics.Color.WHITE
 
         indicatorView.visibility = View.VISIBLE
 
@@ -3534,7 +3502,7 @@ class ChatListActivity : AppCompatActivity() {
                 .setInterpolator(android.view.animation.OvershootInterpolator(1.1f))
                 .start()
 
-            iconView?.setColorFilter(android.graphics.Color.WHITE)
+            iconView?.setColorFilter(activeIconColor)
             iconView?.animate()?.scaleX(1.1f)?.scaleY(1.1f)?.setDuration(180)?.start()
 
             labelView.setTextColor(accentColor)
@@ -3549,10 +3517,10 @@ class ChatListActivity : AppCompatActivity() {
                 .setDuration(180)
                 .start()
 
-            iconView?.setColorFilter(visibleInactiveColor)
+            iconView?.setColorFilter(inactiveColor)
             iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
 
-            labelView.setTextColor(visibleInactiveColor)
+            labelView.setTextColor(inactiveColor)
             labelView.setTypeface(null, android.graphics.Typeface.NORMAL)
             labelView.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.alpha(0.85f)?.setDuration(180)?.start()
         }
@@ -3703,7 +3671,7 @@ class ChatListActivity : AppCompatActivity() {
         val blurNavView = navView as? eightbitlab.com.blurview.BlurView
         if (blurNavView != null) {
             val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            val overlayColor = if (isDark) android.graphics.Color.parseColor("#700F172A") else android.graphics.Color.parseColor("#70154B87")
+            val overlayColor = if (isDark) android.graphics.Color.parseColor("#D90F172A") else android.graphics.Color.parseColor("#D9F1F5F9")
             val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
             blurNavView.setupBlur(rootView, 22f, overlayColor, window.decorView.background)
         }

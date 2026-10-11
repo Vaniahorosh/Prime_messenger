@@ -816,22 +816,18 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             }
 
             if (remoteName != null && !remoteName.trim().isEmpty() && !remoteName.equals("1")) {
-                SharedPreferences sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
-                SharedPreferences.Editor ed = sp.edit();
                 if (fromAddress != null && !fromAddress.isEmpty()) {
-                    ed.putString("contact_name_" + fromAddress, remoteName);
-                    ed.putString(fromAddress + "_name", remoteName);
-                    ed.putString(remoteName + "_mac", fromAddress);
+                    AvatarManager.saveContactPreferenceSafely(this, fromAddress, "contact_name", remoteName);
+                    AvatarManager.saveContactPreferenceSafely(this, remoteName, "mac", fromAddress);
                 }
                 if (remoteLogin != null && !remoteLogin.isEmpty()) {
-                    ed.putString("contact_name_" + remoteLogin, remoteName);
-                    ed.putString(remoteLogin + "_name", remoteName);
+                    AvatarManager.saveContactPreferenceSafely(this, remoteLogin, "contact_name", remoteName);
                 }
-                ed.apply();
 
                 BluetoothConnectionManager.getInstance().setRemoteUsername(fromAddress, remoteName);
 
                 if (!isAck) {
+                    SharedPreferences sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
                     String currentUser = sp.getString("current_user", "");
                     String myName = sp.getString("my_name", null);
                     if (myName == null || myName.isEmpty()) myName = sp.getString("my_local_name", null);
@@ -1134,14 +1130,38 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
             ChatMessage msg = new ChatMessage(text, time, sender, false, null, timestamp, localSavedPath, msgId);
 
-            String lowerName = fileName.toLowerCase(Locale.US);
-            boolean isVideo = isVideoFlag || (videoDuration != null && !videoDuration.equals("00:00")) || lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".3gp") || lowerName.endsWith(".webm") || lowerName.endsWith(".mov") || lowerName.endsWith(".avi");
+            String msgTypeStr = extractTag.apply(headerStr, ":::MSG_TYPE:::");
+            ChatMessage.MessageType parsedType = null;
+            if (msgTypeStr != null) {
+                try {
+                    parsedType = ChatMessage.MessageType.valueOf(msgTypeStr);
+                } catch (Exception ignored) {}
+            }
 
-            if (isVideo) {
-                msg.setMessageType(ChatMessage.MessageType.VIDEO);
+            if (parsedType == null) {
+                String lowerName = fileName.toLowerCase(Locale.US);
+                boolean isAudio = lowerName.endsWith(".mp3") || lowerName.endsWith(".m4a") || lowerName.endsWith(".aac") || lowerName.endsWith(".wav") || lowerName.endsWith(".ogg") || lowerName.endsWith(".flac") || lowerName.endsWith(".opus") || lowerName.endsWith(".wma");
+                boolean isVid = !isAudio && (isVideoFlag || lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".3gp") || lowerName.endsWith(".webm") || lowerName.endsWith(".mov") || lowerName.endsWith(".avi"));
+                boolean isImg = !isAudio && !isVid && (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".png") || lowerName.endsWith(".webp") || lowerName.endsWith(".gif"));
+
+                if (isAudio) parsedType = ChatMessage.MessageType.MUSIC;
+                else if (isVid) parsedType = ChatMessage.MessageType.VIDEO;
+                else if (isImg) parsedType = ChatMessage.MessageType.IMAGE;
+                else parsedType = ChatMessage.MessageType.FILE;
+            }
+
+            msg.setMessageType(parsedType);
+            if (parsedType == ChatMessage.MessageType.VIDEO) {
                 msg.setVideoDuration(videoDuration != null ? videoDuration : "00:00");
-            } else {
-                msg.setMessageType(ChatMessage.MessageType.FILE);
+            } else if (parsedType == ChatMessage.MessageType.MUSIC) {
+                msg.setAudioDuration(videoDuration != null ? videoDuration : "00:00");
+                if (fileName.contains(" - ")) {
+                    String[] tParts = fileName.split(" - ", 2);
+                    msg.setArtistName(tParts[0].trim());
+                    msg.setTrackTitle(tParts[1].trim());
+                } else {
+                    msg.setTrackTitle(fileName);
+                }
             }
 
             msg.setFileName(fileName);

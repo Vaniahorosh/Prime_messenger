@@ -149,27 +149,44 @@ fun EightBitBlurView.setupBlur(
         return
     }
 
-    doOnPreDraw { view ->
-        if (view.width <= 0 || view.height <= 0 || !view.isAttachedToWindow) return@doOnPreDraw
-        try {
-            val algorithm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                RenderEffectBlur()
-            } else {
-                RenderScriptBlur(context)
-            }
+    val initBlur: (View) -> Unit = { v ->
+        if (v.width > 0 && v.height > 0 && v.isAttachedToWindow) {
+            try {
+                val algorithm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    RenderEffectBlur()
+                } else {
+                    RenderScriptBlur(context)
+                }
 
-            val facade = setupWith(rootView, algorithm)
-                .setBlurRadius(blurRadius)
-                .setOverlayColor(tintColor)
-                .setBlurAutoUpdate(true)
+                val facade = setupWith(rootView, algorithm)
+                    .setBlurRadius(blurRadius)
+                    .setOverlayColor(tintColor)
+                    .setBlurAutoUpdate(true)
 
-            if (frameClearDrawable != null) {
-                facade.setFrameClearDrawable(frameClearDrawable)
+                if (frameClearDrawable != null) {
+                    facade.setFrameClearDrawable(frameClearDrawable)
+                }
+            } catch (e: Throwable) {
+                e.printStackTrace()
+                setBackgroundColor(tintColor)
             }
-        } catch (e: Throwable) {
-            e.printStackTrace()
-            setBackgroundColor(tintColor)
         }
+    }
+
+    if (width > 0 && height > 0 && isAttachedToWindow) {
+        initBlur(this)
+    } else {
+        addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(
+                v: View?, left: Int, top: Int, right: Int, bottom: Int,
+                oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int
+            ) {
+                if (v != null && v.width > 0 && v.height > 0 && v.isAttachedToWindow) {
+                    v.removeOnLayoutChangeListener(this)
+                    initBlur(v)
+                }
+            }
+        })
     }
 }
 

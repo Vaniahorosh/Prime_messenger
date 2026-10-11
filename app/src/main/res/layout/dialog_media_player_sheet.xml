@@ -5,12 +5,12 @@
     android:id="@+id/blurViewPlayerSheet"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/bg_floating_island"
+    android:background="@drawable/bg_glass_island"
     android:outlineProvider="background"
     android:clipToOutline="true"
-    android:paddingStart="16dp"
+    android:paddingStart="20dp"
     android:paddingTop="12dp"
-    android:paddingEnd="16dp"
+    android:paddingEnd="20dp"
     android:paddingBottom="24dp">
 
     <LinearLayout
@@ -29,24 +29,13 @@
             android:alpha="0.4"
             android:background="@drawable/bg_date_bubble" />
 
-        <!-- Header Title -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:text="АУДИОПЛЕЕР"
-            android:textColor="@color/prime_brand"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.08" />
-
-        <!-- Track Cover Art -->
+        <!-- Track Cover Art (Expanded) -->
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/ivPlayerCover"
-            android:layout_width="180dp"
-            android:layout_height="180dp"
+            android:layout_width="260dp"
+            android:layout_height="260dp"
             android:layout_marginVertical="8dp"
-            android:elevation="6dp"
+            android:elevation="8dp"
             android:scaleType="centerCrop"
             android:src="@drawable/ic_person"
             app:shapeAppearanceOverlay="@style/Rounded16dpImageView" />
@@ -62,7 +51,6 @@
             android:fadingEdge="horizontal"
             android:focusable="true"
             android:focusableInTouchMode="true"
-            android:gravity="center"
             android:marqueeRepeatLimit="marquee_forever"
             android:scrollHorizontally="true"
             android:singleLine="true"

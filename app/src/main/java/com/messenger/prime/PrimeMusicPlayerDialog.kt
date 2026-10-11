@@ -2,6 +2,8 @@ package com.messenger.prime
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
@@ -57,6 +59,20 @@ class PrimeMusicPlayerDialog(private val context: Context) : PrimeMusicManager.P
             d.window?.setDimAmount(0.4f)
         }
 
+        // Setup BlurView
+        var activityRoot: ViewGroup? = null
+        if (context is android.app.Activity) {
+            activityRoot = context.window.decorView.findViewById(android.R.id.content)
+        }
+        
+        if (activityRoot != null) {
+            val windowBackground = (context as android.app.Activity).window.decorView.background
+            val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val overlayColor = if (isDark) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+            
+            b.blurViewPlayerSheet.setupBlur(activityRoot, 20f, overlayColor, windowBackground)
+        }
+
         val accentColor = ColorAccentManager.getCurrentAccentColor(context)
         val colorStateList = ColorStateList.valueOf(accentColor)
 
@@ -72,7 +88,8 @@ class PrimeMusicPlayerDialog(private val context: Context) : PrimeMusicManager.P
             tracks = PrimeMusicManager.getCurrentPlaylist(),
             onTrackClick = { track ->
                 PrimeMusicManager.playTrack(context, track, PrimeMusicManager.getCurrentPlaylist())
-            }
+            },
+            onSelectionChanged = { _ -> }
         )
         b.rvPlayerPlaylist.adapter = playlistAdapter
 
@@ -150,18 +167,68 @@ class PrimeMusicPlayerDialog(private val context: Context) : PrimeMusicManager.P
         b.tvPlayerTitle.text = track.title
         b.tvPlayerArtist.text = track.artist
 
+        val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+
         if (!track.coverPath.isNullOrEmpty()) {
-            Glide.with(context)
-                .load(track.coverPath)
-                .placeholder(R.drawable.ic_music)
-                .error(R.drawable.ic_music)
-                .into(b.ivPlayerCover)
+            try {
+                val bmp = BitmapFactory.decodeFile(track.coverPath)
+                if (bmp != null) {
+                    b.ivPlayerCover.setImageBitmap(bmp)
+                    val adaptiveTint = extractAdaptiveOverlayColor(bmp, isDark)
+                    b.blurViewPlayerSheet.setOverlayColor(adaptiveTint)
+                } else {
+                    b.ivPlayerCover.setImageResource(R.drawable.ic_music)
+                    val defaultTint = if (isDark) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+                    b.blurViewPlayerSheet.setOverlayColor(defaultTint)
+                }
+            } catch (_: Exception) {
+                b.ivPlayerCover.setImageResource(R.drawable.ic_music)
+            }
         } else {
             b.ivPlayerCover.setImageResource(R.drawable.ic_music)
+            val defaultTint = if (isDark) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+            b.blurViewPlayerSheet.setOverlayColor(defaultTint)
         }
 
         playlistAdapter?.updateTracks(PrimeMusicManager.getCurrentPlaylist())
         playlistAdapter?.setActiveTrack(track.id, PrimeMusicManager.isPlaying())
+    }
+
+    private fun extractAdaptiveOverlayColor(bitmap: Bitmap, isDarkTheme: Boolean): Int {
+        val width = bitmap.width
+        val height = bitmap.height
+        if (width <= 0 || height <= 0) {
+            return if (isDarkTheme) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+        }
+
+        var redSum = 0L
+        var greenSum = 0L
+        var blueSum = 0L
+        var sampleCount = 0
+
+        val stepX = (width / 12).coerceAtLeast(1)
+        val stepY = (height / 12).coerceAtLeast(1)
+
+        for (x in 0 until width step stepX) {
+            for (y in 0 until height step stepY) {
+                val pixel = bitmap.getPixel(x, y)
+                redSum += Color.red(pixel)
+                greenSum += Color.green(pixel)
+                blueSum += Color.blue(pixel)
+                sampleCount++
+            }
+        }
+
+        if (sampleCount == 0) {
+            return if (isDarkTheme) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+        }
+
+        val avgRed = (redSum / sampleCount).toInt()
+        val avgGreen = (greenSum / sampleCount).toInt()
+        val avgBlue = (blueSum / sampleCount).toInt()
+
+        val alpha = if (isDarkTheme) 0x65 else 0x48
+        return Color.argb(alpha, avgRed, avgGreen, avgBlue)
     }
 
     override fun onTrackChanged(track: TrackItem?) {

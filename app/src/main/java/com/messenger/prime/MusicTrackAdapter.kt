@@ -11,11 +11,20 @@ import com.messenger.prime.databinding.ItemMusicTrackBinding
 class MusicTrackAdapter(
     private var tracks: List<TrackItem>,
     private val onTrackClick: (TrackItem) -> Unit,
-    private val onActionClick: ((TrackItem) -> Unit)? = null
+    private val onSelectionChanged: (Int) -> Unit
 ) : RecyclerView.Adapter<MusicTrackAdapter.TrackViewHolder>() {
 
     private var activeTrackId: String? = null
     private var isPlaying: Boolean = false
+    private val selectedTracks = mutableSetOf<String>()
+
+    fun getSelectedItems(): List<TrackItem> = tracks.filter { selectedTracks.contains(it.path) }
+
+    fun clearSelection() {
+        selectedTracks.clear()
+        notifyDataSetChanged()
+        onSelectionChanged(0)
+    }
 
     fun setActiveTrack(trackId: String?, playing: Boolean) {
         activeTrackId = trackId
@@ -65,16 +74,43 @@ class MusicTrackAdapter(
             binding.ivTrackCover.setImageResource(R.drawable.ic_music)
         }
 
-        if (onActionClick != null) {
-            binding.ivTrackAction.visibility = View.VISIBLE
-            binding.ivTrackAction.setImageResource(if (track.isSaved) R.drawable.ic_done else R.drawable.ic_download)
-            binding.ivTrackAction.setOnClickListener { onActionClick.invoke(track) }
+        val isSelected = selectedTracks.contains(track.path)
+        
+        binding.ivTrackAction.visibility = View.VISIBLE
+        if (isSelected) {
+            binding.ivTrackAction.setImageResource(R.drawable.ic_done)
+            binding.ivTrackAction.setColorFilter(ContextCompat.getColor(context, R.color.prime_brand))
+            holder.itemView.setBackgroundColor(0x20154B87)
         } else {
-            binding.ivTrackAction.visibility = View.GONE
+            binding.ivTrackAction.setImageResource(R.drawable.ic_add)
+            binding.ivTrackAction.setColorFilter(ContextCompat.getColor(context, R.color.prime_text_secondary))
+            holder.itemView.setBackgroundResource(R.drawable.bg_chat_item_light)
+        }
+
+        val toggleSelection = {
+            if (isSelected) {
+                selectedTracks.remove(track.path)
+            } else {
+                selectedTracks.add(track.path)
+            }
+            notifyItemChanged(position)
+            onSelectionChanged(selectedTracks.size)
+        }
+
+        binding.flCoverContainer.setOnClickListener {
+            if (isActive && isPlaying) {
+                PrimeMusicManager.togglePlayPause(context)
+            } else {
+                onTrackClick(track)
+            }
+        }
+
+        binding.ivTrackAction.setOnClickListener {
+            toggleSelection()
         }
 
         holder.itemView.setOnClickListener {
-            onTrackClick(track)
+            toggleSelection()
         }
     }
 

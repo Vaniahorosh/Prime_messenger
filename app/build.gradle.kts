@@ -57,6 +57,7 @@ dependencies {
 
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
+    implementation("androidx.media:media:1.7.0")
     implementation("androidx.viewpager2:viewpager2:1.1.0")
 
     testImplementation(libs.junit)

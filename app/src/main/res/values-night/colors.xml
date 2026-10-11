@@ -22,7 +22,7 @@
 
     <!-- Chat Semantic Colors (Dark Theme) -->
     <color name="chat_bubble_incoming_bg">#1E293B</color>
-    <color name="chat_bubble_incoming_stroke">#33FFFFFF</color>
+    <color name="chat_bubble_incoming_stroke">#00000000</color>
     <color name="chat_bubble_incoming_text">#E2E8F0</color>
     <color name="chat_bubble_incoming_time">#94A3B8</color>
     <color name="chat_bubble_outgoing_start">#1E62B0</color>
@@ -30,25 +30,25 @@
     <color name="chat_bubble_outgoing_text">#FFFFFF</color>
     <color name="chat_bubble_outgoing_time">#D1E2FF</color>
     <color name="chat_island_bg">#D9151A23</color>
-    <color name="chat_island_stroke">#26FFFFFF</color>
+    <color name="chat_island_stroke">#00000000</color>
     <color name="chat_date_bubble_bg">#4D000000</color>
-    <color name="chat_date_bubble_stroke">#26FFFFFF</color>
+    <color name="chat_date_bubble_stroke">#00000000</color>
     <color name="chat_date_bubble_text">#E2E8F0</color>
 
     <!-- Progress Bar Brand Colors (Dark Theme) -->
     <color name="prime_progress_start">#2196F3</color>
     <color name="prime_progress_end">#64B5F6</color>
     <color name="prime_progress_track_bg">#33FFFFFF</color>
-    <color name="prime_progress_track_border">#4064B5F6</color>
+    <color name="prime_progress_track_border">#00000000</color>
 
     <!-- Dialog Semantic Colors (Dark Theme) -->
     <color name="dialog_title_color">@color/white</color>
     <color name="dialog_body_color">#CCFFFFFF</color>
     <color name="dialog_input_text_color">@color/white</color>
     <color name="dialog_hint_color">@color/glass_white_30</color>
-    <color name="dialog_box_stroke">#40FFFFFF</color>
+    <color name="dialog_box_stroke">#00000000</color>
     <color name="dialog_button_cancel_text">@color/white</color>
-    <color name="dialog_button_cancel_stroke">#40FFFFFF</color>
+    <color name="dialog_button_cancel_stroke">#00000000</color>
     <color name="dialog_button_save_bg">@color/white</color>
     <color name="dialog_button_save_text">@color/prime_brand</color>
 

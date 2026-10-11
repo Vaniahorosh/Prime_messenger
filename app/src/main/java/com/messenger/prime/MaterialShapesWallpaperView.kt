@@ -78,7 +78,6 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     }
 
     private fun initUnitPaths() {
-        // Pre-calculate normalized unit paths (radius = 1.0f) to eliminate trig calculations during onDraw
         unitPaths[ShapeType.TRIANGLE] = Path().apply {
             moveTo(0f, -1f)
             lineTo(1f, 1f)
@@ -166,13 +165,11 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         }
 
         if (darkTheme) {
-            // Soft light-gray for dark theme
             baseColor = Color.parseColor("#E2E8F0")
-            baseAlpha = 22 // ~8% opacity
+            baseAlpha = 22
         } else {
-            // Brand color for light theme (subtle translucent)
             baseColor = ColorAccentManager.getCurrentAccentColor(context)
-            baseAlpha = 32 // ~12% opacity
+            baseAlpha = 32
         }
 
         paint.color = baseColor
@@ -186,7 +183,7 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
             val isLowRam = activityManager?.isLowRamDevice == true
 
             if (isLowRam) {
-                shapes.clear() // Не генерируем тяжелые фоновые фигуры для слабых устройств
+                shapes.clear()
                 invalidate()
                 return
             }
@@ -199,8 +196,8 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     private fun generateGridShapes(w: Int, h: Int) {
         shapes.clear()
         val density = resources.displayMetrics.density
-        val cellSize = (46 * density).toInt() // Small grid cell
-        val shapeBaseSize = 17 * density // Small shape size
+        val cellSize = (46 * density).toInt()
+        val shapeBaseSize = 17 * density
 
         maxCols = (w / cellSize) + 1
         maxRows = (h / cellSize) + 1
@@ -209,14 +206,12 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
 
         for (col in 0 until maxCols) {
             for (row in 0 until maxRows) {
-                // Position jitter
                 val offsetX = (random.nextFloat() - 0.5f) * 12 * density
                 val offsetY = (random.nextFloat() - 0.5f) * 12 * density
 
                 val cx = (col * cellSize) + (cellSize / 2f) + offsetX
                 val cy = (row * cellSize) + (cellSize / 2f) + offsetY
 
-                // ~7% chance for brand logo, otherwise select from diverse Material shapes
                 val isLogo = random.nextFloat() < 0.07f
                 val type = if (isLogo) {
                     ShapeType.BRAND_LOGO
@@ -254,7 +249,7 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         animator?.cancel()
         animProgress = 0f
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 900 // Smooth wave flip duration
+            duration = 900
             addUpdateListener { va ->
                 animProgress = va.animatedValue as Float
                 invalidate()
@@ -286,17 +281,15 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         val maxColRow = (maxCols + maxRows).coerceAtLeast(1)
 
         for (shape in shapes) {
-            // Wave progress calculation from top-left to bottom-right
             val normDistance = (shape.col + shape.row).toFloat() / maxColRow
             val waveWindow = 0.45f
             val waveStart = normDistance * (1f - waveWindow)
             val rawProgress = ((animProgress - waveStart) / waveWindow).coerceIn(0f, 1f)
 
-            if (rawProgress <= 0f) continue // Wave hasn't reached shape yet
+            if (rawProgress <= 0f) continue
 
             val shapeProgress = waveInterpolator.getInterpolation(rawProgress)
 
-            // 3D Card Flip Angle: rotates 180 degrees around Y-axis (from 180° edge-on -> 0° face-up)
             val flipY = (1f - rawProgress) * 180f
             val flipX = sin(rawProgress * Math.PI.toFloat()) * 20f
 
@@ -310,7 +303,6 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
 
             canvas.save()
 
-            // 3D Camera Card Flip
             camera3D.save()
             camera3D.rotateY(flipY)
             camera3D.rotateX(flipX)
@@ -321,7 +313,6 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
             matrix3D.postTranslate(shape.x, shape.y)
             canvas.concat(matrix3D)
 
-            // 2D Translate, Scale & Rotate
             canvas.translate(shape.x, shape.y)
             canvas.scale(localScale, localScale)
             canvas.rotate(shape.rotation)

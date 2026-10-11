@@ -347,7 +347,7 @@
                         android:insetTop="0dp"
                         android:insetBottom="0dp"
                         app:strokeColor="#B3FFFFFF"
-                        app:strokeWidth="1.5dp" />
+                        app:strokeWidth="0dp" />
 
                     <!-- 3. Выйти из приложения -->
                     <com.google.android.material.button.MaterialButton

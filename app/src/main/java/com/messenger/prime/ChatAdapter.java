@@ -1005,6 +1005,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 TextView tvMusicArtist = layoutMusicContainer.findViewById(R.id.tvMusicArtist);
                 TextView tvMusicDuration = layoutMusicContainer.findViewById(R.id.tvMusicDuration);
                 ImageView btnMusicDownload = layoutMusicContainer.findViewById(R.id.btnMusicDownload);
+                ProgressBar pbMusicProgress = layoutMusicContainer.findViewById(R.id.pbMusicProgress);
 
                 String path = message.getImagePath() != null ? message.getImagePath() : "";
                 TrackItem trackItem = PrimeMusicManager.INSTANCE.extractMetadata(layoutMusicContainer.getContext(), path);
@@ -1013,7 +1014,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 String artist = message.getArtistName() != null && !message.getArtistName().isEmpty() ? message.getArtistName() : trackItem.getArtist();
                 String duration = message.getAudioDuration() != null && !message.getAudioDuration().isEmpty() ? message.getAudioDuration() : trackItem.getDurationStr();
 
-                if (tvMusicTitle != null) tvMusicTitle.setText(title);
+                if (tvMusicTitle != null) {
+                    tvMusicTitle.setText(title);
+                    if (!tvMusicTitle.isSelected()) {
+                        tvMusicTitle.setSelected(true);
+                    }
+                }
                 if (tvMusicArtist != null) tvMusicArtist.setText(artist);
                 if (tvMusicDuration != null) tvMusicDuration.setText(duration);
 
@@ -1032,6 +1038,17 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 boolean isPlayingThis = PrimeMusicManager.INSTANCE.isPlaying() &&
                         PrimeMusicManager.INSTANCE.getCurrentTrack() != null &&
                         path.equals(PrimeMusicManager.INSTANCE.getCurrentTrack().getPath());
+
+                if (pbMusicProgress != null) {
+                    if (isPlayingThis && trackItem.getDurationMs() > 0) {
+                        pbMusicProgress.setVisibility(View.VISIBLE);
+                        long currentPos = PrimeMusicManager.INSTANCE.getCurrentPosition();
+                        int progress = (int) ((currentPos * 100) / trackItem.getDurationMs());
+                        pbMusicProgress.setProgress(Math.max(0, Math.min(100, progress)));
+                    } else {
+                        pbMusicProgress.setProgress(0);
+                    }
+                }
 
                 if (btnMusicPlayPause != null) {
                     btnMusicPlayPause.setImageResource(isPlayingThis ? R.drawable.ic_media_pause : R.drawable.ic_media_play);

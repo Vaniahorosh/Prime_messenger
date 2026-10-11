@@ -30,7 +30,7 @@
 
     <!-- Chat Semantic Colors (Light Theme) -->
     <color name="chat_bubble_incoming_bg">#FFFFFF</color>
-    <color name="chat_bubble_incoming_stroke">#E2E8F0</color>
+    <color name="chat_bubble_incoming_stroke">#00000000</color>
     <color name="chat_bubble_incoming_text">#1E293B</color>
     <color name="chat_bubble_incoming_time">#94A3B8</color>
     <color name="chat_bubble_outgoing_start">#3B82F6</color>
@@ -38,7 +38,7 @@
     <color name="chat_bubble_outgoing_text">#FFFFFF</color>
     <color name="chat_bubble_outgoing_time">#DBEAFE</color>
     <color name="chat_island_bg">#E6FFFFFF</color>
-    <color name="chat_island_stroke">#1A000000</color>
+    <color name="chat_island_stroke">#00000000</color>
     <color name="chat_date_bubble_bg">#F1F5F9</color>
     <color name="chat_date_bubble_stroke">#00000000</color>
     <color name="chat_date_bubble_text">#64748B</color>
@@ -53,8 +53,8 @@
     <color name="glass_white_10">#1AFFFFFF</color>
     <color name="glass_white_20">#33FFFFFF</color>
     <color name="glass_white_30">#4DFFFFFF</color>
-    <color name="glass_stroke">#80FFFFFF</color>
-    <color name="glass_stroke_thin">#33FFFFFF</color>
+    <color name="glass_stroke">#00000000</color>
+    <color name="glass_stroke_thin">#00000000</color>
     <color name="glass_bg_dark">#1A000000</color>
 
     <!-- Gradients for background -->
@@ -73,9 +73,9 @@
     <color name="dialog_body_color">#475569</color>
     <color name="dialog_input_text_color">#1E293B</color>
     <color name="dialog_hint_color">#94A3B8</color>
-    <color name="dialog_box_stroke">#CBD5E1</color>
+    <color name="dialog_box_stroke">#00000000</color>
     <color name="dialog_button_cancel_text">#64748B</color>
-    <color name="dialog_button_cancel_stroke">#E2E8F0</color>
+    <color name="dialog_button_cancel_stroke">#00000000</color>
     <color name="dialog_button_save_bg">@color/prime_brand</color>
     <color name="dialog_button_save_text">@color/white</color>
 

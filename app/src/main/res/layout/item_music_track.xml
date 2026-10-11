@@ -14,8 +14,12 @@
 
     <!-- Cover / Play Badge -->
     <FrameLayout
+        android:id="@+id/flCoverContainer"
         android:layout_width="42dp"
-        android:layout_height="42dp">
+        android:layout_height="42dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true">
 
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/ivTrackCover"

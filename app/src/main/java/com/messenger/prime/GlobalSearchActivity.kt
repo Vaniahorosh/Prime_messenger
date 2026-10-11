@@ -198,7 +198,8 @@ class GlobalSearchActivity : AppCompatActivity() {
     ) {
         if (indicatorView == null || labelView == null) return
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val visibleInactiveColor = if (isDark) android.graphics.Color.parseColor("#E6FFFFFF") else android.graphics.Color.parseColor("#E6154B87")
+        val inactiveColor = if (isDark) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
+        val activeIconColor = if (isDark) android.graphics.Color.parseColor("#0F172A") else android.graphics.Color.WHITE
 
         indicatorView.visibility = View.VISIBLE
 
@@ -212,7 +213,7 @@ class GlobalSearchActivity : AppCompatActivity() {
                 .setInterpolator(android.view.animation.OvershootInterpolator(1.1f))
                 .start()
 
-            iconView?.setColorFilter(android.graphics.Color.WHITE)
+            iconView?.setColorFilter(activeIconColor)
             iconView?.animate()?.scaleX(1.1f)?.scaleY(1.1f)?.setDuration(180)?.start()
 
             labelView.setTextColor(accentColor)
@@ -227,10 +228,10 @@ class GlobalSearchActivity : AppCompatActivity() {
                 .setDuration(180)
                 .start()
 
-            iconView?.setColorFilter(visibleInactiveColor)
+            iconView?.setColorFilter(inactiveColor)
             iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
 
-            labelView.setTextColor(visibleInactiveColor)
+            labelView.setTextColor(inactiveColor)
             labelView.setTypeface(null, android.graphics.Typeface.NORMAL)
             labelView.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.alpha(0.85f)?.setDuration(180)?.start()
         }
@@ -321,7 +322,7 @@ class GlobalSearchActivity : AppCompatActivity() {
         val blurNavView = navView as? eightbitlab.com.blurview.BlurView
         if (blurNavView != null) {
             val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            val overlayColor = if (isDark) android.graphics.Color.parseColor("#700F172A") else android.graphics.Color.parseColor("#70154B87")
+            val overlayColor = if (isDark) android.graphics.Color.parseColor("#D90F172A") else android.graphics.Color.parseColor("#D9F1F5F9")
             val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
             blurNavView.setupBlur(rootView, 22f, overlayColor, window.decorView.background)
         }

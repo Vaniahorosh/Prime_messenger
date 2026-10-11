@@ -4,6 +4,7 @@ import android.graphics.Bitmap;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -262,9 +263,10 @@ public class ChatMessage {
 
     public boolean isMusic() {
         if (messageType == MessageType.MUSIC) return true;
+        if (messageType == MessageType.VIDEO || messageType == MessageType.IMAGE || messageType == MessageType.VOICE) return false;
         if (imagePath != null && !imagePath.startsWith("MULTI:")) {
-            String lower = imagePath.toLowerCase();
-            return lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac");
+            String lower = imagePath.toLowerCase(Locale.US);
+            return lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac") || lower.endsWith(".opus") || lower.endsWith(".wma");
         }
         return false;
     }
@@ -295,16 +297,17 @@ public class ChatMessage {
 
     public boolean isVideo() {
         if (messageType == MessageType.VIDEO) return true;
+        if (messageType == MessageType.MUSIC || messageType == MessageType.FILE || messageType == MessageType.VOICE || messageType == MessageType.IMAGE) return false;
         if (imagePath != null && !imagePath.startsWith("MULTI:")) {
-            String lower = imagePath.toLowerCase();
-            return lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".3gp") || lower.endsWith(".webm");
+            String lower = imagePath.toLowerCase(Locale.US);
+            return lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".3gp") || lower.endsWith(".webm") || lower.endsWith(".mov") || lower.endsWith(".avi");
         }
         return false;
     }
 
     public boolean isFile() {
         if (messageType == MessageType.FILE) return true;
-        return fileName != null && !fileName.isEmpty() && !isVideo() && !isMusic();
+        return fileName != null && !fileName.isEmpty() && !isVideo() && !isMusic() && messageType != MessageType.IMAGE && messageType != MessageType.VOICE;
     }
 
     public String getMessageId() {

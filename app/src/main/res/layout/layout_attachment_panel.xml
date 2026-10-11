@@ -108,7 +108,7 @@
                             android:textStyle="bold"
                             app:cornerRadius="12dp"
                             app:strokeColor="@color/prime_brand"
-                            app:strokeWidth="1dp" />
+                            app:strokeWidth="0dp" />
 
                         <EditText
                             android:id="@+id/etGifSearch"
@@ -177,7 +177,7 @@
                         app:iconSize="16dp"
                         app:iconTint="@color/prime_brand"
                         app:strokeColor="@color/prime_brand"
-                        app:strokeWidth="1dp" />
+                        app:strokeWidth="0dp" />
                 </LinearLayout>
 
                 <!-- Section 3: Файлы -->
@@ -229,7 +229,7 @@
                         app:iconSize="16dp"
                         app:iconTint="@color/prime_brand"
                         app:strokeColor="@color/prime_brand"
-                        app:strokeWidth="1dp" />
+                        app:strokeWidth="0dp" />
                 </LinearLayout>
 
                 <!-- Section 4: Музыка -->
@@ -274,7 +274,7 @@
                             android:textSize="11sp"
                             app:cornerRadius="16dp"
                             app:strokeColor="@color/prime_brand"
-                            app:strokeWidth="1dp" />
+                            app:strokeWidth="0dp" />
                     </LinearLayout>
 
                     <FrameLayout
@@ -319,7 +319,7 @@
                         app:iconSize="16dp"
                         app:iconTint="@color/prime_brand"
                         app:strokeColor="@color/prime_brand"
-                        app:strokeWidth="1dp" />
+                        app:strokeWidth="0dp" />
                 </LinearLayout>
             </FrameLayout>
 

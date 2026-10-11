@@ -2,7 +2,4 @@
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <solid android:color="@color/chat_date_bubble_bg" />
     <corners android:radius="16dp" />
-    <stroke
-        android:width="0.5dp"
-        android:color="@color/chat_date_bubble_stroke" />
 </shape>

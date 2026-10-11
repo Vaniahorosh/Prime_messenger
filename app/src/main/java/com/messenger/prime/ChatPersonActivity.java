@@ -179,7 +179,7 @@ import eightbitlab.com.blurview.RenderEffectBlur;
 import eightbitlab.com.blurview.RenderScriptBlur;
 import kotlin.Unit;
 
-public class ChatPersonActivity extends AppCompatActivity implements BluetoothConnectionManager.ConnectionCallback {
+public class ChatPersonActivity extends AppCompatActivity implements BluetoothConnectionManager.ConnectionCallback, PrimeMusicManager.PlayerListener {
 
     private static final String TAG = "ChatPersonActivity";
     private static final UUID UUID_CHAT = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66");
@@ -265,6 +265,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private TextView tvChatStatus;
+    private eightbitlab.com.blurview.BlurView layoutMusicIsland;
+    private TextView tvMusicIslandTitle, tvMusicIslandTime;
+    private ProgressBar pbMusicIslandProgress;
+    private ImageView btnMusicIslandPlayPause;
+    private ImageButton btnMusicIslandClose;
     private TextView tvChatName;
     private TextView tvFloatingDate;
     private RecyclerView rvMessages;
@@ -313,14 +318,21 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private String currentSendingMessageId = null;
 
     // Attachment Panel Modes UI
-    private LinearLayout layoutModeCamera, layoutModePhoto, layoutModeFiles;
-    private FrameLayout vModeCameraBg, vModePhotoBg, vModeFilesBg;
-    private ImageView ivModeCameraIcon, ivModePhotoIcon, ivModeFilesIcon;
-    private TextView tvModeCameraLabel, tvModePhotoLabel, tvModeFilesLabel;
+    private LinearLayout layoutModeCamera, layoutModePhoto, layoutModeFiles, layoutModeMusic;
+    private FrameLayout vModeCameraBg, vModePhotoBg, vModeFilesBg, vModeMusicBg;
+    private ImageView ivModeCameraIcon, ivModePhotoIcon, ivModeFilesIcon, ivModeMusicIcon;
+    private TextView tvModeCameraLabel, tvModePhotoLabel, tvModeFilesLabel, tvModeMusicLabel;
 
     // Attachment Panel Content Sections UI
     private FrameLayout layoutSectionsContainer;
-    private View layoutSectionCamera, layoutSectionPhoto, layoutSectionFiles;
+    private View layoutSectionCamera, layoutSectionPhoto, layoutSectionFiles, layoutSectionMusic;
+    
+    private RecyclerView rvMusicGrid;
+    private TextView tvMusicEmpty;
+    private View btnMusicTabDevice, btnMusicTabSaved;
+    private MusicTrackAdapter musicAdapter;
+    private List<com.messenger.prime.TrackItem> currentMusicList = new ArrayList<>();
+    private boolean showingSavedMusic = false;
     private RecyclerView rvGalleryGrid, rvFilesGrid;
     private TextView tvGalleryEmpty, tvFilesEmpty;
 
@@ -719,6 +731,31 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         tvChatName = findViewById(R.id.tvChatName);
         tvChatStatus = findViewById(R.id.tvChatStatus);
+        
+        layoutMusicIsland = findViewById(R.id.layoutMusicIsland);
+        tvMusicIslandTitle = findViewById(R.id.tvMusicIslandTitle);
+        tvMusicIslandTime = findViewById(R.id.tvMusicIslandTime);
+        pbMusicIslandProgress = findViewById(R.id.pbMusicIslandProgress);
+        btnMusicIslandPlayPause = findViewById(R.id.btnMusicIslandPlayPause);
+        btnMusicIslandClose = findViewById(R.id.btnMusicIslandClose);
+
+        if (layoutMusicIsland != null) {
+            layoutMusicIsland.setOnClickListener(v -> {
+                PrimeMusicPlayerDialog dialog = new PrimeMusicPlayerDialog(this);
+                dialog.show(null, new ArrayList<>());
+            });
+            btnMusicIslandClose.setOnClickListener(v -> {
+                PrimeMusicManager.INSTANCE.stopAndReleasePlayer(this);
+                hideMusicIslandWithAnimation();
+            });
+            btnMusicIslandPlayPause.setOnClickListener(v -> {
+                PrimeMusicManager.INSTANCE.togglePlayPause(this);
+            });
+        }
+        
+        PrimeMusicManager.INSTANCE.addListener(this);
+        updateMusicIslandUI(PrimeMusicManager.INSTANCE.getCurrentTrack());
+        
         tvFloatingDate = findViewById(R.id.tvFloatingDate);
         if (tvFloatingDate != null) {
             tvFloatingDate.bringToFront();
@@ -897,17 +934,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (myName == null || myName.isEmpty()) myName = sharedPreferences.getString("my_local_name", null);
         if (myName == null || myName.isEmpty()) myName = sharedPreferences.getString("current_user_name", null);
 
-        if (deviceAddress != null && !deviceAddress.isEmpty()) {
-            String savedContactName = sharedPreferences.getString("contact_name_" + deviceAddress, null);
-            if (savedContactName != null && !savedContactName.isEmpty() && !isValidMacAddress(savedContactName)) {
-                targetUsername = savedContactName;
-            }
-        }
-        if (targetUsername == null || targetUsername.isEmpty() || targetUsername.equals("Собеседник")) {
-            String savedContactName = deviceAddress != null ? sharedPreferences.getString("contact_name_" + deviceAddress, null) : null;
-            if (savedContactName != null && !savedContactName.isEmpty() && !isValidMacAddress(savedContactName)) {
-                targetUsername = savedContactName;
-            } else if (deviceAddress != null && !deviceAddress.isEmpty()) {
+        String resolvedName = AvatarManager.getContactDisplayName(this, deviceAddress, targetUsername, targetUsername);
+        if (resolvedName != null && !resolvedName.isEmpty() && !isValidMacAddress(resolvedName) && !"Собеседник".equals(resolvedName)) {
+            targetUsername = resolvedName;
+        } else if (targetUsername == null || targetUsername.isEmpty() || targetUsername.equals("Собеседник")) {
+            if (deviceAddress != null && !deviceAddress.isEmpty()) {
                 targetUsername = deviceAddress;
             }
         }
@@ -956,9 +987,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
         localUsername = (myDisplayName != null && !myDisplayName.isEmpty()) ? myDisplayName : "Пользователь";
 
-        String contactAvatar = (deviceAddress != null && !deviceAddress.isEmpty())
-                ? sharedPreferences.getString("contact_avatar_" + deviceAddress, null)
-                : null;
+        String contactAvatar = AvatarManager.getContactAvatarUriOrFile(this, targetUsername, targetUsername, deviceAddress);
         if (contactAvatar == null || contactAvatar.isEmpty()) {
             contactAvatar = avatarUri;
         }
@@ -1774,21 +1803,24 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                 boolean allMedia = true;
                 for (PendingAttachmentItem item : sendItems) {
-                    if (item.isFile) { allMedia = false; break; }
+                    if (item.messageType != ChatMessage.MessageType.IMAGE && item.messageType != ChatMessage.MessageType.VIDEO) {
+                        allMedia = false;
+                        break;
+                    }
                 }
 
                 if (sendItems.size() > 1 && allMedia) {
                     sendMultiMedia(sendItems, text);
                 } else {
                     for (PendingAttachmentItem item : sendItems) {
-                        if (item.isVideo || item.isFile) {
+                        if (item.messageType == ChatMessage.MessageType.IMAGE) {
+                            sendPhoto(item.uri != null ? item.uri : Uri.parse(item.path), text);
+                        } else {
                             if (item.size > 2 * 1024 * 1024 * 1024L) {
                                 PrimeNotification.INSTANCE.show(this, "Превышен лимит размера файла (до 2 ГБ)", null);
                                 continue;
                             }
                             sendVideoOrFile(item, text);
-                        } else { // Photo
-                            sendPhoto(item.uri != null ? item.uri : Uri.parse(item.path), text);
                         }
                     }
                 }
@@ -2041,6 +2073,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     @Override
     protected void onResume() {
         super.onResume();
+        PrimeMusicManager.INSTANCE.addListener(this);
+        updateMusicIslandUI(PrimeMusicManager.INSTANCE.getCurrentTrack());
         isActivityForeground = true;
         activeChatPersonAddress = deviceAddress;
         activeChatPersonName = targetUsername;
@@ -2606,9 +2640,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         BlurView blurHeader = findViewById(R.id.layoutHeader);
         BlurView blurInput = findViewById(R.id.layoutInput);
         BlurView blurAttachmentPanel = findViewById(R.id.layoutAttachmentPanel);
+        BlurView blurMusicIsland = findViewById(R.id.layoutMusicIsland);
 
         BlurView[] blurViews = new BlurView[]{
-                blurHeader, blurInput, blurAttachmentPanel
+                blurHeader, blurInput, blurAttachmentPanel, blurMusicIsland
         };
 
         for (BlurView bv : blurViews) {
@@ -4311,16 +4346,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
                             SharedPreferences.Editor ed = sp.edit();
                             if (deviceAddress != null && !deviceAddress.isEmpty()) {
-                                ed.putString("contact_name_" + deviceAddress, remoteName);
-                                ed.putString(deviceAddress + "_name", remoteName);
+                                AvatarManager.saveContactPreferenceSafely(this, deviceAddress, "contact_name", remoteName);
                             }
                             if (oldName != null && !oldName.isEmpty() && !isLocalUserKey(oldName)) {
-                                ed.putString("contact_name_" + oldName, remoteName);
-                                ed.putString(oldName + "_name", remoteName);
+                                AvatarManager.saveContactPreferenceSafely(this, oldName, "contact_name", remoteName);
                             }
                             if (remoteLogin != null && !remoteLogin.isEmpty() && !isLocalUserKey(remoteLogin)) {
-                                ed.putString("contact_name_" + remoteLogin, remoteName);
-                                ed.putString(remoteLogin + "_name", remoteName);
+                                AvatarManager.saveContactPreferenceSafely(this, remoteLogin, "contact_name", remoteName);
                             }
                             ed.apply();
 
@@ -4470,22 +4502,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                 File avatarFile = ChatHistoryManager.saveBytesToAtomicFile(this, "rec_avatar_" + targetUsername + ext, avatarPayload);
                                 if (avatarFile == null) return;
                                 String avatarUri = Uri.fromFile(avatarFile).toString();
-                                SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-                                SharedPreferences.Editor editor = sharedPrefs.edit();
                                 if (deviceAddress != null && !deviceAddress.isEmpty()) {
-                                    editor.putString("contact_avatar_" + deviceAddress, avatarUri)
-                                          .putString(deviceAddress + "_avatar", avatarUri)
-                                          .putString(deviceAddress + "_avatarUri", avatarUri);
+                                    AvatarManager.saveContactPreferenceSafely(this, deviceAddress, "contact_avatar", avatarUri);
                                     ChatHistoryManager.saveBytesToAtomicFile(this, "rec_avatar_" + deviceAddress + ext, avatarPayload);
                                     AvatarHistoryManager.INSTANCE.addContactAvatar(this, deviceAddress, avatarUri);
                                 }
                                 if (targetUsername != null && !targetUsername.isEmpty() && !isLocalUserKey(targetUsername)) {
-                                    editor.putString("contact_avatar_" + targetUsername, avatarUri)
-                                          .putString(targetUsername + "_avatar", avatarUri)
-                                          .putString(targetUsername + "_avatarUri", avatarUri);
+                                    AvatarManager.saveContactPreferenceSafely(this, targetUsername, "contact_avatar", avatarUri);
                                     AvatarHistoryManager.INSTANCE.addContactAvatar(this, targetUsername, avatarUri);
                                 }
-                                editor.apply();
                                 remoteAvatarUri = avatarUri;
                                 updatePersistedChatAvatar(targetUsername, avatarUri);
                                 sendBroadcast(new Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(getPackageName()));
@@ -5219,21 +5244,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                 BluetoothSocketHolder.setActiveTargetUsername(remoteName);
                                 BluetoothSocketHolder.registerConnection(this.threadRemoteAddress, remoteName, mmSocket, this);
 
-                                SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-                                SharedPreferences.Editor ed = sharedPrefs.edit();
                                 if (this.threadRemoteAddress != null && !this.threadRemoteAddress.isEmpty()) {
-                                    ed.putString("contact_name_" + this.threadRemoteAddress, remoteName);
-                                    ed.putString(this.threadRemoteAddress + "_name", remoteName);
+                                    AvatarManager.saveContactPreferenceSafely(getApplicationContext(), this.threadRemoteAddress, "contact_name", remoteName);
                                 }
                                 if (oldTarget != null && !oldTarget.isEmpty() && !isLocalUserKey(oldTarget)) {
-                                    ed.putString("contact_name_" + oldTarget, remoteName);
-                                    ed.putString(oldTarget + "_name", remoteName);
+                                    AvatarManager.saveContactPreferenceSafely(getApplicationContext(), oldTarget, "contact_name", remoteName);
                                 }
                                 if (remoteLogin != null && !remoteLogin.isEmpty() && !isLocalUserKey(remoteLogin)) {
-                                    ed.putString("contact_name_" + remoteLogin, remoteName);
-                                    ed.putString(remoteLogin + "_name", remoteName);
+                                    AvatarManager.saveContactPreferenceSafely(getApplicationContext(), remoteLogin, "contact_name", remoteName);
                                 }
-                                ed.apply();
                                 
                                 if (oldTarget != null && !oldTarget.equalsIgnoreCase(remoteName) && !isValidMacAddress(oldTarget)) {
                                     migrateHistoryIfNeeded(oldTarget, remoteName);
@@ -5284,22 +5303,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                 if (avatarFile == null) return;
 
                                 String newAvatarUri = Uri.fromFile(avatarFile).toString();
-                                SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-                                SharedPreferences.Editor editor = sharedPrefs.edit();
                                 if (deviceAddress != null && !deviceAddress.isEmpty()) {
-                                    editor.putString("contact_avatar_" + deviceAddress, newAvatarUri)
-                                          .putString(deviceAddress + "_avatar", newAvatarUri)
-                                          .putString(deviceAddress + "_avatarUri", newAvatarUri);
+                                    AvatarManager.saveContactPreferenceSafely(getApplicationContext(), deviceAddress, "contact_avatar", newAvatarUri);
                                     ChatHistoryManager.saveBytesToAtomicFile(getApplicationContext(), "rec_avatar_" + deviceAddress + ext, payload);
                                     AvatarHistoryManager.INSTANCE.addContactAvatar(getApplicationContext(), deviceAddress, newAvatarUri);
                                 }
                                 if (sender != null && !sender.isEmpty() && !isLocalUserKey(sender)) {
-                                    editor.putString("contact_avatar_" + sender, newAvatarUri)
-                                          .putString(sender + "_avatar", newAvatarUri)
-                                          .putString(sender + "_avatarUri", newAvatarUri);
+                                    AvatarManager.saveContactPreferenceSafely(getApplicationContext(), sender, "contact_avatar", newAvatarUri);
                                     AvatarHistoryManager.INSTANCE.addContactAvatar(getApplicationContext(), sender, newAvatarUri);
                                 }
-                                editor.apply();
 
                                 updatePersistedChatAvatar(sender, newAvatarUri);
                                 sendBroadcast(new Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(getPackageName()));
@@ -5788,18 +5800,42 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         ChatMessage msg = new ChatMessage(text, time, sender, false, null, timestamp, localSavedPath, msgId);
 
-        String lowerName = fileName.toLowerCase();
-        boolean isVideo = isVideoFlag || (videoDuration != null && !Objects.equals(videoDuration, "00:00")) || lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".3gp") || lowerName.endsWith(".webm") || lowerName.endsWith(".mov") || lowerName.endsWith(".avi");
+        String msgTypeStr = extractHeaderTag(headerStr, ":::MSG_TYPE:::");
+        ChatMessage.MessageType parsedType = null;
+        if (msgTypeStr != null) {
+            try {
+                parsedType = ChatMessage.MessageType.valueOf(msgTypeStr);
+            } catch (Exception ignored) {}
+        }
 
-        if (isVideo) {
-            msg.setMessageType(ChatMessage.MessageType.VIDEO);
+        if (parsedType == null) {
+            String lowerName = fileName.toLowerCase(Locale.US);
+            boolean isAudio = lowerName.endsWith(".mp3") || lowerName.endsWith(".m4a") || lowerName.endsWith(".aac") || lowerName.endsWith(".wav") || lowerName.endsWith(".ogg") || lowerName.endsWith(".flac") || lowerName.endsWith(".opus") || lowerName.endsWith(".wma");
+            boolean isVid = !isAudio && (isVideoFlag || lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".3gp") || lowerName.endsWith(".webm") || lowerName.endsWith(".mov") || lowerName.endsWith(".avi"));
+            boolean isImg = !isAudio && !isVid && (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".png") || lowerName.endsWith(".webp") || lowerName.endsWith(".gif"));
+
+            if (isAudio) parsedType = ChatMessage.MessageType.MUSIC;
+            else if (isVid) parsedType = ChatMessage.MessageType.VIDEO;
+            else if (isImg) parsedType = ChatMessage.MessageType.IMAGE;
+            else parsedType = ChatMessage.MessageType.FILE;
+        }
+
+        msg.setMessageType(parsedType);
+        if (parsedType == ChatMessage.MessageType.VIDEO) {
             msg.setVideoDuration(videoDuration != null ? videoDuration : "00:00");
             if (localSavedPath != null) {
                 Bitmap thumb = getVideoThumbnail(localSavedPath);
                 if (thumb != null) msg.setImageBitmap(thumb);
             }
-        } else {
-            msg.setMessageType(ChatMessage.MessageType.FILE);
+        } else if (parsedType == ChatMessage.MessageType.MUSIC) {
+            msg.setAudioDuration(videoDuration != null ? videoDuration : "00:00");
+            if (fileName.contains(" - ")) {
+                String[] mParts = fileName.split(" - ", 2);
+                msg.setArtistName(mParts[0].trim());
+                msg.setTrackTitle(mParts[1].trim());
+            } else {
+                msg.setTrackTitle(fileName);
+            }
         }
 
         msg.setFileName(fileName);
@@ -5834,11 +5870,19 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     }
                 } catch (Exception ignored) {}
 
-                boolean isVideoMime = mimeType != null && mimeType.startsWith("video/");
-                boolean isVideo = pending.isVideo || isVideoMime || isVideoMimeOrPath(pending.uri, pending.path);
-                ChatMessage.MessageType type = isVideo ? ChatMessage.MessageType.VIDEO : ChatMessage.MessageType.FILE;
+                ChatMessage.MessageType type;
+                if (pending.messageType != null) {
+                    type = pending.messageType;
+                } else {
+                    boolean isAudio = isAudioMimeOrPath(pending.uri, pending.path);
+                    boolean isVideo = pending.isVideo || (!isAudio && ((mimeType != null && mimeType.startsWith("video/")) || isVideoMimeOrPath(pending.uri, pending.path)));
+                    type = isAudio ? ChatMessage.MessageType.MUSIC : (isVideo ? ChatMessage.MessageType.VIDEO : ChatMessage.MessageType.FILE);
+                }
 
-                String fileName = pending.name != null ? pending.name : (isVideo ? "video.mp4" : "file.bin");
+                boolean isVideo = (type == ChatMessage.MessageType.VIDEO);
+                boolean isMusic = (type == ChatMessage.MessageType.MUSIC);
+
+                String fileName = pending.name != null ? pending.name : (isMusic ? "audio.mp3" : (isVideo ? "video.mp4" : "file.bin"));
                 if (isVideo && !fileName.toLowerCase(Locale.US).matches(".*\\.(mp4|mkv|3gp|webm|mov|avi)$")) {
                     fileName = fileName + ".mp4";
                 }
@@ -5876,6 +5920,16 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 msg.setFileName(fileName);
                 msg.setFileSize(fileSize > 0 ? fileSize : fileBytes.length);
                 if (isVideo) msg.setVideoDuration(durStr);
+                if (isMusic) {
+                    msg.setAudioDuration(durStr);
+                    if (fileName.contains(" - ")) {
+                        String[] mParts = fileName.split(" - ", 2);
+                        msg.setArtistName(mParts[0].trim());
+                        msg.setTrackTitle(mParts[1].trim());
+                    } else {
+                        msg.setTrackTitle(fileName);
+                    }
+                }
                 msg.setMessageStatus(MessageStatus.SENDING);
                 msg.setSendingProgress(0);
 
@@ -5883,11 +5937,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     msg.setReplyToMessageId(replyingToMessage.getMessageId());
                     msg.setReplyToSender(replyingToMessage.getSenderLogin());
                     String qText = replyingToText != null && !replyingToText.isEmpty() ? replyingToText : replyingToMessage.getText();
-                    msg.setReplyToText(qText != null && !qText.isEmpty() ? qText : (isVideo ? "Видео" : "Файл"));
+                    msg.setReplyToText(qText != null && !qText.isEmpty() ? qText : (isMusic ? "Аудиозапись" : (isVideo ? "Видео" : "Файл")));
                     runOnUiThread(this::cancelReplyMode);
                 }
 
-                String header = messageId + ":::" + fileName + ":::" + msg.getFileSize() + ":::" + (text != null ? text : "") + ":::DURATION:::" + durStr + ":::IS_VIDEO:::" + (isVideo ? "1" : "0");
+                String header = messageId + ":::" + fileName + ":::" + msg.getFileSize() + ":::" + (text != null ? text : "") + ":::DURATION:::" + durStr + ":::IS_VIDEO:::" + (isVideo ? "1" : "0") + ":::MSG_TYPE:::" + type.name();
                 if (msg.isReply()) {
                     header += ":::REPLY:::" + msg.getReplyToMessageId() + ":::" + msg.getReplyToSender() + ":::" + msg.getReplyToText();
                 }
@@ -5940,23 +5994,27 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         long size;
         boolean isVideo;
         boolean isFile;
+        ChatMessage.MessageType messageType;
         Bitmap thumbnail;
         String durationStr;
 
-        PendingAttachmentItem(Uri uri, String path, String name, long size, boolean isVideo, boolean isFile, Bitmap thumbnail, String durationStr) {
+        PendingAttachmentItem(Uri uri, String path, String name, long size, boolean isVideo, boolean isFile, ChatMessage.MessageType messageType, Bitmap thumbnail, String durationStr) {
             this.uri = uri;
             this.path = path;
             this.name = name;
             this.size = size;
-            this.isVideo = isVideo;
-            this.isFile = isFile;
+            this.messageType = messageType != null ? messageType : (isVideo ? ChatMessage.MessageType.VIDEO : (isFile ? ChatMessage.MessageType.FILE : ChatMessage.MessageType.IMAGE));
+            this.isVideo = (this.messageType == ChatMessage.MessageType.VIDEO);
+            this.isFile = (this.messageType == ChatMessage.MessageType.FILE || this.messageType == ChatMessage.MessageType.MUSIC || this.messageType == ChatMessage.MessageType.VOICE);
             this.thumbnail = thumbnail;
             this.durationStr = durationStr;
         }
 
         String getFormatLabel() {
-            if (isVideo) return "MP4";
-            if (!isFile) return "IMG";
+            if (messageType == ChatMessage.MessageType.MUSIC) return "MP3";
+            if (messageType == ChatMessage.MessageType.VOICE) return "VOICE";
+            if (messageType == ChatMessage.MessageType.VIDEO) return "MP4";
+            if (messageType == ChatMessage.MessageType.IMAGE) return "IMG";
             if (name != null && name.contains(".")) {
                 String ext = name.substring(name.lastIndexOf(".") + 1).toUpperCase(Locale.ROOT);
                 if (ext.length() <= 5) return ext;
@@ -5996,14 +6054,17 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             holder.tvFormat.setText(item.getFormatLabel());
             holder.tvSize.setText(ChatAdapter.formatFileSize(item.size));
 
-            if (item.isVideo) {
+            if (item.messageType == ChatMessage.MessageType.MUSIC) {
+                holder.ivVideoBadge.setVisibility(View.GONE);
+                holder.ivThumbnail.setImageResource(R.drawable.ic_music);
+            } else if (item.messageType == ChatMessage.MessageType.VIDEO) {
                 holder.ivVideoBadge.setVisibility(View.VISIBLE);
                 if (item.thumbnail != null) {
                     holder.ivThumbnail.setImageBitmap(item.thumbnail);
                 } else {
                     holder.ivThumbnail.setImageResource(R.drawable.ic_video);
                 }
-            } else if (item.isFile) {
+            } else if (item.messageType == ChatMessage.MessageType.FILE) {
                 holder.ivVideoBadge.setVisibility(View.GONE);
                 holder.ivThumbnail.setImageResource(R.drawable.ic_file);
             } else { // Photo
@@ -6420,6 +6481,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
             if (galleryAdapter != null) galleryAdapter.clearSelection();
             if (filesAdapter != null) filesAdapter.clearSelection();
+            if (musicAdapter != null) musicAdapter.clearSelection();
             updateConfirmAttachmentButton();
         });
 
@@ -6486,23 +6548,33 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         layoutModeCamera = dialogView.findViewById(R.id.layoutModeCamera);
         layoutModePhoto = dialogView.findViewById(R.id.layoutModePhoto);
         layoutModeFiles = dialogView.findViewById(R.id.layoutModeFiles);
+        layoutModeMusic = dialogView.findViewById(R.id.layoutModeMusic);
 
         vModeCameraBg = dialogView.findViewById(R.id.vModeCameraBg);
         vModePhotoBg = dialogView.findViewById(R.id.vModePhotoBg);
         vModeFilesBg = dialogView.findViewById(R.id.vModeFilesBg);
+        vModeMusicBg = dialogView.findViewById(R.id.vModeMusicBg);
 
         ivModeCameraIcon = dialogView.findViewById(R.id.ivModeCameraIcon);
         ivModePhotoIcon = dialogView.findViewById(R.id.ivModePhotoIcon);
         ivModeFilesIcon = dialogView.findViewById(R.id.ivModeFilesIcon);
+        ivModeMusicIcon = dialogView.findViewById(R.id.ivModeMusicIcon);
 
         tvModeCameraLabel = dialogView.findViewById(R.id.tvModeCameraLabel);
         tvModePhotoLabel = dialogView.findViewById(R.id.tvModePhotoLabel);
         tvModeFilesLabel = dialogView.findViewById(R.id.tvModeFilesLabel);
+        tvModeMusicLabel = dialogView.findViewById(R.id.tvModeMusicLabel);
 
         layoutSectionsContainer = dialogView.findViewById(R.id.layoutSectionsContainer);
         layoutSectionCamera = dialogView.findViewById(R.id.layoutSectionCamera);
         layoutSectionPhoto = dialogView.findViewById(R.id.layoutSectionPhoto);
         layoutSectionFiles = dialogView.findViewById(R.id.layoutSectionFiles);
+        layoutSectionMusic = dialogView.findViewById(R.id.layoutSectionMusic);
+
+        rvMusicGrid = dialogView.findViewById(R.id.rvMusicGrid);
+        tvMusicEmpty = dialogView.findViewById(R.id.tvMusicEmpty);
+        btnMusicTabDevice = dialogView.findViewById(R.id.btnMusicTabDevice);
+        btnMusicTabSaved = dialogView.findViewById(R.id.btnMusicTabSaved);
 
         if (layoutSectionsContainer != null) {
             GestureDetector swipeDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
@@ -6513,7 +6585,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     float diffY = e2.getY() - e1.getY();
                     if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 80 && Math.abs(velocityX) > 150) {
                         if (diffX < 0) {
-                            if (currentAttachmentMode < 2) {
+                            if (currentAttachmentMode < 3) {
                                 switchAttachmentMode(currentAttachmentMode + 1);
                                 return true;
                             }
@@ -6572,10 +6644,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         btnConfirmAttachment = dialogView.findViewById(R.id.btnConfirmAttachment);
         if (btnConfirmAttachment != null) {
             btnConfirmAttachment.setOnClickListener(v -> {
-                if (galleryAdapter != null && galleryAdapter.getSelectedCount() > 0) {
+                if (currentAttachmentMode == 1 && galleryAdapter != null && galleryAdapter.getSelectedCount() > 0) {
                     setPendingAttachmentFromMediaItems(galleryAdapter.getSelectedItems(), true);
-                } else if (filesAdapter != null && filesAdapter.getSelectedCount() > 0) {
+                } else if (currentAttachmentMode == 2 && filesAdapter != null && filesAdapter.getSelectedCount() > 0) {
                     setPendingAttachmentFromFileItems(filesAdapter.getSelectedItems(), true);
+                } else if (currentAttachmentMode == 3 && musicAdapter != null && musicAdapter.getSelectedItems().size() > 0) {
+                    setPendingAttachmentFromMusic(musicAdapter.getSelectedItems(), true);
                 } else {
                     closeAttachmentPanel();
                 }
@@ -6618,6 +6692,169 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             hideSoftKeyboard();
             if (checkAndRequestAllAppPermissions()) switchAttachmentMode(2);
         });
+        if (layoutModeMusic != null) layoutModeMusic.setOnClickListener(v -> {
+            hideSoftKeyboard();
+            if (checkAndRequestAllAppPermissions()) switchAttachmentMode(3);
+        });
+    }
+
+    @Override
+    public void onTrackChanged(@androidx.annotation.Nullable com.messenger.prime.TrackItem track) {
+        runOnUiThread(() -> updateMusicIslandUI(track));
+    }
+
+    @Override
+    public void onPlaybackStateChanged(boolean isPlaying) {
+        runOnUiThread(() -> {
+            if (btnMusicIslandPlayPause != null) {
+                btnMusicIslandPlayPause.setImageResource(isPlaying ? R.drawable.ic_media_pause : R.drawable.ic_media_play);
+            }
+            if (musicAdapter != null) {
+                com.messenger.prime.TrackItem current = PrimeMusicManager.INSTANCE.getCurrentTrack();
+                musicAdapter.setActiveTrack(current != null ? current.getId() : null, isPlaying);
+            }
+        });
+    }
+
+    @Override
+    public void onProgressUpdated(long progress, long duration) {
+        runOnUiThread(() -> {
+            if (tvMusicIslandTime != null) {
+                tvMusicIslandTime.setText(PrimeMusicManager.INSTANCE.formatDuration(progress) + " / " + PrimeMusicManager.INSTANCE.formatDuration(duration));
+            }
+            if (pbMusicIslandProgress != null && duration > 0) {
+                int percent = (int) ((progress * 100) / duration);
+                pbMusicIslandProgress.setProgress(Math.max(0, Math.min(100, percent)));
+            }
+        });
+    }
+
+    private boolean isMusicIslandShowing = false;
+
+    private void showMusicIslandWithAnimation() {
+        if (layoutMusicIsland == null) return;
+
+        ViewGroup rootView = getWindow().getDecorView().findViewById(android.R.id.content);
+        if (rootView == null) rootView = (ViewGroup) getWindow().getDecorView();
+        boolean isDark = (getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        android.graphics.drawable.Drawable windowBg = getWindow().getDecorView().getBackground();
+        int overlayColor = isDark ? Color.parseColor("#400F172A") : Color.parseColor("#40154B87");
+        BlurViewKt.setupBlur(layoutMusicIsland, rootView, 16f, overlayColor, windowBg);
+
+        if (isMusicIslandShowing && layoutMusicIsland.getVisibility() == View.VISIBLE) return;
+
+        isMusicIslandShowing = true;
+        layoutMusicIsland.setVisibility(View.VISIBLE);
+        layoutMusicIsland.animate().cancel();
+
+        float initialTranslationY = -80f * getResources().getDisplayMetrics().density;
+        if (layoutMusicIsland.getHeight() > 0) {
+            initialTranslationY = -layoutMusicIsland.getHeight() - (12f * getResources().getDisplayMetrics().density);
+        }
+
+        layoutMusicIsland.setAlpha(0f);
+        layoutMusicIsland.setTranslationY(initialTranslationY);
+
+        layoutMusicIsland.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(320)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f))
+                .start();
+    }
+
+    private void hideMusicIslandWithAnimation() {
+        if (layoutMusicIsland == null) return;
+        if (!isMusicIslandShowing && layoutMusicIsland.getVisibility() == View.GONE) return;
+
+        isMusicIslandShowing = false;
+        layoutMusicIsland.animate().cancel();
+
+        float targetTranslationY = -80f * getResources().getDisplayMetrics().density;
+        if (layoutMusicIsland.getHeight() > 0) {
+            targetTranslationY = -layoutMusicIsland.getHeight() - (12f * getResources().getDisplayMetrics().density);
+        }
+
+        layoutMusicIsland.animate()
+                .translationY(targetTranslationY)
+                .alpha(0f)
+                .setDuration(260)
+                .setInterpolator(new android.view.animation.AccelerateInterpolator(1.5f))
+                .withEndAction(() -> {
+                    layoutMusicIsland.setVisibility(View.GONE);
+                    layoutMusicIsland.setTranslationY(0f);
+                })
+                .start();
+    }
+
+    private void updateMusicIslandUI(com.messenger.prime.TrackItem track) {
+        if (layoutMusicIsland == null) return;
+        if (track == null) {
+            hideMusicIslandWithAnimation();
+            return;
+        }
+
+        if (tvMusicIslandTitle != null) {
+            String newTitle = track.getTitle() + " - " + track.getArtist();
+            if (!newTitle.equals(tvMusicIslandTitle.getText().toString())) {
+                tvMusicIslandTitle.setText(newTitle);
+            }
+            if (!tvMusicIslandTitle.isSelected()) {
+                tvMusicIslandTitle.setSelected(true);
+            }
+        }
+
+        showMusicIslandWithAnimation();
+        onPlaybackStateChanged(PrimeMusicManager.INSTANCE.isPlaying());
+    }
+
+    private void initMusicSection() {
+        if (rvMusicGrid != null && musicAdapter == null) {
+            rvMusicGrid.setLayoutManager(new LinearLayoutManager(this));
+            musicAdapter = new MusicTrackAdapter(new ArrayList<>(), track -> {
+                PrimeMusicManager.INSTANCE.playTrack(this, track, currentMusicList);
+                return kotlin.Unit.INSTANCE;
+            }, selectionCount -> {
+                updateConfirmAttachmentButton();
+                return kotlin.Unit.INSTANCE;
+            });
+            rvMusicGrid.setAdapter(musicAdapter);
+
+            if (btnMusicTabDevice != null) {
+                btnMusicTabDevice.setOnClickListener(v -> {
+                    showingSavedMusic = false;
+                    loadMusicTracksAsync();
+                });
+            }
+            if (btnMusicTabSaved != null) {
+                btnMusicTabSaved.setOnClickListener(v -> {
+                    showingSavedMusic = true;
+                    loadMusicTracksAsync();
+                });
+            }
+        }
+    }
+
+    private void loadMusicTracksAsync() {
+        if (btnMusicTabDevice != null) btnMusicTabDevice.setAlpha(showingSavedMusic ? 0.5f : 1.0f);
+        if (btnMusicTabSaved != null) btnMusicTabSaved.setAlpha(showingSavedMusic ? 1.0f : 0.5f);
+
+        new Thread(() -> {
+            List<com.messenger.prime.TrackItem> tracks = showingSavedMusic
+                    ? PrimeMusicManager.INSTANCE.getSavedTracks(this)
+                    : PrimeMusicManager.INSTANCE.getDeviceTracks(this);
+            
+            runOnUiThread(() -> {
+                currentMusicList.clear();
+                currentMusicList.addAll(tracks);
+                if (musicAdapter != null) {
+                    musicAdapter.updateTracks(currentMusicList);
+                }
+                if (tvMusicEmpty != null) {
+                    tvMusicEmpty.setVisibility(tracks.isEmpty() ? View.VISIBLE : View.GONE);
+                }
+            });
+        }).start();
     }
 
     private void toggleAttachmentPanel() {
@@ -6643,6 +6880,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
             if (galleryAdapter != null) galleryAdapter.clearSelection();
             if (filesAdapter != null) filesAdapter.clearSelection();
+            if (musicAdapter != null) musicAdapter.clearSelection();
             updateConfirmAttachmentButton();
 
             switchAttachmentMode(currentAttachmentMode);
@@ -6661,6 +6899,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
         if (galleryAdapter != null) galleryAdapter.clearSelection();
         if (filesAdapter != null) filesAdapter.clearSelection();
+        if (musicAdapter != null) musicAdapter.clearSelection();
         updateConfirmAttachmentButton();
 
         if (attachmentDialog != null && attachmentDialog.isShowing()) {
@@ -6675,7 +6914,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         int galleryCount = (galleryAdapter != null) ? galleryAdapter.getSelectedCount() : 0;
         int filesCount = (filesAdapter != null) ? filesAdapter.getSelectedCount() : 0;
-        int totalCount = galleryCount + filesCount;
+        int musicCount = (musicAdapter != null) ? musicAdapter.getSelectedItems().size() : 0;
+        
+        int totalCount = 0;
+        if (currentAttachmentMode == 1) totalCount = galleryCount;
+        else if (currentAttachmentMode == 2) totalCount = filesCount;
+        else if (currentAttachmentMode == 3) totalCount = musicCount;
 
         if (totalCount > 0) {
             String newCountStr = String.valueOf(totalCount);
@@ -6742,6 +6986,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (mode == 0) return layoutSectionCamera;
         if (mode == 1) return layoutSectionPhoto;
         if (mode == 2) return layoutSectionFiles;
+        if (mode == 3) return layoutSectionMusic;
         return null;
     }
 
@@ -6758,14 +7003,17 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (vModeCameraBg != null) vModeCameraBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
         if (vModePhotoBg != null) vModePhotoBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
         if (vModeFilesBg != null) vModeFilesBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
+        if (vModeMusicBg != null) vModeMusicBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
 
         if (ivModeCameraIcon != null) ImageViewCompat.setImageTintList(ivModeCameraIcon, null);
         if (ivModePhotoIcon != null) ImageViewCompat.setImageTintList(ivModePhotoIcon, ColorStateList.valueOf(idleSecondary));
         if (ivModeFilesIcon != null) ImageViewCompat.setImageTintList(ivModeFilesIcon, ColorStateList.valueOf(idleSecondary));
+        if (ivModeMusicIcon != null) ImageViewCompat.setImageTintList(ivModeMusicIcon, ColorStateList.valueOf(idleSecondary));
 
         if (tvModeCameraLabel != null) tvModeCameraLabel.setTextColor(idleSecondary);
         if (tvModePhotoLabel != null) tvModePhotoLabel.setTextColor(idleSecondary);
         if (tvModeFilesLabel != null) tvModeFilesLabel.setTextColor(idleSecondary);
+        if (tvModeMusicLabel != null) tvModeMusicLabel.setTextColor(idleSecondary);
 
         if (newMode == 0) { // GIF
             if (vModeCameraBg != null) vModeCameraBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
@@ -6782,12 +7030,19 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             if (ivModeFilesIcon != null) ImageViewCompat.setImageTintList(ivModeFilesIcon, ColorStateList.valueOf(activeBrand));
             if (tvModeFilesLabel != null) tvModeFilesLabel.setTextColor(activeBrand);
             loadFilesAsync();
+        } else if (newMode == 3) { // Music
+            if (vModeMusicBg != null) vModeMusicBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
+            if (ivModeMusicIcon != null) ImageViewCompat.setImageTintList(ivModeMusicIcon, ColorStateList.valueOf(activeBrand));
+            if (tvModeMusicLabel != null) tvModeMusicLabel.setTextColor(activeBrand);
+            initMusicSection();
+            loadMusicTracksAsync();
         }
 
         if (oldView == null || newView == null || oldView == newView) {
             if (layoutSectionCamera != null) layoutSectionCamera.setVisibility(newMode == 0 ? View.VISIBLE : View.GONE);
             if (layoutSectionPhoto != null) layoutSectionPhoto.setVisibility(newMode == 1 ? View.VISIBLE : View.GONE);
             if (layoutSectionFiles != null) layoutSectionFiles.setVisibility(newMode == 2 ? View.VISIBLE : View.GONE);
+            if (layoutSectionMusic != null) layoutSectionMusic.setVisibility(newMode == 3 ? View.VISIBLE : View.GONE);
             return;
         }
 
@@ -6870,15 +7125,19 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         Bitmap thumbnail = null;
         String durationStr = null;
 
-        if (isVideo) {
+        boolean isAudio = isAudioMimeOrPath(uri, path);
+        boolean isVid = !isAudio && isVideo;
+        boolean isImg = !isAudio && !isVid && isPhotoMimeOrPath(uri, path);
+        ChatMessage.MessageType msgType = isAudio ? ChatMessage.MessageType.MUSIC : (isVid ? ChatMessage.MessageType.VIDEO : (isImg ? ChatMessage.MessageType.IMAGE : ChatMessage.MessageType.FILE));
+
+        if (isVid) {
             thumbnail = getVideoThumbnail(path != null ? path : uri.toString());
             durationStr = getVideoDurationFromUri(uri, path);
-        } else {
+        } else if (isImg) {
             thumbnail = getPhotoThumbnail(uri, path);
         }
 
-        boolean isFile = !isVideo && !isPhotoMimeOrPath(uri, path);
-        PendingAttachmentItem item = new PendingAttachmentItem(uri, path != null ? path : uri.toString(), name, size, isVideo, isFile, thumbnail, durationStr);
+        PendingAttachmentItem item = new PendingAttachmentItem(uri, path != null ? path : uri.toString(), name, size, isVid, !isVid && !isImg && !isAudio, msgType, thumbnail, durationStr);
 
         PendingAttachment pending = new PendingAttachment();
         pending.items.add(item);
@@ -6906,6 +7165,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         PendingAttachment pending = new PendingAttachment();
         for (MediaItem mi : items) {
             Bitmap thumb = null;
+            ChatMessage.MessageType msgType = mi.isVideo ? ChatMessage.MessageType.VIDEO : ChatMessage.MessageType.IMAGE;
             if (mi.isVideo) {
                 thumb = getVideoThumbnail(mi.path != null ? mi.path : (mi.uri != null ? mi.uri.toString() : null));
             } else {
@@ -6918,6 +7178,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 mi.size,
                 mi.isVideo,
                 false,
+                msgType,
                 thumb,
                 mi.durationStr
             );
@@ -6929,22 +7190,50 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (closePanel) closeAttachmentPanel();
     }
 
+    private void setPendingAttachmentFromMusic(List<com.messenger.prime.TrackItem> tracks, boolean closePanel) {
+        if (tracks == null || tracks.isEmpty()) return;
+        PendingAttachment pending = new PendingAttachment();
+        for (com.messenger.prime.TrackItem track : tracks) {
+            String path = track.getPath();
+            String name = track.getTitle() + " - " + track.getArtist();
+            PendingAttachmentItem item = new PendingAttachmentItem(
+                Uri.parse(path),
+                path,
+                name,
+                track.getFileSize(),
+                false,
+                false,
+                ChatMessage.MessageType.MUSIC,
+                null,
+                track.getDurationStr()
+            );
+            pending.items.add(item);
+        }
+        this.currentPendingAttachment = pending;
+        showPendingAttachmentBar(pending);
+        if (closePanel) closeAttachmentPanel();
+    }
+
     private void setPendingAttachmentFromFileItems(List<FileItem> items, boolean closePanel) {
         if (items == null || items.isEmpty()) return;
         PendingAttachment pending = new PendingAttachment();
         for (FileItem fi : items) {
-            boolean isVid = isVideoMimeOrPath(fi.uri, fi.path);
-            boolean isImg = !isVid && isPhotoMimeOrPath(fi.uri, fi.path);
+            boolean isAud = isAudioMimeOrPath(fi.uri, fi.path);
+            boolean isVid = !isAud && isVideoMimeOrPath(fi.uri, fi.path);
+            boolean isImg = !isAud && !isVid && isPhotoMimeOrPath(fi.uri, fi.path);
+            ChatMessage.MessageType msgType = isAud ? ChatMessage.MessageType.MUSIC : (isVid ? ChatMessage.MessageType.VIDEO : (isImg ? ChatMessage.MessageType.IMAGE : ChatMessage.MessageType.FILE));
+
             Bitmap thumb = isVid ? getVideoThumbnail(fi.path != null ? fi.path : (fi.uri != null ? fi.uri.toString() : null)) :
                     (isImg ? getPhotoThumbnail(fi.uri, fi.path) : null);
-            String dur = isVid ? getVideoDurationFromUri(fi.uri, fi.path) : "00:00";
+            String dur = isVid ? getVideoDurationFromUri(fi.uri, fi.path) : (isAud ? "00:00" : null);
             PendingAttachmentItem item = new PendingAttachmentItem(
                 fi.uri,
                 fi.path != null ? fi.path : (fi.uri != null ? fi.uri.toString() : ""),
-                fi.name != null ? fi.name : (isVid ? "Видео" : (isImg ? "Фотография" : "Файл")),
+                fi.name != null ? fi.name : (isAud ? "Аудиозапись" : (isVid ? "Видео" : (isImg ? "Фотография" : "Файл"))),
                 fi.size,
                 isVid,
-                !isVid && !isImg,
+                !isVid && !isImg && !isAud,
+                msgType,
                 thumb,
                 dur
             );
@@ -6982,6 +7271,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         currentPendingAttachment = null;
         if (galleryAdapter != null) galleryAdapter.clearSelection();
         if (filesAdapter != null) filesAdapter.clearSelection();
+        if (musicAdapter != null) musicAdapter.clearSelection();
 
         if (layoutPendingAttachment != null && layoutPendingAttachment.getVisibility() == View.VISIBLE) {
             layoutPendingAttachment.animate()
@@ -7078,6 +7368,20 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         saveActivityStateToChatList(targetUsername, "IDLE");
         sendActivityState("STATE:IDLE");
         PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Отправка файла отменена", null);
+    }
+
+    private boolean isAudioMimeOrPath(Uri uri, String path) {
+        if (path != null) {
+            String lower = path.toLowerCase(Locale.US);
+            if (lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac") || lower.endsWith(".opus") || lower.endsWith(".wma")) {
+                return true;
+            }
+        }
+        if (uri != null) {
+            String mime = getContentResolver().getType(uri);
+            return mime != null && mime.startsWith("audio/");
+        }
+        return false;
     }
 
     private boolean isPhotoMimeOrPath(Uri uri, String path) {

@@ -232,16 +232,17 @@
     </eightbitlab.com.blurview.BlurView>
 
     <!-- Мини-островок воспроизведения музыки (вылетает из-под шапки) -->
+    <!-- Мини-островок воспроизведения музыки (вылетает из-под шапки) -->
     <eightbitlab.com.blurview.BlurView
         android:id="@+id/layoutMusicIsland"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="6dp"
-        android:layout_marginEnd="16dp"
-        android:background="@drawable/bg_floating_island"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="12dp"
+        android:background="@drawable/bg_glass_island"
         android:outlineProvider="background"
-        android:elevation="12dp"
+        android:elevation="6dp"
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone"
@@ -257,20 +258,23 @@
             android:paddingHorizontal="10dp"
             android:paddingVertical="6dp">
 
-            <com.google.android.material.imageview.ShapeableImageView
-                android:id="@+id/ivMusicIslandCover"
+            <!-- Кнопка Паузы/Воспроизведения слева (вместо обложки) -->
+            <ImageView
+                android:id="@+id/btnMusicIslandPlayPause"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
-                android:scaleType="centerCrop"
-                android:src="@drawable/ic_music"
-                app:shapeAppearanceOverlay="@style/Rounded16dpImageView" />
+                android:background="@drawable/bg_circular_mode_active"
+                android:contentDescription="Воспроизвести/Пауза"
+                android:padding="7dp"
+                android:src="@drawable/ic_media_pause"
+                app:tint="@color/white" />
 
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="6dp"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="8dp"
                 android:orientation="vertical">
 
                 <TextView
@@ -287,6 +291,18 @@
                     android:textStyle="bold"
                     tools:text="Название воспроизводимого трека" />
 
+                <!-- Маленький ползунок прогресса трека -->
+                <ProgressBar
+                    android:id="@+id/pbMusicIslandProgress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="2.5dp"
+                    android:layout_marginTop="3dp"
+                    android:layout_marginBottom="2dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/bg_progress_bar_custom" />
+
                 <TextView
                     android:id="@+id/tvMusicIslandTime"
                     android:layout_width="wrap_content"
@@ -297,21 +313,10 @@
                     tools:text="01:23 / 03:45" />
             </LinearLayout>
 
-            <ImageView
-                android:id="@+id/btnMusicIslandPlayPause"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:background="@drawable/bg_circular_mode_active"
-                android:contentDescription="Пауза"
-                android:padding="6dp"
-                android:src="@drawable/ic_media_pause"
-                app:tint="@color/white" />
-
             <ImageButton
                 android:id="@+id/btnMusicIslandClose"
                 android:layout_width="28dp"
                 android:layout_height="28dp"
-                android:layout_marginStart="6dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Скрыть"
                 android:src="@drawable/ic_cancel"

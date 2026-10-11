@@ -49,15 +49,82 @@ public class ChatHistoryManager {
         if (context == null) return "[]";
         SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
         String userKey = getPersistedChatsKey(context);
-        String json = sp.getString(userKey, null);
-        if ((json == null || json.trim().isEmpty() || "[]".equals(json.trim())) && !userKey.equals("persisted_chats")) {
-            String legacy = sp.getString("persisted_chats", "[]");
-            if (legacy != null && !legacy.trim().isEmpty() && !"[]".equals(legacy.trim())) {
-                json = legacy;
-                sp.edit().putString(userKey, legacy).apply();
+        String currentUser = getCurrentUser(context);
+
+        if (currentUser != null && !currentUser.trim().isEmpty()) {
+            String json = sp.getString(userKey, null);
+            boolean needsCleanupCheck = sp.getBoolean("cleaned_chats_v3_" + currentUser.trim(), false);
+            if (!needsCleanupCheck && json != null && !json.trim().isEmpty() && !"[]".equals(json.trim())) {
+                json = sanitizeAndCleanupCopiedChats(context, currentUser.trim(), json);
+                sp.edit().putString(userKey, json).putBoolean("cleaned_chats_v3_" + currentUser.trim(), true).apply();
+            } else {
+                sp.edit().putBoolean("cleaned_chats_v3_" + currentUser.trim(), true).apply();
             }
+
+            if (json != null && !json.trim().isEmpty()) {
+                return json;
+            }
+            return "[]";
         }
+
+        String json = sp.getString("persisted_chats", "[]");
         return (json != null && !json.trim().isEmpty()) ? json : "[]";
+    }
+
+    private static String sanitizeAndCleanupCopiedChats(Context context, String currentUser, String jsonStr) {
+        if (context == null || currentUser == null || jsonStr == null || jsonStr.trim().isEmpty()) {
+            return "[]";
+        }
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        String globalLegacy = sp.getString("persisted_chats", null);
+
+        boolean matchesLegacy = globalLegacy != null && jsonStr.trim().equals(globalLegacy.trim());
+
+        try {
+            JSONArray array = new JSONArray(jsonStr);
+            JSONArray cleanedArray = new JSONArray();
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject obj = array.getJSONObject(i);
+                String id = obj.optString("id", "").trim();
+                String name = obj.optString("name", "").trim();
+
+                if (id.equalsIgnoreCase(currentUser) || name.equalsIgnoreCase(currentUser)) {
+                    continue;
+                }
+
+                if (matchesLegacy) {
+                    boolean userHasHistory = hasUserSpecificHistory(context, currentUser, id, name);
+                    if (!userHasHistory) {
+                        continue;
+                    }
+                }
+                cleanedArray.put(obj);
+            }
+            return cleanedArray.toString();
+        } catch (Exception e) {
+            return jsonStr;
+        }
+    }
+
+    private static boolean hasUserSpecificHistory(Context context, String user, String id, String name) {
+        if (context == null || user == null) return false;
+        String userKeyId = user.trim() + "_" + id.trim();
+        String userKeyName = user.trim() + "_" + name.trim();
+
+        File f1 = new File(context.getFilesDir(), "history_" + userKeyId + ".json");
+        if (f1.exists() && f1.length() > 2) return true;
+
+        File f2 = new File(context.getFilesDir(), "history_" + userKeyName + ".json");
+        if (f2.exists() && f2.length() > 2) return true;
+
+        SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        String j1 = prefs.getString("history_" + userKeyId, null);
+        if (j1 != null && j1.length() > 2) return true;
+
+        String j2 = prefs.getString("history_" + userKeyName, null);
+        if (j2 != null && j2.length() > 2) return true;
+
+        return false;
     }
 
     public static synchronized void savePersistedChatsJson(Context context, String jsonStr) {
@@ -66,9 +133,6 @@ public class ChatHistoryManager {
         String userKey = getPersistedChatsKey(context);
         SharedPreferences.Editor editor = sp.edit();
         editor.putString(userKey, jsonStr);
-        if (!userKey.equals("persisted_chats")) {
-            editor.putString("persisted_chats", jsonStr);
-        }
         editor.apply();
     }
 
@@ -516,20 +580,21 @@ public class ChatHistoryManager {
         String clean = nameOrAddress.trim();
 
         SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        String currentUser = getCurrentUser(context);
 
         if (BluetoothAdapter.checkBluetoothAddress(clean.toUpperCase(Locale.US))) {
             String upperMac = clean.toUpperCase(Locale.US);
-            String mappedName = sp.getString("contact_name_" + upperMac, null);
-            if (mappedName == null || mappedName.trim().isEmpty()) {
-                mappedName = sp.getString("contact_name_" + clean, null);
+            String mappedName = null;
+            if (currentUser != null && !currentUser.trim().isEmpty()) {
+                mappedName = sp.getString("contact_name_" + currentUser.trim() + "_" + upperMac, null);
+                if (mappedName == null || mappedName.trim().isEmpty()) {
+                    mappedName = sp.getString("contact_name_" + currentUser.trim() + "_" + clean, null);
+                }
             }
             if (mappedName == null || mappedName.trim().isEmpty()) {
-                mappedName = sp.getString(upperMac + "_name", null);
+                mappedName = AvatarManager.getContactDisplayName(context, clean, clean, null);
             }
-            if (mappedName == null || mappedName.trim().isEmpty()) {
-                mappedName = sp.getString(clean + "_name", null);
-            }
-            if (mappedName != null && !mappedName.trim().isEmpty() && !BluetoothAdapter.checkBluetoothAddress(mappedName.trim())) {
+            if (mappedName != null && !mappedName.trim().isEmpty() && !BluetoothAdapter.checkBluetoothAddress(mappedName.trim()) && !"Собеседник".equals(mappedName.trim())) {
                 return mappedName.trim();
             }
             try {
@@ -547,10 +612,16 @@ public class ChatHistoryManager {
             return clean;
         }
 
-        String mappedMac = sp.getString(clean + "_mac", null);
+        String mappedMac = null;
+        if (currentUser != null && !currentUser.trim().isEmpty()) {
+            mappedMac = sp.getString(currentUser.trim() + "_" + clean + "_mac", null);
+        }
+        if (mappedMac == null || mappedMac.trim().isEmpty()) {
+            mappedMac = sp.getString(clean + "_mac", null);
+        }
         if (mappedMac != null && !mappedMac.trim().isEmpty()) {
-            String nameForMac = sp.getString(mappedMac + "_name", null);
-            if (nameForMac != null && !nameForMac.trim().isEmpty()) {
+            String nameForMac = AvatarManager.getContactDisplayName(context, mappedMac, clean, null);
+            if (nameForMac != null && !nameForMac.trim().isEmpty() && !"Собеседник".equals(nameForMac.trim())) {
                 return nameForMac.trim();
             }
         }
@@ -567,25 +638,47 @@ public class ChatHistoryManager {
         return key;
     }
 
+    private static void migrateLegacyHistoryFileIfNeeded(Context context, String userKey, String baseKey) {
+        if (context == null || userKey == null || baseKey == null || userKey.equalsIgnoreCase(baseKey)) return;
+        try {
+            File userFile = new File(context.getFilesDir(), "history_" + userKey + ".json");
+            File baseFile = new File(context.getFilesDir(), "history_" + baseKey + ".json");
+            if (!userFile.exists() && baseFile.exists()) {
+                baseFile.renameTo(userFile);
+            }
+            SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            if (!prefs.contains("history_" + userKey) && prefs.contains("history_" + baseKey)) {
+                String val = prefs.getString("history_" + baseKey, null);
+                if (val != null) {
+                    prefs.edit().putString("history_" + userKey, val).remove("history_" + baseKey).apply();
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
     public static boolean hasHistory(Context context, String targetUsername) {
         if (context == null || targetUsername == null || targetUsername.isEmpty()) return false;
 
         String userKey = getHistoryStorageKey(context, targetUsername);
         String baseKey = getStorageKey(context, targetUsername);
-        
+        String currentUser = getCurrentUser(context);
+
+        if (currentUser != null && !currentUser.trim().isEmpty() && !userKey.equalsIgnoreCase(baseKey)) {
+            migrateLegacyHistoryFileIfNeeded(context, userKey, baseKey);
+        }
+
         File file = new File(context.getFilesDir(), "history_" + userKey + ".json");
         if (file.exists() && file.length() > 2) return true;
-        
-        if (!userKey.equalsIgnoreCase(baseKey)) {
-            File altFile = new File(context.getFilesDir(), "history_" + baseKey + ".json");
-            if (altFile.exists() && altFile.length() > 2) return true;
-        }
 
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         String json = prefs.getString("history_" + userKey, null);
 
-        if ((json == null || json.isEmpty()) && !userKey.equalsIgnoreCase(baseKey)) {
-            json = prefs.getString("history_" + baseKey, null);
+        if (json == null || json.isEmpty()) {
+            if (currentUser == null || currentUser.trim().isEmpty()) {
+                File altFile = new File(context.getFilesDir(), "history_" + baseKey + ".json");
+                if (altFile.exists() && altFile.length() > 2) return true;
+                json = prefs.getString("history_" + baseKey, null);
+            }
         }
 
         return json != null && json.length() > 2;
@@ -597,8 +690,14 @@ public class ChatHistoryManager {
 
         String userKey = getHistoryStorageKey(context, targetUsername);
         String baseKey = getStorageKey(context, targetUsername);
+        String currentUser = getCurrentUser(context);
+
+        if (currentUser != null && !currentUser.trim().isEmpty() && !userKey.equalsIgnoreCase(baseKey)) {
+            migrateLegacyHistoryFileIfNeeded(context, userKey, baseKey);
+        }
+
         String json = null;
-        
+
         File file = new File(context.getFilesDir(), "history_" + userKey + ".json");
         if (file.exists()) {
             try {
@@ -608,8 +707,8 @@ public class ChatHistoryManager {
                 Log.e("ChatHistoryManager", "Failed to read history file", e);
             }
         }
-        
-        if ((json == null || json.isEmpty()) && !userKey.equalsIgnoreCase(baseKey)) {
+
+        if ((json == null || json.isEmpty()) && (currentUser == null || currentUser.trim().isEmpty())) {
             File altFile = new File(context.getFilesDir(), "history_" + baseKey + ".json");
             if (altFile.exists()) {
                 try {
@@ -625,7 +724,7 @@ public class ChatHistoryManager {
             SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
             json = prefs.getString("history_" + userKey, null);
 
-            if ((json == null || json.isEmpty()) && !userKey.equalsIgnoreCase(baseKey)) {
+            if ((json == null || json.isEmpty()) && (currentUser == null || currentUser.trim().isEmpty())) {
                 json = prefs.getString("history_" + baseKey, null);
             }
         }
