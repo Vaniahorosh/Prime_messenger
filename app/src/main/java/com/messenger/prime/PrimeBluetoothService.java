@@ -304,7 +304,11 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                         .setSmallIcon(R.drawable.ic_prime_statusbar)
                         .setContentTitle("Prime")
                         .build();
-                startForeground(NOTIFICATION_ID, emptyNotification);
+                if (Build.VERSION.SDK_INT >= 34) {
+                    startForeground(NOTIFICATION_ID, emptyNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
+                } else {
+                    startForeground(NOTIFICATION_ID, emptyNotification);
+                }
             } catch (Throwable t) {
                 Log.e(TAG, "Failed fallback startForeground", t);
             }
@@ -359,134 +363,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     }
 
     public static void showMessageNotification(Context context, String senderName, String messageText, String deviceAddress) {
-        if (context == null) return;
-        try {
-            NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-            if (nm == null) return;
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                NotificationChannel msgChannel = new NotificationChannel(
-                        MSG_CHANNEL_ID,
-                        "Входящие сообщения",
-                        NotificationManager.IMPORTANCE_HIGH
-                );
-                msgChannel.enableVibration(true);
-                msgChannel.setShowBadge(true);
-                nm.createNotificationChannel(msgChannel);
-            }
-
-            boolean isFoldableOrTablet = context.getResources().getConfiguration().smallestScreenWidthDp >= 600;
-            Class<?> targetActivity = isFoldableOrTablet ? ChatListActivity.class : ChatPersonActivity.class;
-            Intent chatIntent = new Intent(context, targetActivity);
-            chatIntent.putExtra("EXTRA_CHAT_NAME", senderName);
-            if (deviceAddress != null && !deviceAddress.isEmpty()) {
-                chatIntent.putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress);
-            }
-            chatIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-
-            int requestCode = (senderName != null ? senderName.hashCode() : 100);
-            int notificationId = 2000 + (senderName != null ? Math.abs(senderName.hashCode() % 5000) : 1);
-
-            PendingIntent pendingIntent = PendingIntent.getActivity(
-                    context, requestCode, chatIntent,
-                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-            );
-
-            String displaySenderName = senderName;
-            if (deviceAddress != null && !deviceAddress.isEmpty()) {
-                SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-                String savedName = sp.getString("contact_name_" + deviceAddress, null);
-                if (savedName == null || savedName.isEmpty()) {
-                    savedName = sp.getString(deviceAddress + "_name", null);
-                }
-                if (savedName != null && !savedName.isEmpty() && !BluetoothAdapter.checkBluetoothAddress(savedName)) {
-                    displaySenderName = savedName;
-                }
-            }
-            if (displaySenderName == null || displaySenderName.isEmpty() || BluetoothAdapter.checkBluetoothAddress(displaySenderName)) {
-                displaySenderName = "Prime Собеседник";
-            }
-
-            // Build Person & MessagingStyle
-            Person.Builder personBuilder = new Person.Builder()
-                    .setName(displaySenderName)
-                    .setKey(senderName != null ? senderName : "unknown");
-
-            File avatarFile = getAvatarFileFor(context, senderName, deviceAddress);
-            if (avatarFile != null && avatarFile.exists()) {
-                try {
-                    Bitmap bmp = BitmapFactory.decodeFile(avatarFile.getAbsolutePath());
-                    if (bmp != null) {
-                        personBuilder.setIcon(IconCompat.createWithBitmap(bmp));
-                    }
-                } catch (Throwable ignored) {}
-            }
-            Person senderPerson = personBuilder.build();
-
-            NotificationCompat.MessagingStyle messagingStyle = new NotificationCompat.MessagingStyle(senderPerson)
-                    .setConversationTitle(displaySenderName)
-                    .addMessage(messageText != null ? messageText : "Новое сообщение", System.currentTimeMillis(), senderPerson);
-
-            // 1. RemoteInput Action: "Ответить"
-            RemoteInput remoteInput = new RemoteInput.Builder("KEY_TEXT_REPLY")
-                    .setLabel("Ответить...")
-                    .build();
-
-            Intent replyIntent = new Intent(context, NotificationReplyReceiver.class);
-            replyIntent.setAction("ACTION_NOTIFICATION_REPLY");
-            replyIntent.putExtra("EXTRA_CHAT_NAME", senderName);
-            replyIntent.putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress);
-            replyIntent.putExtra("EXTRA_NOTIFICATION_ID", notificationId);
-
-            PendingIntent replyPendingIntent = PendingIntent.getBroadcast(
-                    context,
-                    requestCode + 10,
-                    replyIntent,
-                    PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-            );
-
-            NotificationCompat.Action replyAction = new NotificationCompat.Action.Builder(
-                    R.drawable.ic_undo,
-                    "Ответить",
-                    replyPendingIntent
-            ).addRemoteInput(remoteInput).build();
-
-            // 2. Mark as Read Action: "Прочитано"
-            Intent markReadIntent = new Intent(context, NotificationReplyReceiver.class);
-            markReadIntent.setAction("ACTION_NOTIFICATION_MARK_READ");
-            markReadIntent.putExtra("EXTRA_CHAT_NAME", senderName);
-            markReadIntent.putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress);
-            markReadIntent.putExtra("EXTRA_NOTIFICATION_ID", notificationId);
-
-            PendingIntent markReadPendingIntent = PendingIntent.getBroadcast(
-                    context,
-                    requestCode + 20,
-                    markReadIntent,
-                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-            );
-
-            NotificationCompat.Action markReadAction = new NotificationCompat.Action.Builder(
-                    R.drawable.ic_done,
-                    "Прочитано",
-                    markReadPendingIntent
-            ).build();
-
-            Notification notification = new NotificationCompat.Builder(context, MSG_CHANNEL_ID)
-                    .setSmallIcon(R.drawable.ic_prime_statusbar)
-                    .setStyle(messagingStyle)
-                    .setPriority(NotificationCompat.PRIORITY_HIGH)
-                    .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-                    .setContentIntent(pendingIntent)
-                    .addAction(replyAction)
-                    .addAction(markReadAction)
-                    .setAutoCancel(true)
-                    .setDefaults(Notification.DEFAULT_ALL)
-                    .build();
-
-            nm.notify(notificationId, notification);
-        } catch (Throwable e) {
-            Log.e(TAG, "Failed to post message notification", e);
-        }
+        PrimeNotification.postMessageNotification(context, senderName, messageText, deviceAddress);
     }
 
     @Override
@@ -624,8 +501,8 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 return;
             }
 
-            Intent cancelIntent = new Intent(this, NotificationReplyReceiver.class);
-            cancelIntent.setAction("com.messenger.prime.action.CANCEL_UPLOAD");
+            Intent cancelIntent = new Intent(this, NotificationActionReceiver.class);
+            cancelIntent.setAction(NotificationActionReceiver.ACTION_CANCEL_UPLOAD);
             cancelIntent.putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress);
             cancelIntent.putExtra("EXTRA_NOTIFICATION_ID", PROGRESS_NOTIFICATION_ID);
 

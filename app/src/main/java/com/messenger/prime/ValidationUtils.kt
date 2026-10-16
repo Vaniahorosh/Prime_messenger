@@ -7,6 +7,22 @@ import android.content.SharedPreferences
  */
 object ValidationUtils {
 
+    private val LOGIN_REGEX = Regex("^[a-zA-Z0-9_]+$")
+    private val NON_ALPHANUMERIC_REGEX = Regex("[^\\p{L}\\p{N}]")
+
+    private val SKELETON_MAPPING = mapOf(
+        'а' to 'a', 'б' to 'b', 'в' to 'v', 'г' to 'g', 'д' to 'd',
+        'е' to 'e', 'ё' to 'e', 'ж' to 'z', 'з' to 'z', 'и' to 'i',
+        'й' to 'i', 'к' to 'k', 'л' to 'l', 'м' to 'm', 'н' to 'n',
+        'о' to 'o', 'п' to 'n', 'р' to 'p', 'с' to 'c', 'т' to 't',
+        'у' to 'y', 'ф' to 'f', 'х' to 'x', 'ц' to 'c', 'ч' to 'c',
+        'ш' to 's', 'щ' to 's', 'ы' to 'i', 'э' to 'e', 'ю' to 'u',
+        'я' to 'a', 'і' to 'i', 'ј' to 'j', 'ь' to 'b', 'ъ' to 'b',
+        '@' to 'a', '4' to 'a', '0' to 'o', '3' to 'e', '1' to 'i',
+        '!' to 'i', '$' to 's', '5' to 's', '7' to 't', '8' to 'b',
+        '|' to 'l', 'v' to 'v', 'w' to 'v'
+    )
+
     private val restrictedKeywords = listOf(
         "prime",
         "прайм",
@@ -19,12 +35,15 @@ object ValidationUtils {
         "админ"
     )
 
+    private val normalizedRestrictedKeywords = restrictedKeywords.map { keyword ->
+        normalizeToSkeleton(keyword.replace(NON_ALPHANUMERIC_REGEX, ""))
+    }
+
     /**
      * Проверяет формат логина: только латиница, цифры и подчеркивание.
      */
     fun isValidLoginFormat(text: String): Boolean {
-        val regex = Regex("^[a-zA-Z0-9_]+$")
-        return regex.matches(text)
+        return LOGIN_REGEX.matches(text)
     }
 
     /**
@@ -78,11 +97,11 @@ object ValidationUtils {
     fun isRestricted(text: String?): Boolean {
         if (text.isNullOrBlank()) return false
 
-        val baseClean = text.lowercase().replace(Regex("[^\\p{L}\\p{N}]"), "")
-        val skeleton = normalizeToSkeleton(baseClean)
+        val lower = text.lowercase()
+        val skeleton = normalizeToSkeleton(lower).replace(NON_ALPHANUMERIC_REGEX, "")
+        val baseClean = lower.replace(NON_ALPHANUMERIC_REGEX, "")
 
-        return restrictedKeywords.any { keyword ->
-            val normalizedKeyword = normalizeToSkeleton(keyword.replace(Regex("[^\\p{L}\\p{N}]"), ""))
+        return normalizedRestrictedKeywords.any { normalizedKeyword ->
             skeleton.contains(normalizedKeyword) || baseClean.contains(normalizedKeyword)
         }
     }
@@ -91,22 +110,9 @@ object ValidationUtils {
      * Переводит текст в "скелетный" вид, заменяя все похожие символы на один базовый.
      */
     private fun normalizeToSkeleton(input: String): String {
-        val mapping = mapOf(
-            'а' to 'a', 'б' to 'b', 'в' to 'v', 'г' to 'g', 'д' to 'd',
-            'е' to 'e', 'ё' to 'e', 'ж' to 'z', 'з' to 'z', 'и' to 'i',
-            'й' to 'i', 'к' to 'k', 'л' to 'l', 'м' to 'm', 'н' to 'n',
-            'о' to 'o', 'п' to 'n', 'р' to 'p', 'с' to 'c', 'т' to 't',
-            'у' to 'y', 'ф' to 'f', 'х' to 'x', 'ц' to 'c', 'ч' to 'c',
-            'ш' to 's', 'щ' to 's', 'ы' to 'i', 'э' to 'e', 'ю' to 'u',
-            'я' to 'a', 'і' to 'i', 'ј' to 'j', 'ь' to 'b', 'ъ' to 'b',
-            '@' to 'a', '4' to 'a', '0' to 'o', '3' to 'e', '1' to 'i',
-            '!' to 'i', '$' to 's', '5' to 's', '7' to 't', '8' to 'b',
-            '|' to 'l', 'v' to 'v', 'w' to 'v'
-        )
-
-        val sb = StringBuilder()
+        val sb = StringBuilder(input.length)
         for (char in input) {
-            sb.append(mapping[char] ?: char)
+            sb.append(SKELETON_MAPPING[char] ?: char)
         }
         return sb.toString()
     }

@@ -6,10 +6,12 @@ import android.bluetooth.BluetoothDevice
 
 object DeviceAnonymizer {
 
+    private val MAC_REGEX = Regex("^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
+
     @JvmStatic
     fun isMacAddress(text: String?): Boolean {
         if (text.isNullOrBlank()) return false
-        return text.trim().matches(Regex("^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"))
+        return MAC_REGEX.matches(text.trim())
     }
 
     @JvmStatic

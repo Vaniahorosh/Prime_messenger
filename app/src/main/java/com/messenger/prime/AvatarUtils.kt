@@ -6,7 +6,6 @@ import android.content.ContextWrapper
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.widget.ImageView
-import androidx.core.graphics.toColorInt
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import com.bumptech.glide.load.resource.bitmap.CircleCrop
@@ -429,9 +428,7 @@ fun loadAvatarIntoView(
     } catch (_: Exception) {}
 
     val isExcludedActivity = context is PersonInformationActivity ||
-        (context is ContextWrapper && context.baseContext is PersonInformationActivity) ||
-        context is SettingsActivity ||
-        (context is ContextWrapper && context.baseContext is SettingsActivity)
+        (context is ContextWrapper && context.baseContext is PersonInformationActivity)
 
     val targetWidth = imageView.layoutParams?.width?.coerceAtLeast(0) ?: 0
     val viewSizePx = if (targetWidth > 0) targetWidth else (48 * context.resources.displayMetrics.density).toInt()
@@ -509,15 +506,7 @@ fun loadAvatarUriIntoView(context: Context, uri: Uri, imageView: ImageView) {
 }
 
 fun getAvatarColor(name: String): Int {
-    val colors = listOf(
-        "#F44336", "#E91E63", "#9C27B0", "#673AB7",
-        "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4",
-        "#009688", "#4CAF50", "#8BC34A", "#CDDC39",
-        "#FFEB3B", "#FFC107", "#FF9800", "#FF5722"
-    )
-    val hash = name.hashCode()
-    val index = (if (hash == Int.MIN_VALUE) 0 else Math.abs(hash)) % colors.size
-    return colors[index].toColorInt()
+    return ColorAccentManager.getAvatarColor(name)
 }
 
 fun sanitizeLocalUserProfile(context: Context) {

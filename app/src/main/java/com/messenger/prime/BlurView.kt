@@ -152,23 +152,39 @@ fun EightBitBlurView.setupBlur(
     val initBlur: (View) -> Unit = { v ->
         if (v.width > 0 && v.height > 0 && v.isAttachedToWindow) {
             try {
+                val targetRoot = if (rootView == v) {
+                    (v.parent as? ViewGroup) ?: rootView
+                } else {
+                    rootView
+                }
+
                 val algorithm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     RenderEffectBlur()
                 } else {
                     RenderScriptBlur(context)
                 }
 
-                val facade = setupWith(rootView, algorithm)
-                    .setBlurRadius(blurRadius)
+                setBlurEnabled(true)
+                setupWith(targetRoot, algorithm)
+                    .setBlurRadius(blurRadius.coerceIn(1f, 25f))
                     .setOverlayColor(tintColor)
                     .setBlurAutoUpdate(true)
-
-                if (frameClearDrawable != null) {
-                    facade.setFrameClearDrawable(frameClearDrawable)
-                }
+                    .apply {
+                        if (frameClearDrawable != null) {
+                            setFrameClearDrawable(frameClearDrawable)
+                        }
+                    }
             } catch (e: Throwable) {
                 e.printStackTrace()
-                setBackgroundColor(tintColor)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    try {
+                        setRenderEffect(RenderEffect.createBlurEffect(blurRadius.coerceIn(1f, 25f), blurRadius.coerceIn(1f, 25f), Shader.TileMode.CLAMP))
+                    } catch (_: Throwable) {
+                        setBackgroundColor(tintColor)
+                    }
+                } else {
+                    setBackgroundColor(tintColor)
+                }
             }
         }
     }

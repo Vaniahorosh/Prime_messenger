@@ -125,6 +125,11 @@
             android:theme="@style/Theme.Prime.Swipe"
             android:windowSoftInputMode="adjustResize" />
 
+        <activity
+            android:name=".WallpaperEditorActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Prime.Swipe" />
+
         <activity-alias
             android:name=".Person_information"
             android:targetActivity=".PersonInformationActivity"

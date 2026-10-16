@@ -132,12 +132,18 @@ object ColorAccentManager {
             .apply()
     }
 
+    private val AVATAR_COLORS_INT = intArrayOf(
+        0xFFF44336.toInt(), 0xFFE91E63.toInt(), 0xFF9C27B0.toInt(), 0xFF673AB7.toInt(),
+        0xFF3F51B5.toInt(), 0xFF2196F3.toInt(), 0xFF03A9F4.toInt(), 0xFF00BCD4.toInt(),
+        0xFF009688.toInt(), 0xFF4CAF50.toInt(), 0xFF8BC34A.toInt(), 0xFFCDDC39.toInt(),
+        0xFFFFEB3B.toInt(), 0xFFFFC107.toInt(), 0xFFFF9800.toInt(), 0xFFFF5722.toInt()
+    )
+
     @JvmStatic
     fun getAvatarColor(name: String): Int {
-        val colors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFEB3B", "#FFC107", "#FF9800", "#FF5722")
         val hash = name.hashCode()
-        val index = (if (hash == Int.MIN_VALUE) 0 else kotlin.math.abs(hash)) % colors.size
-        return Color.parseColor(colors[index])
+        val index = (if (hash == Int.MIN_VALUE) 0 else kotlin.math.abs(hash)) % AVATAR_COLORS_INT.size
+        return AVATAR_COLORS_INT[index]
     }
 
     @JvmStatic
@@ -243,13 +249,13 @@ object ColorAccentManager {
     @JvmStatic
     fun isBrandColor(colorInt: Int): Boolean {
         if (colorInt == 0) return false
-        val isBrandHex = colorInt == Color.parseColor("#154B87") ||
-                        colorInt == Color.parseColor("#4D9FFF") ||
-                        colorInt == Color.parseColor("#CC154B87") ||
-                        colorInt == Color.parseColor("#CC4D9FFF") ||
-                        colorInt == Color.parseColor("#154A86") ||
-                        colorInt == Color.parseColor("#007BFF") ||
-                        colorInt == Color.parseColor("#38BDF8")
+        val isBrandHex = colorInt == 0xFF154B87.toInt() ||
+                        colorInt == 0xFF4D9FFF.toInt() ||
+                        colorInt == 0xCC154B87.toInt() ||
+                        colorInt == 0xCC4D9FFF.toInt() ||
+                        colorInt == 0xFF154A86.toInt() ||
+                        colorInt == 0xFF007BFF.toInt() ||
+                        colorInt == 0xFF38BDF8.toInt()
         if (isBrandHex) return true
 
         return PRESET_COLORS.any { it.lightColor == colorInt || it.darkColor == colorInt }

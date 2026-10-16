@@ -44,6 +44,7 @@ import com.messenger.prime.databinding.ActivityPersonInformationBinding
 import com.messenger.prime.databinding.ItemGalleryMediaBinding
 import com.messenger.prime.databinding.ItemPersonDateHeaderBinding
 import com.messenger.prime.databinding.ItemPersonFileRowBinding
+import com.messenger.prime.databinding.ItemPersonMusicRowBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrPosition
@@ -192,7 +193,9 @@ class PersonInformationActivity : AppCompatActivity() {
         setupThemeAndBackground()
         setupHeaderUi()
         setupLeftColumnButtons()
+        setupCategoryTabs()
         updateLiveStatus()
+        PrimeMusicManager.addListener(playerListener)
         loadSharedMediaAndFiles()
     }
 
@@ -210,6 +213,7 @@ class PersonInformationActivity : AppCompatActivity() {
         try {
             unregisterReceiver(statusUpdateReceiver)
         } catch (ignored: Exception) {}
+        PrimeMusicManager.removeListener(playerListener)
     }
 
     private fun setupThemeAndBackground() {

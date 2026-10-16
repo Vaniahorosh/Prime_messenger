@@ -281,10 +281,10 @@ object PrimeTransitions {
             activity.onBackPressedDispatcher.addCallback(activity, backCallback)
         }
 
-        // Apply Slidr for API < 34 AND for non-edge FULL-SCREEN swipes on API 34+
+        // Apply full-screen Slidr swipe-to-close across the entire screen
         val slidrConfig = SlidrConfig.Builder()
             .position(SlidrPosition.LEFT)
-            .edge(false) // Full-screen swipe: drag from anywhere!
+            .edge(false)
             .edgeSize(0f)
             .scrimColor(Color.BLACK)
             .scrimStartAlpha(0.55f)
@@ -339,5 +339,55 @@ object PrimeTransitions {
             })
             .build()
         return Slidr.attach(activity, slidrConfig)
+    }
+
+    /**
+     * Protects all HorizontalScrollViews, Sliders, and horizontal scrolling containers
+     * from triggering Activity Slidr swipe-to-close gestures or parent interception.
+     */
+    @JvmStatic
+    fun protectHorizontalScrollViews(container: android.view.ViewGroup, slidrInterface: SlidrInterface? = null) {
+        for (i in 0 until container.childCount) {
+            val child = container.getChildAt(i)
+            if (child is android.widget.HorizontalScrollView ||
+                child is com.google.android.material.slider.Slider ||
+                child is androidx.viewpager.widget.ViewPager ||
+                child is androidx.viewpager2.widget.ViewPager2
+            ) {
+                setupProtectionOnView(child, slidrInterface)
+            }
+            if (child is android.view.ViewGroup) {
+                protectHorizontalScrollViews(child, slidrInterface)
+            }
+        }
+    }
+
+    /**
+     * Attaches touch listener to a horizontal scrolling view to lock Slidr and request
+     * disallowInterceptTouchEvent while horizontal scrolling is active.
+     */
+    @JvmStatic
+    fun setupProtectionOnView(view: android.view.View, slidrInterface: SlidrInterface? = null) {
+        view.setOnTouchListener { v, event ->
+            when (event.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    v.parent?.requestDisallowInterceptTouchEvent(true)
+                    slidrInterface?.lock()
+                }
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    v.parent?.requestDisallowInterceptTouchEvent(true)
+                    slidrInterface?.lock()
+                    v.onTouchEvent(event)
+                    return@setOnTouchListener true
+                }
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                    v.parent?.requestDisallowInterceptTouchEvent(false)
+                    v.onTouchEvent(event)
+                    slidrInterface?.unlock()
+                    return@setOnTouchListener true
+                }
+            }
+            false
+        }
     }
 }

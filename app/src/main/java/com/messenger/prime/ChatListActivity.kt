@@ -3517,7 +3517,7 @@ class ChatListActivity : AppCompatActivity() {
                 .setDuration(180)
                 .start()
 
-            iconView?.setColorFilter(inactiveColor)
+            iconView?.setColorFilter(accentColor)
             iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
 
             labelView.setTextColor(inactiveColor)
@@ -3671,9 +3671,11 @@ class ChatListActivity : AppCompatActivity() {
         val blurNavView = navView as? eightbitlab.com.blurview.BlurView
         if (blurNavView != null) {
             val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            val overlayColor = if (isDark) android.graphics.Color.parseColor("#D90F172A") else android.graphics.Color.parseColor("#D9F1F5F9")
-            val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
-            blurNavView.setupBlur(rootView, 22f, overlayColor, window.decorView.background)
+            val overlayColor = if (isDark) android.graphics.Color.parseColor("#400F172A") else android.graphics.Color.parseColor("#40154B87")
+            val targetRootView = (binding.root as? ViewGroup)
+                ?: (window.decorView.findViewById<ViewGroup>(android.R.id.content))
+                ?: (window.decorView as ViewGroup)
+            blurNavView.setupBlur(targetRootView, 18f, overlayColor, window.decorView.background)
         }
 
         btnNavChats?.setOnClickListener {

@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.core.app.RemoteInput
 import com.messenger.prime.events.ChatEvent
@@ -21,17 +22,20 @@ class NotificationActionReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_REPLY = "com.messenger.prime.ACTION_NOTIFICATION_REPLY"
         const val ACTION_MARK_READ = "com.messenger.prime.ACTION_NOTIFICATION_MARK_READ"
+        const val ACTION_CANCEL_UPLOAD = "com.messenger.prime.action.CANCEL_UPLOAD"
         const val KEY_TEXT_REPLY = "key_text_reply"
+        private const val TAG = "NotificationActionRx"
     }
 
     override fun onReceive(context: Context?, intent: Intent?) {
         if (context == null || intent == null) return
 
-        val targetUsername = intent.getStringExtra("EXTRA_CHAT_NAME") ?: return
+        val senderName = intent.getStringExtra("EXTRA_CHAT_NAME")
         val deviceAddress = intent.getStringExtra("EXTRA_DEVICE_ADDRESS")
-        val notificationId = intent.getIntExtra("EXTRA_NOTIFICATION_ID", Math.abs(targetUsername.hashCode()))
-        val targetAddr = if (!deviceAddress.isNullOrEmpty()) deviceAddress else targetUsername
+        val targetAddr = if (!deviceAddress.isNullOrEmpty()) deviceAddress else senderName ?: ""
+        val chatName = if (!senderName.isNullOrEmpty()) senderName else targetAddr
 
+        val notificationId = intent.getIntExtra("EXTRA_NOTIFICATION_ID", Math.abs(chatName.hashCode()))
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
 
         when (intent.action) {
@@ -40,16 +44,17 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 val replyText = results?.getCharSequence(KEY_TEXT_REPLY)?.toString()?.trim()
                     ?: results?.getCharSequence("KEY_TEXT_REPLY")?.toString()?.trim()
 
-                if (!replyText.isNullOrEmpty()) {
+                if (!replyText.isNullOrEmpty() && targetAddr.isNotEmpty()) {
                     val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                     val currentUser = sp.getString("current_user", "") ?: ""
                     val myDisplayName = sp.getString("${currentUser}_name", currentUser) ?: currentUser
+                    val localUser = if (myDisplayName.isNotEmpty()) myDisplayName else "Пользователь"
 
                     val timestamp = System.currentTimeMillis()
                     val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
-                    val messageId = "${myDisplayName}_${timestamp}_${UUID.randomUUID().toString().substring(0, 4)}"
+                    val messageId = "${localUser}_${timestamp}_${UUID.randomUUID().toString().substring(0, 4)}"
 
-                    val msg = ChatMessage(replyText, time, myDisplayName, true, null, timestamp, null, messageId)
+                    val msg = ChatMessage(replyText, time, localUser, true, null, timestamp, null, messageId)
                     msg.messageStatus = MessageStatus.SENT
 
                     val packetContent = "$messageId:::$replyText"
@@ -57,25 +62,41 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
                     BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x01.toByte(), payload)
 
-                    ChatHistoryManager.saveMessage(context, targetUsername, msg)
-                    resetUnreadCountAndUpdateLastMessage(context, targetUsername, targetAddr, replyText)
+                    ChatHistoryManager.saveMessage(context, chatName, msg)
+                    resetUnreadCountAndUpdateLastMessage(context, chatName, targetAddr, replyText)
 
-                    val displayRecipient = if (BluetoothAdapter.checkBluetoothAddress(targetUsername)) "собеседнику" else targetUsername
+                    val displayRecipient = if (BluetoothAdapter.checkBluetoothAddress(chatName)) "собеседнику" else chatName
                     Toast.makeText(context, "Ответ отправлен $displayRecipient", Toast.LENGTH_SHORT).show()
                 }
 
-                nm?.cancel(notificationId)
+                if (notificationId > 0) {
+                    nm?.cancel(notificationId)
+                }
             }
 
             ACTION_MARK_READ, "ACTION_NOTIFICATION_MARK_READ" -> {
-                val receiptPayload = "READ_ALL".toByteArray(StandardCharsets.UTF_8)
-                BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x0A.toByte(), receiptPayload)
+                if (targetAddr.isNotEmpty()) {
+                    val receiptPayload = "READ_ALL:::MARK_READ".toByteArray(StandardCharsets.UTF_8)
+                    BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x0A.toByte(), receiptPayload)
 
-                ChatHistoryManager.markIncomingMessagesAsRead(context, targetUsername, "READ_ALL")
-                resetUnreadCountAndUpdateLastMessage(context, targetUsername, targetAddr, null)
+                    ChatHistoryManager.markIncomingMessagesAsRead(context, chatName, "READ_ALL")
+                    resetUnreadCountAndUpdateLastMessage(context, chatName, targetAddr, null)
+                    Toast.makeText(context, "Отмечено как прочитанное", Toast.LENGTH_SHORT).show()
+                }
 
-                nm?.cancel(notificationId)
-                Toast.makeText(context, "Отмечено как прочитанное", Toast.LENGTH_SHORT).show()
+                if (notificationId > 0) {
+                    nm?.cancel(notificationId)
+                }
+            }
+
+            ACTION_CANCEL_UPLOAD -> {
+                if (targetAddr.isNotEmpty()) {
+                    BluetoothConnectionManager.getInstance().cancelCurrentMediaSend(targetAddr)
+                }
+                nm?.cancel(PrimeBluetoothService.PROGRESS_NOTIFICATION_ID)
+                if (notificationId > 0) {
+                    nm?.cancel(notificationId)
+                }
             }
         }
     }
@@ -94,7 +115,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 val user = obj.optString("name", "")
                 val id = obj.optString("id", "")
 
-                if (user.equals(senderName, ignoreCase = true) || deviceAddr.equals(id, ignoreCase = true)) {
+                if ((senderName.isNotEmpty() && user.equals(senderName, ignoreCase = true)) ||
+                    (deviceAddr.isNotEmpty() && deviceAddr.equals(id, ignoreCase = true))) {
                     if (lastMsg != null) {
                         obj.put("lastMessage", lastMsg)
                         obj.put("time", timeStr)
@@ -108,6 +130,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
             ChatHistoryManager.savePersistedChatsJson(context, newArray.toString())
             ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update chat list from NotificationActionReceiver", e)
+        }
     }
 }

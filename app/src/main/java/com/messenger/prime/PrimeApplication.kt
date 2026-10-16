@@ -134,7 +134,7 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         activityStack.add(WeakReference(activity))
         ColorAccentManager.applyAccentToActivity(activity)
         PrimeTransitions.setupActivityTransitions(activity)
-        if (activity !is SplashActivity && activity !is ChatListActivity && activity !is HiActivity && activity !is ChatPlaceholderActivity && activity !is MediaPlayerActivity && activity !is PhotoEditorActivity) {
+        if (activity !is SplashActivity && activity !is ChatListActivity && activity !is HiActivity && activity !is ChatPlaceholderActivity && activity !is MediaPlayerActivity && activity !is PhotoEditorActivity && activity !is WallpaperEditorActivity) {
             PrimeTransitions.attachSlidr(activity)
             if (activity is ComponentActivity) {
                 PrimePredictiveBack.attach(activity)

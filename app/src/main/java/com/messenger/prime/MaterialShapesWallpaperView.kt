@@ -4,6 +4,8 @@ import android.animation.ValueAnimator
 import android.app.ActivityManager
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Camera
 import android.graphics.Canvas
 import android.graphics.Color
@@ -12,6 +14,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
+import java.io.File
 import android.util.AttributeSet
 import android.view.View
 import android.view.animation.OvershootInterpolator
@@ -148,15 +151,61 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     }
 
     private var isLavaEnabled = true
+    private var contactKey: String? = null
+    private var customImageBitmap: Bitmap? = null
+    private var activeWallpaper: ChatWallpaper? = null
+
+    fun setContactKey(key: String?) {
+        this.contactKey = key
+        updateThemeColors()
+    }
+
+    fun setLiveTempWallpaper(wallpaper: ChatWallpaper, bitmap: Bitmap? = null) {
+        this.activeWallpaper = wallpaper
+        if (wallpaper.type == "IMAGE") {
+            if (bitmap != null) {
+                this.customImageBitmap = bitmap
+            } else if (!wallpaper.imagePath.isNullOrEmpty()) {
+                val f = File(wallpaper.imagePath)
+                if (f.exists()) {
+                    try {
+                        this.customImageBitmap = BitmapFactory.decodeFile(f.absolutePath)
+                    } catch (_: Exception) {
+                        this.customImageBitmap = null
+                    }
+                }
+            }
+        } else {
+            this.customImageBitmap = null
+        }
+
+        if (width > 0 && height > 0) {
+            generateGridShapes(width, height)
+        }
+        invalidate()
+    }
 
     fun updateThemeColors() {
+        val wp = WallpaperManager.getActiveWallpaper(context, contactKey)
+        activeWallpaper = wp
+
+        if (wp.type == "IMAGE" && !wp.imagePath.isNullOrEmpty()) {
+            val f = File(wp.imagePath)
+            if (f.exists()) {
+                try {
+                    customImageBitmap = BitmapFactory.decodeFile(f.absolutePath)
+                } catch (_: Exception) {
+                    customImageBitmap = null
+                }
+            } else {
+                customImageBitmap = null
+            }
+        } else {
+            customImageBitmap = null
+        }
+
         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         isLavaEnabled = sharedPrefs.getBoolean("settings_lava_bg", true)
-        if (!isLavaEnabled) {
-            shapes.clear()
-            invalidate()
-            return
-        }
         val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
         val darkTheme = when (themePref) {
             "dark" -> true
@@ -174,6 +223,8 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
 
         paint.color = baseColor
         strokePaint.color = baseColor
+
+        invalidate()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -216,22 +267,24 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                 val type = if (isLogo) {
                     ShapeType.BRAND_LOGO
                 } else {
-                    val types = arrayOf(
-                        ShapeType.CIRCLE,
-                        ShapeType.ROUNDED_SQUARE,
-                        ShapeType.TRIANGLE,
-                        ShapeType.DIAMOND,
-                        ShapeType.RING,
-                        ShapeType.PILL,
-                        ShapeType.PENTAGON,
-                        ShapeType.HEXAGON,
-                        ShapeType.STAR_5,
-                        ShapeType.STAR_8,
-                        ShapeType.CROSS,
-                        ShapeType.CONCENTRIC_RINGS,
-                        ShapeType.HEART,
-                        ShapeType.FLOWER_4
-                    )
+                    val types = when (activeWallpaper?.patternType) {
+                        "material_geo" -> arrayOf(
+                            ShapeType.ROUNDED_SQUARE, ShapeType.TRIANGLE, ShapeType.DIAMOND,
+                            ShapeType.HEXAGON, ShapeType.PENTAGON, ShapeType.CROSS
+                        )
+                        "material_stars" -> arrayOf(
+                            ShapeType.STAR_5, ShapeType.STAR_8, ShapeType.CONCENTRIC_RINGS, ShapeType.DIAMOND
+                        )
+                        "material_waves" -> arrayOf(
+                            ShapeType.RING, ShapeType.PILL, ShapeType.CIRCLE, ShapeType.FLOWER_4
+                        )
+                        else -> arrayOf(
+                            ShapeType.CIRCLE, ShapeType.ROUNDED_SQUARE, ShapeType.TRIANGLE, ShapeType.DIAMOND,
+                            ShapeType.RING, ShapeType.PILL, ShapeType.PENTAGON, ShapeType.HEXAGON,
+                            ShapeType.STAR_5, ShapeType.STAR_8, ShapeType.CROSS, ShapeType.CONCENTRIC_RINGS,
+                            ShapeType.HEART, ShapeType.FLOWER_4
+                        )
+                    }
                     types[random.nextInt(types.size)]
                 }
 
@@ -274,6 +327,56 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     }
 
     override fun onDraw(canvas: Canvas) {
+        val wp = activeWallpaper ?: WallpaperManager.getActiveWallpaper(context, contactKey)
+
+        if (wp.type == "IMAGE" && customImageBitmap != null) {
+            val bmp = customImageBitmap!!
+            val viewW = width.toFloat()
+            val viewH = height.toFloat()
+
+            if (viewW > 0 && viewH > 0) {
+                val scaleX = viewW / bmp.width
+                val scaleY = viewH / bmp.height
+                val scale = Math.max(scaleX, scaleY) * wp.scale
+
+                val dx = (viewW - bmp.width * scale) / 2f + wp.offsetX
+                val dy = (viewH - bmp.height * scale) / 2f + wp.offsetY
+
+                matrix3D.reset()
+                matrix3D.postScale(scale, scale)
+                if (wp.rotation != 0f) {
+                    matrix3D.postRotate(wp.rotation, viewW / 2f, viewH / 2f)
+                }
+                matrix3D.postTranslate(dx, dy)
+
+                val drawPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+                canvas.drawBitmap(bmp, matrix3D, drawPaint)
+
+                // Dimming overlay
+                if (wp.dimOpacity > 0f) {
+                    val dimPaint = Paint().apply {
+                        color = Color.BLACK
+                        alpha = (wp.dimOpacity * 255).toInt().coerceIn(0, 255)
+                    }
+                    canvas.drawRect(0f, 0f, viewW, viewH, dimPaint)
+                }
+            }
+            return
+        }
+
+        if (wp.type == "PATTERN") {
+            drawEmojiPattern(canvas, wp)
+            return
+        }
+
+        // MATERIAL / DEFAULT mode: Draw background color if set
+        val bgHex = wp.backgroundColor
+        if (!bgHex.isNullOrBlank()) {
+            try {
+                canvas.drawColor(Color.parseColor(bgHex))
+            } catch (_: Exception) {}
+        }
+
         super.onDraw(canvas)
         if (!isLavaEnabled) return
         if (shapes.isEmpty() || animProgress <= 0f) return
@@ -362,6 +465,83 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
             }
 
             canvas.restore()
+        }
+    }
+
+    private fun drawEmojiPattern(canvas: Canvas, wp: ChatWallpaper) {
+        val bgHex = wp.backgroundColor
+        val bgColor = if (!bgHex.isNullOrBlank()) {
+            try { Color.parseColor(bgHex) } catch (_: Exception) { Color.parseColor("#151D2A") }
+        } else {
+            Color.parseColor("#151D2A")
+        }
+        canvas.drawColor(bgColor)
+
+        val emojis = wp.customEmojis.let {
+            if (it.isNullOrBlank()) "😎 ⭐ 🌸 🔷" else it
+        }
+
+        val parts = emojis.split(Regex("\\s+")).filter { it.isNotBlank() }
+        if (parts.isEmpty()) return
+
+        val density = resources.displayMetrics.density
+        val textPaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = 24f * density * wp.scale
+            color = Color.WHITE
+            textAlign = Paint.Align.CENTER
+        }
+
+        val cellW = 68f * density * wp.scale
+        val cellH = 68f * density * wp.scale
+
+        val cols = (width / cellW).toInt() + 2
+        val rows = (height / cellH).toInt() + 2
+
+        canvas.save()
+
+        if (wp.isAnimated && animProgress > 0f) {
+            when (wp.animationEffect) {
+                "float" -> {
+                    val animOffsetY = sin(animProgress * Math.PI.toFloat() * 2) * 10f * density
+                    canvas.translate(0f, animOffsetY)
+                }
+                "pulse" -> {
+                    val scale = 0.96f + sin(animProgress * Math.PI.toFloat() * 2) * 0.04f
+                    canvas.scale(scale, scale, width / 2f, height / 2f)
+                }
+                "rotate" -> {
+                    val rot = animProgress * 360f
+                    canvas.rotate(rot, width / 2f, height / 2f)
+                }
+            }
+        }
+
+        for (r in 0 until rows) {
+            for (c in 0 until cols) {
+                val index = (r * cols + c) % parts.size
+                val emojiStr = parts[index]
+
+                var x = c * cellW + (cellW / 2f)
+                val y = r * cellH + (cellH / 2f)
+
+                if (wp.layoutOrientation == "staggered" && r % 2 == 1) {
+                    x += cellW / 2f
+                } else if (wp.layoutOrientation == "spiral") {
+                    x += (r % 3) * (cellW / 3f)
+                }
+
+                canvas.drawText(emojiStr, x, y, textPaint)
+            }
+        }
+
+        canvas.restore()
+
+        if (wp.dimOpacity > 0f) {
+            val dimPaint = Paint().apply {
+                color = Color.BLACK
+                alpha = (wp.dimOpacity * 255).toInt().coerceIn(0, 255)
+            }
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), dimPaint)
         }
     }
 }

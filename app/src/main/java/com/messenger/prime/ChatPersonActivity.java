@@ -1934,7 +1934,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             } else if ("com.messenger.prime.CHAT_DELETED".equals(action)) {
                 isChatDeleted = true;
                 finish();
-            } else if ("com.messenger.prime.AVATAR_CHANGED".equals(action) || "com.messenger.prime.NAME_CHANGED".equals(action) || "com.messenger.prime.ACCENT_CHANGED".equals(action) || "com.messenger.prime.THEME_CHANGED".equals(action) || "com.messenger.prime.BUBBLE_RADIUS_CHANGED".equals(action) || "com.messenger.prime.AVATAR_RADIUS_CHANGED".equals(action)) {
+            } else if ("com.messenger.prime.AVATAR_CHANGED".equals(action) || "com.messenger.prime.NAME_CHANGED".equals(action) || "com.messenger.prime.ACCENT_CHANGED".equals(action) || "com.messenger.prime.THEME_CHANGED".equals(action) || "com.messenger.prime.BUBBLE_RADIUS_CHANGED".equals(action) || "com.messenger.prime.AVATAR_RADIUS_CHANGED".equals(action) || "com.messenger.prime.WALLPAPER_CHANGED".equals(action)) {
                 reloadLocalProfileFromSettings();
                 String updatedName = AvatarManager.getContactDisplayName(ChatPersonActivity.this, targetUsername, deviceAddress, targetUsername);
                 if (!updatedName.isEmpty()) {
@@ -1945,7 +1945,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 if (contactAvatar == null) contactAvatar = remoteAvatarUri;
                 updateAvatarUi(contactAvatar, targetUsername);
                 MaterialShapesWallpaperView wallpaperView = findViewById(R.id.vWallpaperBackground);
-                if (wallpaperView != null) wallpaperView.updateThemeColors();
+                if (wallpaperView != null) {
+                    wallpaperView.setContactKey(targetUsername);
+                    wallpaperView.updateThemeColors();
+                }
                 if (chatAdapter != null) chatAdapter.notifyDataSetChanged();
             } else if (BluetoothDevice.ACTION_FOUND.equals(action) || BluetoothDevice.ACTION_UUID.equals(action)) {
                 BluetoothDevice dev = null;
@@ -2078,6 +2081,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         isActivityForeground = true;
         activeChatPersonAddress = deviceAddress;
         activeChatPersonName = targetUsername;
+        PrimeApplication.currentActiveChatAddress = deviceAddress;
+        PrimeApplication.currentActiveChatName = targetUsername;
         boolean wasSubActivity = isOpeningSubActivity;
         isOpeningSubActivity = false;
 
@@ -2094,6 +2099,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             filter.addAction("com.messenger.prime.THEME_CHANGED");
             filter.addAction("com.messenger.prime.BUBBLE_RADIUS_CHANGED");
             filter.addAction("com.messenger.prime.AVATAR_RADIUS_CHANGED");
+            filter.addAction("com.messenger.prime.WALLPAPER_CHANGED");
             ContextCompat.registerReceiver(this, screenReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
         } catch (Exception ignored) {}
 
@@ -2173,6 +2179,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         isActivityForeground = false;
         activeChatPersonAddress = null;
         activeChatPersonName = null;
+        if (Objects.equals(PrimeApplication.currentActiveChatAddress, deviceAddress) ||
+            Objects.equals(PrimeApplication.currentActiveChatName, targetUsername)) {
+            PrimeApplication.currentActiveChatAddress = null;
+            PrimeApplication.currentActiveChatName = null;
+        }
         if (bluetoothAdapter != null) {
             try {
                 bluetoothAdapter.cancelDiscovery();
@@ -4717,133 +4728,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private void showBackgroundNotification(String title, String message) {
-        Activity currentActivity = PrimeApplication.getCurrentActivity();
-        if (currentActivity instanceof ChatPersonActivity) {
-            ChatPersonActivity cpa = (ChatPersonActivity) currentActivity;
-            if (Objects.equals(cpa.targetUsername, title)) {
-                return; // Уже находимся в этом чате, ничего не показываем
-            }
-        }
-
-        try {
-            if (Build.VERSION.SDK_INT >= 33) {
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                    Log.w(TAG, "Cannot show notification: POST_NOTIFICATIONS permission not granted");
-                    return;
-                }
-            }
-
-            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            if (nm != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    NotificationChannel channel = new NotificationChannel(
-                            PrimeApplication.CHANNEL_MESSAGES_ID,
-                            "Сообщения Prime",
-                            NotificationManager.IMPORTANCE_HIGH
-                    );
-                    channel.enableVibration(true);
-                    channel.setVibrationPattern(new long[]{0, 250, 250, 250});
-                    channel.enableLights(true);
-                    nm.createNotificationChannel(channel);
-                }
-                
-                Intent intent = new Intent(this, ChatPersonActivity.class);
-                intent.putExtra("EXTRA_CHAT_NAME", title);
-                String senderAddr = null;
-                if (title != null && title.equalsIgnoreCase(targetUsername)) {
-                    senderAddr = deviceAddress;
-                }
-                intent.putExtra("EXTRA_DEVICE_ADDRESS", senderAddr);
-                intent.putExtra("EXTRA_USE_EXISTING_SOCKET", true);
-                intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                
-                int requestCode = title != null ? Math.abs(title.hashCode()) : 0;
-                PendingIntent pi = PendingIntent.getActivity(
-                        this,
-                        requestCode,
-                        intent,
-                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-                );
-
-                Bitmap largeAvatarBmp = getAvatarBitmapForNotification(targetUsername, remoteAvatarUri, deviceAddress);
-
-                Person.Builder personBuilder = new Person.Builder().setName(title);
-                if (largeAvatarBmp != null) {
-                    personBuilder.setIcon(IconCompat.createWithBitmap(largeAvatarBmp));
-                }
-                Person sender = personBuilder.build();
-                Person me = new Person.Builder().setName("Вы").build();
-
-                NotificationCompat.MessagingStyle style = new NotificationCompat.MessagingStyle(me)
-                        .addMessage(message, System.currentTimeMillis(), sender);
-
-                NotificationCompat.Builder builder = new NotificationCompat.Builder(this, PrimeApplication.CHANNEL_MESSAGES_ID)
-                        .setSmallIcon(R.drawable.ic_prime_statusbar)
-                        .setStyle(style)
-                        .setAutoCancel(true)
-                        .setDefaults(NotificationCompat.DEFAULT_ALL)
-                        .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-                        .setPriority(NotificationCompat.PRIORITY_HIGH)
-                        .setContentIntent(pi);
-
-                if (largeAvatarBmp != null) {
-                    builder.setLargeIcon(largeAvatarBmp);
-                }
-
-                int notificationId = targetUsername != null ? Math.abs(targetUsername.hashCode()) : (int) System.currentTimeMillis();
-
-                // 1. Direct Reply Action
-                RemoteInput remoteInput = new RemoteInput.Builder(NotificationActionReceiver.KEY_TEXT_REPLY)
-                        .setLabel("Ответить...")
-                        .build();
-
-                Intent replyIntent = new Intent(this, NotificationActionReceiver.class);
-                replyIntent.setAction(NotificationActionReceiver.ACTION_REPLY);
-                replyIntent.putExtra("EXTRA_CHAT_NAME", targetUsername);
-                replyIntent.putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress);
-                replyIntent.putExtra("EXTRA_NOTIFICATION_ID", notificationId);
-
-                PendingIntent replyPendingIntent = PendingIntent.getBroadcast(
-                        this,
-                        notificationId + 1,
-                        replyIntent,
-                        PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-                );
-
-                NotificationCompat.Action replyAction = new NotificationCompat.Action.Builder(
-                        R.drawable.ic_done,
-                        "Ответить",
-                        replyPendingIntent
-                ).addRemoteInput(remoteInput).build();
-
-                // 2. Mark as Read Action
-                Intent markReadIntent = new Intent(this, NotificationActionReceiver.class);
-                markReadIntent.setAction(NotificationActionReceiver.ACTION_MARK_READ);
-                markReadIntent.putExtra("EXTRA_CHAT_NAME", targetUsername);
-                markReadIntent.putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress);
-                markReadIntent.putExtra("EXTRA_NOTIFICATION_ID", notificationId);
-
-                PendingIntent markReadPendingIntent = PendingIntent.getBroadcast(
-                        this,
-                        notificationId + 2,
-                        markReadIntent,
-                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-                );
-
-                NotificationCompat.Action markReadAction = new NotificationCompat.Action.Builder(
-                        R.drawable.ic_done_all,
-                        "Отметить как прочитанное",
-                        markReadPendingIntent
-                ).build();
-
-                builder.addAction(replyAction);
-                builder.addAction(markReadAction);
-
-                nm.notify(notificationId, builder.build());
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to show background notification", e);
-        }
+        String addr = (title != null && title.equalsIgnoreCase(targetUsername)) ? deviceAddress : null;
+        PrimeNotification.postMessageNotification(this, title, message, addr);
     }
 
     private Bitmap getAvatarBitmapForNotification(String name, String avatarUri, String devAddress) {
@@ -6644,9 +6530,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         btnConfirmAttachment = dialogView.findViewById(R.id.btnConfirmAttachment);
         if (btnConfirmAttachment != null) {
             btnConfirmAttachment.setOnClickListener(v -> {
-                if (currentAttachmentMode == 1 && galleryAdapter != null && galleryAdapter.getSelectedCount() > 0) {
+                if (currentAttachmentMode == 0 && galleryAdapter != null && galleryAdapter.getSelectedCount() > 0) {
                     setPendingAttachmentFromMediaItems(galleryAdapter.getSelectedItems(), true);
-                } else if (currentAttachmentMode == 2 && filesAdapter != null && filesAdapter.getSelectedCount() > 0) {
+                } else if (currentAttachmentMode == 1 && filesAdapter != null && filesAdapter.getSelectedCount() > 0) {
                     setPendingAttachmentFromFileItems(filesAdapter.getSelectedItems(), true);
                 } else if (currentAttachmentMode == 3 && musicAdapter != null && musicAdapter.getSelectedItems().size() > 0) {
                     setPendingAttachmentFromMusic(musicAdapter.getSelectedItems(), true);
@@ -6680,19 +6566,23 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             });
         }
 
-        if (layoutModeCamera != null) layoutModeCamera.setOnClickListener(v -> {
+        if (layoutModePhoto != null) layoutModePhoto.setOnClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);
             hideSoftKeyboard();
             if (checkAndRequestAllAppPermissions()) switchAttachmentMode(0);
         });
-        if (layoutModePhoto != null) layoutModePhoto.setOnClickListener(v -> {
+        if (layoutModeFiles != null) layoutModeFiles.setOnClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);
             hideSoftKeyboard();
             if (checkAndRequestAllAppPermissions()) switchAttachmentMode(1);
         });
-        if (layoutModeFiles != null) layoutModeFiles.setOnClickListener(v -> {
+        if (layoutModeCamera != null) layoutModeCamera.setOnClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);
             hideSoftKeyboard();
             if (checkAndRequestAllAppPermissions()) switchAttachmentMode(2);
         });
         if (layoutModeMusic != null) layoutModeMusic.setOnClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);
             hideSoftKeyboard();
             if (checkAndRequestAllAppPermissions()) switchAttachmentMode(3);
         });
@@ -6841,8 +6731,28 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         new Thread(() -> {
             List<com.messenger.prime.TrackItem> tracks = showingSavedMusic
-                    ? PrimeMusicManager.INSTANCE.getSavedTracks(this)
-                    : PrimeMusicManager.INSTANCE.getDeviceTracks(this);
+                    ? new ArrayList<>(PrimeMusicManager.INSTANCE.getSavedTracks(this))
+                    : new ArrayList<>(PrimeMusicManager.INSTANCE.getDeviceTracks(this));
+
+            List<ChatMessage> chatMessages = ChatHistoryManager.loadMessages(ChatPersonActivity.this, targetUsername);
+            if (chatMessages != null) {
+                for (ChatMessage msg : chatMessages) {
+                    if (msg == null) continue;
+                    if (msg.getMessageType() == ChatMessage.MessageType.MUSIC || msg.getMessageType() == ChatMessage.MessageType.VOICE) {
+                        String path = msg.getImagePath();
+                        if (path != null) {
+                            File f = new File(path);
+                            if (f.exists()) {
+                                String title = msg.getTrackTitle() != null ? msg.getTrackTitle() : f.getName();
+                                String artist = msg.getArtistName() != null ? msg.getArtistName() : "Аудиозапись";
+                                String duration = msg.getAudioDuration() != null ? msg.getAudioDuration() : "00:00";
+                                TrackItem item = new TrackItem("msg_audio_" + msg.getMessageId(), title, artist, f.getAbsolutePath(), 0L, duration, null, false, f.length());
+                                tracks.add(0, item);
+                            }
+                        }
+                    }
+                }
+            }
             
             runOnUiThread(() -> {
                 currentMusicList.clear();
@@ -6852,6 +6762,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 }
                 if (tvMusicEmpty != null) {
                     tvMusicEmpty.setVisibility(tracks.isEmpty() ? View.VISIBLE : View.GONE);
+                }
+                if (tvModeMusicLabel != null) {
+                    tvModeMusicLabel.setText("Музыка" + (tracks.isEmpty() ? "" : " (" + tracks.size() + ")"));
                 }
             });
         }).start();
@@ -6917,8 +6830,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         int musicCount = (musicAdapter != null) ? musicAdapter.getSelectedItems().size() : 0;
         
         int totalCount = 0;
-        if (currentAttachmentMode == 1) totalCount = galleryCount;
-        else if (currentAttachmentMode == 2) totalCount = filesCount;
+        if (currentAttachmentMode == 0) totalCount = galleryCount;
+        else if (currentAttachmentMode == 1) totalCount = filesCount;
         else if (currentAttachmentMode == 3) totalCount = musicCount;
 
         if (totalCount > 0) {
@@ -6983,9 +6896,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private View getSectionViewForMode(int mode) {
-        if (mode == 0) return layoutSectionCamera;
-        if (mode == 1) return layoutSectionPhoto;
-        if (mode == 2) return layoutSectionFiles;
+        if (mode == 0) return layoutSectionPhoto;
+        if (mode == 1) return layoutSectionFiles;
+        if (mode == 2) return layoutSectionCamera;
         if (mode == 3) return layoutSectionMusic;
         return null;
     }
@@ -7000,37 +6913,37 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         int activeBrand = ContextCompat.getColor(this, R.color.prime_brand);
         int idleSecondary = ContextCompat.getColor(this, R.color.prime_text_secondary);
 
-        if (vModeCameraBg != null) vModeCameraBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
         if (vModePhotoBg != null) vModePhotoBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
         if (vModeFilesBg != null) vModeFilesBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
+        if (vModeCameraBg != null) vModeCameraBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
         if (vModeMusicBg != null) vModeMusicBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
 
-        if (ivModeCameraIcon != null) ImageViewCompat.setImageTintList(ivModeCameraIcon, null);
         if (ivModePhotoIcon != null) ImageViewCompat.setImageTintList(ivModePhotoIcon, ColorStateList.valueOf(idleSecondary));
         if (ivModeFilesIcon != null) ImageViewCompat.setImageTintList(ivModeFilesIcon, ColorStateList.valueOf(idleSecondary));
+        if (ivModeCameraIcon != null) ImageViewCompat.setImageTintList(ivModeCameraIcon, ColorStateList.valueOf(idleSecondary));
         if (ivModeMusicIcon != null) ImageViewCompat.setImageTintList(ivModeMusicIcon, ColorStateList.valueOf(idleSecondary));
 
-        if (tvModeCameraLabel != null) tvModeCameraLabel.setTextColor(idleSecondary);
         if (tvModePhotoLabel != null) tvModePhotoLabel.setTextColor(idleSecondary);
         if (tvModeFilesLabel != null) tvModeFilesLabel.setTextColor(idleSecondary);
+        if (tvModeCameraLabel != null) tvModeCameraLabel.setTextColor(idleSecondary);
         if (tvModeMusicLabel != null) tvModeMusicLabel.setTextColor(idleSecondary);
 
-        if (newMode == 0) { // GIF
-            if (vModeCameraBg != null) vModeCameraBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
-            if (ivModeCameraIcon != null) ImageViewCompat.setImageTintList(ivModeCameraIcon, null);
-            if (tvModeCameraLabel != null) tvModeCameraLabel.setTextColor(activeBrand);
-            fetchTenorGifs("");
-        } else if (newMode == 1) { // Photo & Video Gallery
+        if (newMode == 0) { // Фото и видео
             if (vModePhotoBg != null) vModePhotoBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
             if (ivModePhotoIcon != null) ImageViewCompat.setImageTintList(ivModePhotoIcon, ColorStateList.valueOf(activeBrand));
             if (tvModePhotoLabel != null) tvModePhotoLabel.setTextColor(activeBrand);
             loadGalleryMediaAsync();
-        } else if (newMode == 2) { // Files
+        } else if (newMode == 1) { // Файлы
             if (vModeFilesBg != null) vModeFilesBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
             if (ivModeFilesIcon != null) ImageViewCompat.setImageTintList(ivModeFilesIcon, ColorStateList.valueOf(activeBrand));
             if (tvModeFilesLabel != null) tvModeFilesLabel.setTextColor(activeBrand);
             loadFilesAsync();
-        } else if (newMode == 3) { // Music
+        } else if (newMode == 2) { // GIF
+            if (vModeCameraBg != null) vModeCameraBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
+            if (ivModeCameraIcon != null) ImageViewCompat.setImageTintList(ivModeCameraIcon, ColorStateList.valueOf(activeBrand));
+            if (tvModeCameraLabel != null) tvModeCameraLabel.setTextColor(activeBrand);
+            fetchTenorGifs("");
+        } else if (newMode == 3) { // Музыка
             if (vModeMusicBg != null) vModeMusicBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
             if (ivModeMusicIcon != null) ImageViewCompat.setImageTintList(ivModeMusicIcon, ColorStateList.valueOf(activeBrand));
             if (tvModeMusicLabel != null) tvModeMusicLabel.setTextColor(activeBrand);
@@ -7516,6 +7429,37 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void loadGalleryMediaAsync() {
         runOnIoThread(() -> {
             List<MediaItem> list = new ArrayList<>();
+
+            List<ChatMessage> chatMessages = ChatHistoryManager.loadMessages(ChatPersonActivity.this, targetUsername);
+            if (chatMessages != null) {
+                for (ChatMessage msg : chatMessages) {
+                    if (msg == null) continue;
+                    if (msg.isMultiMedia()) {
+                        List<ChatMessage.MediaItem> items = msg.getMediaItems();
+                        if (items != null) {
+                            for (ChatMessage.MediaItem mi : items) {
+                                if (mi != null && mi.path != null) {
+                                    File f = new File(mi.path);
+                                    if (f.exists()) {
+                                        Uri uri = Uri.fromFile(f);
+                                        list.add(0, new MediaItem(uri, f.getAbsolutePath(), mi.isVideo, mi.durationStr, f.lastModified() / 1000L, f.length(), f.getName()));
+                                    }
+                                }
+                            }
+                        }
+                    } else if (msg.getMessageType() == ChatMessage.MessageType.IMAGE || msg.getMessageType() == ChatMessage.MessageType.VIDEO) {
+                        String path = msg.getImagePath();
+                        if (path != null) {
+                            File f = new File(path);
+                            if (f.exists()) {
+                                boolean isVideo = msg.getMessageType() == ChatMessage.MessageType.VIDEO;
+                                list.add(0, new MediaItem(Uri.fromFile(f), f.getAbsolutePath(), isVideo, msg.getVideoDuration(), f.lastModified() / 1000L, f.length(), f.getName()));
+                            }
+                        }
+                    }
+                }
+            }
+
             Uri queryUri = MediaStore.Files.getContentUri("external");
             String[] projection = new String[] {
                 MediaStore.Files.FileColumns._ID,
@@ -7573,6 +7517,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         tvGalleryEmpty.setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
                     }
                 }
+                if (tvModePhotoLabel != null) {
+                    tvModePhotoLabel.setText("Фото и видео" + (list.isEmpty() ? "" : " (" + list.size() + ")"));
+                }
             });
         });
     }
@@ -7580,6 +7527,25 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void loadFilesAsync() {
         runOnIoThread(() -> {
             List<FileItem> list = new ArrayList<>();
+
+            List<ChatMessage> chatMessages = ChatHistoryManager.loadMessages(ChatPersonActivity.this, targetUsername);
+            if (chatMessages != null) {
+                for (ChatMessage msg : chatMessages) {
+                    if (msg == null) continue;
+                    if (msg.getMessageType() == ChatMessage.MessageType.FILE) {
+                        String path = msg.getImagePath();
+                        if (path != null) {
+                            File f = new File(path);
+                            if (f.exists()) {
+                                String name = msg.getFileName() != null ? msg.getFileName() : f.getName();
+                                long size = msg.getFileSize() > 0 ? msg.getFileSize() : f.length();
+                                list.add(0, new FileItem(Uri.fromFile(f), f.getAbsolutePath(), name, size, f.lastModified() / 1000L));
+                            }
+                        }
+                    }
+                }
+            }
+
             Uri queryUri = MediaStore.Files.getContentUri("external");
             String[] projection = new String[] {
                 MediaStore.Files.FileColumns._ID,
@@ -7672,6 +7638,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     if (tvFilesEmpty != null) {
                         tvFilesEmpty.setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
                     }
+                }
+                if (tvModeFilesLabel != null) {
+                    tvModeFilesLabel.setText("Файлы" + (list.isEmpty() ? "" : " (" + list.size() + ")"));
                 }
             });
         });

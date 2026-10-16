@@ -27,7 +27,7 @@
         </DialogSelection>
       </SelectionState>
       <SelectionState runConfigName="androidTest">
-        <option name="selectionMode" value="DIALOG" />
+        <option name="selectionMode" value="DROPDOWN" />
         <DialogSelection>
           <targets>
             <Target type="DEFAULT_BOOT">

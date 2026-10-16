@@ -324,6 +324,8 @@
                         android:id="@+id/tvUserNameStatic"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:textAlignment="center"
                         android:textColor="@color/prime_text_primary"
                         android:textSize="26sp"
                         android:textStyle="bold"
@@ -801,37 +803,400 @@
                                 </LinearLayout>
                             </LinearLayout>
 
-                            <!-- Блок с настройками темы -->
-                            <RadioGroup
-                                android:id="@+id/rgThemeOptions"
+                            <!-- Горизонтальная прокрутка выбора темы (Вид экрана телефона) -->
+                            <HorizontalScrollView
+                                android:id="@+id/scrollThemeOptions"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:orientation="vertical">
+                                android:layout_marginTop="16dp"
+                                android:layout_marginBottom="8dp"
+                                android:fillViewport="true"
+                                android:overScrollMode="never"
+                                android:scrollbars="none">
 
-                                <RadioButton
-                                    android:id="@+id/rbThemeSystem"
+                                <LinearLayout
+                                    android:id="@+id/layoutThemeOptions"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="Системная (по умолчанию)"
-                                    android:textColor="@color/prime_text_primary"
-                                    android:textSize="14sp" />
+                                    android:gravity="center"
+                                    android:orientation="horizontal">
 
-                                <RadioButton
-                                    android:id="@+id/rbThemeLight"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:text="Светлая"
-                                    android:textColor="@color/prime_text_primary"
-                                    android:textSize="14sp" />
+                                    <!-- Вариант: Системная -->
+                                    <LinearLayout
+                                        android:id="@+id/itemThemeSystem"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:layout_marginHorizontal="2dp"
+                                        android:gravity="center_horizontal"
+                                        android:orientation="vertical"
+                                        android:clickable="true"
+                                        android:focusable="true"
+                                        android:background="?attr/selectableItemBackground"
+                                        android:padding="4dp">
 
-                                <RadioButton
-                                    android:id="@+id/rbThemeDark"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:text="Темная"
-                                    android:textColor="@color/prime_text_primary"
-                                    android:textSize="14sp" />
-                            </RadioGroup>
+                                        <com.google.android.material.card.MaterialCardView
+                                            android:id="@+id/cardThemeSystem"
+                                            android:layout_width="76dp"
+                                            android:layout_height="138dp"
+                                            android:layout_gravity="center_horizontal"
+                                            app:cardCornerRadius="18dp"
+                                            app:cardElevation="0dp"
+                                            app:strokeWidth="1dp"
+                                            app:strokeColor="#1A000000">
+
+                                            <FrameLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent">
+
+                                                <!-- Split Preview 50/50 -->
+                                                <LinearLayout
+                                                    android:layout_width="match_parent"
+                                                    android:layout_height="match_parent"
+                                                    android:orientation="horizontal">
+
+                                                    <!-- Left: Light -->
+                                                    <LinearLayout
+                                                        android:layout_width="0dp"
+                                                        android:layout_height="match_parent"
+                                                        android:layout_weight="1"
+                                                        android:background="#FFFFFF"
+                                                        android:orientation="vertical"
+                                                        android:paddingTop="12dp">
+
+                                                        <View
+                                                            android:layout_width="22dp"
+                                                            android:layout_height="10dp"
+                                                            android:layout_marginStart="3dp"
+                                                            android:layout_marginTop="12dp"
+                                                            android:background="@drawable/bg_bubble_incoming"
+                                                            android:backgroundTint="#F1F5F9" />
+
+                                                        <View
+                                                            android:layout_width="24dp"
+                                                            android:layout_height="10dp"
+                                                            android:layout_gravity="end"
+                                                            android:layout_marginEnd="3dp"
+                                                            android:layout_marginTop="6dp"
+                                                            android:background="@drawable/bg_bubble_outgoing"
+                                                            android:backgroundTint="@color/prime_brand" />
+
+                                                        <View
+                                                            android:layout_width="16dp"
+                                                            android:layout_height="8dp"
+                                                            android:layout_gravity="end"
+                                                            android:layout_marginEnd="3dp"
+                                                            android:layout_marginTop="4dp"
+                                                            android:background="@drawable/bg_bubble_outgoing"
+                                                            android:backgroundTint="@color/prime_brand" />
+                                                    </LinearLayout>
+
+                                                    <!-- Right: Dark -->
+                                                    <LinearLayout
+                                                        android:layout_width="0dp"
+                                                        android:layout_height="match_parent"
+                                                        android:layout_weight="1"
+                                                        android:background="#0F172A"
+                                                        android:orientation="vertical"
+                                                        android:paddingTop="12dp">
+
+                                                        <View
+                                                            android:layout_width="22dp"
+                                                            android:layout_height="10dp"
+                                                            android:layout_marginStart="3dp"
+                                                            android:layout_marginTop="12dp"
+                                                            android:background="@drawable/bg_bubble_incoming"
+                                                            android:backgroundTint="#1E293B" />
+
+                                                        <View
+                                                            android:layout_width="24dp"
+                                                            android:layout_height="10dp"
+                                                            android:layout_gravity="end"
+                                                            android:layout_marginEnd="3dp"
+                                                            android:layout_marginTop="6dp"
+                                                            android:background="@drawable/bg_bubble_outgoing"
+                                                            android:backgroundTint="@color/prime_brand" />
+
+                                                        <View
+                                                            android:layout_width="16dp"
+                                                            android:layout_height="8dp"
+                                                            android:layout_gravity="end"
+                                                            android:layout_marginEnd="3dp"
+                                                            android:layout_marginTop="4dp"
+                                                            android:background="@drawable/bg_bubble_outgoing"
+                                                            android:backgroundTint="@color/prime_brand" />
+                                                    </LinearLayout>
+                                                </LinearLayout>
+
+                                                <!-- Dynamic Island / Camera Notch -->
+                                                <View
+                                                    android:layout_width="16dp"
+                                                    android:layout_height="4dp"
+                                                    android:layout_gravity="top|center_horizontal"
+                                                    android:layout_marginTop="5dp"
+                                                    android:background="@drawable/bg_m3_active_indicator"
+                                                    android:backgroundTint="#30000000" />
+                                            </FrameLayout>
+                                        </com.google.android.material.card.MaterialCardView>
+
+                                        <TextView
+                                            android:id="@+id/tvThemeSystemLabel"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="20dp"
+                                            android:layout_marginTop="8dp"
+                                            android:layout_gravity="center_horizontal"
+                                            android:gravity="center"
+                                            android:textAlignment="center"
+                                            android:singleLine="true"
+                                            android:text="Системная"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textSize="13sp"
+                                            android:textStyle="bold" />
+
+                                        <RadioButton
+                                            android:id="@+id/rbThemeSystem"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:layout_gravity="center_horizontal"
+                                            android:minWidth="0dp"
+                                            android:minHeight="0dp"
+                                            android:paddingStart="0dp"
+                                            android:paddingEnd="0dp"
+                                            android:paddingLeft="0dp"
+                                            android:paddingRight="0dp"
+                                            android:gravity="center"
+                                            android:clickable="false"
+                                            android:focusable="false" />
+                                    </LinearLayout>
+
+                                    <!-- Вариант: Светлая -->
+                                    <LinearLayout
+                                        android:id="@+id/itemThemeLight"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:layout_marginHorizontal="2dp"
+                                        android:gravity="center_horizontal"
+                                        android:orientation="vertical"
+                                        android:clickable="true"
+                                        android:focusable="true"
+                                        android:background="?attr/selectableItemBackground"
+                                        android:padding="4dp">
+
+                                        <com.google.android.material.card.MaterialCardView
+                                            android:id="@+id/cardThemeLight"
+                                            android:layout_width="76dp"
+                                            android:layout_height="138dp"
+                                            android:layout_gravity="center_horizontal"
+                                            app:cardCornerRadius="18dp"
+                                            app:cardElevation="0dp"
+                                            app:strokeWidth="1dp"
+                                            app:strokeColor="#1A000000">
+
+                                            <FrameLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:background="#FFFFFF">
+
+                                                <LinearLayout
+                                                    android:layout_width="match_parent"
+                                                    android:layout_height="match_parent"
+                                                    android:orientation="vertical"
+                                                    android:paddingTop="12dp">
+
+                                                    <!-- Mini Status Bar -->
+                                                    <View
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="8dp"
+                                                        android:background="#F8FAFC" />
+
+                                                    <!-- Mini Incoming Bubble -->
+                                                    <View
+                                                        android:layout_width="44dp"
+                                                        android:layout_height="12dp"
+                                                        android:layout_marginStart="6dp"
+                                                        android:layout_marginTop="12dp"
+                                                        android:background="@drawable/bg_bubble_incoming"
+                                                        android:backgroundTint="#F1F5F9" />
+
+                                                    <!-- Mini Outgoing Bubble 1 -->
+                                                    <View
+                                                        android:layout_width="48dp"
+                                                        android:layout_height="12dp"
+                                                        android:layout_gravity="end"
+                                                        android:layout_marginEnd="6dp"
+                                                        android:layout_marginTop="6dp"
+                                                        android:background="@drawable/bg_bubble_outgoing"
+                                                        android:backgroundTint="@color/prime_brand" />
+
+                                                    <!-- Mini Outgoing Bubble 2 -->
+                                                    <View
+                                                        android:layout_width="32dp"
+                                                        android:layout_height="10dp"
+                                                        android:layout_gravity="end"
+                                                        android:layout_marginEnd="6dp"
+                                                        android:layout_marginTop="4dp"
+                                                        android:background="@drawable/bg_bubble_outgoing"
+                                                        android:backgroundTint="@color/prime_brand" />
+                                                </LinearLayout>
+
+                                                <!-- Dynamic Island / Camera Notch -->
+                                                <View
+                                                    android:layout_width="16dp"
+                                                    android:layout_height="4dp"
+                                                    android:layout_gravity="top|center_horizontal"
+                                                    android:layout_marginTop="5dp"
+                                                    android:background="@drawable/bg_m3_active_indicator"
+                                                    android:backgroundTint="#20000000" />
+                                            </FrameLayout>
+                                        </com.google.android.material.card.MaterialCardView>
+
+                                        <TextView
+                                            android:id="@+id/tvThemeLightLabel"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="20dp"
+                                            android:layout_marginTop="8dp"
+                                            android:layout_gravity="center_horizontal"
+                                            android:gravity="center"
+                                            android:textAlignment="center"
+                                            android:singleLine="true"
+                                            android:text="Светлая"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textSize="13sp"
+                                            android:textStyle="bold" />
+
+                                        <RadioButton
+                                            android:id="@+id/rbThemeLight"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:layout_gravity="center_horizontal"
+                                            android:minWidth="0dp"
+                                            android:minHeight="0dp"
+                                            android:paddingStart="0dp"
+                                            android:paddingEnd="0dp"
+                                            android:paddingLeft="0dp"
+                                            android:paddingRight="0dp"
+                                            android:gravity="center"
+                                            android:clickable="false"
+                                            android:focusable="false" />
+                                    </LinearLayout>
+
+                                    <!-- Вариант: Темная -->
+                                    <LinearLayout
+                                        android:id="@+id/itemThemeDark"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:layout_marginHorizontal="2dp"
+                                        android:gravity="center_horizontal"
+                                        android:orientation="vertical"
+                                        android:clickable="true"
+                                        android:focusable="true"
+                                        android:background="?attr/selectableItemBackground"
+                                        android:padding="4dp">
+
+                                        <com.google.android.material.card.MaterialCardView
+                                            android:id="@+id/cardThemeDark"
+                                            android:layout_width="76dp"
+                                            android:layout_height="138dp"
+                                            android:layout_gravity="center_horizontal"
+                                            app:cardCornerRadius="18dp"
+                                            app:cardElevation="0dp"
+                                            app:strokeWidth="1dp"
+                                            app:strokeColor="#1A000000">
+
+                                            <FrameLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:background="#0F172A">
+
+                                                <LinearLayout
+                                                    android:layout_width="match_parent"
+                                                    android:layout_height="match_parent"
+                                                    android:orientation="vertical"
+                                                    android:paddingTop="12dp">
+
+                                                    <!-- Mini Status Bar -->
+                                                    <View
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="8dp"
+                                                        android:background="#1E293B" />
+
+                                                    <!-- Mini Incoming Bubble -->
+                                                    <View
+                                                        android:layout_width="44dp"
+                                                        android:layout_height="12dp"
+                                                        android:layout_marginStart="6dp"
+                                                        android:layout_marginTop="12dp"
+                                                        android:background="@drawable/bg_bubble_incoming"
+                                                        android:backgroundTint="#1E293B" />
+
+                                                    <!-- Mini Outgoing Bubble 1 -->
+                                                    <View
+                                                        android:layout_width="48dp"
+                                                        android:layout_height="12dp"
+                                                        android:layout_gravity="end"
+                                                        android:layout_marginEnd="6dp"
+                                                        android:layout_marginTop="6dp"
+                                                        android:background="@drawable/bg_bubble_outgoing"
+                                                        android:backgroundTint="@color/prime_brand" />
+
+                                                    <!-- Mini Outgoing Bubble 2 -->
+                                                    <View
+                                                        android:layout_width="32dp"
+                                                        android:layout_height="10dp"
+                                                        android:layout_gravity="end"
+                                                        android:layout_marginEnd="6dp"
+                                                        android:layout_marginTop="4dp"
+                                                        android:background="@drawable/bg_bubble_outgoing"
+                                                        android:backgroundTint="@color/prime_brand" />
+                                                </LinearLayout>
+
+                                                <!-- Dynamic Island / Camera Notch -->
+                                                <View
+                                                    android:layout_width="16dp"
+                                                    android:layout_height="4dp"
+                                                    android:layout_gravity="top|center_horizontal"
+                                                    android:layout_marginTop="5dp"
+                                                    android:background="@drawable/bg_m3_active_indicator"
+                                                    android:backgroundTint="#40FFFFFF" />
+                                            </FrameLayout>
+                                        </com.google.android.material.card.MaterialCardView>
+
+                                        <TextView
+                                            android:id="@+id/tvThemeDarkLabel"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="20dp"
+                                            android:layout_marginTop="8dp"
+                                            android:layout_gravity="center_horizontal"
+                                            android:gravity="center"
+                                            android:textAlignment="center"
+                                            android:singleLine="true"
+                                            android:text="Темная"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textSize="13sp"
+                                            android:textStyle="bold" />
+
+                                        <RadioButton
+                                            android:id="@+id/rbThemeDark"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:layout_gravity="center_horizontal"
+                                            android:minWidth="0dp"
+                                            android:minHeight="0dp"
+                                            android:paddingStart="0dp"
+                                            android:paddingEnd="0dp"
+                                            android:paddingLeft="0dp"
+                                            android:paddingRight="0dp"
+                                            android:gravity="center"
+                                            android:clickable="false"
+                                            android:focusable="false" />
+                                    </LinearLayout>
+                                </LinearLayout>
+                            </HorizontalScrollView>
 
                             <!-- Ползунок скругления сообщений -->
                             <LinearLayout
@@ -847,11 +1212,12 @@
                                     android:gravity="center_vertical">
 
                                     <TextView
+                                        android:id="@+id/tvTitleBubbleRadius"
                                         android:layout_width="0dp"
                                         android:layout_height="wrap_content"
                                         android:layout_weight="1"
                                         android:text="Уровень скругления сообщений"
-                                        android:textColor="@color/prime_text_primary"
+                                        android:textColor="@color/prime_brand"
                                         android:textSize="14sp"
                                         android:textStyle="bold" />
 
@@ -869,6 +1235,8 @@
                                     android:id="@+id/sliderBubbleRadius"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="-10dp"
+                                    android:layout_marginTop="-4dp"
                                     android:valueFrom="0"
                                     android:valueTo="100"
                                     android:stepSize="1"
@@ -882,7 +1250,7 @@
                                 android:id="@+id/cardThemeChatPreview"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="16dp"
+                                android:layout_marginTop="8dp"
                                 app:cardCornerRadius="16dp"
                                 app:cardElevation="0dp"
                                 app:strokeWidth="0dp"
@@ -987,6 +1355,188 @@
 
                                 </LinearLayout>
                             </com.google.android.material.card.MaterialCardView>
+
+                            <!-- Скругление аватарки -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical"
+                                android:layout_marginTop="20dp">
+
+                                <TextView
+                                    android:id="@+id/tvTitleAvatarRadius"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Уровень скругления аватарки"
+                                    android:textColor="@color/prime_brand"
+                                    android:textSize="14sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/tvAvatarRadiusValue"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="50%"
+                                    android:textColor="@color/prime_brand"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <com.google.android.material.slider.Slider
+                                android:id="@+id/sliderAvatarRadius"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginHorizontal="-10dp"
+                                android:layout_marginTop="-4dp"
+                                android:valueFrom="0"
+                                android:valueTo="100"
+                                android:stepSize="1"
+                                android:value="50"
+                                app:thumbColor="@color/prime_brand"
+                                app:trackColorActive="@color/prime_brand" />
+
+                            <!-- Блок предпросмотра скругления аватарки -->
+                            <com.google.android.material.card.MaterialCardView
+                                android:id="@+id/cardAvatarPreviewBlock"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                app:cardCornerRadius="16dp"
+                                app:cardElevation="0dp"
+                                app:strokeWidth="0dp"
+                                app:strokeColor="#1A000000">
+
+                                <LinearLayout
+                                    android:id="@+id/layoutAvatarPreviewBg"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal"
+                                    android:padding="12dp">
+
+                                    <ImageView
+                                        android:id="@+id/ivAvatarPreviewImage"
+                                        android:layout_width="48dp"
+                                        android:layout_height="48dp"
+                                        android:layout_marginEnd="12dp"
+                                        android:scaleType="centerCrop" />
+
+                                    <TextView
+                                        android:id="@+id/tvAvatarPreviewInitials"
+                                        android:layout_width="48dp"
+                                        android:layout_height="48dp"
+                                        android:layout_marginEnd="12dp"
+                                        android:gravity="center"
+                                        android:text="P"
+                                        android:textColor="#FFFFFF"
+                                        android:textSize="18sp"
+                                        android:textStyle="bold" />
+
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="Предпросмотр аватарок"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textSize="14sp"
+                                            android:textStyle="bold" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="Передвигайте ползунок выше"
+                                            android:textColor="@color/prime_text_secondary"
+                                            android:textSize="12sp" />
+                                    </LinearLayout>
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Выбор обоев в чатах -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardWallpaperSection"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:cardBackgroundColor="@color/prime_surface"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="20dp">
+
+                            <!-- Заголовок обоев -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <ImageView
+                                    android:id="@+id/ivIconWallpaper"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:layout_marginEnd="16dp"
+                                    android:src="@drawable/ic_photo"
+                                    app:tint="@color/prime_brand" />
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:id="@+id/tvTitleWallpaper"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="Выбор обоев в чате"
+                                        android:textColor="@color/prime_brand"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvWallpaperSummary"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Стандартные"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <!-- Горизонтальная прокрутка карточек обоев -->
+                            <HorizontalScrollView
+                                android:id="@+id/scrollWallpaperOptions"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="16dp"
+                                android:layout_marginBottom="4dp"
+                                android:fillViewport="true"
+                                android:overScrollMode="never"
+                                android:scrollbars="none">
+
+                                <LinearLayout
+                                    android:id="@+id/layoutWallpaperOptions"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal" />
+                            </HorizontalScrollView>
+
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
@@ -1112,147 +1662,7 @@
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
-                    <!-- Скругление аватарки -->
-                    <com.google.android.material.card.MaterialCardView
-                        android:id="@+id/cardAvatarRadius"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        app:cardBackgroundColor="@color/prime_surface"
-                        app:cardCornerRadius="24dp"
-                        app:cardElevation="0dp"
-                        app:strokeWidth="0dp">
 
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:padding="20dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:gravity="center_vertical"
-                                android:orientation="horizontal"
-                                android:paddingBottom="8dp">
-
-                                <ImageView
-                                    android:id="@+id/ivIconAvatarRadius"
-                                    android:layout_width="32dp"
-                                    android:layout_height="32dp"
-                                    android:layout_marginEnd="16dp"
-                                    android:src="@drawable/ic_person"
-                                    app:tint="@color/prime_brand" />
-
-                                <LinearLayout
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:orientation="vertical">
-
-                                    <TextView
-                                        android:id="@+id/tvTitleAvatarRadius"
-                                        android:layout_width="match_parent"
-                                        android:layout_height="wrap_content"
-                                        android:text="Уровень скругления аватарки"
-                                        android:textColor="@color/prime_brand"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:layout_width="match_parent"
-                                        android:layout_height="wrap_content"
-                                        android:layout_marginTop="2dp"
-                                        android:text="Форма аватарок в списке чатов и чате"
-                                        android:textColor="@color/prime_text_secondary"
-                                        android:textSize="12sp" />
-                                </LinearLayout>
-
-                                <TextView
-                                    android:id="@+id/tvAvatarRadiusValue"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="50%"
-                                    android:textColor="@color/prime_brand"
-                                    android:textSize="12sp"
-                                    android:textStyle="bold" />
-                            </LinearLayout>
-
-                            <com.google.android.material.slider.Slider
-                                android:id="@+id/sliderAvatarRadius"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:valueFrom="0"
-                                android:valueTo="100"
-                                android:stepSize="1"
-                                android:value="50"
-                                app:thumbColor="@color/prime_brand"
-                                app:trackColorActive="@color/prime_brand" />
-
-                            <!-- Блок предпросмотра скругления аватарки -->
-                            <com.google.android.material.card.MaterialCardView
-                                android:id="@+id/cardAvatarPreviewBlock"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="12dp"
-                                app:cardCornerRadius="16dp"
-                                app:cardElevation="0dp"
-                                app:strokeWidth="0dp"
-                                app:strokeColor="#1A000000">
-
-                                <LinearLayout
-                                    android:id="@+id/layoutAvatarPreviewBg"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:gravity="center_vertical"
-                                    android:orientation="horizontal"
-                                    android:padding="12dp">
-
-                                    <ImageView
-                                        android:id="@+id/ivAvatarPreviewImage"
-                                        android:layout_width="48dp"
-                                        android:layout_height="48dp"
-                                        android:layout_marginEnd="12dp"
-                                        android:src="@drawable/prime_logo"
-                                        android:scaleType="centerCrop" />
-
-                                    <TextView
-                                        android:id="@+id/tvAvatarPreviewInitials"
-                                        android:layout_width="48dp"
-                                        android:layout_height="48dp"
-                                        android:layout_marginEnd="12dp"
-                                        android:gravity="center"
-                                        android:text="P"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="18sp"
-                                        android:textStyle="bold" />
-
-                                    <LinearLayout
-                                        android:layout_width="0dp"
-                                        android:layout_height="wrap_content"
-                                        android:layout_weight="1"
-                                        android:orientation="vertical">
-
-                                        <TextView
-                                            android:layout_width="wrap_content"
-                                            android:layout_height="wrap_content"
-                                            android:text="Предпросмотр аватарок"
-                                            android:textColor="@color/prime_text_primary"
-                                            android:textSize="14sp"
-                                            android:textStyle="bold" />
-
-                                        <TextView
-                                            android:layout_width="wrap_content"
-                                            android:layout_height="wrap_content"
-                                            android:layout_marginTop="2dp"
-                                            android:text="Передвигайте ползунок выше"
-                                            android:textColor="@color/prime_text_secondary"
-                                            android:textSize="12sp" />
-                                    </LinearLayout>
-                                </LinearLayout>
-                            </com.google.android.material.card.MaterialCardView>
-
-                        </LinearLayout>
-                    </com.google.android.material.card.MaterialCardView>
 
                     <!-- Живой фон -->
                     <com.google.android.material.card.MaterialCardView
@@ -1723,6 +2133,13 @@
                                     android:background="#9C27B0" />
 
                                 <View
+                                    android:id="@+id/vChartAudio"
+                                    android:layout_width="0dp"
+                                    android:layout_height="match_parent"
+                                    android:layout_weight="1"
+                                    android:background="#00BCD4" />
+
+                                <View
                                     android:id="@+id/vChartGifs"
                                     android:layout_width="0dp"
                                     android:layout_height="match_parent"
@@ -1737,6 +2154,13 @@
                                     android:background="#4CAF50" />
 
                                 <View
+                                    android:id="@+id/vChartAvatars"
+                                    android:layout_width="0dp"
+                                    android:layout_height="match_parent"
+                                    android:layout_weight="1"
+                                    android:background="#E91E63" />
+
+                                <View
                                     android:id="@+id/vChartOther"
                                     android:layout_width="0dp"
                                     android:layout_height="match_parent"
@@ -1744,10 +2168,41 @@
                                     android:background="#9E9E9E" />
                             </LinearLayout>
 
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:layout_marginBottom="8dp">
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Детальная выборка"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/tvSelectAllStorage"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:paddingHorizontal="8dp"
+                                    android:paddingVertical="4dp"
+                                    android:text="Снять всё"
+                                    android:textColor="@color/prime_brand"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold"
+                                    android:background="?attr/selectableItemBackground"
+                                    android:clickable="true"
+                                    android:focusable="true" />
+                            </LinearLayout>
+
                             <View
                                 android:layout_width="match_parent"
                                 android:layout_height="1dp"
-                                android:layout_marginBottom="12dp"
+                                android:layout_marginBottom="8dp"
                                 android:background="@color/prime_divider" />
 
                             <!-- Список категорий кэша с чекбоксами -->
@@ -1778,14 +2233,27 @@
                                     android:contentDescription="Фото"
                                     android:layout_marginStart="8dp" />
 
-                                <TextView
+                                <LinearLayout
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
                                     android:layout_marginStart="12dp"
-                                    android:text="Фотографии и аватары"
-                                    android:textColor="@color/prime_text_primary"
-                                    android:textSize="14sp" />
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Фотографии и изображения"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Картинки и фото вложения из чатов"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="11sp" />
+                                </LinearLayout>
 
                                 <TextView
                                     android:id="@+id/tvSizePhotos"
@@ -1823,14 +2291,27 @@
                                     android:contentDescription="Видео"
                                     android:layout_marginStart="8dp" />
 
-                                <TextView
+                                <LinearLayout
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
                                     android:layout_marginStart="12dp"
-                                    android:text="Видеосообщения и видео"
-                                    android:textColor="@color/prime_text_primary"
-                                    android:textSize="14sp" />
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Видеозаписи и видеосообщения"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Видеофайлы и видеокружочки"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="11sp" />
+                                </LinearLayout>
 
                                 <TextView
                                     android:id="@+id/tvSizeVideos"
@@ -1842,7 +2323,65 @@
                                     android:textStyle="bold" />
                             </LinearLayout>
 
-                            <!-- 3. GIF-анимации -->
+                            <!-- 3. Аудио и голосовые -->
+                            <LinearLayout
+                                android:id="@+id/rowStorageAudio"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:paddingVertical="8dp"
+                                android:gravity="center_vertical"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true">
+
+                                <CheckBox
+                                    android:id="@+id/cbStorageAudio"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:checked="true"
+                                    app:buttonTint="@color/prime_brand" />
+
+                                <ImageView
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
+                                    android:src="@drawable/ic_music"
+                                    app:tint="#00BCD4"
+                                    android:contentDescription="Аудио"
+                                    android:layout_marginStart="8dp" />
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="12dp"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Аудио и голосовые сообщения"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Голосовые заметки и музыка"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="11sp" />
+                                </LinearLayout>
+
+                                <TextView
+                                    android:id="@+id/tvSizeAudio"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0 МБ"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <!-- 4. GIF-анимации -->
                             <LinearLayout
                                 android:id="@+id/rowStorageGifs"
                                 android:layout_width="match_parent"
@@ -1868,14 +2407,27 @@
                                     android:contentDescription="GIF"
                                     android:layout_marginStart="8dp" />
 
-                                <TextView
+                                <LinearLayout
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
                                     android:layout_marginStart="12dp"
-                                    android:text="GIF-анимации"
-                                    android:textColor="@color/prime_text_primary"
-                                    android:textSize="14sp" />
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="GIF-анимации"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Анимированные гифки из сообщений"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="11sp" />
+                                </LinearLayout>
 
                                 <TextView
                                     android:id="@+id/tvSizeGifs"
@@ -1887,7 +2439,7 @@
                                     android:textStyle="bold" />
                             </LinearLayout>
 
-                            <!-- 4. Файлы и документы -->
+                            <!-- 5. Файлы и документы -->
                             <LinearLayout
                                 android:id="@+id/rowStorageFiles"
                                 android:layout_width="match_parent"
@@ -1913,14 +2465,27 @@
                                     android:contentDescription="Документы"
                                     android:layout_marginStart="8dp" />
 
-                                <TextView
+                                <LinearLayout
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
                                     android:layout_marginStart="12dp"
-                                    android:text="Файлы и документы"
-                                    android:textColor="@color/prime_text_primary"
-                                    android:textSize="14sp" />
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Файлы и документы"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Документы, архивы и файлы"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="11sp" />
+                                </LinearLayout>
 
                                 <TextView
                                     android:id="@+id/tvSizeFiles"
@@ -1932,7 +2497,65 @@
                                     android:textStyle="bold" />
                             </LinearLayout>
 
-                            <!-- 5. Кэш базы и временные файлы -->
+                            <!-- 6. Кэш аватаров контактов -->
+                            <LinearLayout
+                                android:id="@+id/rowStorageAvatars"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:paddingVertical="8dp"
+                                android:gravity="center_vertical"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true">
+
+                                <CheckBox
+                                    android:id="@+id/cbStorageAvatars"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:checked="true"
+                                    app:buttonTint="@color/prime_brand" />
+
+                                <ImageView
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
+                                    android:src="@drawable/ic_person"
+                                    app:tint="#E91E63"
+                                    android:contentDescription="Аватары"
+                                    android:layout_marginStart="8dp" />
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="12dp"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Кэш аватаров контактов"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Сохранённые фото собеседников"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="11sp" />
+                                </LinearLayout>
+
+                                <TextView
+                                    android:id="@+id/tvSizeAvatars"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0 МБ"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <!-- 7. Кэш приложения -->
                             <LinearLayout
                                 android:id="@+id/rowStorageCache"
                                 android:layout_width="match_parent"
@@ -1958,14 +2581,27 @@
                                     android:contentDescription="Кэш"
                                     android:layout_marginStart="8dp" />
 
-                                <TextView
+                                <LinearLayout
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
                                     android:layout_marginStart="12dp"
-                                    android:text="Временный кэш приложения"
-                                    android:textColor="@color/prime_text_primary"
-                                    android:textSize="14sp" />
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Системный и временный кэш"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Glide, эскизы и системный кэш"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="11sp" />
+                                </LinearLayout>
 
                                 <TextView
                                     android:id="@+id/tvSizeCache"

@@ -4,25 +4,22 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.graphics.Rect
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.content.res.ColorStateList
-import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.GradientDrawable
-import android.view.Gravity
 import android.text.Editable
 import android.text.SpannableString
 import android.text.Spanned
@@ -30,40 +27,27 @@ import android.text.TextPaint
 import android.text.TextWatcher
 import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
-import android.view.WindowManager
-import android.widget.CompoundButton
-import android.widget.LinearLayout
-import android.widget.TextView
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.setViewTreeLifecycleOwner
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.util.Locale
-import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.messenger.prime.databinding.DialogColorAccentBinding
-import com.messenger.prime.databinding.DialogColorPickerBinding
-import eightbitlab.com.blurview.BlurView
 import android.transition.AutoTransition
 import android.transition.TransitionManager
 import android.view.GestureDetector
+import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.widget.CompoundButton
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
-import com.bumptech.glide.Glide
-import com.bumptech.glide.load.resource.bitmap.CenterCrop
-import com.bumptech.glide.load.resource.bitmap.RoundedCorners
-import com.bumptech.glide.signature.ObjectKey
-import java.util.concurrent.Executors
+import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -81,7 +65,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
@@ -94,16 +78,36 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.CenterCrop
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+import com.bumptech.glide.signature.ObjectKey
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.messenger.prime.databinding.ActivitySettingsContentBinding
+import com.messenger.prime.databinding.DialogColorPickerBinding
 import com.r0adkll.slidr.Slidr
 import com.r0adkll.slidr.model.SlidrConfig
 import com.r0adkll.slidr.model.SlidrPosition
+import eightbitlab.com.blurview.BlurView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.util.Locale
+import java.util.concurrent.Executors
 
 
 class SettingsActivity : AppCompatActivity() {
 
     private var binding: ActivitySettingsContentBinding? = null
+    private var slidrInterface: com.r0adkll.slidr.model.SlidrInterface? = null
 
     private var isClosing = false
     private val isPhotoMenuMode = mutableStateOf(false)
@@ -250,6 +254,7 @@ class SettingsActivity : AppCompatActivity() {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
         
+        slidrInterface = PrimeTransitions.attachSlidr(this)
         setContentView(R.layout.activity_settings)
 
         UpdateChecker.checkForUpdates(this)
@@ -298,6 +303,10 @@ class SettingsActivity : AppCompatActivity() {
                             val view = layoutInflater.inflate(R.layout.activity_settings_content, null)
                             val b = ActivitySettingsContentBinding.bind(view)
                             binding = b
+
+                            b.root.post {
+                                PrimeTransitions.protectHorizontalScrollViews(b.root, slidrInterface)
+                            }
 
                             // Сброс смещений при инициализации
                             b.layoutSettingsBodyContainer.translationY = 0f
@@ -425,7 +434,7 @@ class SettingsActivity : AppCompatActivity() {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.4f))
+                                .background(ComposeColor.Black.copy(alpha = 0.4f))
                                 .clickable { isThemeDialogVisible.value = false },
                             contentAlignment = Alignment.Center
                         ) {
@@ -441,7 +450,7 @@ class SettingsActivity : AppCompatActivity() {
                                 ) {
                                     androidx.compose.material3.Text(
                                         text = "Тема оформления",
-                                        color = Color.White,
+                                        color = ComposeColor.White,
                                         style = androidx.compose.material3.MaterialTheme.typography.titleLarge,
                                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                                     )
@@ -471,7 +480,7 @@ class SettingsActivity : AppCompatActivity() {
                             .windowInsetsBottomHeight(WindowInsets.navigationBars)
                             .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp),
                         blurRadius = 20.dp,
-                        tint = Color(0x0DFFFFFF)
+                        tint = ComposeColor(0x0DFFFFFF)
                     )
                 }
             }
@@ -711,26 +720,23 @@ class SettingsActivity : AppCompatActivity() {
         setupSwatches(b)
 
         b.btnCustomPicker.setOnClickListener {
-            showColorAccentDialog(b)
+            showCustomColorSpectrumPicker(b)
         }
 
-        // Theme Options Inline
+        // Theme Options Cards
         val currentTheme = sharedPrefs.getString("app_theme", "system") ?: "system"
-        b.rbThemeSystem.isChecked = currentTheme == "system"
-        b.rbThemeLight.isChecked = currentTheme == "light"
-        b.rbThemeDark.isChecked = currentTheme == "dark"
-
+        updateThemeSelectionUI(b, currentTheme)
         updateThemeChatPreview(b, currentTheme)
 
-        b.rgThemeOptions.setOnCheckedChangeListener { _, checkedId ->
-            val newTheme = when (checkedId) {
-                R.id.rbThemeLight -> "light"
-                R.id.rbThemeDark -> "dark"
-                else -> "system"
-            }
+        val onThemeSelected = { newTheme: String ->
+            updateThemeSelectionUI(b, newTheme)
             updateThemeChatPreview(b, newTheme)
             applyThemeChange(newTheme)
         }
+
+        b.itemThemeSystem.setOnClickListener { onThemeSelected("system") }
+        b.itemThemeLight.setOnClickListener { onThemeSelected("light") }
+        b.itemThemeDark.setOnClickListener { onThemeSelected("dark") }
 
         // Lava Background Preview
         val updateLavaPreview = { isChecked: Boolean ->
@@ -767,6 +773,7 @@ class SettingsActivity : AppCompatActivity() {
 
         setupThanksCard(b)
         setupStorageSection(b)
+        setupWallpaperSection(b)
         setupNavStyleSection(b)
         setupBubbleRadiusSection(b)
         setupAvatarRadiusSection(b)
@@ -869,7 +876,7 @@ class SettingsActivity : AppCompatActivity() {
                 .setDuration(180)
                 .start()
 
-            iconView?.setColorFilter(inactiveColor)
+            iconView?.setColorFilter(accentColor)
             iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
 
             labelView.setTextColor(inactiveColor)
@@ -986,9 +993,11 @@ class SettingsActivity : AppCompatActivity() {
         val blurNavView = navView as? eightbitlab.com.blurview.BlurView
         if (blurNavView != null) {
             val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            val overlayColor = if (isDark) android.graphics.Color.parseColor("#D90F172A") else android.graphics.Color.parseColor("#D9F1F5F9")
-            val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
-            blurNavView.setupBlur(rootView, 22f, overlayColor, window.decorView.background)
+            val overlayColor = if (isDark) android.graphics.Color.parseColor("#400F172A") else android.graphics.Color.parseColor("#40154B87")
+            val targetRootView = (bindingRef?.root as? ViewGroup)
+                ?: (window.decorView.findViewById<ViewGroup>(android.R.id.content))
+                ?: (window.decorView as ViewGroup)
+            blurNavView.setupBlur(targetRootView, 18f, overlayColor, window.decorView.background)
         }
 
         btnNavChats?.setOnClickListener {
@@ -1039,13 +1048,281 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private var wallpaperInDeleteModeId: String? = null
+
+    private val wallpaperEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            binding?.let { setupWallpaperSection(it) }
+            sendBroadcast(Intent("com.messenger.prime.WALLPAPER_CHANGED").setPackage(packageName))
+        }
+    }
+
+    private fun setupWallpaperSection(b: ActivitySettingsContentBinding) {
+        val density = resources.displayMetrics.density
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val isNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+        val wallpapers = WallpaperManager.getWallpapersList(this)
+        val activeWp = WallpaperManager.getActiveWallpaper(this)
+
+        b.tvWallpaperSummary.text = activeWp.name
+        b.layoutWallpaperOptions.removeAllViews()
+
+        for (wp in wallpapers) {
+            val isActive = (wp.id == activeWp.id)
+            val isDeleteMode = (wallpaperInDeleteModeId == wp.id && wp.type != "DEFAULT")
+
+            val itemContainer = LinearLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams((88 * density).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    setMargins(0, 0, (8 * density).toInt(), 0)
+                }
+                orientation = LinearLayout.VERTICAL
+                gravity = android.view.Gravity.CENTER_HORIZONTAL
+                isClickable = true
+                isFocusable = true
+                background = ContextCompat.getDrawable(this@SettingsActivity, R.drawable.bg_chat_item_light)
+                setPadding((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
+            }
+
+            // Phone Screen Card
+            val card = MaterialCardView(this).apply {
+                layoutParams = LinearLayout.LayoutParams((76 * density).toInt(), (138 * density).toInt()).apply {
+                    gravity = android.view.Gravity.CENTER_HORIZONTAL
+                }
+                radius = 18 * density
+                cardElevation = 0f
+                strokeWidth = if (isActive) (3 * density).toInt() else (1 * density).toInt()
+                strokeColor = if (isActive) accentColor else if (isNight) Color.parseColor("#33FFFFFF") else Color.parseColor("#1A000000")
+            }
+
+            val cardFrame = FrameLayout(this).apply {
+                layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            }
+
+            if (wp.type == "IMAGE" && !wp.imagePath.isNullOrEmpty()) {
+                val iv = ImageView(this).apply {
+                    layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                }
+                val f = File(wp.imagePath)
+                if (f.exists()) {
+                    Glide.with(this).load(f).into(iv)
+                }
+                cardFrame.addView(iv)
+
+                if (wp.dimOpacity > 0f) {
+                    val dimView = View(this).apply {
+                        layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                        setBackgroundColor(Color.BLACK)
+                        alpha = wp.dimOpacity
+                    }
+                    cardFrame.addView(dimView)
+                }
+            } else if (wp.type == "PATTERN") {
+                val emojis = wp.customEmojis.let {
+                    if (it.isNullOrBlank()) "😎 ⭐ 🌸 🔷" else it
+                }
+                val parts = emojis.split(Regex("\\s+")).filter { it.isNotBlank() }
+                val line1 = parts.joinToString(" ")
+                val line2 = parts.reversed().joinToString(" ")
+                val line3 = if (parts.size > 2) parts.shuffled().joinToString(" ") else line1
+                val patternText = "$line1\n$line2\n$line3"
+
+                val tv = TextView(this).apply {
+                    layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                    setBackgroundColor(if (isNight) Color.parseColor("#0F172A") else Color.parseColor("#F8FAFC"))
+                    gravity = android.view.Gravity.CENTER
+                    text = patternText
+                    textSize = 10f
+                    setTextColor(if (isNight) Color.parseColor("#B0FFFFFF") else Color.parseColor("#80000000"))
+                }
+                cardFrame.addView(tv)
+            } else if (wp.type == "MATERIAL") {
+                val matView = MaterialShapesWallpaperView(this).apply {
+                    layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                }
+                cardFrame.addView(matView)
+            } else {
+                // DEFAULT
+                val tv = TextView(this).apply {
+                    layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                    setBackgroundColor(if (isNight) Color.parseColor("#151D2A") else Color.parseColor("#F1F5F9"))
+                    gravity = android.view.Gravity.CENTER
+                    text = "Прайм\nОбои"
+                    textSize = 11f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    setTextColor(accentColor)
+                }
+                cardFrame.addView(tv)
+            }
+
+            // Camera Notch
+            val notch = View(this).apply {
+                layoutParams = FrameLayout.LayoutParams((16 * density).toInt(), (4 * density).toInt()).apply {
+                    gravity = android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL
+                    topMargin = (5 * density).toInt()
+                }
+                background = ContextCompat.getDrawable(this@SettingsActivity, R.drawable.bg_m3_active_indicator)
+                backgroundTintList = ColorStateList.valueOf(if (isNight) Color.parseColor("#40FFFFFF") else Color.parseColor("#30000000"))
+            }
+            cardFrame.addView(notch)
+
+            card.addView(cardFrame)
+            itemContainer.addView(card)
+
+            // Label
+            val labelTv = TextView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (20 * density).toInt()).apply {
+                    topMargin = (8 * density).toInt()
+                    gravity = android.view.Gravity.CENTER_HORIZONTAL
+                }
+                gravity = android.view.Gravity.CENTER
+                text = wp.name
+                textSize = 13f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                isSingleLine = true
+                setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.prime_text_primary))
+            }
+            itemContainer.addView(labelTv)
+
+            // Bottom Indicator
+            if (isDeleteMode) {
+                val deleteIcon = ImageView(this).apply {
+                    layoutParams = LinearLayout.LayoutParams((24 * density).toInt(), (24 * density).toInt()).apply {
+                        topMargin = (4 * density).toInt()
+                        gravity = android.view.Gravity.CENTER_HORIZONTAL
+                    }
+                    setImageResource(R.drawable.ic_cancel)
+                    imageTintList = ColorStateList.valueOf(Color.parseColor("#FF5252"))
+                    isClickable = true
+                    setOnClickListener {
+                        WallpaperManager.deleteCustomWallpaper(this@SettingsActivity, wp.id)
+                        wallpaperInDeleteModeId = null
+                        setupWallpaperSection(b)
+                        sendBroadcast(Intent("com.messenger.prime.WALLPAPER_CHANGED").setPackage(packageName))
+                    }
+                }
+                itemContainer.addView(deleteIcon)
+            } else {
+                val radioBtn = RadioButton(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                        topMargin = (4 * density).toInt()
+                        gravity = android.view.Gravity.CENTER_HORIZONTAL
+                    }
+                    minWidth = 0
+                    minHeight = 0
+                    setPadding(0, 0, 0, 0)
+                    isChecked = isActive
+                    isClickable = false
+                    isFocusable = false
+                    val radioTint = ColorStateList(
+                        arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf(-android.R.attr.state_checked)),
+                        intArrayOf(accentColor, if (isNight) Color.parseColor("#66FFFFFF") else Color.parseColor("#66000000"))
+                    )
+                    buttonTintList = radioTint
+                }
+                itemContainer.addView(radioBtn)
+            }
+
+            // Click & Long Click Listeners
+            itemContainer.setOnClickListener {
+                if (wallpaperInDeleteModeId != null) {
+                    wallpaperInDeleteModeId = null
+                    setupWallpaperSection(b)
+                } else {
+                    WallpaperManager.setActiveWallpaper(this, wp.id)
+                    setupWallpaperSection(b)
+                    sendBroadcast(Intent("com.messenger.prime.WALLPAPER_CHANGED").setPackage(packageName))
+                }
+            }
+
+            if (wp.type != "DEFAULT") {
+                itemContainer.setOnLongClickListener {
+                    wallpaperInDeleteModeId = if (wallpaperInDeleteModeId == wp.id) null else wp.id
+                    setupWallpaperSection(b)
+                    true
+                }
+            }
+
+            b.layoutWallpaperOptions.addView(itemContainer)
+        }
+
+        // Add Wallpaper Button (+)
+        val addContainer = LinearLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams((88 * density).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
+            orientation = LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER_HORIZONTAL
+            isClickable = true
+            isFocusable = true
+            background = ContextCompat.getDrawable(this@SettingsActivity, R.drawable.bg_chat_item_light)
+            setPadding((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
+
+            setOnClickListener {
+                val intent = Intent(this@SettingsActivity, WallpaperEditorActivity::class.java)
+                wallpaperEditorLauncher.launch(intent)
+                PrimeTransitions.applyOpenTransition(this@SettingsActivity)
+            }
+        }
+
+        val addCard = MaterialCardView(this).apply {
+            layoutParams = LinearLayout.LayoutParams((76 * density).toInt(), (138 * density).toInt()).apply {
+                gravity = android.view.Gravity.CENTER_HORIZONTAL
+            }
+            radius = 18 * density
+            cardElevation = 0f
+            strokeWidth = (2 * density).toInt()
+            strokeColor = accentColor
+            setCardBackgroundColor(if (isNight) Color.parseColor("#151D2A") else Color.parseColor("#F1F5F9"))
+        }
+
+        val addFrame = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+
+        val addPlusIcon = ImageView(this).apply {
+            layoutParams = FrameLayout.LayoutParams((32 * density).toInt(), (32 * density).toInt()).apply {
+                gravity = android.view.Gravity.CENTER
+            }
+            setImageResource(R.drawable.ic_add)
+            imageTintList = ColorStateList.valueOf(accentColor)
+        }
+        addFrame.addView(addPlusIcon)
+        addCard.addView(addFrame)
+        addContainer.addView(addCard)
+
+        val addLabel = TextView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (20 * density).toInt()).apply {
+                topMargin = (8 * density).toInt()
+                gravity = android.view.Gravity.CENTER_HORIZONTAL
+            }
+            gravity = android.view.Gravity.CENTER
+            text = "Добавить"
+            textSize = 13f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(accentColor)
+        }
+        addContainer.addView(addLabel)
+
+        b.layoutWallpaperOptions.addView(addContainer)
+    }
+
     private data class StorageBreakdown(
         var photosSize: Long = 0L,
+        var photosCount: Int = 0,
         var videosSize: Long = 0L,
+        var videosCount: Int = 0,
+        var audioSize: Long = 0L,
+        var audioCount: Int = 0,
         var gifsSize: Long = 0L,
+        var gifsCount: Int = 0,
         var filesSize: Long = 0L,
+        var filesCount: Int = 0,
+        var avatarsSize: Long = 0L,
+        var avatarsCount: Int = 0,
         var cacheSize: Long = 0L,
-        var totalSize: Long = 0L
+        var cacheCount: Int = 0,
+        var totalSize: Long = 0L,
+        var totalCount: Int = 0
     )
 
     private var currentStorageBreakdown: StorageBreakdown? = null
@@ -1057,8 +1334,10 @@ class SettingsActivity : AppCompatActivity() {
         b.btnClearStorage.backgroundTintList = accentTint
         b.cbStoragePhotos.buttonTintList = accentTint
         b.cbStorageVideos.buttonTintList = accentTint
+        b.cbStorageAudio.buttonTintList = accentTint
         b.cbStorageGifs.buttonTintList = accentTint
         b.cbStorageFiles.buttonTintList = accentTint
+        b.cbStorageAvatars.buttonTintList = accentTint
         b.cbStorageCache.buttonTintList = accentTint
 
         b.rowStoragePhotos.setOnClickListener {
@@ -1069,6 +1348,10 @@ class SettingsActivity : AppCompatActivity() {
             b.cbStorageVideos.isChecked = !b.cbStorageVideos.isChecked
             updateClearButtonText(b)
         }
+        b.rowStorageAudio.setOnClickListener {
+            b.cbStorageAudio.isChecked = !b.cbStorageAudio.isChecked
+            updateClearButtonText(b)
+        }
         b.rowStorageGifs.setOnClickListener {
             b.cbStorageGifs.isChecked = !b.cbStorageGifs.isChecked
             updateClearButtonText(b)
@@ -1077,16 +1360,44 @@ class SettingsActivity : AppCompatActivity() {
             b.cbStorageFiles.isChecked = !b.cbStorageFiles.isChecked
             updateClearButtonText(b)
         }
+        b.rowStorageAvatars.setOnClickListener {
+            b.cbStorageAvatars.isChecked = !b.cbStorageAvatars.isChecked
+            updateClearButtonText(b)
+        }
         b.rowStorageCache.setOnClickListener {
             b.cbStorageCache.isChecked = !b.cbStorageCache.isChecked
+            updateClearButtonText(b)
+        }
+
+        b.tvSelectAllStorage.setOnClickListener {
+            val allChecked = b.cbStoragePhotos.isChecked &&
+                    b.cbStorageVideos.isChecked &&
+                    b.cbStorageAudio.isChecked &&
+                    b.cbStorageGifs.isChecked &&
+                    b.cbStorageFiles.isChecked &&
+                    b.cbStorageAvatars.isChecked &&
+                    b.cbStorageCache.isChecked
+
+            val targetState = !allChecked
+            b.cbStoragePhotos.isChecked = targetState
+            b.cbStorageVideos.isChecked = targetState
+            b.cbStorageAudio.isChecked = targetState
+            b.cbStorageGifs.isChecked = targetState
+            b.cbStorageFiles.isChecked = targetState
+            b.cbStorageAvatars.isChecked = targetState
+            b.cbStorageCache.isChecked = targetState
+
+            b.tvSelectAllStorage.text = if (targetState) "Снять всё" else "Выбрать всё"
             updateClearButtonText(b)
         }
 
         val listener = CompoundButton.OnCheckedChangeListener { _, _ -> updateClearButtonText(b) }
         b.cbStoragePhotos.setOnCheckedChangeListener(listener)
         b.cbStorageVideos.setOnCheckedChangeListener(listener)
+        b.cbStorageAudio.setOnCheckedChangeListener(listener)
         b.cbStorageGifs.setOnCheckedChangeListener(listener)
         b.cbStorageFiles.setOnCheckedChangeListener(listener)
+        b.cbStorageAvatars.setOnCheckedChangeListener(listener)
         b.cbStorageCache.setOnCheckedChangeListener(listener)
 
         b.btnClearStorage.setOnClickListener {
@@ -1106,30 +1417,52 @@ class SettingsActivity : AppCompatActivity() {
                 val len = f.length()
                 val name = f.name.lowercase(Locale.US)
 
-                if (name.endsWith(".gif")) {
+                if (name.startsWith("my_profile_avatar")) continue
+
+                if (name.startsWith("avatar_") || name.startsWith("rec_avatar_") || name.startsWith("tmp_contact_avatar_")) {
+                    bd.avatarsSize += len
+                    bd.avatarsCount++
+                } else if (name.endsWith(".gif") || name.startsWith("tenor_")) {
                     bd.gifsSize += len
-                } else if (name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".3gp") || name.endsWith(".webm") || name.endsWith(".mov") || name.endsWith(".avi")) {
+                    bd.gifsCount++
+                } else if (name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".3gp") || name.endsWith(".webm") || name.endsWith(".mov") || name.endsWith(".avi") || name.startsWith("rec_video_")) {
                     bd.videosSize += len
-                } else if (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.startsWith("rec_photo_") || name.startsWith("rec_avatar_") || name.startsWith("avatar_") || name.startsWith("cache_img_")) {
+                    bd.videosCount++
+                } else if (name.endsWith(".aac") || name.endsWith(".m4a") || name.endsWith(".opus") || name.endsWith(".mp3") || name.endsWith(".ogg") || name.endsWith(".wav") || name.startsWith("rec_voice_") || name.startsWith("audio_")) {
+                    bd.audioSize += len
+                    bd.audioCount++
+                } else if (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".webp") || name.startsWith("rec_photo_") || name.startsWith("cache_img_")) {
                     bd.photosSize += len
+                    bd.photosCount++
                 } else if (name.startsWith("tmp_") || name.endsWith(".tmp") || name.endsWith(".dat") || name.endsWith(".log")) {
                     bd.cacheSize += len
-                } else {
+                    bd.cacheCount++
+                } else if (!name.endsWith(".json") && !name.endsWith(".xml")) {
                     bd.filesSize += len
+                    bd.filesCount++
                 }
             }
 
             try {
                 if (cacheDir != null && cacheDir.exists()) {
-                    bd.cacheSize += cacheDir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
+                    val cFiles = cacheDir.walkTopDown().filter { it.isFile }.toList()
+                    for (cf in cFiles) {
+                        bd.cacheSize += cf.length()
+                        bd.cacheCount++
+                    }
                 }
                 val extCache = externalCacheDir
                 if (extCache != null && extCache.exists()) {
-                    bd.cacheSize += extCache.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
+                    val extFiles = extCache.walkTopDown().filter { it.isFile }.toList()
+                    for (ef in extFiles) {
+                        bd.cacheSize += ef.length()
+                        bd.cacheCount++
+                    }
                 }
             } catch (_: Exception) {}
 
-            bd.totalSize = bd.photosSize + bd.videosSize + bd.gifsSize + bd.filesSize + bd.cacheSize
+            bd.totalSize = bd.photosSize + bd.videosSize + bd.audioSize + bd.gifsSize + bd.filesSize + bd.avatarsSize + bd.cacheSize
+            bd.totalCount = bd.photosCount + bd.videosCount + bd.audioCount + bd.gifsCount + bd.filesCount + bd.avatarsCount + bd.cacheCount
 
             withContext(Dispatchers.Main) {
                 if (!isFinishing && !isDestroyed) {
@@ -1142,21 +1475,15 @@ class SettingsActivity : AppCompatActivity() {
     private fun updateStorageUi(b: ActivitySettingsContentBinding, bd: StorageBreakdown) {
         currentStorageBreakdown = bd
 
-        b.tvSizePhotos.text = formatStorageSize(bd.photosSize)
-        b.tvSizeVideos.text = formatStorageSize(bd.videosSize)
-        b.tvSizeGifs.text = formatStorageSize(bd.gifsSize)
-        b.tvSizeFiles.text = formatStorageSize(bd.filesSize)
-        b.tvSizeCache.text = formatStorageSize(bd.cacheSize)
+        b.tvSizePhotos.text = "${bd.photosCount} ф. (${formatStorageSize(bd.photosSize)})"
+        b.tvSizeVideos.text = "${bd.videosCount} ф. (${formatStorageSize(bd.videosSize)})"
+        b.tvSizeAudio.text = "${bd.audioCount} ф. (${formatStorageSize(bd.audioSize)})"
+        b.tvSizeGifs.text = "${bd.gifsCount} ф. (${formatStorageSize(bd.gifsSize)})"
+        b.tvSizeFiles.text = "${bd.filesCount} ф. (${formatStorageSize(bd.filesSize)})"
+        b.tvSizeAvatars.text = "${bd.avatarsCount} ф. (${formatStorageSize(bd.avatarsSize)})"
+        b.tvSizeCache.text = "${bd.cacheCount} ф. (${formatStorageSize(bd.cacheSize)})"
 
-        b.tvStorageTotalSize.text = "Всего занято: ${formatStorageSize(bd.totalSize)}"
-
-        val total = bd.totalSize.coerceAtLeast(1L).toFloat()
-
-        animateWeight(b.vChartPhotos, (bd.photosSize / total).coerceAtLeast(0.01f))
-        animateWeight(b.vChartVideos, (bd.videosSize / total).coerceAtLeast(0.01f))
-        animateWeight(b.vChartGifs, (bd.gifsSize / total).coerceAtLeast(0.01f))
-        animateWeight(b.vChartFiles, (bd.filesSize / total).coerceAtLeast(0.01f))
-        animateWeight(b.vChartOther, (bd.cacheSize / total).coerceAtLeast(0.01f))
+        b.tvStorageTotalSize.text = "Занято: ${formatStorageSize(bd.totalSize)} (${bd.totalCount} файлов)"
 
         updateClearButtonText(b)
     }
@@ -1178,42 +1505,48 @@ class SettingsActivity : AppCompatActivity() {
     private fun updateClearButtonText(b: ActivitySettingsContentBinding) {
         val bd = currentStorageBreakdown ?: return
         var selectedBytes = 0L
+        var selectedCount = 0
 
         val pVisible = b.cbStoragePhotos.isChecked
         val vVisible = b.cbStorageVideos.isChecked
+        val aVisible = b.cbStorageAudio.isChecked
         val gVisible = b.cbStorageGifs.isChecked
         val fVisible = b.cbStorageFiles.isChecked
+        val avVisible = b.cbStorageAvatars.isChecked
         val cVisible = b.cbStorageCache.isChecked
 
-        if (pVisible) selectedBytes += bd.photosSize
-        if (vVisible) selectedBytes += bd.videosSize
-        if (gVisible) selectedBytes += bd.gifsSize
-        if (fVisible) selectedBytes += bd.filesSize
-        if (cVisible) selectedBytes += bd.cacheSize
+        if (pVisible) { selectedBytes += bd.photosSize; selectedCount += bd.photosCount }
+        if (vVisible) { selectedBytes += bd.videosSize; selectedCount += bd.videosCount }
+        if (aVisible) { selectedBytes += bd.audioSize; selectedCount += bd.audioCount }
+        if (gVisible) { selectedBytes += bd.gifsSize; selectedCount += bd.gifsCount }
+        if (fVisible) { selectedBytes += bd.filesSize; selectedCount += bd.filesCount }
+        if (avVisible) { selectedBytes += bd.avatarsSize; selectedCount += bd.avatarsCount }
+        if (cVisible) { selectedBytes += bd.cacheSize; selectedCount += bd.cacheCount }
 
         val total = bd.totalSize.coerceAtLeast(1L).toFloat()
 
-        val pWeight = if (pVisible) (bd.photosSize / total).coerceAtLeast(0.01f) else 0.001f
-        val vWeight = if (vVisible) (bd.videosSize / total).coerceAtLeast(0.01f) else 0.001f
-        val gWeight = if (gVisible) (bd.gifsSize / total).coerceAtLeast(0.01f) else 0.001f
-        val fWeight = if (fVisible) (bd.filesSize / total).coerceAtLeast(0.01f) else 0.001f
-        val cWeight = if (cVisible) (bd.cacheSize / total).coerceAtLeast(0.01f) else 0.001f
-
-        animateWeight(b.vChartPhotos, pWeight)
-        animateWeight(b.vChartVideos, vWeight)
-        animateWeight(b.vChartGifs, gWeight)
-        animateWeight(b.vChartFiles, fWeight)
-        animateWeight(b.vChartOther, cWeight)
+        animateWeight(b.vChartPhotos, if (pVisible) (bd.photosSize / total).coerceAtLeast(0.01f) else 0.001f)
+        animateWeight(b.vChartVideos, if (vVisible) (bd.videosSize / total).coerceAtLeast(0.01f) else 0.001f)
+        animateWeight(b.vChartAudio, if (aVisible) (bd.audioSize / total).coerceAtLeast(0.01f) else 0.001f)
+        animateWeight(b.vChartGifs, if (gVisible) (bd.gifsSize / total).coerceAtLeast(0.01f) else 0.001f)
+        animateWeight(b.vChartFiles, if (fVisible) (bd.filesSize / total).coerceAtLeast(0.01f) else 0.001f)
+        animateWeight(b.vChartAvatars, if (avVisible) (bd.avatarsSize / total).coerceAtLeast(0.01f) else 0.001f)
+        animateWeight(b.vChartOther, if (cVisible) (bd.cacheSize / total).coerceAtLeast(0.01f) else 0.001f)
 
         b.vChartPhotos.animate().alpha(if (pVisible) 1.0f else 0.2f).setDuration(250).start()
         b.vChartVideos.animate().alpha(if (vVisible) 1.0f else 0.2f).setDuration(250).start()
+        b.vChartAudio.animate().alpha(if (aVisible) 1.0f else 0.2f).setDuration(250).start()
         b.vChartGifs.animate().alpha(if (gVisible) 1.0f else 0.2f).setDuration(250).start()
         b.vChartFiles.animate().alpha(if (fVisible) 1.0f else 0.2f).setDuration(250).start()
+        b.vChartAvatars.animate().alpha(if (avVisible) 1.0f else 0.2f).setDuration(250).start()
         b.vChartOther.animate().alpha(if (cVisible) 1.0f else 0.2f).setDuration(250).start()
+
+        val allChecked = pVisible && vVisible && aVisible && gVisible && fVisible && avVisible && cVisible
+        b.tvSelectAllStorage.text = if (allChecked) "Снять всё" else "Выбрать всё"
 
         if (selectedBytes > 0) {
             b.btnClearStorage.isEnabled = true
-            b.btnClearStorage.text = "Очистить: ${formatStorageSize(selectedBytes)}"
+            b.btnClearStorage.text = "Очистить: $selectedCount ф. (${formatStorageSize(selectedBytes)})"
         } else {
             b.btnClearStorage.isEnabled = false
             b.btnClearStorage.text = "Ничего не выбрано"
@@ -1226,11 +1559,14 @@ class SettingsActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             var deletedBytes = 0L
+            var deletedCount = 0
 
             val deletePhotos = b.cbStoragePhotos.isChecked
             val deleteVideos = b.cbStorageVideos.isChecked
+            val deleteAudio = b.cbStorageAudio.isChecked
             val deleteGifs = b.cbStorageGifs.isChecked
             val deleteFiles = b.cbStorageFiles.isChecked
+            val deleteAvatars = b.cbStorageAvatars.isChecked
             val deleteCache = b.cbStorageCache.isChecked
 
             val files = filesDir.listFiles() ?: emptyArray()
@@ -1240,27 +1576,37 @@ class SettingsActivity : AppCompatActivity() {
                 val name = f.name.lowercase(Locale.US)
                 val len = f.length()
 
-                val isGif = name.endsWith(".gif")
-                val isVid = name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".3gp") || name.endsWith(".webm") || name.endsWith(".mov") || name.endsWith(".avi")
-                val isPhoto = name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.startsWith("rec_photo_") || name.startsWith("cache_img_")
-                val isTmp = name.startsWith("tmp_") || name.endsWith(".tmp") || name.endsWith(".dat") || name.endsWith(".log")
-
                 if (name.startsWith("my_profile_avatar")) continue
 
+                val isAvatar = name.startsWith("avatar_") || name.startsWith("rec_avatar_") || name.startsWith("tmp_contact_avatar_")
+                val isGif = name.endsWith(".gif") || name.startsWith("tenor_")
+                val isVid = name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".3gp") || name.endsWith(".webm") || name.endsWith(".mov") || name.endsWith(".avi") || name.startsWith("rec_video_")
+                val isAud = name.endsWith(".aac") || name.endsWith(".m4a") || name.endsWith(".opus") || name.endsWith(".mp3") || name.endsWith(".ogg") || name.endsWith(".wav") || name.startsWith("rec_voice_") || name.startsWith("audio_")
+                val isPhoto = name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".webp") || name.startsWith("rec_photo_") || name.startsWith("cache_img_")
+                val isTmp = name.startsWith("tmp_") || name.endsWith(".tmp") || name.endsWith(".dat") || name.endsWith(".log")
+
                 var delete = false
-                if (isGif && deleteGifs) delete = true
+                if (isAvatar && deleteAvatars) delete = true
+                else if (isGif && deleteGifs) delete = true
                 else if (isVid && deleteVideos) delete = true
+                else if (isAud && deleteAudio) delete = true
                 else if (isPhoto && deletePhotos) delete = true
                 else if (isTmp && deleteCache) delete = true
-                else if (!isGif && !isVid && !isPhoto && !isTmp && deleteFiles) delete = true
+                else if (!isAvatar && !isGif && !isVid && !isAud && !isPhoto && !isTmp && !name.endsWith(".json") && !name.endsWith(".xml") && deleteFiles) delete = true
 
                 if (delete) {
                     try {
                         if (f.delete()) {
                             deletedBytes += len
+                            deletedCount++
                         }
                     } catch (_: Exception) {}
                 }
+            }
+
+            if (deleteAvatars) {
+                AvatarManager.invalidateAvatarFileCache()
+                AvatarManager.clearAvatarRadiusCache()
             }
 
             if (deleteCache) {
@@ -1269,7 +1615,10 @@ class SettingsActivity : AppCompatActivity() {
                         val cacheFiles = cacheDir.walkTopDown().filter { it.isFile }.toList()
                         for (cf in cacheFiles) {
                             val len = cf.length()
-                            if (cf.delete()) deletedBytes += len
+                            if (cf.delete()) {
+                                deletedBytes += len
+                                deletedCount++
+                            }
                         }
                     }
                     val extCache = externalCacheDir
@@ -1277,7 +1626,10 @@ class SettingsActivity : AppCompatActivity() {
                         val extCacheFiles = extCache.walkTopDown().filter { it.isFile }.toList()
                         for (cf in extCacheFiles) {
                             val len = cf.length()
-                            if (cf.delete()) deletedBytes += len
+                            if (cf.delete()) {
+                                deletedBytes += len
+                                deletedCount++
+                            }
                         }
                     }
                     Glide.get(applicationContext).clearDiskCache()
@@ -1293,11 +1645,13 @@ class SettingsActivity : AppCompatActivity() {
                     // Reset cleared checkboxes
                     if (deletePhotos) b.cbStoragePhotos.isChecked = false
                     if (deleteVideos) b.cbStorageVideos.isChecked = false
+                    if (deleteAudio) b.cbStorageAudio.isChecked = false
                     if (deleteGifs) b.cbStorageGifs.isChecked = false
                     if (deleteFiles) b.cbStorageFiles.isChecked = false
+                    if (deleteAvatars) b.cbStorageAvatars.isChecked = false
                     if (deleteCache) b.cbStorageCache.isChecked = false
 
-                    PrimeNotification.show(this@SettingsActivity, "Освобождено ${formatStorageSize(deletedBytes)}")
+                    PrimeNotification.show(this@SettingsActivity, "Очищено: $deletedCount файлов (${formatStorageSize(deletedBytes)})")
                     calculateStorageAsync(b)
                 }
             }
@@ -1454,7 +1808,9 @@ class SettingsActivity : AppCompatActivity() {
 
         // Tint all card titles & headers
         b.tvTitleTheme.setTextColor(accentColor)
+        b.tvTitleWallpaper.setTextColor(accentColor)
         b.tvTitleAccent.setTextColor(accentColor)
+        b.tvTitleBubbleRadius.setTextColor(accentColor)
         b.tvTitleAvatarRadius.setTextColor(accentColor)
         b.tvTitleLava.setTextColor(accentColor)
         b.tvTitleNavStyle.setTextColor(accentColor)
@@ -1468,8 +1824,8 @@ class SettingsActivity : AppCompatActivity() {
 
         // Tint all card header icons
         b.ivIconTheme.imageTintList = colorStateList
+        b.ivIconWallpaper.imageTintList = colorStateList
         b.ivIconAccent.imageTintList = colorStateList
-        b.ivIconAvatarRadius.imageTintList = colorStateList
         b.ivIconLava.imageTintList = colorStateList
         b.ivIconNavStyle.imageTintList = colorStateList
         b.ivIconStorage.imageTintList = colorStateList
@@ -1486,7 +1842,50 @@ class SettingsActivity : AppCompatActivity() {
         b.btnCustomPicker.strokeColor = colorStateList
         b.btnCustomPicker.iconTint = colorStateList
 
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentTheme = sharedPrefs.getString("app_theme", "system") ?: "system"
+        updateThemeSelectionUI(b, currentTheme)
+
         ColorAccentManager.tintViewTree(b.root, accentColor)
+    }
+
+    private fun updateThemeSelectionUI(b: ActivitySettingsContentBinding, themeStr: String) {
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val isSystem = themeStr == "system"
+        val isLight = themeStr == "light"
+        val isDark = themeStr == "dark"
+
+        b.rbThemeSystem.isChecked = isSystem
+        b.rbThemeLight.isChecked = isLight
+        b.rbThemeDark.isChecked = isDark
+
+        val isNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val radioTintList = ColorStateList(
+            arrayOf(
+                intArrayOf(android.R.attr.state_checked),
+                intArrayOf(-android.R.attr.state_checked)
+            ),
+            intArrayOf(
+                accentColor,
+                if (isNight) android.graphics.Color.parseColor("#66FFFFFF") else android.graphics.Color.parseColor("#66000000")
+            )
+        )
+        b.rbThemeSystem.buttonTintList = radioTintList
+        b.rbThemeLight.buttonTintList = radioTintList
+        b.rbThemeDark.buttonTintList = radioTintList
+
+        val strokeWidthActive = (3 * resources.displayMetrics.density).toInt()
+        val strokeWidthInactive = (1 * resources.displayMetrics.density).toInt()
+        val inactiveStrokeColor = if (isNight) android.graphics.Color.parseColor("#33FFFFFF") else android.graphics.Color.parseColor("#1A000000")
+
+        b.cardThemeSystem.strokeWidth = if (isSystem) strokeWidthActive else strokeWidthInactive
+        b.cardThemeSystem.strokeColor = if (isSystem) accentColor else inactiveStrokeColor
+
+        b.cardThemeLight.strokeWidth = if (isLight) strokeWidthActive else strokeWidthInactive
+        b.cardThemeLight.strokeColor = if (isLight) accentColor else inactiveStrokeColor
+
+        b.cardThemeDark.strokeWidth = if (isDark) strokeWidthActive else strokeWidthInactive
+        b.cardThemeDark.strokeColor = if (isDark) accentColor else inactiveStrokeColor
     }
 
     private fun setupSwatches(b: ActivitySettingsContentBinding) {
@@ -1539,126 +1938,7 @@ class SettingsActivity : AppCompatActivity() {
         restartApp()
     }
 
-    private fun showColorAccentDialog(b: ActivitySettingsContentBinding) {
-        val dialogBinding = DialogColorAccentBinding.inflate(layoutInflater)
-        dialogBinding.root.setViewTreeLifecycleOwner(this)
-        dialogBinding.root.setViewTreeSavedStateRegistryOwner(this)
 
-        val blurCard = dialogBinding.root.findViewById<BlurView>(R.id.blurDialogCard)
-        if (blurCard != null) {
-            val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
-            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            val overlayColor = if (isDark) android.graphics.Color.parseColor("#400F172A") else android.graphics.Color.parseColor("#40154B87")
-            blurCard.setupBlur(rootView, 16f, overlayColor, window.decorView.background)
-        }
-
-        val dialog = MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
-            .setView(dialogBinding.root)
-            .create()
-
-        dialog.window?.let { win ->
-            win.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                try {
-                    win.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-                    win.attributes = win.attributes.apply { blurBehindRadius = 60 }
-                } catch (e: Throwable) {
-                    e.printStackTrace()
-                }
-            }
-        }
-
-        dialog.setOnShowListener {
-            blurCard?.apply {
-                alpha = 0f
-                scaleX = 0.82f
-                scaleY = 0.82f
-                translationY = 60f
-                animate()
-                    .alpha(1f)
-                    .scaleX(1f)
-                    .scaleY(1f)
-                    .translationY(0f)
-                    .setDuration(300L)
-                    .setInterpolator(android.view.animation.OvershootInterpolator(1.2f))
-                    .start()
-            }
-        }
-
-        val isMonetSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-        dialogBinding.layoutMonetSwitch.visibility = if (isMonetSupported) View.VISIBLE else View.GONE
-        val currentType = ColorAccentManager.getAccentType(this)
-
-        dialogBinding.switchMonetAccent.setOnCheckedChangeListener(null)
-        dialogBinding.switchMonetAccent.isChecked = (currentType == ColorAccentManager.ACCENT_TYPE_SYSTEM)
-
-        val updateControlsState = { isMonetOn: Boolean ->
-            dialogBinding.scrollPalette.alpha = if (isMonetOn) 0.5f else 1.0f
-            dialogBinding.btnCustomPicker.alpha = if (isMonetOn) 0.5f else 1.0f
-            for (i in 0 until dialogBinding.layoutSwatches.childCount) {
-                dialogBinding.layoutSwatches.getChildAt(i).isEnabled = !isMonetOn
-            }
-            dialogBinding.btnCustomPicker.isEnabled = !isMonetOn
-        }
-
-        updateControlsState(dialogBinding.switchMonetAccent.isChecked)
-
-        dialogBinding.switchMonetAccent.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                ColorAccentManager.setAccentSystem(this)
-            } else {
-                ColorAccentManager.setAccentDefault(this)
-            }
-            onAccentColorChanged(b)
-            dialog.dismiss()
-        }
-
-        dialogBinding.layoutSwatches.removeAllViews()
-        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val currentColor = ColorAccentManager.getCurrentAccentColor(this)
-
-        ColorAccentManager.PRESET_COLORS.forEach { preset ->
-            val colorInt = if (isDark) preset.darkColor else preset.lightColor
-            val swatch = View(this).apply {
-                val sizePx = (36 * resources.displayMetrics.density).toInt()
-                val marginPx = (8 * resources.displayMetrics.density).toInt()
-                layoutParams = LinearLayout.LayoutParams(sizePx, sizePx).apply {
-                    setMargins(marginPx, marginPx, marginPx, marginPx)
-                }
-                background = ContextCompat.getDrawable(this@SettingsActivity, R.drawable.bg_brush_preview)
-                backgroundTintList = ColorStateList.valueOf(colorInt)
-                elevation = 4f
-
-                if (colorInt == currentColor && currentType != ColorAccentManager.ACCENT_TYPE_SYSTEM) {
-                    alpha = 1.0f
-                    scaleX = 1.2f
-                    scaleY = 1.2f
-                } else {
-                    alpha = 0.85f
-                }
-
-                setOnClickListener {
-                    ColorAccentManager.setAccentCustom(this@SettingsActivity, colorInt)
-                    onAccentColorChanged(b)
-                    dialog.dismiss()
-                }
-            }
-            dialogBinding.layoutSwatches.addView(swatch)
-        }
-
-        dialogBinding.btnCustomPicker.setOnClickListener {
-            dialog.dismiss()
-            showCustomColorSpectrumPicker(b)
-        }
-
-        dialogBinding.btnResetDefault.setOnClickListener {
-            ColorAccentManager.setAccentDefault(this)
-            onAccentColorChanged(b)
-            dialog.dismiss()
-        }
-
-        dialog.show()
-    }
 
     private fun showCustomColorSpectrumPicker(b: ActivitySettingsContentBinding) {
         val dialogBinding = DialogColorPickerBinding.inflate(layoutInflater)
@@ -2333,7 +2613,7 @@ class SettingsActivity : AppCompatActivity() {
                 .padding(vertical = 4.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .clickable { onClick() },
-            color = if (isSelected) Color.White.copy(alpha = 0.2f) else Color.Transparent,
+            color = if (isSelected) ComposeColor.White.copy(alpha = 0.2f) else ComposeColor.Transparent,
             shape = RoundedCornerShape(16.dp)
         ) {
             Row(
@@ -2346,14 +2626,14 @@ class SettingsActivity : AppCompatActivity() {
                     selected = isSelected,
                     onClick = null,
                     colors = androidx.compose.material3.RadioButtonDefaults.colors(
-                        selectedColor = Color.White,
-                        unselectedColor = Color.White.copy(alpha = 0.6f)
+                        selectedColor = ComposeColor.White,
+                        unselectedColor = ComposeColor.White.copy(alpha = 0.6f)
                     )
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 androidx.compose.material3.Text(
                     text = label,
-                    color = Color.White,
+                    color = ComposeColor.White,
                     style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
                 )
             }
@@ -2443,18 +2723,32 @@ class SettingsActivity : AppCompatActivity() {
         b.sliderAvatarRadius.value = savedPercent.toFloat()
 
         val updateAvatarPreview = { percent: Int ->
+            AvatarManager.clearAvatarRadiusCache()
             b.tvAvatarRadiusValue.text = "$percent%"
 
             val density = resources.displayMetrics.density
             val viewSizePx = (48 * density).toInt()
             val radiusPx = getAvatarCornerRadiusPx(this, viewSizePx)
 
-            val initialsBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = radiusPx.toFloat()
-                setColor(ColorAccentManager.getAvatarColor("Prime"))
+            val myAvatar = currentAvatarUri ?: sharedPrefs.getString("my_avatar_uri", null)
+            val myName = currentNameInDB.ifBlank { "Пользователь" }
+
+            if (!myAvatar.isNullOrEmpty()) {
+                b.ivAvatarPreviewImage.visibility = View.VISIBLE
+                b.tvAvatarPreviewInitials.visibility = View.GONE
+                loadAvatarIntoView(this, myAvatar, b.ivAvatarPreviewImage, myName)
+            } else {
+                b.ivAvatarPreviewImage.visibility = View.GONE
+                b.tvAvatarPreviewInitials.visibility = View.VISIBLE
+                val initial = if (myName.isNotBlank()) myName.take(1).uppercase() else "P"
+                b.tvAvatarPreviewInitials.text = initial
+                val initialsBg = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = radiusPx.toFloat()
+                    setColor(ColorAccentManager.getAvatarColor(myName))
+                }
+                b.tvAvatarPreviewInitials.background = initialsBg
             }
-            b.tvAvatarPreviewInitials.background = initialsBg
 
             val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
             b.layoutAvatarPreviewBg.background = GradientDrawable().apply {
@@ -2464,12 +2758,13 @@ class SettingsActivity : AppCompatActivity() {
             }
             b.cardAvatarPreviewBlock.strokeColor = if (isDark) android.graphics.Color.parseColor("#33FFFFFF") else android.graphics.Color.parseColor("#1A000000")
 
-            b.ivAvatarPreviewImage.clipToOutline = true
-            b.ivAvatarPreviewImage.background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = radiusPx.toFloat()
-                setColor(android.graphics.Color.TRANSPARENT)
+            b.ivAvatarPreviewImage.outlineProvider = object : android.view.ViewOutlineProvider() {
+                override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
+                    outline.setRoundRect(0, 0, view.width, view.height, radiusPx.toFloat())
+                }
             }
+            b.ivAvatarPreviewImage.clipToOutline = true
+            b.ivAvatarPreviewImage.invalidateOutline()
         }
 
         updateAvatarPreview(savedPercent)
@@ -2477,6 +2772,7 @@ class SettingsActivity : AppCompatActivity() {
         b.sliderAvatarRadius.addOnChangeListener { _, value, fromUser ->
             val percent = value.toInt()
             sharedPrefs.edit().putInt("settings_avatar_radius_percent", percent).apply()
+            AvatarManager.clearAvatarRadiusCache()
             updateAvatarPreview(percent)
             val currentTheme = sharedPrefs.getString("app_theme", "system") ?: "system"
             updateThemeChatPreview(b, currentTheme)
@@ -2505,6 +2801,7 @@ class SettingsActivity : AppCompatActivity() {
                     "dark" -> "Темная"
                     else -> "Системная"
                 }
+                updateThemeSelectionUI(b, newTheme)
                 updateThemeChatPreview(b, newTheme)
                 setupSwatches(b)
             }
