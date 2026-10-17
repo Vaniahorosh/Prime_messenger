@@ -17,6 +17,7 @@ import java.lang.ref.WeakReference
 class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
     override fun onCreate() {
         super.onCreate()
+        appContext = this.applicationContext
         registerActivityLifecycleCallbacks(this)
         sanitizeLocalUserProfile(this)
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
@@ -81,6 +82,10 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         const val CHANNEL_MESSAGES_ID = "prime_messages"
         
         @JvmStatic
+        var appContext: Context? = null
+            private set
+
+        @JvmStatic
         var isAppInForeground: Boolean = false
             private set
             
@@ -134,7 +139,7 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         activityStack.add(WeakReference(activity))
         ColorAccentManager.applyAccentToActivity(activity)
         PrimeTransitions.setupActivityTransitions(activity)
-        if (activity !is SplashActivity && activity !is ChatListActivity && activity !is HiActivity && activity !is ChatPlaceholderActivity && activity !is MediaPlayerActivity && activity !is PhotoEditorActivity && activity !is WallpaperEditorActivity) {
+        if (activity !is SplashActivity && activity !is ChatListActivity && activity !is HiActivity && activity !is ChatPlaceholderActivity && activity !is MediaPlayerActivity && activity !is PhotoEditorActivity) {
             PrimeTransitions.attachSlidr(activity)
             if (activity is ComponentActivity) {
                 PrimePredictiveBack.attach(activity)

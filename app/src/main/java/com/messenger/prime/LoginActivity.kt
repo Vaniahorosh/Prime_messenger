@@ -318,11 +318,11 @@ class LoginActivity : AppCompatActivity() {
 
                             // Setup predefined avatars
                             val avatars = listOf(
-                                b.ivAvatar1 to "android.resource://${packageName}/${R.drawable.avatar_1}",
-                                b.ivAvatar2 to "android.resource://${packageName}/${R.drawable.avatar_2}",
-                                b.ivAvatar3 to "android.resource://${packageName}/${R.drawable.avatar_3}",
-                                b.ivAvatar4 to "android.resource://${packageName}/${R.drawable.avatar_4}",
-                                b.ivAvatar5 to "android.resource://${packageName}/${R.drawable.avatar_5}"
+                                b.ivAvatar1 to "android.resource://${packageName}/drawable/avatar_1",
+                                b.ivAvatar2 to "android.resource://${packageName}/drawable/avatar_2",
+                                b.ivAvatar3 to "android.resource://${packageName}/drawable/avatar_3",
+                                b.ivAvatar4 to "android.resource://${packageName}/drawable/avatar_4",
+                                b.ivAvatar5 to "android.resource://${packageName}/drawable/avatar_5"
                             )
 
                             avatars.forEach { (imageView, uriString) ->

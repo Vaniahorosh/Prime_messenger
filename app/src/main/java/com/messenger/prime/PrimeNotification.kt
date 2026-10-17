@@ -324,6 +324,34 @@ object PrimeNotification {
             return
         }
 
+        // Отображаемое имя контакта
+        var displaySenderName = senderName
+        if (!deviceAddress.isNullOrEmpty()) {
+            val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            var savedName = sp.getString("contact_name_$deviceAddress", null)
+            if (savedName.isNullOrEmpty()) {
+                savedName = sp.getString("${deviceAddress}_name", null)
+            }
+            if (!savedName.isNullOrEmpty() && !android.bluetooth.BluetoothAdapter.checkBluetoothAddress(savedName)) {
+                displaySenderName = savedName
+            }
+        }
+        if (displaySenderName.isNullOrEmpty() || android.bluetooth.BluetoothAdapter.checkBluetoothAddress(displaySenderName)) {
+            displaySenderName = "Prime Собеседник"
+        }
+
+        // Если приложение открыто, показываем внутреннее snackbar-уведомление вместо системного
+        if (PrimeApplication.isAppInForeground) {
+            val act = PrimeApplication.getCurrentActivity()
+            if (act != null) {
+                act.runOnUiThread {
+                    val preview = if (!messageText.isNullOrEmpty()) messageText else "Отправил(а) вложение"
+                    show(act, "💬 $displaySenderName: $preview", null)
+                }
+            }
+            return
+        }
+
         try {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
 
@@ -372,22 +400,6 @@ object PrimeNotification {
                 chatIntent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
-
-            // Отображаемое имя контакта
-            var displaySenderName = senderName
-            if (!deviceAddress.isNullOrEmpty()) {
-                val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-                var savedName = sp.getString("contact_name_$deviceAddress", null)
-                if (savedName.isNullOrEmpty()) {
-                    savedName = sp.getString("${deviceAddress}_name", null)
-                }
-                if (!savedName.isNullOrEmpty() && !BluetoothAdapter.checkBluetoothAddress(savedName)) {
-                    displaySenderName = savedName
-                }
-            }
-            if (displaySenderName.isNullOrEmpty() || BluetoothAdapter.checkBluetoothAddress(displaySenderName)) {
-                displaySenderName = "Prime Собеседник"
-            }
 
             // Построение Person и MessagingStyle
             val personBuilder = Person.Builder()

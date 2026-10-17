@@ -939,8 +939,7 @@ class ChatListActivity : AppCompatActivity() {
                             isMatch = true
                             if (activeDeviceAddress == null || (activeDeviceAddress != null && !android.bluetooth.BluetoothAdapter.checkBluetoothAddress(activeDeviceAddress!!.uppercase(java.util.Locale.US)))) {
                                 activeDeviceAddress = deviceAddress
-                                val sp = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-                                sp.edit().putString(targetUser + "_mac", deviceAddress).apply()
+                                DeviceBindingManager.saveDeviceSecurely(activity, targetUser, deviceAddress)
                             }
                         }
                     }
@@ -1877,6 +1876,14 @@ class ChatListActivity : AppCompatActivity() {
         private fun cancelReply() {
             replyingToMessage = null
             binding?.layoutReplyBar?.visibility = View.GONE
+        }
+
+        override fun onSelectMessage(message: ChatMessage?, position: Int) {}
+        override fun onSelectionChanged(selectedCount: Int) {}
+        override fun onExpandReactions(message: ChatMessage?, anchorView: View?, position: Int) {
+            if (message != null && anchorView != null && chatAdapter != null) {
+                chatAdapter?.showExpandedReactionsPopup(anchorView, message, position)
+            }
         }
 
         override fun onEditMessage(message: ChatMessage?, position: Int) {
@@ -4125,7 +4132,7 @@ class ChatListActivity : AppCompatActivity() {
             val ts = pair.second
 
             val isMac = BluetoothAdapter.checkBluetoothAddress(chat.id.uppercase(Locale.US))
-            val mappedMac = if (!isMac) sharedPrefs.getString("${chat.id}_mac", null) else chat.id.uppercase(Locale.US)
+            val mappedMac = if (!isMac) DeviceBindingManager.getSecureDeviceMac(this, chat.id) else chat.id.uppercase(Locale.US)
             
             val key = if (mappedMac != null && mappedMac.isNotEmpty()) {
                 mappedMac.uppercase(Locale.US)

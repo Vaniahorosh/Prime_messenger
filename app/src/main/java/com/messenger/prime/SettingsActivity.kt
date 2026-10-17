@@ -400,6 +400,7 @@ class SettingsActivity : AppCompatActivity() {
 
                             // Инициализация кнопок с эффектом BlurView
                             setupBlurButtons(b, darkTheme)
+                            setupStickyBlurToolbar(b, darkTheme)
 
                             b.headerStaticBlock.translationZ = 4f
                             b.photoCard.translationZ = 8f
@@ -517,12 +518,15 @@ class SettingsActivity : AppCompatActivity() {
                 if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60 && Math.abs(velocityX) > 100) {
                     val history = AvatarHistoryManager.getMyAvatarHistory(this@SettingsActivity)
                     if (history.size > 1) {
-                        if (diffX < 0) {
+                        val isRightToLeft = diffX < 0
+                        if (isRightToLeft) {
                             currentAvatarIndex = (currentAvatarIndex + 1) % history.size
                         } else {
                             currentAvatarIndex = if (currentAvatarIndex - 1 < 0) history.size - 1 else currentAvatarIndex - 1
                         }
-                        updatePhotoCardImage(b)
+                        animateAvatarCardSlide(b.ivPhotoCard, isRightToLeft) {
+                            updatePhotoCardImage(b)
+                        }
                         return true
                     }
                 }
@@ -539,6 +543,29 @@ class SettingsActivity : AppCompatActivity() {
         b.photoCard.setOnTouchListener { _, event ->
             gestureDetector.onTouchEvent(event)
         }
+    }
+
+    private fun animateAvatarCardSlide(view: View, isRightToLeft: Boolean, onHalfWay: () -> Unit) {
+        val width = if (view.width > 0) view.width.toFloat() else (200f * resources.displayMetrics.density)
+        val exitX = if (isRightToLeft) -width else width
+        val enterX = if (isRightToLeft) width else -width
+
+        view.animate()
+            .translationX(exitX)
+            .alpha(0.2f)
+            .setDuration(140)
+            .setInterpolator(android.view.animation.AccelerateInterpolator())
+            .withEndAction {
+                onHalfWay()
+                view.translationX = enterX
+                view.animate()
+                    .translationX(0f)
+                    .alpha(1f)
+                    .setDuration(180)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator())
+                    .start()
+            }
+            .start()
     }
 
     private fun updatePhotoCardImage(b: ActivitySettingsContentBinding) {
@@ -565,7 +592,7 @@ class SettingsActivity : AppCompatActivity() {
             val (model, file) = parseAvatarModelAndFile(avatarUri)
             if (model != null) {
                 val isGif = avatarUri.lowercase().contains(".gif")
-                val signatureKey = ObjectKey(if (file != null && file.exists()) file.lastModified() else System.currentTimeMillis())
+                val signatureKey = ObjectKey(if (file != null && file.exists()) "${file.absolutePath}_${file.lastModified()}" else avatarUri)
 
                 if (isGif) {
                     Glide.with(this)
@@ -599,11 +626,11 @@ class SettingsActivity : AppCompatActivity() {
 
         val btnGallery = dialogView.findViewById<View>(R.id.btnGallery)
         val avatars = listOf<Pair<ImageView?, String>>(
-            Pair(dialogView.findViewById(R.id.ivAv1), "android.resource://${packageName}/${R.drawable.avatar_1}"),
-            Pair(dialogView.findViewById(R.id.ivAv2), "android.resource://${packageName}/${R.drawable.avatar_2}"),
-            Pair(dialogView.findViewById(R.id.ivAv3), "android.resource://${packageName}/${R.drawable.avatar_3}"),
-            Pair(dialogView.findViewById(R.id.ivAv4), "android.resource://${packageName}/${R.drawable.avatar_4}"),
-            Pair(dialogView.findViewById(R.id.ivAv5), "android.resource://${packageName}/${R.drawable.avatar_5}")
+            Pair(dialogView.findViewById(R.id.ivAv1), "android.resource://${packageName}/drawable/avatar_1"),
+            Pair(dialogView.findViewById(R.id.ivAv2), "android.resource://${packageName}/drawable/avatar_2"),
+            Pair(dialogView.findViewById(R.id.ivAv3), "android.resource://${packageName}/drawable/avatar_3"),
+            Pair(dialogView.findViewById(R.id.ivAv4), "android.resource://${packageName}/drawable/avatar_4"),
+            Pair(dialogView.findViewById(R.id.ivAv5), "android.resource://${packageName}/drawable/avatar_5")
         )
 
         btnGallery?.setOnClickListener {
@@ -669,6 +696,138 @@ class SettingsActivity : AppCompatActivity() {
         b.btnCheckUpdate.setOnClickListener {
             UpdateChecker.checkForUpdates(this, manualCheck = true)
             PrimeNotification.show(this, "Поиск обновлений...")
+        }
+    }
+
+    private fun setupStickyBlurToolbar(b: ActivitySettingsContentBinding, darkTheme: Boolean) {
+        val config = resources.configuration
+        val isTablet = config.smallestScreenWidthDp >= 600
+        val isEmbedded = try {
+            androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this)
+        } catch (_: Throwable) {
+            false
+        }
+        val isTabletOrFoldable = isTablet || isEmbedded
+
+        if (isTabletOrFoldable) {
+            b.blurStickyToolbar.visibility = View.GONE
+            return
+        }
+
+        fun getActualTopInset(): Int {
+            val rootInsets = ViewCompat.getRootWindowInsets(window.decorView)
+            val topFromInsets = rootInsets?.getInsets(WindowInsetsCompat.Type.statusBars())?.top ?: 0
+            return if (topFromInsets > 0) topFromInsets else getStatusBarHeight()
+        }
+
+        fun updateToolbarPadding() {
+            val topInset = getActualTopInset()
+            val lp = b.blurStickyToolbar.layoutParams as? ViewGroup.MarginLayoutParams
+            if (lp != null && lp.topMargin != 0) {
+                lp.topMargin = 0
+                b.blurStickyToolbar.layoutParams = lp
+            }
+            b.blurStickyToolbar.setPadding(0, topInset, 0, 0)
+        }
+
+        updateToolbarPadding()
+
+        ViewCompat.setOnApplyWindowInsetsListener(b.root) { _, insets ->
+            updateToolbarPadding()
+            insets
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(b.blurStickyToolbar) { _, insets ->
+            updateToolbarPadding()
+            insets
+        }
+        b.blurStickyToolbar.post {
+            updateToolbarPadding()
+        }
+
+        val overlayColor = if (darkTheme) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+        val targetRootView = (b.root as? ViewGroup)
+            ?: (window.decorView.findViewById<ViewGroup>(android.R.id.content))
+            ?: (window.decorView as ViewGroup)
+
+        b.blurStickyToolbar.setupBlur(
+            rootView = targetRootView,
+            blurRadius = 18f,
+            tintColor = overlayColor,
+            frameClearDrawable = window.decorView.background
+        )
+
+        b.btnStickyBack.setOnClickListener {
+            finish()
+            PrimeTransitions.applyCloseTransition(this)
+        }
+
+        var isToolbarVisible = false
+
+        b.nestedScrollView.setOnScrollChangeListener(androidx.core.widget.NestedScrollView.OnScrollChangeListener { _, _, _, _, _ ->
+            val header = b.layoutSettingsHeader
+            if (!header.isAttachedToWindow) return@OnScrollChangeListener
+
+            val locationHeader = IntArray(2)
+            header.getLocationOnScreen(locationHeader)
+
+            val locationScroll = IntArray(2)
+            b.nestedScrollView.getLocationOnScreen(locationScroll)
+
+            val headerRelativeTop = locationHeader[1] - locationScroll[1]
+            val toolbarHeight = b.blurStickyToolbar.height.coerceAtLeast(1)
+
+            val shouldShow = headerRelativeTop <= toolbarHeight + 12
+
+            if (shouldShow != isToolbarVisible) {
+                isToolbarVisible = shouldShow
+                b.blurStickyToolbar.animate().cancel()
+                if (shouldShow) {
+                    b.blurStickyToolbar.visibility = View.VISIBLE
+                    b.blurStickyToolbar.animate()
+                        .alpha(1f)
+                        .setDuration(220)
+                        .setListener(null)
+                        .start()
+                } else {
+                    b.blurStickyToolbar.animate()
+                        .alpha(0f)
+                        .setDuration(180)
+                        .setListener(object : AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(animation: Animator) {
+                                if (!isToolbarVisible) {
+                                    b.blurStickyToolbar.visibility = View.GONE
+                                }
+                            }
+                        })
+                        .start()
+                }
+            }
+        })
+
+        b.nestedScrollView.post {
+            val header = b.layoutSettingsHeader
+            if (!header.isAttachedToWindow) return@post
+
+            val locationHeader = IntArray(2)
+            header.getLocationOnScreen(locationHeader)
+
+            val locationScroll = IntArray(2)
+            b.nestedScrollView.getLocationOnScreen(locationScroll)
+
+            val headerRelativeTop = locationHeader[1] - locationScroll[1]
+            val toolbarHeight = b.blurStickyToolbar.height.coerceAtLeast(1)
+
+            val shouldShow = headerRelativeTop <= toolbarHeight + 12
+
+            if (shouldShow) {
+                isToolbarVisible = true
+                b.blurStickyToolbar.visibility = View.VISIBLE
+                b.blurStickyToolbar.alpha = 1f
+            } else {
+                isToolbarVisible = false
+                b.blurStickyToolbar.visibility = View.GONE
+                b.blurStickyToolbar.alpha = 0f
+            }
         }
     }
 

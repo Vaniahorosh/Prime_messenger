@@ -261,7 +261,7 @@ public class ChatHistoryManager {
                 dbEdit.remove(tKey + "_avatar");
                 dbEdit.remove(tKey + "_avatarUri");
                 dbEdit.remove(tKey + "_name");
-                dbEdit.remove(tKey + "_mac");
+                DeviceBindingManager.removeSecureDeviceMac(appContext, tKey);
             }
 
             try {
@@ -287,54 +287,13 @@ public class ChatHistoryManager {
             }
 
             dbEdit.apply();
-            unpairBluetoothDevice(appContext, targetUsername, deviceAddress);
+            DeviceBindingManager.unbindDeviceSecurely(appContext, targetUsername, deviceAddress);
             ChatListNotifier.INSTANCE.notifyChanged();
         });
     }
 
-    @SuppressLint("MissingPermission")
     public static void unpairBluetoothDevice(Context context, String targetUsername, String deviceAddress) {
-        if (context == null) return;
-        try {
-            BluetoothManager bm = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
-            BluetoothAdapter adapter = bm != null ? bm.getAdapter() : null;
-            if (adapter == null || !adapter.isEnabled()) return;
-
-            SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-            String mappedMac = null;
-            if (targetUsername != null && !targetUsername.isEmpty()) {
-                mappedMac = sp.getString(targetUsername + "_mac", null);
-            }
-
-            Set<BluetoothDevice> bonded = null;
-            try {
-                bonded = adapter.getBondedDevices();
-            } catch (SecurityException ignored) {}
-            if (bonded == null || bonded.isEmpty()) return;
-
-            for (BluetoothDevice dev : bonded) {
-                String devAddr = dev.getAddress();
-                String devName = null;
-                try {
-                    devName = dev.getName();
-                } catch (Exception ignored) {}
-
-                boolean matchAddr = (deviceAddress != null && !deviceAddress.isEmpty() && deviceAddress.equalsIgnoreCase(devAddr));
-                boolean matchMappedMac = (mappedMac != null && !mappedMac.isEmpty() && mappedMac.equalsIgnoreCase(devAddr));
-                boolean matchName = (targetUsername != null && !targetUsername.isEmpty() && devName != null && targetUsername.equalsIgnoreCase(devName));
-                boolean matchNameAddr = (targetUsername != null && !targetUsername.isEmpty() && targetUsername.equalsIgnoreCase(devAddr));
-
-                if (matchAddr || matchMappedMac || matchName || matchNameAddr) {
-                    try {
-                        BluetoothConnectionManager.getInstance().blockMacAddress(devAddr, 0, "Chat deleted");
-                        BluetoothConnectionManager.getInstance().disconnect(devAddr);
-                        PrimeBluetoothService.cancelReconnect(context, devAddr);
-                    } catch (Exception ignored) {}
-                }
-            }
-        } catch (Exception e) {
-            Log.e("ChatHistoryManager", "Error clearing chat connection", e);
-        }
+        DeviceBindingManager.unbindDeviceSecurely(context, targetUsername, deviceAddress);
     }
 
     public static void deleteSingleMessage(Context context, String targetUsername, String messageId) {
@@ -614,10 +573,10 @@ public class ChatHistoryManager {
 
         String mappedMac = null;
         if (currentUser != null && !currentUser.trim().isEmpty()) {
-            mappedMac = sp.getString(currentUser.trim() + "_" + clean + "_mac", null);
+            mappedMac = DeviceBindingManager.getSecureDeviceMac(context, currentUser.trim() + "_" + clean);
         }
         if (mappedMac == null || mappedMac.trim().isEmpty()) {
-            mappedMac = sp.getString(clean + "_mac", null);
+            mappedMac = DeviceBindingManager.getSecureDeviceMac(context, clean);
         }
         if (mappedMac != null && !mappedMac.trim().isEmpty()) {
             String nameForMac = AvatarManager.getContactDisplayName(context, mappedMac, clean, null);

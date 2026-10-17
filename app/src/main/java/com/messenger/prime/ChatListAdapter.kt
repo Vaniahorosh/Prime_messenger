@@ -425,84 +425,12 @@ class ChatListAdapter(
                     binding.ivUserAvatar.visibility = View.VISIBLE
                     binding.tvUserInitials.visibility = View.GONE
                 } else {
-                    var avatarLoaded = false
-                    if (!chat.avatarUri.isNullOrEmpty()) {
-                        try {
-                            val uri = chat.avatarUri.toUri()
-                            val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
-                            if (file != null && AvatarManager.checkFileExistsCached(file)) {
-                                loadAvatarFileIntoView(context, file, binding.ivUserAvatar)
-                                binding.ivUserAvatar.visibility = View.VISIBLE
-                                binding.tvUserInitials.visibility = View.GONE
-                                avatarLoaded = true
-                            } else {
-                                loadAvatarUriIntoView(context, uri, binding.ivUserAvatar)
-                                binding.ivUserAvatar.visibility = View.VISIBLE
-                                binding.tvUserInitials.visibility = View.GONE
-                                avatarLoaded = true
-                            }
-                        } catch (_: Exception) {
-                            avatarLoaded = false
-                        }
-                    }
-
-                    if (!avatarLoaded) {
-                        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-                        val prefAvatar = sharedPrefs.getString("contact_avatar_${chat.id}", null)
-                            ?: sharedPrefs.getString("${chat.id}_avatarUri", null)
-                            ?: sharedPrefs.getString("${chat.id}_avatar", null)
-
-                        if (!prefAvatar.isNullOrEmpty()) {
-                            try {
-                                val uri = prefAvatar.toUri()
-                                val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else null
-                                if (file != null && AvatarManager.checkFileExistsCached(file)) {
-                                    loadAvatarFileIntoView(context, file, binding.ivUserAvatar)
-                                } else {
-                                    loadAvatarUriIntoView(context, uri, binding.ivUserAvatar)
-                                }
-                                binding.ivUserAvatar.visibility = View.VISIBLE
-                                binding.tvUserInitials.visibility = View.GONE
-                                avatarLoaded = true
-                            } catch (_: Exception) {}
-                        }
-                    }
-
-                    if (!avatarLoaded) {
-                        val isGeneric = chat.name.equals("Собеседник", ignoreCase = true) ||
-                                        chat.name.equals("Prime Собеседник", ignoreCase = true) ||
-                                        chat.name.equals("Пользователь", ignoreCase = true) ||
-                                        chat.name.equals("Prime User", ignoreCase = true) ||
-                                        chat.name.equals("Контакт", ignoreCase = true)
-
-                        val possibleFiles = mutableListOf<File>()
-                        if (!chat.id.isNullOrEmpty()) {
-                            possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.id}.gif"))
-                            possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.id}.jpg"))
-                            possibleFiles.add(File(context.filesDir, "avatar_${chat.id}.gif"))
-                            possibleFiles.add(File(context.filesDir, "avatar_${chat.id}.jpg"))
-                        }
-                        if (!isGeneric && !chat.name.isNullOrEmpty()) {
-                            possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.name}.gif"))
-                            possibleFiles.add(File(context.filesDir, "rec_avatar_${chat.name}.jpg"))
-                            possibleFiles.add(File(context.filesDir, "avatar_${chat.name}.gif"))
-                            possibleFiles.add(File(context.filesDir, "avatar_${chat.name}.jpg"))
-                        }
-
-                        for (targetFile in possibleFiles) {
-                            if (AvatarManager.checkFileExistsCached(targetFile)) {
-                                try {
-                                    loadAvatarFileIntoView(context, targetFile, binding.ivUserAvatar)
-                                    binding.ivUserAvatar.visibility = View.VISIBLE
-                                    binding.tvUserInitials.visibility = View.GONE
-                                    avatarLoaded = true
-                                    break
-                                } catch (_: Exception) {}
-                            }
-                        }
-                    }
-
-                    if (!avatarLoaded) {
+                    val avatarToLoad = chat.avatarUri ?: AvatarManager.getContactAvatarUriOrFile(context, chat.id, chat.name)
+                    if (!avatarToLoad.isNullOrEmpty()) {
+                        loadAvatarIntoView(context, avatarToLoad, binding.ivUserAvatar, chat.name)
+                        binding.ivUserAvatar.visibility = View.VISIBLE
+                        binding.tvUserInitials.visibility = View.GONE
+                    } else {
                         val initial = if (chat.name.isNotEmpty()) chat.name.take(1).uppercase() else "P"
                         binding.tvUserInitials.text = initial
                         binding.tvUserInitials.visibility = View.VISIBLE

@@ -14,6 +14,8 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -266,6 +268,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private TextView tvChatStatus;
     private eightbitlab.com.blurview.BlurView layoutMusicIsland;
+    private View layoutVersionInfo;
+    private TextView tvVersionInfoText;
+    private ImageButton btnVersionInfoClose;
+    private View layoutMusicSection;
+    private boolean isVersionInfoDismissed = false;
     private TextView tvMusicIslandTitle, tvMusicIslandTime;
     private ProgressBar pbMusicIslandProgress;
     private ImageView btnMusicIslandPlayPause;
@@ -276,6 +283,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private EditText etMessage;
     private ChatAdapter chatAdapter;
     private Handler handler;
+
+    private View layoutHeaderNormal;
+    private View layoutHeaderSelection;
+    private ImageButton btnCancelSelection;
+    private TextView tvSelectionCounter;
+    private ImageButton btnMultiForward;
+    private ImageButton btnMultiCopy;
+    private ImageButton btnMultiDelete;
+    private boolean isMultiSelectionActive = false;
 
     private View layoutInput;
     private ImageButton btnAttach;
@@ -398,11 +414,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         currentActivityState = "IDLE";
         saveActivityStateToChatList(targetUsername, "IDLE");
         if (isRemoteUserOnline) {
-            if (remoteVersionCode != -1 && remoteVersionCode != getAppVersionCode(ChatPersonActivity.this)) {
-                setStatusWithAnimation("В сети (Другая версия)", Color.parseColor("#FFC107"));
-            } else {
-                setStatusWithAnimation("В сети", R.color.prime_success);
-            }
+            setStatusWithAnimation("В сети", R.color.prime_success);
+            checkAndUpdateVersionInfoIsland();
         } else {
             updateOfflineLastSeenStatus();
         }
@@ -650,7 +663,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (isAttachmentPanelOpen) {
+                if (isMultiSelectionActive) {
+                    exitMultiSelectionMode();
+                } else if (isAttachmentPanelOpen) {
                     closeAttachmentPanel();
                 } else if (isEditMode) {
                     exitEditMode();
@@ -731,8 +746,34 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         tvChatName = findViewById(R.id.tvChatName);
         tvChatStatus = findViewById(R.id.tvChatStatus);
+
+        layoutHeaderNormal = findViewById(R.id.layoutHeaderNormal);
+        layoutHeaderSelection = findViewById(R.id.layoutHeaderSelection);
+        btnCancelSelection = findViewById(R.id.btnCancelSelection);
+        tvSelectionCounter = findViewById(R.id.tvSelectionCounter);
+        btnMultiForward = findViewById(R.id.btnMultiForward);
+        btnMultiCopy = findViewById(R.id.btnMultiCopy);
+        btnMultiDelete = findViewById(R.id.btnMultiDelete);
+
+        if (btnCancelSelection != null) {
+            btnCancelSelection.setOnClickListener(v -> exitMultiSelectionMode());
+        }
+        if (btnMultiCopy != null) {
+            btnMultiCopy.setOnClickListener(v -> performMultiCopy());
+        }
+        if (btnMultiForward != null) {
+            btnMultiForward.setOnClickListener(v -> performMultiForward());
+        }
+        if (btnMultiDelete != null) {
+            btnMultiDelete.setOnClickListener(v -> performMultiDelete());
+        }
         
         layoutMusicIsland = findViewById(R.id.layoutMusicIsland);
+        layoutVersionInfo = findViewById(R.id.layoutVersionInfo);
+        tvVersionInfoText = findViewById(R.id.tvVersionInfoText);
+        btnVersionInfoClose = findViewById(R.id.btnVersionInfoClose);
+        layoutMusicSection = findViewById(R.id.layoutMusicSection);
+
         tvMusicIslandTitle = findViewById(R.id.tvMusicIslandTitle);
         tvMusicIslandTime = findViewById(R.id.tvMusicIslandTime);
         pbMusicIslandProgress = findViewById(R.id.pbMusicIslandProgress);
@@ -741,13 +782,32 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         if (layoutMusicIsland != null) {
             layoutMusicIsland.setOnClickListener(v -> {
-                PrimeMusicPlayerDialog dialog = new PrimeMusicPlayerDialog(this);
-                dialog.show(null, new ArrayList<>());
+                if (layoutMusicSection != null && layoutMusicSection.getVisibility() == View.VISIBLE) {
+                    PrimeMusicPlayerDialog dialog = new PrimeMusicPlayerDialog(this);
+                    dialog.show(null, new ArrayList<>());
+                }
             });
+        }
+
+        if (btnVersionInfoClose != null) {
+            btnVersionInfoClose.setOnClickListener(v -> {
+                isVersionInfoDismissed = true;
+                if (layoutVersionInfo != null) layoutVersionInfo.setVisibility(View.GONE);
+                updateIslandVisibility();
+            });
+        }
+
+        if (btnMusicIslandClose != null) {
             btnMusicIslandClose.setOnClickListener(v -> {
                 PrimeMusicManager.INSTANCE.stopAndReleasePlayer(this);
-                hideMusicIslandWithAnimation();
+                if (layoutMusicSection != null) layoutMusicSection.setVisibility(View.GONE);
+                isVersionInfoDismissed = true;
+                if (layoutVersionInfo != null) layoutVersionInfo.setVisibility(View.GONE);
+                updateIslandVisibility();
             });
+        }
+
+        if (btnMusicIslandPlayPause != null) {
             btnMusicIslandPlayPause.setOnClickListener(v -> {
                 PrimeMusicManager.INSTANCE.togglePlayPause(this);
             });
@@ -960,11 +1020,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         boolean isCurrentlyConnected = isConnectionActive();
         if (isCurrentlyConnected) {
             isRemoteUserOnline = true;
-            if (remoteVersionCode != -1 && remoteVersionCode != getAppVersionCode(this)) {
-                setStatusWithAnimation("В сети (Другая версия)", Color.parseColor("#FFC107"));
-            } else {
-                setStatusWithAnimation("В сети", R.color.prime_success);
-            }
+            setStatusWithAnimation("В сети", R.color.prime_success);
+            checkAndUpdateVersionInfoIsland();
             updateInputVisibility(true);
         } else {
             isRemoteUserOnline = false;
@@ -1290,6 +1347,31 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
 
             @Override
+            public void onSelectMessage(ChatMessage message, int position) {
+                enterMultiSelectionMode();
+            }
+
+            @Override
+            public void onSelectionChanged(int selectedCount) {
+                if (selectedCount == 0) {
+                    exitMultiSelectionMode();
+                } else {
+                    if (!isMultiSelectionActive) {
+                        enterMultiSelectionMode();
+                    }
+                    animateSelectionCounterUpdate(selectedCount);
+                    checkAndUpdateMultiDeleteButton();
+                }
+            }
+
+            @Override
+            public void onExpandReactions(ChatMessage message, View anchorView, int position) {
+                if (chatAdapter != null) {
+                    chatAdapter.showExpandedReactionsPopup(anchorView, message, position);
+                }
+            }
+
+            @Override
             public void onCancelSending(ChatMessage message, int position) {
                 cancelCurrentFileSending();
             }
@@ -1578,24 +1660,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         isRemoteUserOnline = true;
                         setOnlineStatusIndicator(true);
                         saveLastSeenTimestamp();
-                        CharSequence curStatus = tvChatStatus != null ? tvChatStatus.getText() : "";
-                        if (curStatus == null || (!curStatus.toString().contains("Печатает") && !curStatus.toString().contains("фото"))) {
-                            if (remoteVersionCode != -1 && remoteVersionCode != getAppVersionCode(ChatPersonActivity.this)) {
-                                setStatusWithAnimation("В сети (Другая версия)", Color.parseColor("#FFC107"));
-                            } else {
-                                setStatusWithAnimation("В сети", R.color.prime_success);
-                            }
-                        }
+                        setStatusWithAnimation("В сети", R.color.prime_success);
+                        checkAndUpdateVersionInfoIsland();
                         saveLastMessageToChatList(null, null, false, "ONLINE");
                         if (!"IDLE".equals(myLocalActivityState)) {
                             sendActivityState(myLocalActivityState);
                         }
                         setOnlineStatusIndicator(true);
-                        if (remoteVersionCode != -1 && remoteVersionCode != getAppVersionCode(ChatPersonActivity.this)) {
-                            setStatusWithAnimation("В сети (Другая версия)", Color.parseColor("#FFC107"));
-                        } else {
-                            setStatusWithAnimation("В сети", R.color.prime_success);
-                        }
                         updateInputVisibility(true);
                         sendLocalAvatar();
                         flushPendingMessages();
@@ -1607,25 +1678,16 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             String action = stateStr.substring(6);
                             currentActivityState = action;
 
-                            if ("VIEWING_PHOTO".equalsIgnoreCase(action)) {
+                            if ("VIEWING_PHOTO".equalsIgnoreCase(action) || "VIEWING_VIDEO".equalsIgnoreCase(action) || "VIEWING_FILE".equalsIgnoreCase(action)) {
                                 stopAnimatingStatus();
-                                setStatusWithAnimation("Смотрит фото", R.color.prime_success);
+                                setStatusWithAnimation("В сети", R.color.prime_success);
+                                checkAndUpdateVersionInfoIsland();
                                 typingResetHandler.removeCallbacks(resetTypingRunnable);
-                                saveActivityStateToChatList(targetUsername, "VIEWING_PHOTO");
+                                saveActivityStateToChatList(targetUsername, action);
                             } else if ("SENDING_PHOTO".equalsIgnoreCase(action) || "SENDING_VIDEO".equalsIgnoreCase(action) || "SENDING_MEDIA".equalsIgnoreCase(action)) {
                                 startAnimatingStatus("Отправка медиа", R.color.prime_success);
                                 typingResetHandler.removeCallbacks(resetTypingRunnable);
                                 saveActivityStateToChatList(targetUsername, "SENDING_MEDIA");
-                            } else if ("VIEWING_VIDEO".equalsIgnoreCase(action)) {
-                                stopAnimatingStatus();
-                                setStatusWithAnimation("Смотрит видео", R.color.prime_success);
-                                typingResetHandler.removeCallbacks(resetTypingRunnable);
-                                saveActivityStateToChatList(targetUsername, "VIEWING_VIDEO");
-                            } else if ("VIEWING_FILE".equalsIgnoreCase(action)) {
-                                stopAnimatingStatus();
-                                setStatusWithAnimation("Смотрит файл", R.color.prime_success);
-                                typingResetHandler.removeCallbacks(resetTypingRunnable);
-                                saveActivityStateToChatList(targetUsername, "VIEWING_FILE");
                             } else if ("SENDING_FILE".equalsIgnoreCase(action)) {
                                 startAnimatingStatus("Отправка файла", R.color.prime_success);
                                 typingResetHandler.removeCallbacks(resetTypingRunnable);
@@ -1726,11 +1788,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             if (pData.startsWith("ONLINE")) {
                                 isRemoteUserOnline = true;
                                 saveLastSeenTimestamp();
-                                if (remoteVersionCode != -1 && remoteVersionCode != getAppVersionCode(ChatPersonActivity.this)) {
-                                    setStatusWithAnimation("В сети (Другая версия)", Color.parseColor("#FFC107"));
-                                } else {
-                                    setStatusWithAnimation("В сети", R.color.prime_success);
-                                }
+                                setStatusWithAnimation("В сети", R.color.prime_success);
+                                checkAndUpdateVersionInfoIsland();
                                 saveLastMessageToChatList(null, null, false, "ONLINE");
                             } else if (pData.startsWith("OFFLINE:")) {
                                 isRemoteUserOnline = false;
@@ -2034,8 +2093,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     tvChatName.setText(formatDisplayName(this.targetUsername));
                 }
 
-                String contactAvatar = (this.deviceAddress != null && !this.deviceAddress.isEmpty()) ?
-                    sharedPrefs.getString("contact_avatar_" + this.deviceAddress, null) : null;
+                String contactAvatar = AvatarManager.getContactAvatarUriOrFile(this, this.targetUsername, this.targetUsername, this.deviceAddress);
                 if (contactAvatar == null) contactAvatar = remoteAvatarUri;
                 updateAvatarUi(contactAvatar, this.targetUsername);
 
@@ -2498,6 +2556,214 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
     }
 
+    private void checkAndUpdateMultiDeleteButton() {
+        if (chatAdapter == null || btnMultiDelete == null) return;
+        List<ChatMessage> selected = chatAdapter.getSelectedMessages();
+
+        boolean hasIncoming = false;
+        for (ChatMessage m : selected) {
+            if (m != null && !m.isOutgoing()) {
+                hasIncoming = true;
+                break;
+            }
+        }
+
+        btnMultiDelete.setVisibility(hasIncoming ? View.GONE : View.VISIBLE);
+    }
+
+    private void enterMultiSelectionMode() {
+        if (isMultiSelectionActive) return;
+        isMultiSelectionActive = true;
+        animateHeaderFlip(true);
+        checkAndUpdateMultiDeleteButton();
+    }
+
+    private void exitMultiSelectionMode() {
+        if (!isMultiSelectionActive) return;
+        isMultiSelectionActive = false;
+        if (chatAdapter != null) {
+            chatAdapter.clearSelection();
+        }
+        animateHeaderFlip(false);
+    }
+
+    private void animateHeaderFlip(boolean enteringSelection) {
+        View normalView = findViewById(R.id.layoutHeaderNormal);
+        View selectionView = findViewById(R.id.layoutHeaderSelection);
+        if (normalView == null || selectionView == null) return;
+
+        View hideView = enteringSelection ? normalView : selectionView;
+        View showView = enteringSelection ? selectionView : normalView;
+
+        hideView.animate().cancel();
+        showView.animate().cancel();
+
+        float distance = 10000 * getResources().getDisplayMetrics().density;
+        hideView.setCameraDistance(distance);
+        showView.setCameraDistance(distance);
+
+        float hideTargetRotationX = enteringSelection ? -90f : 90f;
+        float showStartRotationX = enteringSelection ? 90f : -90f;
+
+        hideView.animate()
+                .rotationX(hideTargetRotationX)
+                .setDuration(150)
+                .setInterpolator(new AccelerateInterpolator())
+                .withEndAction(() -> {
+                    hideView.setVisibility(View.GONE);
+                    hideView.setRotationX(0f);
+
+                    showView.setVisibility(View.VISIBLE);
+                    showView.setRotationX(showStartRotationX);
+                    showView.animate()
+                            .rotationX(0f)
+                            .setDuration(180)
+                            .setInterpolator(new DecelerateInterpolator())
+                            .start();
+                })
+                .start();
+    }
+
+    private void animateSelectionCounterUpdate(int newCount) {
+        TextView tvCounter = findViewById(R.id.tvSelectionCounter);
+        if (tvCounter == null) return;
+
+        String text = String.valueOf(newCount);
+        if (text.equals(tvCounter.getText().toString())) return;
+
+        tvCounter.animate().cancel();
+        tvCounter.animate()
+                .translationY(24f)
+                .alpha(0f)
+                .setDuration(100)
+                .setInterpolator(new AccelerateInterpolator())
+                .withEndAction(() -> {
+                    tvCounter.setText(text);
+                    tvCounter.setTranslationY(-24f);
+                    tvCounter.animate()
+                            .translationY(0f)
+                            .alpha(1f)
+                            .setDuration(140)
+                            .setInterpolator(new DecelerateInterpolator())
+                            .start();
+                })
+                .start();
+    }
+
+    private void performMultiCopy() {
+        if (chatAdapter == null) return;
+        List<ChatMessage> selected = chatAdapter.getSelectedMessages();
+        if (selected.isEmpty()) return;
+
+        StringBuilder sb = new StringBuilder();
+        for (ChatMessage m : selected) {
+            String text = m.getText();
+            if (text == null || text.isEmpty()) {
+                text = m.getImagePath() != null ? m.getImagePath() : "";
+            }
+            if (!text.isEmpty()) {
+                if (sb.length() > 0) sb.append("\n\n");
+                sb.append(text);
+            }
+        }
+
+        if (sb.length() > 0) {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clipboard != null) {
+                ClipData clip = ClipData.newPlainText("selected_messages", sb.toString());
+                clipboard.setPrimaryClip(clip);
+                PrimeNotification.INSTANCE.show(this, "Скопировано сообщений: " + selected.size(), null);
+            }
+        }
+        exitMultiSelectionMode();
+    }
+
+    private void performMultiForward() {
+        if (chatAdapter == null) return;
+        List<ChatMessage> selected = chatAdapter.getSelectedMessages();
+        if (selected.isEmpty()) return;
+
+        showForwardDialogForMultiple(selected);
+    }
+
+    private void showForwardDialogForMultiple(List<ChatMessage> messagesToForward) {
+        if (messagesToForward == null || messagesToForward.isEmpty()) return;
+
+        String jsonChats = ChatHistoryManager.getPersistedChatsJson(this);
+        List<String> chatNames = new ArrayList<>();
+
+        try {
+            JSONArray chatArray = new JSONArray(jsonChats);
+            for (int i = 0; i < chatArray.length(); i++) {
+                JSONObject obj = chatArray.getJSONObject(i);
+                String name = obj.optString("name", "");
+                if (!name.isEmpty() && !chatNames.contains(name)) {
+                    chatNames.add(name);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error reading persisted_chats for forward", e);
+        }
+
+        if (targetUsername != null && !targetUsername.isEmpty() && !chatNames.contains(targetUsername)) {
+            chatNames.add(0, targetUsername);
+        }
+
+        if (chatNames.isEmpty()) {
+            PrimeNotification.INSTANCE.show(this, "Нет доступных чатов для пересылки", null);
+            return;
+        }
+
+        String[] chatArray = chatNames.toArray(new String[0]);
+
+        PrimeBlurDialog.showList(
+                this,
+                "Переслать сообщения (" + messagesToForward.size() + ")",
+                chatArray,
+                null,
+                (index, selectedTarget) -> {
+                    for (ChatMessage m : messagesToForward) {
+                        forwardMessageToTarget(m, selectedTarget);
+                    }
+                    PrimeNotification.INSTANCE.show(this, "Сообщения пересланы", null);
+                    exitMultiSelectionMode();
+                    return kotlin.Unit.INSTANCE;
+                }
+        );
+    }
+
+    private void performMultiDelete() {
+        if (chatAdapter == null) return;
+        List<ChatMessage> selected = chatAdapter.getSelectedMessages();
+        if (selected.isEmpty()) return;
+
+        int count = selected.size();
+        PrimeBlurDialog.show(
+                this,
+                "Удалить выбранные сообщения?",
+                "Вы уверены, что хотите удалить " + count + " " + (count == 1 ? "сообщение" : "сообщений") + "?",
+                "Удалить",
+                "Отмена",
+                null,
+                true,
+                null,
+                () -> {
+                    for (ChatMessage m : selected) {
+                        if (m != null && m.getMessageId() != null) {
+                            sendPacket(TYPE_DELETE_MSG, m.getMessageId().getBytes(StandardCharsets.UTF_8));
+                            ChatHistoryManager.deleteSingleMessage(ChatPersonActivity.this, targetUsername, m.getMessageId());
+                            chatAdapter.deleteMessageByIdAnimated(rvMessages, m.getMessageId(), null);
+                        }
+                    }
+                    ChatMessage newLast = chatAdapter.getLastMessage();
+                    saveLastMessageToChatList(newLast != null ? (newLast.getText() != null ? newLast.getText() : "") : "");
+                    exitMultiSelectionMode();
+                    return kotlin.Unit.INSTANCE;
+                },
+                null
+        );
+    }
+
     private void showForwardDialog(ChatMessage messageToForward) {
         if (messageToForward == null) return;
 
@@ -2810,15 +3076,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void setOnlineStatusIndicator(boolean connected) {
         View viewStatus = findViewById(R.id.viewOnlineStatus);
         if (viewStatus != null) {
-            if (connected) {
-                viewStatus.setVisibility(View.VISIBLE);
-                GradientDrawable onlineBadge = new GradientDrawable();
-                onlineBadge.setShape(GradientDrawable.OVAL);
-                onlineBadge.setColor(ContextCompat.getColor(this, R.color.prime_success));
-                viewStatus.setBackground(onlineBadge);
-            } else {
-                viewStatus.setVisibility(View.GONE);
-            }
+            viewStatus.setVisibility(View.GONE);
         }
     }
 
@@ -2915,6 +3173,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         ImageView ivChatAvatar = findViewById(R.id.ivChatAvatar);
         if (ivChatAvatar == null) return;
 
+        AvatarManager.invalidateAvatarFileCache();
         String avatarToLoad = AvatarManager.getContactAvatarUriOrFile(this, targetUsername, name, deviceAddress);
         if (avatarToLoad == null) avatarToLoad = avatarUri;
 
@@ -2975,21 +3234,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         String avatarToPass = remoteAvatarUri;
         if (avatarToPass == null || avatarToPass.isEmpty()) {
-            SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-            if (deviceAddress != null && !deviceAddress.isEmpty()) {
-                avatarToPass = sp.getString("contact_avatar_" + deviceAddress, null);
-                if (avatarToPass == null) {
-                    avatarToPass = sp.getString(deviceAddress + "_avatar", null);
-                }
-            }
-            if (avatarToPass == null) {
-                File f = new File(getFilesDir(), "rec_avatar_" + targetUsername + ".jpg");
-                if (f.exists()) avatarToPass = Uri.fromFile(f).toString();
-                else if (deviceAddress != null) {
-                    File fMac = new File(getFilesDir(), "rec_avatar_" + deviceAddress + ".jpg");
-                    if (fMac.exists()) avatarToPass = Uri.fromFile(fMac).toString();
-                }
-            }
+            avatarToPass = AvatarManager.getContactAvatarUriOrFile(this, targetUsername, targetUsername, deviceAddress);
         }
 
         intent.putExtra("EXTRA_AVATAR_URI", avatarToPass);
@@ -3347,19 +3592,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         obj.put("login", login);
                     }
 
-                    String avatarUri = devAddress != null ? sharedPrefs.getString("contact_avatar_" + devAddress, null) : null;
+                    String avatarUri = AvatarManager.getContactAvatarUriOrFile(this, newName, newName, devAddress);
                     if (avatarUri != null && !avatarUri.isEmpty()) {
                         obj.put("avatarUri", avatarUri);
-                    } else {
-                        File avatarFile = new File(getFilesDir(), "rec_avatar_" + newName + ".jpg");
-                        if (avatarFile.exists()) {
-                            obj.put("avatarUri", Uri.fromFile(avatarFile).toString());
-                        } else if (devAddress != null) {
-                            File devAvatar = new File(getFilesDir(), "rec_avatar_" + devAddress + ".jpg");
-                            if (devAvatar.exists()) {
-                                obj.put("avatarUri", Uri.fromFile(devAvatar).toString());
-                            }
-                        }
                     }
                     updated = true;
                 }
@@ -3376,14 +3611,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 newChat.put("onlineStatus", "ONLINE");
                 newChat.put("messageStatus", "NONE");
 
-                String avatarUri = devAddress != null ? sharedPrefs.getString("contact_avatar_" + devAddress, null) : null;
+                String avatarUri = AvatarManager.getContactAvatarUriOrFile(this, newName, newName, devAddress);
                 if (avatarUri != null && !avatarUri.isEmpty()) {
                     newChat.put("avatarUri", avatarUri);
-                } else {
-                    File avatarFile = new File(getFilesDir(), "rec_avatar_" + newName + ".jpg");
-                    if (avatarFile.exists()) {
-                        newChat.put("avatarUri", Uri.fromFile(avatarFile).toString());
-                    }
                 }
                 chatArray.put(newChat);
             }
@@ -4218,11 +4448,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             isRemoteUserOnline = true;
             connectTimeoutHandler.removeCallbacks(connectTimeoutRunnable);
             stopAnimatingStatus();
-            if (remoteVersionCode != -1 && remoteVersionCode != getAppVersionCode(this)) {
-                setStatusWithAnimation("В сети (Другая версия)", Color.parseColor("#FFC107"));
-            } else {
-                setStatusWithAnimation("В сети", R.color.prime_success);
-            }
+            setStatusWithAnimation("В сети", R.color.prime_success);
+            checkAndUpdateVersionInfoIsland();
             setOnlineStatusIndicator(true);
             updateInputVisibility(true);
             updateConnectionStateInAdapter();
@@ -4736,7 +4963,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         try {
             Bitmap bmp = null;
             SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-            String contactAvatar = (devAddress != null && !devAddress.isEmpty()) ? sp.getString("contact_avatar_" + devAddress, null) : null;
+            String contactAvatar = AvatarManager.getContactAvatarUriOrFile(this, name, name, devAddress);
             if (contactAvatar == null) contactAvatar = avatarUri;
 
             File[] candidates = new File[] {
@@ -6621,6 +6848,42 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private boolean isMusicIslandShowing = false;
 
+    private void checkAndUpdateVersionInfoIsland() {
+        if (isVersionInfoDismissed) {
+            if (layoutVersionInfo != null) layoutVersionInfo.setVisibility(View.GONE);
+            updateIslandVisibility();
+            return;
+        }
+
+        int myVersion = getAppVersionCode(this);
+        if (remoteVersionCode != -1 && remoteVersionCode != myVersion) {
+            if (layoutVersionInfo != null && tvVersionInfoText != null) {
+                if (remoteVersionCode > myVersion) {
+                    tvVersionInfoText.setText("Пользователь использует более новую версию клиента");
+                } else {
+                    tvVersionInfoText.setText("Пользователь использует предыдущую версию клиента");
+                }
+                layoutVersionInfo.setVisibility(View.VISIBLE);
+            }
+        } else {
+            if (layoutVersionInfo != null) layoutVersionInfo.setVisibility(View.GONE);
+        }
+        updateIslandVisibility();
+    }
+
+    private void updateIslandVisibility() {
+        if (layoutMusicIsland == null) return;
+
+        boolean hasVersionInfo = (layoutVersionInfo != null && layoutVersionInfo.getVisibility() == View.VISIBLE);
+        boolean hasMusicInfo = (layoutMusicSection != null && layoutMusicSection.getVisibility() == View.VISIBLE);
+
+        if (hasVersionInfo || hasMusicInfo) {
+            showMusicIslandWithAnimation();
+        } else {
+            hideMusicIslandWithAnimation();
+        }
+    }
+
     private void showMusicIslandWithAnimation() {
         if (layoutMusicIsland == null) return;
 
@@ -6680,8 +6943,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void updateMusicIslandUI(com.messenger.prime.TrackItem track) {
         if (layoutMusicIsland == null) return;
         if (track == null) {
-            hideMusicIslandWithAnimation();
+            if (layoutMusicSection != null) layoutMusicSection.setVisibility(View.GONE);
+            updateIslandVisibility();
             return;
+        }
+
+        if (layoutMusicSection != null) {
+            layoutMusicSection.setVisibility(View.VISIBLE);
         }
 
         if (tvMusicIslandTitle != null) {
@@ -6694,7 +6962,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
         }
 
-        showMusicIslandWithAnimation();
+        updateIslandVisibility();
         onPlaybackStateChanged(PrimeMusicManager.INSTANCE.isPlaying());
     }
 
@@ -6734,26 +7002,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     ? new ArrayList<>(PrimeMusicManager.INSTANCE.getSavedTracks(this))
                     : new ArrayList<>(PrimeMusicManager.INSTANCE.getDeviceTracks(this));
 
-            List<ChatMessage> chatMessages = ChatHistoryManager.loadMessages(ChatPersonActivity.this, targetUsername);
-            if (chatMessages != null) {
-                for (ChatMessage msg : chatMessages) {
-                    if (msg == null) continue;
-                    if (msg.getMessageType() == ChatMessage.MessageType.MUSIC || msg.getMessageType() == ChatMessage.MessageType.VOICE) {
-                        String path = msg.getImagePath();
-                        if (path != null) {
-                            File f = new File(path);
-                            if (f.exists()) {
-                                String title = msg.getTrackTitle() != null ? msg.getTrackTitle() : f.getName();
-                                String artist = msg.getArtistName() != null ? msg.getArtistName() : "Аудиозапись";
-                                String duration = msg.getAudioDuration() != null ? msg.getAudioDuration() : "00:00";
-                                TrackItem item = new TrackItem("msg_audio_" + msg.getMessageId(), title, artist, f.getAbsolutePath(), 0L, duration, null, false, f.length());
-                                tracks.add(0, item);
-                            }
-                        }
-                    }
-                }
-            }
-            
             runOnUiThread(() -> {
                 currentMusicList.clear();
                 currentMusicList.addAll(tracks);
@@ -6952,9 +7200,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
 
         if (oldView == null || newView == null || oldView == newView) {
-            if (layoutSectionCamera != null) layoutSectionCamera.setVisibility(newMode == 0 ? View.VISIBLE : View.GONE);
-            if (layoutSectionPhoto != null) layoutSectionPhoto.setVisibility(newMode == 1 ? View.VISIBLE : View.GONE);
-            if (layoutSectionFiles != null) layoutSectionFiles.setVisibility(newMode == 2 ? View.VISIBLE : View.GONE);
+            if (layoutSectionPhoto != null) layoutSectionPhoto.setVisibility(newMode == 0 ? View.VISIBLE : View.GONE);
+            if (layoutSectionFiles != null) layoutSectionFiles.setVisibility(newMode == 1 ? View.VISIBLE : View.GONE);
+            if (layoutSectionCamera != null) layoutSectionCamera.setVisibility(newMode == 2 ? View.VISIBLE : View.GONE);
             if (layoutSectionMusic != null) layoutSectionMusic.setVisibility(newMode == 3 ? View.VISIBLE : View.GONE);
             return;
         }
@@ -7430,36 +7678,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         runOnIoThread(() -> {
             List<MediaItem> list = new ArrayList<>();
 
-            List<ChatMessage> chatMessages = ChatHistoryManager.loadMessages(ChatPersonActivity.this, targetUsername);
-            if (chatMessages != null) {
-                for (ChatMessage msg : chatMessages) {
-                    if (msg == null) continue;
-                    if (msg.isMultiMedia()) {
-                        List<ChatMessage.MediaItem> items = msg.getMediaItems();
-                        if (items != null) {
-                            for (ChatMessage.MediaItem mi : items) {
-                                if (mi != null && mi.path != null) {
-                                    File f = new File(mi.path);
-                                    if (f.exists()) {
-                                        Uri uri = Uri.fromFile(f);
-                                        list.add(0, new MediaItem(uri, f.getAbsolutePath(), mi.isVideo, mi.durationStr, f.lastModified() / 1000L, f.length(), f.getName()));
-                                    }
-                                }
-                            }
-                        }
-                    } else if (msg.getMessageType() == ChatMessage.MessageType.IMAGE || msg.getMessageType() == ChatMessage.MessageType.VIDEO) {
-                        String path = msg.getImagePath();
-                        if (path != null) {
-                            File f = new File(path);
-                            if (f.exists()) {
-                                boolean isVideo = msg.getMessageType() == ChatMessage.MessageType.VIDEO;
-                                list.add(0, new MediaItem(Uri.fromFile(f), f.getAbsolutePath(), isVideo, msg.getVideoDuration(), f.lastModified() / 1000L, f.length(), f.getName()));
-                            }
-                        }
-                    }
-                }
-            }
-
             Uri queryUri = MediaStore.Files.getContentUri("external");
             String[] projection = new String[] {
                 MediaStore.Files.FileColumns._ID,
@@ -7527,24 +7745,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void loadFilesAsync() {
         runOnIoThread(() -> {
             List<FileItem> list = new ArrayList<>();
-
-            List<ChatMessage> chatMessages = ChatHistoryManager.loadMessages(ChatPersonActivity.this, targetUsername);
-            if (chatMessages != null) {
-                for (ChatMessage msg : chatMessages) {
-                    if (msg == null) continue;
-                    if (msg.getMessageType() == ChatMessage.MessageType.FILE) {
-                        String path = msg.getImagePath();
-                        if (path != null) {
-                            File f = new File(path);
-                            if (f.exists()) {
-                                String name = msg.getFileName() != null ? msg.getFileName() : f.getName();
-                                long size = msg.getFileSize() > 0 ? msg.getFileSize() : f.length();
-                                list.add(0, new FileItem(Uri.fromFile(f), f.getAbsolutePath(), name, size, f.lastModified() / 1000L));
-                            }
-                        }
-                    }
-                }
-            }
 
             Uri queryUri = MediaStore.Files.getContentUri("external");
             String[] projection = new String[] {

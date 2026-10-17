@@ -25,6 +25,7 @@
     <color name="prime_icon_secondary">#64748B</color>
     <color name="prime_danger">#EF4444</color>
     <color name="prime_danger_light">#FEE2E2</color>
+    <color name="prime_warning">#FFB74D</color>
     <color name="prime_success">#10B981</color>
     <color name="prime_info">#3B82F6</color>
 

@@ -35,11 +35,17 @@ object AvatarManager {
 
     @JvmStatic
     fun checkFileExistsCached(file: File): Boolean {
-        val key = file.absolutePath
-        return avatarFileExistenceCache.getOrPut(key) { file.exists() && file.length() > 0 }
+        val exists = file.exists() && file.length() > 0
+        if (exists) {
+            avatarFileExistenceCache[file.absolutePath] = true
+        } else {
+            avatarFileExistenceCache.remove(file.absolutePath)
+        }
+        return exists
     }
 
     @JvmStatic
+    @JvmOverloads
     fun invalidateAvatarFileCache(file: File? = null) {
         if (file != null) {
             avatarFileExistenceCache.remove(file.absolutePath)
@@ -192,22 +198,21 @@ object AvatarManager {
             if (!deviceAddress.isNullOrBlank()) keys.add("contact_avatar_${currentUser}_$deviceAddress")
             if (!contactId.isNullOrBlank()) keys.add("contact_avatar_${currentUser}_$contactId")
             if (!contactName.isNullOrBlank()) keys.add("contact_avatar_${currentUser}_$contactName")
-        } else {
-            if (!deviceAddress.isNullOrBlank()) {
-                keys.add("contact_avatar_$deviceAddress")
-                keys.add("${deviceAddress}_avatarUri")
-                keys.add("${deviceAddress}_avatar")
-            }
-            if (!contactId.isNullOrBlank()) {
-                keys.add("contact_avatar_$contactId")
-                keys.add("${contactId}_avatarUri")
-                keys.add("${contactId}_avatar")
-            }
-            if (!contactName.isNullOrBlank()) {
-                keys.add("contact_avatar_$contactName")
-                keys.add("${contactName}_avatarUri")
-                keys.add("${contactName}_avatar")
-            }
+        }
+        if (!deviceAddress.isNullOrBlank()) {
+            keys.add("contact_avatar_$deviceAddress")
+            keys.add("${deviceAddress}_avatarUri")
+            keys.add("${deviceAddress}_avatar")
+        }
+        if (!contactId.isNullOrBlank()) {
+            keys.add("contact_avatar_$contactId")
+            keys.add("${contactId}_avatarUri")
+            keys.add("${contactId}_avatar")
+        }
+        if (!contactName.isNullOrBlank()) {
+            keys.add("contact_avatar_$contactName")
+            keys.add("${contactName}_avatarUri")
+            keys.add("${contactName}_avatar")
         }
 
         for (key in keys) {
@@ -294,6 +299,7 @@ object AvatarManager {
 
         keysToRemove.forEach { key -> editor.remove(key) }
         editor.apply()
+        invalidateAvatarFileCache()
     }
 
     @JvmStatic
@@ -402,10 +408,10 @@ object AvatarManager {
         val editor = sharedPrefs.edit()
         if (currentUser.isNotEmpty()) {
             editor.putString("${prefKeySuffix}_${currentUser}_$contactKey", value)
-        } else {
-            editor.putString("${prefKeySuffix}_$contactKey", value)
         }
+        editor.putString("${prefKeySuffix}_$contactKey", value)
         editor.apply()
+        invalidateAvatarFileCache()
     }
 }
 
@@ -437,6 +443,12 @@ fun loadAvatarIntoView(
         (14 * context.resources.displayMetrics.density).toInt()
     } else {
         getAvatarCornerRadiusPx(context, viewSizePx)
+    }
+
+    if (imageView is com.google.android.material.imageview.ShapeableImageView) {
+        imageView.shapeAppearanceModel = imageView.shapeAppearanceModel.toBuilder()
+            .setAllCornerSizes(radiusPx.toFloat())
+            .build()
     }
 
     var loaded = false
@@ -484,17 +496,34 @@ fun loadAvatarIntoView(
     }
 
     if (!loaded) {
-        if (fallbackName.isNotBlank()) {
-            val drawable = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = radiusPx.toFloat()
-                setColor(getAvatarColor(fallbackName))
-            }
-            imageView.setImageDrawable(drawable)
-        } else {
-            imageView.setImageResource(R.drawable.ic_person)
-        }
+        val letterName = if (fallbackName.isNotBlank()) fallbackName else "P"
+        val drawable = createLetterAvatarDrawable(context, letterName, radiusPx.toFloat(), viewSizePx)
+        imageView.setImageDrawable(drawable)
     }
+}
+
+fun createLetterAvatarDrawable(context: Context, name: String, radiusPx: Float, sizePx: Int = 120): android.graphics.drawable.Drawable {
+    val cleanName = if (name.isNotBlank()) name.trim() else "P"
+    val letter = cleanName.substring(0, 1).uppercase(Locale.getDefault())
+    val color = ColorAccentManager.getAvatarColor(cleanName)
+    val bitmap = android.graphics.Bitmap.createBitmap(sizePx, sizePx, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    paint.color = color
+    val rect = android.graphics.RectF(0f, 0f, sizePx.toFloat(), sizePx.toFloat())
+    canvas.drawRoundRect(rect, radiusPx, radiusPx, paint)
+
+    val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    textPaint.color = android.graphics.Color.WHITE
+    textPaint.textSize = sizePx * 0.45f
+    textPaint.typeface = android.graphics.Typeface.DEFAULT_BOLD
+    textPaint.textAlign = android.graphics.Paint.Align.CENTER
+
+    val y = sizePx / 2f - (textPaint.descent() + textPaint.ascent()) / 2f
+    canvas.drawText(letter, sizePx / 2f, y, textPaint)
+
+    return android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
 }
 
 fun loadAvatarFileIntoView(context: Context, file: File, imageView: ImageView) {

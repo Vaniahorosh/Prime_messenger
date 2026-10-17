@@ -596,21 +596,23 @@ public class BluetoothConnectionManager {
             BluetoothSocket socket = null;
 
             // Stage 1: Fast Direct RFCOMM Channel 1 (Bypasses slow SDP discovery query)
-            try {
-                socket = (BluetoothSocket) mmDevice.getClass()
-                        .getMethod("createRfcommSocket", int.class)
-                        .invoke(mmDevice, 1);
-                if (socket != null) {
-                    this.mmSocket = socket;
-                    socket.connect();
+            if (socket == null && !isCancelled) {
+                try {
+                    socket = (BluetoothSocket) mmDevice.getClass()
+                            .getMethod("createRfcommSocket", int.class)
+                            .invoke(mmDevice, 1);
+                    if (socket != null) {
+                        this.mmSocket = socket;
+                        socket.connect();
+                    }
+                } catch (Exception eFallback) {
+                    Log.w(TAG, "Stage 1 (Direct Channel 1 RFCOMM) failed: " + eFallback.getMessage());
+                    closeSocketQuietly(socket);
+                    socket = null;
                 }
-            } catch (Exception eFallback) {
-                Log.w(TAG, "Stage 1 (Direct Channel 1) failed: " + eFallback.getMessage());
-                closeSocketQuietly(socket);
-                socket = null;
             }
 
-            // Stage 2: Insecure RFCOMM (SDP Search)
+            // Stage 2: Insecure RFCOMM (SDP Search) - No system pairing popup
             if (socket == null && !isCancelled) {
                 try {
                     socket = mmDevice.createInsecureRfcommSocketToServiceRecord(mmUuid);
@@ -625,7 +627,7 @@ public class BluetoothConnectionManager {
                 }
             }
 
-            // Stage 3: Reflection Insecure RFCOMM
+            // Stage 2: Reflection Insecure RFCOMM
             if (socket == null && !isCancelled) {
                 try {
                     socket = (BluetoothSocket) mmDevice.getClass()
@@ -636,13 +638,13 @@ public class BluetoothConnectionManager {
                         socket.connect();
                     }
                 } catch (Exception e3) {
-                    Log.w(TAG, "Stage 3 (Reflection Insecure RFCOMM) failed: " + e3.getMessage());
+                    Log.w(TAG, "Stage 2 (Reflection Insecure RFCOMM) failed: " + e3.getMessage());
                     closeSocketQuietly(socket);
                     socket = null;
                 }
             }
 
-            // Stage 4: Secure RFCOMM (Only if Bonded)
+            // Stage 3: Secure RFCOMM (Only if explicitly Bonded)
             boolean isBonded = false;
             try {
                 isBonded = mmDevice.getBondState() == BluetoothDevice.BOND_BONDED;

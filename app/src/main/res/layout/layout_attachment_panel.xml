@@ -14,14 +14,16 @@
     android:paddingBottom="12dp"
     android:visibility="visible">
 
-    <FrameLayout
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
         <!-- Основная область содержимого раздела -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:orientation="vertical">
 
             <!-- Верхний фиксатор перетягивания -->
@@ -61,7 +63,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:clipToPadding="false"
-                            android:paddingBottom="100dp" />
+                            android:paddingBottom="16dp" />
 
                         <TextView
                             android:id="@+id/tvGalleryEmpty"
@@ -81,7 +83,7 @@
                         android:layout_height="36dp"
                         android:layout_gravity="center_horizontal"
                         android:layout_marginTop="6dp"
-                        android:layout_marginBottom="56dp"
+                        android:layout_marginBottom="16dp"
                         android:paddingHorizontal="16dp"
                         android:paddingVertical="0dp"
                         android:text="Выбрать в галерее"
@@ -113,7 +115,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:clipToPadding="false"
-                            android:paddingBottom="100dp" />
+                            android:paddingBottom="16dp" />
 
                         <TextView
                             android:id="@+id/tvFilesEmpty"
@@ -133,7 +135,7 @@
                         android:layout_height="36dp"
                         android:layout_gravity="center_horizontal"
                         android:layout_marginTop="6dp"
-                        android:layout_marginBottom="56dp"
+                        android:layout_marginBottom="16dp"
                         android:paddingHorizontal="16dp"
                         android:paddingVertical="0dp"
                         android:text="Открыть файловый менеджер"
@@ -175,7 +177,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:clipToPadding="false"
-                            android:paddingBottom="100dp"
+                            android:paddingBottom="16dp"
                             app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
                             app:spanCount="2" />
 
@@ -197,7 +199,7 @@
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
                         android:paddingTop="6dp"
-                        android:paddingBottom="56dp">
+                        android:paddingBottom="16dp">
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnPickGifFromGallery"
@@ -287,7 +289,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:clipToPadding="false"
-                            android:paddingBottom="100dp"
+                            android:paddingBottom="16dp"
                             app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
                         <TextView
@@ -308,7 +310,7 @@
                         android:layout_height="36dp"
                         android:layout_gravity="center_horizontal"
                         android:layout_marginTop="6dp"
-                        android:layout_marginBottom="56dp"
+                        android:layout_marginBottom="16dp"
                         android:paddingHorizontal="16dp"
                         android:paddingVertical="0dp"
                         android:text="Выбрать аудиофайл"
@@ -329,9 +331,8 @@
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
             android:layout_marginTop="8dp"
-            android:layout_marginBottom="4dp"
+            android:layout_marginBottom="12dp"
             android:elevation="8dp">
 
             <HorizontalScrollView
@@ -542,5 +543,5 @@
             </HorizontalScrollView>
         </FrameLayout>
 
-    </FrameLayout>
+    </LinearLayout>
 </eightbitlab.com.blurview.BlurView>

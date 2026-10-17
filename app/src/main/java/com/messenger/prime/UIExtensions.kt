@@ -50,18 +50,63 @@ fun View.addBounceTouchEffect() {
 fun parseAvatarModelAndFile(avatarUriStr: String?): Pair<Any?, File?> {
     if (avatarUriStr.isNullOrEmpty()) return Pair(null, null)
     return try {
-        if (avatarUriStr.startsWith("content://") || avatarUriStr.startsWith("http")) {
-            Pair(Uri.parse(avatarUriStr), null)
-        } else if (avatarUriStr.startsWith("file://")) {
-            val path = Uri.parse(avatarUriStr).path ?: avatarUriStr.removePrefix("file://")
+        val trimmed = avatarUriStr.trim()
+        val ctx = PrimeApplication.appContext
+
+        if (trimmed.startsWith("android.resource://")) {
+            val uri = Uri.parse(trimmed)
+            val pathSegments = uri.pathSegments
+            if (pathSegments.size == 2) {
+                val type = pathSegments[0]
+                val name = pathSegments[1]
+                if (ctx != null) {
+                    val resId = ctx.resources.getIdentifier(name, type, ctx.packageName)
+                    if (resId != 0) return Pair(resId, null)
+                }
+            } else if (pathSegments.size == 1) {
+                val segment = pathSegments[0]
+                val numericId = segment.toIntOrNull()
+                if (numericId != null && numericId > 0 && ctx != null) {
+                    try {
+                        val entryName = ctx.resources.getResourceEntryName(numericId)
+                        val resId = ctx.resources.getIdentifier(entryName, "drawable", ctx.packageName)
+                        if (resId != 0) return Pair(resId, null)
+                    } catch (_: Exception) {}
+                    return Pair(numericId, null)
+                }
+            }
+            Pair(uri, null)
+        } else if (trimmed.startsWith("content://") ||
+            trimmed.startsWith("http://") ||
+            trimmed.startsWith("https://")
+        ) {
+            Pair(Uri.parse(trimmed), null)
+        } else if (trimmed.startsWith("file://")) {
+            val path = Uri.parse(trimmed).path ?: trimmed.removePrefix("file://")
             val file = File(path)
-            Pair(if (file.exists()) file else Uri.parse(avatarUriStr), if (file.exists()) file else null)
-        } else {
-            val file = File(avatarUriStr)
             if (file.exists()) {
                 Pair(file, file)
             } else {
-                Pair(Uri.parse(avatarUriStr), null)
+                Pair(Uri.parse(trimmed), null)
+            }
+        } else {
+            val file = File(trimmed)
+            if (file.exists()) {
+                Pair(file, file)
+            } else {
+                val resId = trimmed.toIntOrNull()
+                if (resId != null && resId > 0) {
+                    Pair(resId, null)
+                } else if (ctx != null) {
+                    val namedResId = ctx.resources.getIdentifier(trimmed, "drawable", ctx.packageName)
+                    if (namedResId != 0) {
+                        Pair(namedResId, null)
+                    } else {
+                        Pair(Uri.parse(trimmed), null)
+                    }
+                } else {
+                    Pair(Uri.parse(trimmed), null)
+                }
             }
         }
     } catch (_: Exception) {

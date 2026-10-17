@@ -19,6 +19,7 @@
     <color name="prime_divider">#334155</color>
     <color name="prime_icon_secondary">#94A3B8</color>
     <color name="prime_danger">#EF5350</color>
+    <color name="prime_warning">#FFA726</color>
 
     <!-- Chat Semantic Colors (Dark Theme) -->
     <color name="chat_bubble_incoming_bg">#1E293B</color>

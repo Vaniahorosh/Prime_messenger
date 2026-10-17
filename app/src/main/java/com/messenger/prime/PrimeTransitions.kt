@@ -179,27 +179,25 @@ object PrimeTransitions {
                 override fun handleOnBackProgressed(backEvent: androidx.activity.BackEventCompat) {
                     val content = contentView ?: return
                     if (isLeftEdge) {
-                        // The user is swiping from the left edge.
-                        // Translate the entire content exactly following the finger X coordinate.
+                        // The user is swiping from the left edge to the right (dragging current activity right)
                         content.translationX = backEvent.touchX
 
-                        // Calculate progress
                         val progress = (backEvent.touchX / screenWidth).coerceIn(0f, 1f)
 
-                        // Apply interactive dark scrim to the decor view background
                         val alpha = (0.55f * (1f - progress) * 255).toInt()
                         activity.window.decorView.setBackgroundColor(Color.argb(alpha, 0, 0, 0))
 
-                        // Interactive depth reveal for previous activity
+                        // Seamlessly slide previous activity in from the left (-20% -> 0%) and scale up (0.96 -> 1.0)
                         prevContentView?.let {
                             val scale = 0.96f + (0.04f * progress)
                             it.scaleX = scale
                             it.scaleY = scale
+                            it.translationX = -0.2f * screenWidth * (1f - progress)
                         }
 
                         customListener?.onSlideChange(progress)
                     } else {
-                        // For the right edge, fallback to a subtle scale down (similar to system default)
+                        // For right edge back gesture, perform subtle scale feedback
                         val scale = 1f - (0.05f * backEvent.progress)
                         content.scaleX = scale
                         content.scaleY = scale
@@ -225,6 +223,7 @@ object PrimeTransitions {
                                     val scale = 0.96f + (0.04f * progress)
                                     prev.scaleX = scale
                                     prev.scaleY = scale
+                                    prev.translationX = -0.2f * screenWidth * (1f - progress)
                                 }
                             }
                         }
@@ -232,6 +231,7 @@ object PrimeTransitions {
                             activity.window.decorView.setBackgroundColor(Color.TRANSPARENT)
                             prevContentView?.scaleX = 1f
                             prevContentView?.scaleY = 1f
+                            prevContentView?.translationX = 0f
                         }
                         .start()
                 }
@@ -241,7 +241,7 @@ object PrimeTransitions {
                     if (isLeftEdge) {
                         isSlidrDismissing = true
                         customListener?.onSlideClosed()
-                        // Animate the rest of the way off the screen interactively
+                        // Animate current activity off-screen to the right and previous activity into place
                         content.animate()
                             .translationX(screenWidth)
                             .setDuration(200)
@@ -255,11 +255,13 @@ object PrimeTransitions {
                                     val scale = 0.96f + (0.04f * progress)
                                     prev.scaleX = scale
                                     prev.scaleY = scale
+                                    prev.translationX = -0.2f * screenWidth * (1f - progress)
                                 }
                             }
                             .withEndAction {
                                 prevContentView?.scaleX = 1f
                                 prevContentView?.scaleY = 1f
+                                prevContentView?.translationX = 0f
                                 activity.finish()
                                 activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
                                 activity.window.decorView.post { isSlidrDismissing = false }

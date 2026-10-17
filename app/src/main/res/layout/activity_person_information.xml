@@ -566,10 +566,35 @@
                             android:visibility="gone" />
 
                         <androidx.recyclerview.widget.RecyclerView
-                            android:id="@+id/rvSharedContent"
+                            android:id="@+id/rvSharedMedia"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="12dp"
+                            android:visibility="gone"
+                            android:nestedScrollingEnabled="false" />
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvSharedFiles"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:visibility="gone"
+                            android:nestedScrollingEnabled="false" />
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvSharedGifs"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:visibility="gone"
+                            android:nestedScrollingEnabled="false" />
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvSharedMusic"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:visibility="gone"
                             android:nestedScrollingEnabled="false" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -577,4 +602,260 @@
             </LinearLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
+
+    <!-- Sticky Floating Blur Toolbar for Person Information -->
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/blurStickyToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:visibility="gone"
+        android:alpha="0"
+        android:elevation="12dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="10dp">
+
+            <!-- Верхняя строчка: Кнопка назад | Имя пользователя + Статус -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnStickyBack"
+                    style="@style/Widget.MaterialComponents.Button.Icon"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:backgroundTint="@color/glass_white_20"
+                    android:padding="0dp"
+                    android:insetLeft="0dp"
+                    android:insetTop="0dp"
+                    android:insetRight="0dp"
+                    android:insetBottom="0dp"
+                    app:cornerRadius="12dp"
+                    app:icon="@drawable/ic_arrow_back"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:iconSize="22dp"
+                    app:iconTint="@color/white" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="12dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvStickyName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/white"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:singleLine="true"
+                        android:ellipsize="marquee"
+                        tools:text="Имя Собеседника" />
+
+                    <TextView
+                        android:id="@+id/tvStickyStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="#E6FFFFFF"
+                        android:textSize="12sp"
+                        tools:text="в сети" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Нижняя строчка: Переключатели категорий -->
+            <HorizontalScrollView
+                android:id="@+id/scrollCategoryTabsSticky"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:scrollbars="none"
+                android:fillViewport="true">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingVertical="2dp">
+
+                    <!-- Вкладка 1: Фото и видео -->
+                    <LinearLayout
+                        android:id="@+id/tabPhotoVideoSticky"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/bg_date_bubble"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp">
+
+                        <ImageView
+                            android:id="@+id/ivTabPhotoIconSticky"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:contentDescription="Фото и видео"
+                            android:src="@drawable/ic_photo"
+                            app:tint="@color/prime_brand" />
+
+                        <TextView
+                            android:id="@+id/tvTabPhotoTitleSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="Фото и видео"
+                            android:textColor="@color/prime_brand"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvTabPhotoCountSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:textColor="@color/prime_brand"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            tools:text="0" />
+                    </LinearLayout>
+
+                    <!-- Вкладка 2: Файлы -->
+                    <LinearLayout
+                        android:id="@+id/tabFilesSticky"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/bg_date_bubble"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp">
+
+                        <ImageView
+                            android:id="@+id/ivTabFilesIconSticky"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:contentDescription="Файлы"
+                            android:src="@drawable/ic_file"
+                            app:tint="@color/prime_text_secondary" />
+
+                        <TextView
+                            android:id="@+id/tvTabFilesTitleSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="Файлы"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/tvTabFilesCountSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="11sp"
+                            tools:text="0" />
+                    </LinearLayout>
+
+                    <!-- Вкладка 3: GIF -->
+                    <LinearLayout
+                        android:id="@+id/tabGifsSticky"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/bg_date_bubble"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp">
+
+                        <ImageView
+                            android:id="@+id/ivTabGifsIconSticky"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:contentDescription="GIF"
+                            android:src="@drawable/ic_prime_gif"
+                            app:tint="@color/prime_text_secondary" />
+
+                        <TextView
+                            android:id="@+id/tvTabGifsTitleSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="GIF"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/tvTabGifsCountSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="11sp"
+                            tools:text="0" />
+                    </LinearLayout>
+
+                    <!-- Вкладка 4: Музыка -->
+                    <LinearLayout
+                        android:id="@+id/tabMusicSticky"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_date_bubble"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp">
+
+                        <ImageView
+                            android:id="@+id/ivTabMusicIconSticky"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:contentDescription="Музыка"
+                            android:src="@drawable/ic_music"
+                            app:tint="@color/prime_text_secondary" />
+
+                        <TextView
+                            android:id="@+id/tvTabMusicTitleSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="Музыка"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/tvTabMusicCountSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="11sp"
+                            tools:text="0" />
+                    </LinearLayout>
+                </LinearLayout>
+            </HorizontalScrollView>
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

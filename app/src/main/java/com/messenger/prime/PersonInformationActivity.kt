@@ -126,6 +126,14 @@ class PersonInformationActivity : AppCompatActivity() {
                 binding.nestedScrollView.paddingRight,
                 maxOf(systemBars.bottom, cutout.bottom)
             )
+
+            val lp = binding.blurStickyToolbar.layoutParams as? ViewGroup.MarginLayoutParams
+            if (lp != null && lp.topMargin != 0) {
+                lp.topMargin = 0
+                binding.blurStickyToolbar.layoutParams = lp
+            }
+            binding.blurStickyToolbar.setPadding(0, maxOf(topInset, cutout.top), 0, 0)
+
             insets
         }
 
@@ -195,6 +203,7 @@ class PersonInformationActivity : AppCompatActivity() {
         setupLeftColumnButtons()
         setupCategoryTabs()
         updateLiveStatus()
+        PrimeTransitions.protectHorizontalScrollViews(binding.root)
         PrimeMusicManager.addListener(playerListener)
         loadSharedMediaAndFiles()
     }
@@ -216,6 +225,288 @@ class PersonInformationActivity : AppCompatActivity() {
         PrimeMusicManager.removeListener(playerListener)
     }
 
+    private val playerListener = object : PrimeMusicManager.PlayerListener {
+        override fun onTrackChanged(track: TrackItem?) {
+            runOnUiThread {
+                binding.rvSharedMusic.adapter?.notifyDataSetChanged()
+            }
+        }
+
+        override fun onPlaybackStateChanged(isPlaying: Boolean) {
+            runOnUiThread {
+                binding.rvSharedMusic.adapter?.notifyDataSetChanged()
+            }
+        }
+
+        override fun onProgressUpdated(positionMs: Long, durationMs: Long) {}
+    }
+
+    private fun setupCategoryTabs() {
+        // Switch between media, files, links, music
+        binding.tabPhotoVideo.setOnClickListener { selectTab(0) }
+        binding.tabFiles.setOnClickListener { selectTab(1) }
+        binding.tabGifs.setOnClickListener { selectTab(2) }
+        binding.tabMusic.setOnClickListener { selectTab(3) }
+
+        binding.tabPhotoVideoSticky.setOnClickListener { selectTab(0) }
+        binding.tabFilesSticky.setOnClickListener { selectTab(1) }
+        binding.tabGifsSticky.setOnClickListener { selectTab(2) }
+        binding.tabMusicSticky.setOnClickListener { selectTab(3) }
+
+        selectTab(0)
+    }
+
+    private fun selectTab(index: Int) {
+        val selectedBg = R.drawable.bg_date_bubble
+        val defaultBg = android.R.color.transparent
+        val context = this
+        val colorBrand = ContextCompat.getColor(context, R.color.prime_brand)
+        val colorSec = ContextCompat.getColor(context, R.color.prime_text_secondary)
+
+        // Reset main tabs
+        binding.tabPhotoVideo.setBackgroundResource(defaultBg)
+        binding.tabFiles.setBackgroundResource(defaultBg)
+        binding.tabGifs.setBackgroundResource(defaultBg)
+        binding.tabMusic.setBackgroundResource(defaultBg)
+
+        binding.ivTabPhotoIcon.setColorFilter(colorSec)
+        binding.tvTabPhotoTitle.setTextColor(colorSec)
+        binding.tvTabPhotoCount.setTextColor(colorSec)
+
+        binding.ivTabFilesIcon.setColorFilter(colorSec)
+        binding.tvTabFilesTitle.setTextColor(colorSec)
+        binding.tvTabFilesCount.setTextColor(colorSec)
+
+        binding.ivTabGifsIcon.setColorFilter(colorSec)
+        binding.tvTabGifsTitle.setTextColor(colorSec)
+        binding.tvTabGifsCount.setTextColor(colorSec)
+
+        binding.ivTabMusicIcon.setColorFilter(colorSec)
+        binding.tvTabMusicTitle.setTextColor(colorSec)
+        binding.tvTabMusicCount.setTextColor(colorSec)
+
+        // Reset sticky tabs
+        binding.tabPhotoVideoSticky.setBackgroundResource(defaultBg)
+        binding.tabFilesSticky.setBackgroundResource(defaultBg)
+        binding.tabGifsSticky.setBackgroundResource(defaultBg)
+        binding.tabMusicSticky.setBackgroundResource(defaultBg)
+
+        binding.ivTabPhotoIconSticky.setColorFilter(colorSec)
+        binding.tvTabPhotoTitleSticky.setTextColor(colorSec)
+        binding.tvTabPhotoCountSticky.setTextColor(colorSec)
+
+        binding.ivTabFilesIconSticky.setColorFilter(colorSec)
+        binding.tvTabFilesTitleSticky.setTextColor(colorSec)
+        binding.tvTabFilesCountSticky.setTextColor(colorSec)
+
+        binding.ivTabGifsIconSticky.setColorFilter(colorSec)
+        binding.tvTabGifsTitleSticky.setTextColor(colorSec)
+        binding.tvTabGifsCountSticky.setTextColor(colorSec)
+
+        binding.ivTabMusicIconSticky.setColorFilter(colorSec)
+        binding.tvTabMusicTitleSticky.setTextColor(colorSec)
+        binding.tvTabMusicCountSticky.setTextColor(colorSec)
+
+        when (index) {
+            0 -> {
+                binding.tabPhotoVideo.setBackgroundResource(selectedBg)
+                binding.ivTabPhotoIcon.setColorFilter(colorBrand)
+                binding.tvTabPhotoTitle.setTextColor(colorBrand)
+                binding.tvTabPhotoCount.setTextColor(colorBrand)
+
+                binding.tabPhotoVideoSticky.setBackgroundResource(selectedBg)
+                binding.ivTabPhotoIconSticky.setColorFilter(colorBrand)
+                binding.tvTabPhotoTitleSticky.setTextColor(colorBrand)
+                binding.tvTabPhotoCountSticky.setTextColor(colorBrand)
+
+                binding.tvSectionHeaderTitle.text = "Фото и видео"
+                binding.ivSectionHeaderIcon.setImageResource(R.drawable.ic_photo)
+                binding.rvSharedMedia.visibility = if (binding.tvTabPhotoCount.text == "0") View.GONE else View.VISIBLE
+                binding.rvSharedFiles.visibility = View.GONE
+                binding.rvSharedGifs.visibility = View.GONE
+                binding.rvSharedMusic.visibility = View.GONE
+                binding.tvEmptySection.visibility = if (binding.tvTabPhotoCount.text == "0") View.VISIBLE else View.GONE
+                binding.tvEmptySection.text = "Нет фотографий и видео"
+            }
+            1 -> {
+                binding.tabFiles.setBackgroundResource(selectedBg)
+                binding.ivTabFilesIcon.setColorFilter(colorBrand)
+                binding.tvTabFilesTitle.setTextColor(colorBrand)
+                binding.tvTabFilesCount.setTextColor(colorBrand)
+
+                binding.tabFilesSticky.setBackgroundResource(selectedBg)
+                binding.ivTabFilesIconSticky.setColorFilter(colorBrand)
+                binding.tvTabFilesTitleSticky.setTextColor(colorBrand)
+                binding.tvTabFilesCountSticky.setTextColor(colorBrand)
+
+                binding.tvSectionHeaderTitle.text = "Файлы"
+                binding.ivSectionHeaderIcon.setImageResource(R.drawable.ic_file)
+                binding.rvSharedMedia.visibility = View.GONE
+                binding.rvSharedFiles.visibility = if (binding.tvTabFilesCount.text == "0") View.GONE else View.VISIBLE
+                binding.rvSharedGifs.visibility = View.GONE
+                binding.rvSharedMusic.visibility = View.GONE
+                binding.tvEmptySection.visibility = if (binding.tvTabFilesCount.text == "0") View.VISIBLE else View.GONE
+                binding.tvEmptySection.text = "Нет отправленных файлов"
+            }
+            2 -> {
+                binding.tabGifs.setBackgroundResource(selectedBg)
+                binding.ivTabGifsIcon.setColorFilter(colorBrand)
+                binding.tvTabGifsTitle.setTextColor(colorBrand)
+                binding.tvTabGifsCount.setTextColor(colorBrand)
+
+                binding.tabGifsSticky.setBackgroundResource(selectedBg)
+                binding.ivTabGifsIconSticky.setColorFilter(colorBrand)
+                binding.tvTabGifsTitleSticky.setTextColor(colorBrand)
+                binding.tvTabGifsCountSticky.setTextColor(colorBrand)
+
+                binding.tvSectionHeaderTitle.text = "GIF"
+                binding.ivSectionHeaderIcon.setImageResource(R.drawable.ic_prime_gif)
+                binding.rvSharedMedia.visibility = View.GONE
+                binding.rvSharedFiles.visibility = View.GONE
+                binding.rvSharedGifs.visibility = if (binding.tvTabGifsCount.text == "0") View.GONE else View.VISIBLE
+                binding.rvSharedMusic.visibility = View.GONE
+                binding.tvEmptySection.visibility = if (binding.tvTabGifsCount.text == "0") View.VISIBLE else View.GONE
+                binding.tvEmptySection.text = "Нет отправленных GIF"
+            }
+            3 -> {
+                binding.tabMusic.setBackgroundResource(selectedBg)
+                binding.ivTabMusicIcon.setColorFilter(colorBrand)
+                binding.tvTabMusicTitle.setTextColor(colorBrand)
+                binding.tvTabMusicCount.setTextColor(colorBrand)
+
+                binding.tabMusicSticky.setBackgroundResource(selectedBg)
+                binding.ivTabMusicIconSticky.setColorFilter(colorBrand)
+                binding.tvTabMusicTitleSticky.setTextColor(colorBrand)
+                binding.tvTabMusicCountSticky.setTextColor(colorBrand)
+
+                binding.tvSectionHeaderTitle.text = "Музыка"
+                binding.ivSectionHeaderIcon.setImageResource(R.drawable.ic_music)
+                binding.rvSharedMedia.visibility = View.GONE
+                binding.rvSharedFiles.visibility = View.GONE
+                binding.rvSharedGifs.visibility = View.GONE
+                binding.rvSharedMusic.visibility = if (binding.tvTabMusicCount.text == "0") View.GONE else View.VISIBLE
+                binding.tvEmptySection.visibility = if (binding.tvTabMusicCount.text == "0") View.VISIBLE else View.GONE
+                binding.tvEmptySection.text = "Нет аудиозаписей"
+            }
+        }
+    }
+
+    private var hasAnySharedMedia = false
+    private var isToolbarVisible = false
+
+    private fun setupStickyBlurToolbar(darkTheme: Boolean) {
+        val config = resources.configuration
+        val isTablet = config.smallestScreenWidthDp >= 600
+        val isEmbedded = try {
+            androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this)
+        } catch (_: Throwable) {
+            false
+        }
+        val isTabletOrFoldable = isTablet || isEmbedded
+
+        if (isTabletOrFoldable) {
+            binding.blurStickyToolbar.visibility = View.GONE
+            return
+        }
+
+        fun getActualTopInset(): Int {
+            val rootInsets = ViewCompat.getRootWindowInsets(window.decorView)
+            val topFromInsets = rootInsets?.getInsets(WindowInsetsCompat.Type.statusBars())?.top ?: 0
+            return if (topFromInsets > 0) topFromInsets else getStatusBarHeight()
+        }
+
+        fun updateToolbarPadding() {
+            val topInset = getActualTopInset()
+            val lp = binding.blurStickyToolbar.layoutParams as? ViewGroup.MarginLayoutParams
+            if (lp != null && lp.topMargin != 0) {
+                lp.topMargin = 0
+                binding.blurStickyToolbar.layoutParams = lp
+            }
+            binding.blurStickyToolbar.setPadding(0, topInset, 0, 0)
+        }
+
+        updateToolbarPadding()
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.blurStickyToolbar) { _, insets ->
+            updateToolbarPadding()
+            insets
+        }
+        binding.blurStickyToolbar.post {
+            updateToolbarPadding()
+        }
+
+        val overlayColor = if (darkTheme) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+        val targetRootView = (binding.personInfoRoot as? ViewGroup)
+            ?: (window.decorView.findViewById<ViewGroup>(android.R.id.content))
+            ?: (window.decorView as ViewGroup)
+
+        binding.blurStickyToolbar.setupBlur(
+            rootView = targetRootView,
+            blurRadius = 18f,
+            tintColor = overlayColor,
+            frameClearDrawable = window.decorView.background
+        )
+
+        binding.btnStickyBack.setOnClickListener {
+            onBackPressedDispatcher.onBackPressed()
+        }
+
+        updateStickyHeaderData()
+
+        binding.nestedScrollView.setOnScrollChangeListener(androidx.core.widget.NestedScrollView.OnScrollChangeListener { _, _, _, _, _ ->
+            val photoCard = binding.photoCard
+            if (!photoCard.isAttachedToWindow) return@OnScrollChangeListener
+
+            val locationPhoto = IntArray(2)
+            photoCard.getLocationOnScreen(locationPhoto)
+
+            val locationScroll = IntArray(2)
+            binding.nestedScrollView.getLocationOnScreen(locationScroll)
+
+            val photoBottomRelative = (locationPhoto[1] + photoCard.height) - locationScroll[1]
+            val toolbarHeight = binding.blurStickyToolbar.height.coerceAtLeast(1)
+
+            val shouldShow = hasAnySharedMedia && (photoBottomRelative <= toolbarHeight + 12)
+
+            if (shouldShow != isToolbarVisible) {
+                isToolbarVisible = shouldShow
+                binding.blurStickyToolbar.animate().cancel()
+                if (shouldShow) {
+                    binding.blurStickyToolbar.visibility = View.VISIBLE
+                    binding.blurStickyToolbar.animate()
+                        .alpha(1f)
+                        .setDuration(220)
+                        .setListener(null)
+                        .start()
+                } else {
+                    binding.blurStickyToolbar.animate()
+                        .alpha(0f)
+                        .setDuration(180)
+                        .setListener(object : android.animation.AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(animation: android.animation.Animator) {
+                                if (!isToolbarVisible) {
+                                    binding.blurStickyToolbar.visibility = View.GONE
+                                }
+                            }
+                        })
+                        .start()
+                }
+            }
+        })
+    }
+
+    private fun getStatusBarHeight(): Int {
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else (24 * resources.displayMetrics.density).toInt()
+    }
+
+    private fun updateStickyHeaderData() {
+        if (!::binding.isInitialized) return
+        binding.tvStickyName.text = binding.tvUserNameWP.text
+        binding.tvStickyStatus.text = binding.tvStatusWP.text
+        binding.tvStickyStatus.setTextColor(binding.tvStatusWP.currentTextColor)
+    }
+
     private fun setupThemeAndBackground() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
@@ -234,6 +525,8 @@ class PersonInformationActivity : AppCompatActivity() {
                 }
             }
         }
+
+        setupStickyBlurToolbar(darkTheme)
     }
 
     private var currentAvatarIndex = 0
@@ -244,6 +537,7 @@ class PersonInformationActivity : AppCompatActivity() {
 
         setupAvatarCardSwipe()
         updateHeaderPhoto()
+        updateStickyHeaderData()
     }
 
     private fun updateHeaderPhoto() {
@@ -284,7 +578,7 @@ class PersonInformationActivity : AppCompatActivity() {
         try {
             val (model, file) = parseAvatarModelAndFile(uriStr)
             if (model != null) {
-                val signatureKey = ObjectKey(if (file != null && file.exists()) file.lastModified() else System.currentTimeMillis())
+                val signatureKey = ObjectKey(if (file != null && file.exists()) "${file.absolutePath}_${file.lastModified()}" else uriStr)
                 val isGif = uriStr.lowercase().contains(".gif")
 
                 if (isGif) {
@@ -330,12 +624,15 @@ class PersonInformationActivity : AppCompatActivity() {
                         history = AvatarHistoryManager.getContactAvatarHistory(this@PersonInformationActivity, targetUsername)
                     }
                     if (history.size > 1) {
-                        if (diffX < 0) {
+                        val isRightToLeft = diffX < 0
+                        if (isRightToLeft) {
                             currentAvatarIndex = (currentAvatarIndex + 1) % history.size
                         } else {
                             currentAvatarIndex = if (currentAvatarIndex - 1 < 0) history.size - 1 else currentAvatarIndex - 1
                         }
-                        updateHeaderPhoto()
+                        animateAvatarCardSlide(binding.ivPhotoCard, isRightToLeft) {
+                            updateHeaderPhoto()
+                        }
                         return true
                     }
                 }
@@ -351,6 +648,29 @@ class PersonInformationActivity : AppCompatActivity() {
         binding.photoCard.setOnTouchListener { _, event ->
             gestureDetector.onTouchEvent(event)
         }
+    }
+
+    private fun animateAvatarCardSlide(view: View, isRightToLeft: Boolean, onHalfWay: () -> Unit) {
+        val width = if (view.width > 0) view.width.toFloat() else (200f * resources.displayMetrics.density)
+        val exitX = if (isRightToLeft) -width else width
+        val enterX = if (isRightToLeft) width else -width
+
+        view.animate()
+            .translationX(exitX)
+            .alpha(0.2f)
+            .setDuration(140)
+            .setInterpolator(android.view.animation.AccelerateInterpolator())
+            .withEndAction {
+                onHalfWay()
+                view.translationX = enterX
+                view.animate()
+                    .translationX(0f)
+                    .alpha(1f)
+                    .setDuration(180)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator())
+                    .start()
+            }
+            .start()
     }
 
     private fun openAvatarInMediaPlayer() {
@@ -435,6 +755,7 @@ class PersonInformationActivity : AppCompatActivity() {
             if (isConnected) ContextCompat.getColor(this, R.color.prime_success)
             else ContextCompat.getColor(this, R.color.white)
         )
+        updateStickyHeaderData()
     }
 
     private fun setupLeftColumnButtons() {
@@ -496,7 +817,7 @@ class PersonInformationActivity : AppCompatActivity() {
             
             Handler(Looper.getMainLooper()).postDelayed({
                 finalizeChatDeletion()
-            }, 200)
+            }, 350)
         } else {
             finalizeChatDeletion()
         }
@@ -505,6 +826,14 @@ class PersonInformationActivity : AppCompatActivity() {
     @SuppressLint("MissingPermission")
     private fun finalizeChatDeletion() {
         val targetAddr = deviceAddress ?: targetUsername
+
+        // Ensure MAC is not blocked
+        try {
+            BluetoothConnectionManager.getInstance().unblockMacAddress(targetAddr)
+            if (!deviceAddress.isNullOrEmpty()) {
+                BluetoothConnectionManager.getInstance().unblockMacAddress(deviceAddress!!)
+            }
+        } catch (_: Exception) {}
 
         // 1. Disconnect current socket FIRST & cancel background reconnects
         try {
@@ -519,18 +848,7 @@ class PersonInformationActivity : AppCompatActivity() {
         } catch (_: Exception) {}
 
         // 2. Unbond / remove bond from Bluetooth adapter
-        try {
-            val mac = if (!deviceAddress.isNullOrEmpty() && BluetoothAdapter.checkBluetoothAddress(deviceAddress)) deviceAddress
-                      else if (BluetoothAdapter.checkBluetoothAddress(targetUsername)) targetUsername
-                      else getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${targetUsername}_mac", null)
-
-            if (!mac.isNullOrEmpty()) {
-                BluetoothConnectionManager.getInstance().blockMacAddress(mac, 0, "Chat deleted")
-                BluetoothConnectionManager.getInstance().disconnect(mac)
-            }
-        } catch (e: Exception) {
-            Log.w("PersonInfo", "Failed to disconnect deleted chat", e)
-        }
+        DeviceBindingManager.unbindDeviceSecurely(this, targetUsername, deviceAddress)
 
         if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
             PrimeBluetoothService.stopService(this)
@@ -607,9 +925,13 @@ class PersonInformationActivity : AppCompatActivity() {
 
             val mediaGrouped = LinkedHashMap<String, MutableList<ChatMessage>>()
             val filesGrouped = LinkedHashMap<String, MutableList<ChatMessage>>()
+            val gifsGrouped = LinkedHashMap<String, MutableList<ChatMessage>>()
+            val musicGrouped = LinkedHashMap<String, MutableList<ChatMessage>>()
 
             var totalMediaCount = 0
             var totalFilesCount = 0
+            var totalGifsCount = 0
+            var totalMusicCount = 0
 
             for (msg in history) {
                 if (msg.isMultiMedia || (!msg.imagePath.isNullOrEmpty() && msg.imagePath.startsWith("MULTI:"))) {
@@ -626,8 +948,20 @@ class PersonInformationActivity : AppCompatActivity() {
                     val pathOrName = (msg.imagePath ?: msg.fileName ?: "").lowercase(Locale.US)
                     val isVid = msg.isVideo || pathOrName.endsWith(".mp4") || pathOrName.endsWith(".mkv") || pathOrName.endsWith(".3gp") || pathOrName.endsWith(".webm") || pathOrName.endsWith(".mov") || pathOrName.endsWith(".avi")
                     val isImg = msg.messageType == ChatMessage.MessageType.IMAGE || (!msg.imagePath.isNullOrEmpty() && !msg.isFile) || msg.imageBitmap != null
+                    val isGif = pathOrName.endsWith(".gif")
+                    val isMusic = msg.messageType == ChatMessage.MessageType.MUSIC || pathOrName.endsWith(".mp3") || pathOrName.endsWith(".m4a") || pathOrName.endsWith(".aac") || pathOrName.endsWith(".wav") || pathOrName.endsWith(".ogg") || pathOrName.endsWith(".flac")
 
-                    if (isVid) {
+                    if (isGif) {
+                        msg.messageType = ChatMessage.MessageType.IMAGE
+                        val dateLabel = formatDateSection(msg.timestamp)
+                        gifsGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
+                        totalGifsCount++
+                    } else if (isMusic) {
+                        msg.messageType = ChatMessage.MessageType.MUSIC
+                        val dateLabel = formatDateSection(msg.timestamp)
+                        musicGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
+                        totalMusicCount++
+                    } else if (isVid) {
                         msg.messageType = ChatMessage.MessageType.VIDEO
                         val dateLabel = formatDateSection(msg.timestamp)
                         mediaGrouped.getOrPut(dateLabel) { mutableListOf() }.add(msg)
@@ -664,18 +998,56 @@ class PersonInformationActivity : AppCompatActivity() {
                 }
             }
 
+            // Build gifs adapter list
+            val gifAdapterItems = mutableListOf<MediaListItem>()
+            val gifClickList = mutableListOf<ChatMessage>()
+            for ((dateTitle, list) in gifsGrouped) {
+                gifAdapterItems.add(MediaListItem.Header(dateTitle))
+                for (m in list) {
+                    gifAdapterItems.add(MediaListItem.Item(m))
+                    gifClickList.add(m)
+                }
+            }
+            
+            // Build music adapter list
+            val musicAdapterItems = mutableListOf<FileListItem>()
+            for ((dateTitle, list) in musicGrouped) {
+                musicAdapterItems.add(FileListItem.Header(dateTitle))
+                for (m in list) {
+                    musicAdapterItems.add(FileListItem.Item(m))
+                }
+            }
+
             val finalMediaCount = totalMediaCount
             val finalFilesCount = totalFilesCount
+            val finalGifsCount = totalGifsCount
+            val finalMusicCount = totalMusicCount
 
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
 
-                binding.tvMediaCount.text = finalMediaCount.toString()
+                binding.tvTabPhotoCount.text = finalMediaCount.toString()
+                binding.tvTabFilesCount.text = finalFilesCount.toString()
+                binding.tvTabGifsCount.text = finalGifsCount.toString()
+                binding.tvTabMusicCount.text = finalMusicCount.toString()
+
+                binding.tvTabPhotoCountSticky.text = finalMediaCount.toString()
+                binding.tvTabFilesCountSticky.text = finalFilesCount.toString()
+                binding.tvTabGifsCountSticky.text = finalGifsCount.toString()
+                binding.tvTabMusicCountSticky.text = finalMusicCount.toString()
+
+                val totalAllMedia = finalMediaCount + finalFilesCount + finalGifsCount + finalMusicCount
+                hasAnySharedMedia = totalAllMedia > 0
+
+                if (!hasAnySharedMedia && isToolbarVisible) {
+                    isToolbarVisible = false
+                    binding.blurStickyToolbar.visibility = View.GONE
+                    binding.blurStickyToolbar.alpha = 0f
+                }
+
                 if (finalMediaCount == 0) {
-                    binding.tvEmptyMedia.visibility = View.VISIBLE
                     binding.rvSharedMedia.visibility = View.GONE
                 } else {
-                    binding.tvEmptyMedia.visibility = View.GONE
                     binding.rvSharedMedia.visibility = View.VISIBLE
 
                     val mediaAdapter = PersonMediaAdapter(mediaAdapterItems) { clickedMsg ->
@@ -692,12 +1064,9 @@ class PersonInformationActivity : AppCompatActivity() {
                     binding.rvSharedMedia.adapter = mediaAdapter
                 }
 
-                binding.tvFilesCount.text = finalFilesCount.toString()
                 if (finalFilesCount == 0) {
-                    binding.tvEmptyFiles.visibility = View.VISIBLE
                     binding.rvSharedFiles.visibility = View.GONE
                 } else {
-                    binding.tvEmptyFiles.visibility = View.GONE
                     binding.rvSharedFiles.visibility = View.VISIBLE
                     binding.rvSharedFiles.layoutManager = LinearLayoutManager(this)
                     binding.rvSharedFiles.adapter = PersonFilesAdapter(fileAdapterItems) { clickedFileMsg ->
@@ -705,8 +1074,145 @@ class PersonInformationActivity : AppCompatActivity() {
                         ChatAdapter.openFile(this, filePath)
                     }
                 }
+                
+                if (finalGifsCount == 0) {
+                    binding.rvSharedGifs.visibility = View.GONE
+                } else {
+                    binding.rvSharedGifs.visibility = View.VISIBLE
+                    val gifAdapter = PersonMediaAdapter(gifAdapterItems) { clickedMsg ->
+                        val initialIdx = gifClickList.indexOf(clickedMsg).coerceAtLeast(0)
+                        ChatAdapter.showFullScreenMedia(this, null, clickedMsg, gifClickList, initialIdx)
+                    }
+                    val gridManager = GridLayoutManager(this, 3)
+                    gridManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                        override fun getSpanSize(position: Int): Int {
+                            return if (gifAdapter.getItemViewType(position) == PersonMediaAdapter.TYPE_HEADER) 3 else 1
+                        }
+                    }
+                    binding.rvSharedGifs.layoutManager = gridManager
+                    binding.rvSharedGifs.adapter = gifAdapter
+                }
+                
+                if (finalMusicCount == 0) {
+                    binding.rvSharedMusic.visibility = View.GONE
+                } else {
+                    binding.rvSharedMusic.visibility = View.VISIBLE
+                    binding.rvSharedMusic.layoutManager = LinearLayoutManager(this)
+                    binding.rvSharedMusic.adapter = PersonMusicAdapter(musicAdapterItems) { clickedMusicMsg ->
+                        val track = TrackItem(
+                            id = clickedMusicMsg.messageId ?: "",
+                            title = clickedMusicMsg.trackTitle ?: "Аудиозапись",
+                            artist = clickedMusicMsg.artistName ?: "Неизвестен",
+                            path = clickedMusicMsg.imagePath ?: "",
+                            durationMs = 0L,
+                            durationStr = clickedMusicMsg.audioDuration ?: "00:00",
+                            coverPath = null,
+                            isSaved = false,
+                            fileSize = clickedMusicMsg.fileSize
+                        )
+                        
+                        val allTracks = musicGrouped.values.flatten().map {
+                            TrackItem(
+                                id = it.messageId ?: "",
+                                title = it.trackTitle ?: "Аудиозапись",
+                                artist = it.artistName ?: "Неизвестен",
+                                path = it.imagePath ?: "",
+                                durationMs = 0L,
+                                durationStr = it.audioDuration ?: "00:00",
+                                coverPath = null,
+                                isSaved = false,
+                                fileSize = it.fileSize
+                            )
+                        }
+                        
+                        PrimeMusicManager.playTrack(this, track, allTracks)
+                    }
+                }
+                
+                selectTab(0)
             }
         }
+    }
+
+    private class PersonMusicAdapter(
+        private val items: List<FileListItem>,
+        private val onItemClick: (ChatMessage) -> Unit
+    ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+        companion object {
+            const val TYPE_HEADER = 0
+            const val TYPE_ITEM = 1
+        }
+
+        override fun getItemViewType(position: Int): Int {
+            return when (items[position]) {
+                is FileListItem.Header -> TYPE_HEADER
+                is FileListItem.Item -> TYPE_ITEM
+            }
+        }
+
+        class HeaderViewHolder(val binding: ItemPersonDateHeaderBinding) : RecyclerView.ViewHolder(binding.root)
+        class ItemViewHolder(val binding: ItemPersonMusicRowBinding) : RecyclerView.ViewHolder(binding.root)
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+            val inflater = LayoutInflater.from(parent.context)
+            return if (viewType == TYPE_HEADER) {
+                HeaderViewHolder(ItemPersonDateHeaderBinding.inflate(inflater, parent, false))
+            } else {
+                ItemViewHolder(ItemPersonMusicRowBinding.inflate(inflater, parent, false))
+            }
+        }
+
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            when (val item = items[position]) {
+                is FileListItem.Header -> {
+                    (holder as HeaderViewHolder).binding.tvDateTitle.text = item.title
+                }
+                is FileListItem.Item -> {
+                    val h = holder as ItemViewHolder
+                    val msg = item.msg
+                    
+                    val trackTitle = if (!msg.trackTitle.isNullOrEmpty()) msg.trackTitle else "Аудиозапись"
+                    val artistName = if (!msg.artistName.isNullOrEmpty()) msg.artistName else "Неизвестен"
+                    val audioDuration = if (!msg.audioDuration.isNullOrEmpty()) msg.audioDuration else "00:00"
+                    
+                    h.binding.tvMusicTitle.text = trackTitle
+                    h.binding.tvMusicArtist.text = String.format("%s • %s", artistName, audioDuration)
+                    
+                    val currentTrack = PrimeMusicManager.getCurrentTrack()
+                    val isPlaying = PrimeMusicManager.isPlaying()
+                    val isActive = currentTrack != null && (currentTrack.id == msg.messageId || currentTrack.path == msg.imagePath)
+
+                    val context = h.itemView.context
+                    if (isActive) {
+                        h.binding.ivMusicPlayBadge.visibility = View.VISIBLE
+                        h.binding.ivMusicPlayBadge.setImageResource(if (isPlaying) R.drawable.ic_media_pause else R.drawable.ic_media_play)
+                        h.binding.tvMusicTitle.setTextColor(ColorAccentManager.getCurrentAccentColor(context))
+                    } else {
+                        h.binding.ivMusicPlayBadge.visibility = View.GONE
+                        h.binding.tvMusicTitle.setTextColor(ContextCompat.getColor(context, R.color.prime_text_primary))
+                    }
+
+                    h.binding.flMusicCover.setOnClickListener {
+                        if (isActive) {
+                            PrimeMusicManager.togglePlayPause(context)
+                        } else {
+                            onItemClick(msg)
+                        }
+                    }
+
+                    h.itemView.setOnClickListener {
+                        if (isActive) {
+                            PrimeMusicManager.togglePlayPause(context)
+                        } else {
+                            onItemClick(msg)
+                        }
+                    }
+                }
+            }
+        }
+
+        override fun getItemCount() = items.size
     }
 
     sealed class MediaListItem {

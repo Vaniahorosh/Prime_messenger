@@ -17,6 +17,10 @@ import android.widget.Toast;
 import androidx.recyclerview.widget.DiffUtil;
 import com.bumptech.glide.Glide;
 import java.util.Objects;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import android.content.res.Configuration;
+import eightbitlab.com.blurview.BlurView;
 
 import android.media.ThumbnailUtils;
 import android.os.Build;
@@ -97,6 +101,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         void onReplyMessage(ChatMessage message, int position);
         void onReplyToSelectedText(ChatMessage message, String selectedText, int position);
         void onForwardMessage(ChatMessage message, int position);
+        void onSelectMessage(ChatMessage message, int position);
+        void onSelectionChanged(int selectedCount);
+        void onExpandReactions(ChatMessage message, View anchorView, int position);
         void onJumpToMessage(String messageId);
         void onJumpToMessage(String messageId, String quotedText);
         void onCancelSending(ChatMessage message, int position);
@@ -108,6 +115,67 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private OnMessageActionListener actionListener;
     private String localUsername = "";
     private boolean isConnectionActive = false;
+
+    private final Set<String> selectedMessageIds = new java.util.LinkedHashSet<>();
+    private boolean isMultiSelectionMode = false;
+
+    public boolean isMultiSelectionMode() {
+        return isMultiSelectionMode;
+    }
+
+    public void setMultiSelectionMode(boolean enabled) {
+        if (this.isMultiSelectionMode != enabled) {
+            this.isMultiSelectionMode = enabled;
+            if (!enabled) {
+                selectedMessageIds.clear();
+            }
+            notifyDataSetChanged();
+        }
+    }
+
+    public Set<String> getSelectedMessageIds() {
+        return new java.util.LinkedHashSet<>(selectedMessageIds);
+    }
+
+    public List<ChatMessage> getSelectedMessages() {
+        List<ChatMessage> list = new ArrayList<>();
+        for (ChatMessage m : messages) {
+            if (m != null && m.getMessageId() != null && selectedMessageIds.contains(m.getMessageId())) {
+                list.add(m);
+            }
+        }
+        return list;
+    }
+
+    public void toggleMessageSelection(ChatMessage message) {
+        if (message == null || message.getMessageId() == null) return;
+        String id = message.getMessageId();
+        if (selectedMessageIds.contains(id)) {
+            selectedMessageIds.remove(id);
+        } else {
+            selectedMessageIds.add(id);
+        }
+        if (selectedMessageIds.isEmpty()) {
+            setMultiSelectionMode(false);
+            if (actionListener != null) {
+                actionListener.onSelectionChanged(0);
+            }
+        } else {
+            notifyDataSetChanged();
+            if (actionListener != null) {
+                actionListener.onSelectionChanged(selectedMessageIds.size());
+            }
+        }
+    }
+
+    public void clearSelection() {
+        selectedMessageIds.clear();
+        isMultiSelectionMode = false;
+        notifyDataSetChanged();
+        if (actionListener != null) {
+            actionListener.onSelectionChanged(0);
+        }
+    }
     private boolean isScrolling = false;
 
     public void setScrolling(boolean scrolling) {
@@ -1785,9 +1853,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         ProgressBar pbDownloadProgress;
         TextView tvDownloadPercent;
         ImageButton btnCancelDownload;
+        View layoutSelectionCircle;
+        ImageView ivSelectionCheck;
 
         IncomingViewHolder(@NonNull View itemView) {
             super(itemView);
+            layoutSelectionCircle = itemView.findViewById(R.id.layoutSelectionCircle);
+            ivSelectionCheck = itemView.findViewById(R.id.ivSelectionCheck);
             tvDateHeader = itemView.findViewById(R.id.tvDateHeader);
             tvMessageText = itemView.findViewById(R.id.tvMessageText);
             tvMessageTime = itemView.findViewById(R.id.tvMessageTime);
@@ -1821,6 +1893,33 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
 
         void bind(ChatMessage message, boolean showDateHeader, OnMessageLongClickListener listener, int position) {
+            float[] lastTouchRaw = new float[2];
+            GestureDetector doubleTapDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
+                @Override
+                public boolean onDoubleTap(@NonNull MotionEvent e) {
+                    if (isConnectionActive && actionListener != null) {
+                        actionListener.onQuickReaction(message, "❤️", position);
+                        itemView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                        return true;
+                    }
+                    return false;
+                }
+            });
+
+            View.OnTouchListener touchTracker = (v, event) -> {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    lastTouchRaw[0] = event.getRawX();
+                    lastTouchRaw[1] = event.getRawY();
+                }
+                doubleTapDetector.onTouchEvent(event);
+                return false;
+            };
+
+            itemView.setOnTouchListener(touchTracker);
+            if (layoutIncomingBubble != null) {
+                layoutIncomingBubble.setOnTouchListener(touchTracker);
+            }
+
             if (layoutIncomingBubble != null) {
                 layoutIncomingBubble.setBackground(ColorAccentManager.createIncomingBubbleDrawable(itemView.getContext()));
             }
@@ -1865,7 +1964,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 tvMessageText.setTextIsSelectable(true);
                 setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
                 bindLinkPreview(itemView, text);
-                tvMessageText.setOnClickListener(v -> toggleActionPanel(itemView, message, position, layoutIncomingBubble, layoutMessageActions, listener));
+                tvMessageText.setOnClickListener(v -> {
+                    if (isMultiSelectionMode) {
+                        toggleMessageSelection(message);
+                    } else {
+                        showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
+                    }
+                });
             } else {
                 tvMessageText.setVisibility(View.GONE);
                 View layoutLinkPreview = itemView.findViewById(R.id.layoutLinkPreview);
@@ -1880,74 +1985,50 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
             if (layoutMessageActions != null) {
                 layoutMessageActions.setVisibility(View.GONE);
+            }
 
-                View.OnClickListener rxClick = v -> {
-                    layoutMessageActions.setVisibility(View.GONE);
-                    if (actionListener != null) {
-                        if (v == btnReactHeart) actionListener.onQuickReaction(message, "❤️", position);
-                        else if (v == btnReactFire) actionListener.onQuickReaction(message, "🔥", position);
-                        else if (v == btnReactLike) actionListener.onQuickReaction(message, "👍", position);
+            boolean isSelected = isSelectedInMultiMode(message);
+
+            if (layoutSelectionCircle != null) {
+                if (isMultiSelectionMode) {
+                    layoutSelectionCircle.setVisibility(View.VISIBLE);
+                    if (ivSelectionCheck != null) {
+                        if (isSelected) {
+                            ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_active);
+                            ivSelectionCheck.setImageResource(R.drawable.ic_done);
+                            ivSelectionCheck.setAlpha(1.0f);
+                        } else {
+                            ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_idle);
+                            ivSelectionCheck.setImageDrawable(null);
+                            ivSelectionCheck.setAlpha(0.6f);
+                        }
                     }
-                };
-
-                if (btnReactHeart != null) btnReactHeart.setOnClickListener(rxClick);
-                if (btnReactFire != null) btnReactFire.setOnClickListener(rxClick);
-                if (btnReactLike != null) btnReactLike.setOnClickListener(rxClick);
-
-                ImageButton btnExpandReactions = itemView.findViewById(R.id.btnExpandReactions);
-                if (btnExpandReactions != null) {
-                    btnExpandReactions.setOnClickListener(v -> {
-                        layoutMessageActions.setVisibility(View.GONE);
-                        showExpandedReactionsPopup(v, message, position);
-                    });
-                }
-
-                if (btnReplyMsgAction != null) {
-                    btnReplyMsgAction.setOnClickListener(v -> {
-                        layoutMessageActions.setVisibility(View.GONE);
-                        if (actionListener != null) {
-                            actionListener.onReplyMessage(message, position);
-                        }
-                    });
-                }
-
-                ImageButton btnForwardMsgAction = itemView.findViewById(R.id.btnForwardMsgAction);
-                if (btnForwardMsgAction != null) {
-                    btnForwardMsgAction.setOnClickListener(v -> {
-                        layoutMessageActions.setVisibility(View.GONE);
-                        if (actionListener != null) {
-                            actionListener.onForwardMessage(message, position);
-                        }
-                    });
+                } else {
+                    layoutSelectionCircle.setVisibility(View.GONE);
                 }
             }
 
-            GestureDetector doubleTapDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
-                @Override
-                public boolean onDoubleTap(@NonNull MotionEvent e) {
-                    if (isConnectionActive && actionListener != null) {
-                        actionListener.onQuickReaction(message, "❤️", position);
-                        itemView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-                        return true;
-                    }
-                    return false;
-                }
-            });
-            itemView.setOnTouchListener((v, event) -> {
-                doubleTapDetector.onTouchEvent(event);
-                return false;
-            });
+            itemView.setAlpha(isSelected ? 0.85f : 1.0f);
 
             View.OnClickListener bubbleClickListener = v -> {
-                toggleActionPanel(itemView, message, position, layoutIncomingBubble, layoutMessageActions, listener);
+                if (isMultiSelectionMode) {
+                    toggleMessageSelection(message);
+                } else {
+                    showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
+                }
             };
 
             if (layoutIncomingBubble != null) {
                 layoutIncomingBubble.setOnClickListener(bubbleClickListener);
             }
 
+            itemView.setOnClickListener(bubbleClickListener);
             itemView.setOnLongClickListener(v -> {
-                toggleActionPanel(itemView, message, position, layoutIncomingBubble, layoutMessageActions, listener);
+                if (isMultiSelectionMode) {
+                    toggleMessageSelection(message);
+                } else {
+                    showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
+                }
                 return true;
             });
         }
@@ -1987,9 +2068,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         ProgressBar pbDownloadProgress;
         TextView tvDownloadPercent;
         ImageButton btnCancelDownload;
+        View layoutSelectionCircle;
+        ImageView ivSelectionCheck;
 
         OutgoingViewHolder(@NonNull View itemView) {
             super(itemView);
+            layoutSelectionCircle = itemView.findViewById(R.id.layoutSelectionCircle);
+            ivSelectionCheck = itemView.findViewById(R.id.ivSelectionCheck);
             tvDateHeader = itemView.findViewById(R.id.tvDateHeader);
             tvMessageText = itemView.findViewById(R.id.tvMessageText);
             tvMessageTime = itemView.findViewById(R.id.tvMessageTime);
@@ -2026,6 +2111,33 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
 
         void bind(ChatMessage message, boolean showDateHeader, OnMessageLongClickListener listener, int position) {
+            float[] lastTouchRaw = new float[2];
+            GestureDetector doubleTapDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
+                @Override
+                public boolean onDoubleTap(@NonNull MotionEvent e) {
+                    if (isConnectionActive && actionListener != null) {
+                        actionListener.onQuickReaction(message, "❤️", position);
+                        itemView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                        return true;
+                    }
+                    return false;
+                }
+            });
+
+            View.OnTouchListener touchTracker = (v, event) -> {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    lastTouchRaw[0] = event.getRawX();
+                    lastTouchRaw[1] = event.getRawY();
+                }
+                doubleTapDetector.onTouchEvent(event);
+                return false;
+            };
+
+            itemView.setOnTouchListener(touchTracker);
+            if (layoutOutgoingBubble != null) {
+                layoutOutgoingBubble.setOnTouchListener(touchTracker);
+            }
+
             if (layoutOutgoingBubble != null) {
                 layoutOutgoingBubble.setBackground(ColorAccentManager.createOutgoingBubbleDrawable(itemView.getContext()));
             }
@@ -2065,7 +2177,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 tvMessageText.setTextIsSelectable(true);
                 setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
                 bindLinkPreview(itemView, text);
-                tvMessageText.setOnClickListener(v -> toggleActionPanel(itemView, message, position, layoutOutgoingBubble, layoutMessageActions, listener));
+                tvMessageText.setOnClickListener(v -> {
+                    if (isMultiSelectionMode) {
+                        toggleMessageSelection(message);
+                    } else {
+                        showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
+                    }
+                });
             } else {
                 tvMessageText.setVisibility(View.GONE);
                 View layoutLinkPreview = itemView.findViewById(R.id.layoutLinkPreview);
@@ -2129,145 +2247,292 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
             if (layoutMessageActions != null) {
                 layoutMessageActions.setVisibility(View.GONE);
+            }
 
-                View.OnClickListener rxClick = v -> {
-                    layoutMessageActions.setVisibility(View.GONE);
-                    if (actionListener != null) {
-                        if (v == btnReactHeart) actionListener.onQuickReaction(message, "❤️", position);
-                        else if (v == btnReactFire) actionListener.onQuickReaction(message, "🔥", position);
-                        else if (v == btnReactLike) actionListener.onQuickReaction(message, "👍", position);
+            boolean isSelected = isSelectedInMultiMode(message);
+
+            if (layoutSelectionCircle != null) {
+                if (isMultiSelectionMode) {
+                    layoutSelectionCircle.setVisibility(View.VISIBLE);
+                    if (ivSelectionCheck != null) {
+                        if (isSelected) {
+                            ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_active);
+                            ivSelectionCheck.setImageResource(R.drawable.ic_done);
+                            ivSelectionCheck.setAlpha(1.0f);
+                        } else {
+                            ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_idle);
+                            ivSelectionCheck.setImageDrawable(null);
+                            ivSelectionCheck.setAlpha(0.6f);
+                        }
                     }
-                };
-
-                if (btnReactHeart != null) btnReactHeart.setOnClickListener(rxClick);
-                if (btnReactFire != null) btnReactFire.setOnClickListener(rxClick);
-                if (btnReactLike != null) btnReactLike.setOnClickListener(rxClick);
-
-                ImageButton btnExpandReactions = itemView.findViewById(R.id.btnExpandReactions);
-                if (btnExpandReactions != null) {
-                    btnExpandReactions.setOnClickListener(v -> {
-                        layoutMessageActions.setVisibility(View.GONE);
-                        showExpandedReactionsPopup(v, message, position);
-                    });
-                }
-
-                if (btnReplyMsgAction != null) {
-                    btnReplyMsgAction.setOnClickListener(v -> {
-                        layoutMessageActions.setVisibility(View.GONE);
-                        if (actionListener != null) {
-                            actionListener.onReplyMessage(message, position);
-                        }
-                    });
-                }
-
-                if (btnEditMsgAction != null) {
-                    boolean canEdit = message.isOutgoing() && (message.getImagePath() == null || message.getImagePath().isEmpty());
-                    btnEditMsgAction.setVisibility(canEdit ? View.VISIBLE : View.GONE);
-                    btnEditMsgAction.setOnClickListener(v -> {
-                        layoutMessageActions.setVisibility(View.GONE);
-                        if (actionListener != null) {
-                            actionListener.onEditMessage(message, position);
-                        }
-                    });
-                }
-
-                if (btnDeleteMsgAction != null) {
-                    btnDeleteMsgAction.setOnClickListener(v -> {
-                        layoutMessageActions.setVisibility(View.GONE);
-                        if (actionListener != null) {
-                            actionListener.onDeleteMessage(message, position);
-                        }
-                    });
+                } else {
+                    layoutSelectionCircle.setVisibility(View.GONE);
                 }
             }
 
-            GestureDetector doubleTapDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
-                @Override
-                public boolean onDoubleTap(@NonNull MotionEvent e) {
-                    if (isConnectionActive && actionListener != null) {
-                        actionListener.onQuickReaction(message, "❤️", position);
-                        itemView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-                        return true;
-                    }
-                    return false;
-                }
-            });
-            itemView.setOnTouchListener((v, event) -> {
-                doubleTapDetector.onTouchEvent(event);
-                return false;
-            });
+            itemView.setAlpha(isSelected ? 0.85f : 1.0f);
 
             View.OnClickListener bubbleClickListener = v -> {
-                toggleActionPanel(itemView, message, position, layoutOutgoingBubble, layoutMessageActions, listener);
+                if (isMultiSelectionMode) {
+                    toggleMessageSelection(message);
+                } else {
+                    showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
+                }
             };
 
             if (layoutOutgoingBubble != null) {
                 layoutOutgoingBubble.setOnClickListener(bubbleClickListener);
             }
 
+            itemView.setOnClickListener(bubbleClickListener);
             itemView.setOnLongClickListener(v -> {
-                toggleActionPanel(itemView, message, position, layoutOutgoingBubble, layoutMessageActions, listener);
+                if (isMultiSelectionMode) {
+                    toggleMessageSelection(message);
+                } else {
+                    showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
+                }
                 return true;
             });
         }
     }
 
-    private void toggleActionPanel(View itemView, ChatMessage message, int position, View bubbleView, View layoutMessageActions, OnMessageLongClickListener listener) {
-        if (!isConnectionActive) {
-            Activity act = getActivityFromContext(itemView.getContext());
+    public boolean isSelectedInMultiMode(ChatMessage message) {
+        return isMultiSelectionMode && message != null && message.getMessageId() != null && selectedMessageIds.contains(message.getMessageId());
+    }
+
+    private void showMessageContextMenu(View anchorView, ChatMessage message, int position, float touchRawX, float touchRawY) {
+        if (anchorView == null || message == null) return;
+
+        Context context = anchorView.getContext();
+        View menuView = LayoutInflater.from(context).inflate(R.layout.layout_message_context_menu, null);
+
+        eightbitlab.com.blurview.BlurView blurContextMenu = menuView.findViewById(R.id.blurContextMenu);
+        if (blurContextMenu != null) {
+            Activity act = getActivityFromContext(context);
             if (act != null) {
-                PrimeNotification.INSTANCE.show(act, "Действие недоступно без подключения", null);
-            }
-            return;
-        }
-
-        View shakeView = bubbleView != null ? bubbleView : itemView;
-        ObjectAnimator animator = ObjectAnimator.ofFloat(shakeView, "translationX", 0f, -10f, 10f, -6f, 6f, -3f, 3f, 0f);
-        animator.setDuration(300);
-        animator.start();
-
-        if (layoutMessageActions != null) {
-            View layoutDefaultActions = itemView.findViewById(R.id.layoutDefaultActions);
-            View layoutSelectionActions = itemView.findViewById(R.id.layoutSelectionActions);
-            if (layoutDefaultActions != null) layoutDefaultActions.setVisibility(View.VISIBLE);
-            if (layoutSelectionActions != null) layoutSelectionActions.setVisibility(View.GONE);
-
-            if (layoutMessageActions.getVisibility() == View.VISIBLE) {
-                layoutMessageActions.animate()
-                        .alpha(0f)
-                        .scaleX(0.7f)
-                        .scaleY(0.7f)
-                        .setDuration(180)
-                        .withEndAction(() -> layoutMessageActions.setVisibility(View.GONE))
-                        .start();
-            } else {
-                layoutMessageActions.setVisibility(View.VISIBLE);
-                layoutMessageActions.setAlpha(0f);
-                layoutMessageActions.setScaleX(0.7f);
-                layoutMessageActions.setScaleY(0.7f);
-                layoutMessageActions.animate()
-                        .alpha(1f)
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .setDuration(220)
-                        .setInterpolator(new OvershootInterpolator())
-                        .start();
+                ViewGroup rootView = act.findViewById(android.R.id.content);
+                if (rootView == null) rootView = (ViewGroup) act.getWindow().getDecorView();
+                boolean isDark = (act.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+                int overlayColor = isDark ? Color.parseColor("#450F172A") : Color.parseColor("#45154B87");
+                com.messenger.prime.BlurViewKt.setupBlur(blurContextMenu, rootView, 18f, overlayColor, act.getWindow().getDecorView().getBackground());
             }
         }
 
-        if (listener != null) {
-            listener.onMessageLongClick(message, position);
+        PopupWindow popupWindow = new PopupWindow(
+                menuView,
+                (int) (250 * context.getResources().getDisplayMetrics().density),
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                true
+        );
+
+        popupWindow.setElevation(20f);
+        popupWindow.setOutsideTouchable(true);
+        popupWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+        View layoutReactionsRow = menuView.findViewById(R.id.layoutReactionsRow);
+        View btnMenuReply = menuView.findViewById(R.id.btnMenuReply);
+        View btnMenuCopy = menuView.findViewById(R.id.btnMenuCopy);
+        View btnMenuForward = menuView.findViewById(R.id.btnMenuForward);
+        View btnMenuEdit = menuView.findViewById(R.id.btnMenuEdit);
+        View btnMenuDelete = menuView.findViewById(R.id.btnMenuDelete);
+        View btnMenuSelect = menuView.findViewById(R.id.btnMenuSelect);
+
+        // Check connection status
+        if (!isConnectionActive) {
+            // Offline/Disconnected: ONLY Copy option is available!
+            if (layoutReactionsRow != null) layoutReactionsRow.setVisibility(View.GONE);
+            if (btnMenuReply != null) btnMenuReply.setVisibility(View.GONE);
+            if (btnMenuForward != null) btnMenuForward.setVisibility(View.GONE);
+            if (btnMenuEdit != null) btnMenuEdit.setVisibility(View.GONE);
+            if (btnMenuDelete != null) btnMenuDelete.setVisibility(View.GONE);
+            if (btnMenuSelect != null) btnMenuSelect.setVisibility(View.GONE);
+            if (btnMenuCopy != null) btnMenuCopy.setVisibility(View.VISIBLE);
+        } else {
+            // Online/Connected state
+            if (layoutReactionsRow != null) layoutReactionsRow.setVisibility(View.VISIBLE);
+            if (btnMenuReply != null) btnMenuReply.setVisibility(View.VISIBLE);
+            if (btnMenuCopy != null) btnMenuCopy.setVisibility(View.VISIBLE);
+            if (btnMenuForward != null) btnMenuForward.setVisibility(View.VISIBLE);
+            if (btnMenuSelect != null) btnMenuSelect.setVisibility(View.VISIBLE);
+
+            boolean isMyMessage = message.isOutgoing();
+            boolean isTextMessage = message.getText() != null && !message.getText().isEmpty()
+                    && !"Фото".equals(message.getText()) && !"Файл".equals(message.getText());
+
+            if (btnMenuEdit != null) {
+                btnMenuEdit.setVisibility((isMyMessage && isTextMessage) ? View.VISIBLE : View.GONE);
+            }
+            if (btnMenuDelete != null) {
+                btnMenuDelete.setVisibility(isMyMessage ? View.VISIBLE : View.GONE);
+            }
         }
+
+        // Setup Reactions listeners
+        View.OnClickListener reactionClick = v -> {
+            popupWindow.dismiss();
+            if (actionListener != null) {
+                String emoji = "👍";
+                int id = v.getId();
+                if (id == R.id.btnReactionThumbUp) emoji = "👍";
+                else if (id == R.id.btnReactionHeart) emoji = "❤️";
+                else if (id == R.id.btnReactionJoy) emoji = "😂";
+                else if (id == R.id.btnReactionWow) emoji = "😮";
+                else if (id == R.id.btnReactionSad) emoji = "😢";
+                else if (id == R.id.btnReactionPray) emoji = "🙏";
+
+                actionListener.onQuickReaction(message, emoji, position);
+            }
+        };
+
+        View btnThumbUp = menuView.findViewById(R.id.btnReactionThumbUp);
+        View btnHeart = menuView.findViewById(R.id.btnReactionHeart);
+        View btnJoy = menuView.findViewById(R.id.btnReactionJoy);
+        View btnWow = menuView.findViewById(R.id.btnReactionWow);
+        View btnSad = menuView.findViewById(R.id.btnReactionSad);
+        View btnPray = menuView.findViewById(R.id.btnReactionPray);
+        View btnExpand = menuView.findViewById(R.id.btnExpandReactions);
+
+        if (btnThumbUp != null) btnThumbUp.setOnClickListener(reactionClick);
+        if (btnHeart != null) btnHeart.setOnClickListener(reactionClick);
+        if (btnJoy != null) btnJoy.setOnClickListener(reactionClick);
+        if (btnWow != null) btnWow.setOnClickListener(reactionClick);
+        if (btnSad != null) btnSad.setOnClickListener(reactionClick);
+        if (btnPray != null) btnPray.setOnClickListener(reactionClick);
+
+        if (btnExpand != null) {
+            btnExpand.setOnClickListener(v -> {
+                popupWindow.dismiss();
+                if (actionListener != null) {
+                    actionListener.onExpandReactions(message, anchorView, position);
+                }
+            });
+        }
+
+        // Setup Item Listeners
+        if (btnMenuReply != null) {
+            btnMenuReply.setOnClickListener(v -> {
+                popupWindow.dismiss();
+                if (actionListener != null) {
+                    actionListener.onReplyMessage(message, position);
+                }
+            });
+        }
+
+        if (btnMenuCopy != null) {
+            btnMenuCopy.setOnClickListener(v -> {
+                popupWindow.dismiss();
+                String copyText = message.getText();
+                if (copyText == null || copyText.isEmpty()) {
+                    copyText = message.getImagePath() != null ? message.getImagePath() : "";
+                }
+                if (!copyText.isEmpty()) {
+                    ClipboardManager clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (clipboard != null) {
+                        ClipData clip = ClipData.newPlainText("chat_message", copyText);
+                        clipboard.setPrimaryClip(clip);
+                        Activity act = getActivityFromContext(context);
+                        if (act != null) {
+                            PrimeNotification.INSTANCE.show(act, "Сообщение скопировано", null);
+                        }
+                    }
+                }
+            });
+        }
+
+        if (btnMenuForward != null) {
+            btnMenuForward.setOnClickListener(v -> {
+                popupWindow.dismiss();
+                if (actionListener != null) {
+                    actionListener.onForwardMessage(message, position);
+                }
+            });
+        }
+
+        if (btnMenuEdit != null) {
+            btnMenuEdit.setOnClickListener(v -> {
+                popupWindow.dismiss();
+                if (actionListener != null) {
+                    actionListener.onEditMessage(message, position);
+                }
+            });
+        }
+
+        if (btnMenuDelete != null) {
+            btnMenuDelete.setOnClickListener(v -> {
+                popupWindow.dismiss();
+                if (actionListener != null) {
+                    actionListener.onDeleteMessage(message, position);
+                }
+            });
+        }
+
+        if (btnMenuSelect != null) {
+            btnMenuSelect.setOnClickListener(v -> {
+                popupWindow.dismiss();
+                setMultiSelectionMode(true);
+                toggleMessageSelection(message);
+                if (actionListener != null) {
+                    actionListener.onSelectMessage(message, position);
+                }
+            });
+        }
+
+        // Anchor & Position calculation from touch point
+        menuView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        int menuWidth = menuView.getMeasuredWidth();
+        int menuHeight = menuView.getMeasuredHeight();
+
+        int[] location = new int[2];
+        anchorView.getLocationOnScreen(location);
+
+        int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
+        int screenHeight = context.getResources().getDisplayMetrics().heightPixels;
+
+        float touchX = touchRawX > 0 ? touchRawX : (location[0] + anchorView.getWidth() / 2f);
+        float touchY = touchRawY > 0 ? touchRawY : (location[1] + anchorView.getHeight() / 2f);
+
+        int x = (int) (touchX - menuWidth / 2f);
+        x = Math.max(16, Math.min(x, screenWidth - menuWidth - 16));
+
+        boolean showAbove = touchY > (screenHeight * 0.55f);
+
+        int y;
+        if (showAbove) {
+            y = (int) (touchY - menuHeight - (8 * context.getResources().getDisplayMetrics().density));
+            if (y < (60 * context.getResources().getDisplayMetrics().density)) {
+                y = (int) (touchY + (8 * context.getResources().getDisplayMetrics().density));
+            }
+        } else {
+            y = (int) (touchY + (8 * context.getResources().getDisplayMetrics().density));
+            if (y + menuHeight > screenHeight - (60 * context.getResources().getDisplayMetrics().density)) {
+                y = (int) (touchY - menuHeight - (8 * context.getResources().getDisplayMetrics().density));
+            }
+        }
+
+        // Set expansion pivot to exact touch position relative to menu
+        float pivotX = Math.max(0f, Math.min(touchX - x, (float) menuWidth));
+        float pivotY = (y < touchY) ? (float) menuHeight : 0f;
+
+        menuView.setPivotX(pivotX);
+        menuView.setPivotY(pivotY);
+
+        menuView.setScaleX(0.15f);
+        menuView.setScaleY(0.15f);
+        menuView.setAlpha(0f);
+
+        popupWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY, x, Math.max(80, y));
+
+        menuView.animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .alpha(1.0f)
+                .setDuration(220)
+                .setInterpolator(new OvershootInterpolator(1.2f))
+                .start();
     }
 
     private void setupCustomTextSelectionActionMode(View itemView, TextView textView, ChatMessage message, int position) {
         if (textView == null || itemView == null) return;
-
-        View layoutMessageActions = itemView.findViewById(R.id.layoutMessageActions);
-        View layoutDefaultActions = itemView.findViewById(R.id.layoutDefaultActions);
-        View layoutSelectionActions = itemView.findViewById(R.id.layoutSelectionActions);
-        View btnReplySelectionAction = itemView.findViewById(R.id.btnReplySelectionAction);
-        View btnCopySelectionAction = itemView.findViewById(R.id.btnCopySelectionAction);
 
         textView.setCustomSelectionActionModeCallback(new ActionMode.Callback() {
             private ActionMode activeMode = null;
@@ -2276,28 +2541,52 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             public boolean onCreateActionMode(ActionMode mode, Menu menu) {
                 activeMode = mode;
                 menu.clear();
+                return true;
+            }
 
-                if (layoutMessageActions != null) {
-                    if (layoutDefaultActions != null) layoutDefaultActions.setVisibility(View.GONE);
-                    if (layoutSelectionActions != null) layoutSelectionActions.setVisibility(View.VISIBLE);
+            @Override
+            public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+                menu.clear();
 
-                    if (layoutMessageActions.getVisibility() != View.VISIBLE) {
-                        layoutMessageActions.setVisibility(View.VISIBLE);
-                        layoutMessageActions.setAlpha(0f);
-                        layoutMessageActions.setScaleX(0.7f);
-                        layoutMessageActions.setScaleY(0.7f);
-                        layoutMessageActions.animate()
-                                .alpha(1f)
-                                .scaleX(1f)
-                                .scaleY(1f)
-                                .setDuration(220)
-                                .setInterpolator(new OvershootInterpolator())
-                                .start();
+                Context context = textView.getContext();
+                View menuView = LayoutInflater.from(context).inflate(R.layout.layout_text_selection_menu, null);
+
+                eightbitlab.com.blurview.BlurView blurTextSelectionMenu = menuView.findViewById(R.id.blurTextSelectionMenu);
+                if (blurTextSelectionMenu != null) {
+                    Activity act = getActivityFromContext(context);
+                    if (act != null) {
+                        ViewGroup rootView = act.findViewById(android.R.id.content);
+                        if (rootView == null) rootView = (ViewGroup) act.getWindow().getDecorView();
+                        boolean isDark = (act.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+                        int overlayColor = isDark ? Color.parseColor("#450F172A") : Color.parseColor("#45154B87");
+                        com.messenger.prime.BlurViewKt.setupBlur(blurTextSelectionMenu, rootView, 18f, overlayColor, act.getWindow().getDecorView().getBackground());
                     }
                 }
 
-                if (btnReplySelectionAction != null) {
-                    btnReplySelectionAction.setOnClickListener(v -> {
+                int menuWidth = (int) (230 * context.getResources().getDisplayMetrics().density);
+                int menuHeight = (int) (90 * context.getResources().getDisplayMetrics().density);
+
+                PopupWindow popupWindow = new PopupWindow(
+                        menuView,
+                        menuWidth,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        true
+                );
+
+                popupWindow.setElevation(16f);
+                popupWindow.setOutsideTouchable(true);
+                popupWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+                View btnReply = menuView.findViewById(R.id.btnSelectionReply);
+                View btnCopy = menuView.findViewById(R.id.btnSelectionCopy);
+
+                if (!isConnectionActive && btnReply != null) {
+                    btnReply.setVisibility(View.GONE);
+                }
+
+                if (btnReply != null) {
+                    btnReply.setOnClickListener(v -> {
+                        popupWindow.dismiss();
                         String selectedText = getSelectedText(textView);
                         if (!selectedText.isEmpty() && actionListener != null) {
                             actionListener.onReplyToSelectedText(message, selectedText, position);
@@ -2308,15 +2597,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     });
                 }
 
-                if (btnCopySelectionAction != null) {
-                    btnCopySelectionAction.setOnClickListener(v -> {
+                if (btnCopy != null) {
+                    btnCopy.setOnClickListener(v -> {
+                        popupWindow.dismiss();
                         String selectedText = getSelectedText(textView);
                         if (!selectedText.isEmpty()) {
-                            ClipboardManager clipboard = (ClipboardManager) textView.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                            ClipboardManager clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
                             if (clipboard != null) {
                                 ClipData clip = ClipData.newPlainText("selected_text", selectedText);
                                 clipboard.setPrimaryClip(clip);
-                                Activity act = getActivityFromContext(textView.getContext());
+                                Activity act = getActivityFromContext(context);
                                 if (act != null) {
                                     PrimeNotification.INSTANCE.show(act, "Текст скопирован", null);
                                 }
@@ -2328,12 +2618,44 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     });
                 }
 
-                return true;
-            }
+                int[] location = new int[2];
+                textView.getLocationOnScreen(location);
 
-            @Override
-            public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
-                menu.clear();
+                int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
+                int screenHeight = context.getResources().getDisplayMetrics().heightPixels;
+
+                float selectX = location[0] + textView.getWidth() / 2f;
+                float selectY = location[1];
+
+                android.text.Layout tvLayout = textView.getLayout();
+                if (tvLayout != null) {
+                    int selStart = textView.getSelectionStart();
+                    if (selStart >= 0 && selStart <= textView.getText().length()) {
+                        int line = tvLayout.getLineForOffset(Math.min(selStart, textView.getText().length()));
+                        float lineTop = tvLayout.getLineTop(line);
+                        float horizontal = tvLayout.getPrimaryHorizontal(Math.min(selStart, textView.getText().length()));
+
+                        selectX = location[0] + textView.getCompoundPaddingLeft() + horizontal;
+                        selectY = location[1] + textView.getCompoundPaddingTop() + lineTop;
+                    }
+                }
+
+                int x = (int) (selectX - menuWidth / 2f);
+                x = Math.max(16, Math.min(x, screenWidth - menuWidth - 16));
+
+                boolean showAbove = selectY > (screenHeight * 0.45f);
+                int y;
+                if (showAbove) {
+                    y = (int) (selectY - menuHeight - (10 * context.getResources().getDisplayMetrics().density));
+                    if (y < (60 * context.getResources().getDisplayMetrics().density)) {
+                        y = (int) (selectY + (32 * context.getResources().getDisplayMetrics().density));
+                    }
+                } else {
+                    y = (int) (selectY + (32 * context.getResources().getDisplayMetrics().density));
+                }
+
+                popupWindow.showAtLocation(textView, Gravity.NO_GRAVITY, x, Math.max(80, y));
+
                 return true;
             }
 
@@ -2345,11 +2667,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             @Override
             public void onDestroyActionMode(ActionMode mode) {
                 activeMode = null;
-                if (layoutMessageActions != null) {
-                    layoutMessageActions.setVisibility(View.GONE);
-                    if (layoutSelectionActions != null) layoutSelectionActions.setVisibility(View.GONE);
-                    if (layoutDefaultActions != null) layoutDefaultActions.setVisibility(View.VISIBLE);
-                }
             }
         });
     }
@@ -2474,7 +2791,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
-    private void showExpandedReactionsPopup(View anchorView, ChatMessage message, int position) {
+    public void showExpandedReactionsPopup(View anchorView, ChatMessage message, int position) {
         if (anchorView == null || anchorView.getContext() == null) return;
         Context context = anchorView.getContext();
 
