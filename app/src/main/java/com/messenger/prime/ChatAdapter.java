@@ -150,6 +150,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public void toggleMessageSelection(ChatMessage message) {
         if (message == null || message.getMessageId() == null) return;
         String id = message.getMessageId();
+        int pos = findPositionByMessageId(id);
         if (selectedMessageIds.contains(id)) {
             selectedMessageIds.remove(id);
         } else {
@@ -161,11 +162,64 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 actionListener.onSelectionChanged(0);
             }
         } else {
-            notifyDataSetChanged();
+            if (pos != -1) {
+                notifyItemChanged(pos, "SELECTION_CHANGE");
+            } else {
+                notifyDataSetChanged();
+            }
             if (actionListener != null) {
                 actionListener.onSelectionChanged(selectedMessageIds.size());
             }
         }
+    }
+
+    private final Set<String> dragInitialSelectedIds = new java.util.HashSet<>();
+
+    public void startDragSelection(int startPos) {
+        dragInitialSelectedIds.clear();
+        dragInitialSelectedIds.addAll(selectedMessageIds);
+    }
+
+    public boolean updateDragSelectionRange(int startPos, int currentPos, boolean isSelecting) {
+        if (messages == null || messages.isEmpty()) return false;
+        int min = Math.max(0, Math.min(startPos, currentPos));
+        int max = Math.min(messages.size() - 1, Math.max(startPos, currentPos));
+
+        boolean changedAny = false;
+        if (!isMultiSelectionMode) {
+            isMultiSelectionMode = true;
+        }
+
+        for (int i = 0; i < messages.size(); i++) {
+            ChatMessage msg = messages.get(i);
+            if (msg == null || msg.getMessageId() == null) continue;
+            String id = msg.getMessageId();
+
+            boolean wasInitiallySelected = dragInitialSelectedIds.contains(id);
+            boolean shouldBeSelected;
+
+            if (i >= min && i <= max) {
+                shouldBeSelected = isSelecting;
+            } else {
+                shouldBeSelected = wasInitiallySelected;
+            }
+
+            boolean isCurrentlySelected = selectedMessageIds.contains(id);
+            if (shouldBeSelected != isCurrentlySelected) {
+                if (shouldBeSelected) {
+                    selectedMessageIds.add(id);
+                } else {
+                    selectedMessageIds.remove(id);
+                }
+                notifyItemChanged(i, "SELECTION_CHANGE");
+                changedAny = true;
+            }
+        }
+
+        if (changedAny && actionListener != null) {
+            actionListener.onSelectionChanged(selectedMessageIds.size());
+        }
+        return changedAny;
     }
 
     public void clearSelection() {
@@ -616,7 +670,37 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position, @NonNull List<Object> payloads) {
         if (!payloads.isEmpty()) {
-            if (payloads.contains("HIGHLIGHT")) {
+            if (payloads.contains("SELECTION_CHANGE")) {
+                if (position >= 0 && position < messages.size()) {
+                    ChatMessage message = messages.get(position);
+                    boolean isSelected = isSelectedInMultiMode(message);
+
+                    holder.itemView.setAlpha(isSelected ? 0.85f : 1.0f);
+
+                    View layoutSelectionCircle = holder.itemView.findViewById(R.id.layoutSelectionCircle);
+                    ImageView ivSelectionCheck = holder.itemView.findViewById(R.id.ivSelectionCheck);
+
+                    if (layoutSelectionCircle != null) {
+                        if (isMultiSelectionMode) {
+                            layoutSelectionCircle.setVisibility(View.VISIBLE);
+                            if (ivSelectionCheck != null) {
+                                if (isSelected) {
+                                    ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_active);
+                                    ivSelectionCheck.setImageResource(R.drawable.ic_done);
+                                    ivSelectionCheck.setAlpha(1.0f);
+                                } else {
+                                    ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_idle);
+                                    ivSelectionCheck.setImageDrawable(null);
+                                    ivSelectionCheck.setAlpha(0.6f);
+                                }
+                            }
+                        } else {
+                            layoutSelectionCircle.setVisibility(View.GONE);
+                        }
+                    }
+                }
+                return;
+            } else if (payloads.contains("HIGHLIGHT")) {
                 View view = holder.itemView;
                 view.animate().cancel();
                 ObjectAnimator flicker = ObjectAnimator.ofFloat(view, "alpha", 1f, 0.15f, 1f, 0.15f, 1f, 0.35f, 1f);
@@ -965,7 +1049,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return String.format(Locale.getDefault(), "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
     }
 
-    private void bindLinkPreview(View itemView, String messageText) {
+    private void bindLinkPreview(View itemView, String messageText, ChatMessage message) {
         View layoutLinkPreview = itemView.findViewById(R.id.layoutLinkPreview);
         ImageView ivLinkPreviewImage = itemView.findViewById(R.id.ivLinkPreviewImage);
         TextView tvLinkPreviewTitle = itemView.findViewById(R.id.tvLinkPreviewTitle);
@@ -1011,6 +1095,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 });
 
                 layoutLinkPreview.setOnClickListener(v -> {
+                    if (isMultiSelectionMode) {
+                        toggleMessageSelection(message);
+                        return;
+                    }
                     try {
                         String targetUrl = url;
                         if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
@@ -1121,6 +1209,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 if (btnMusicPlayPause != null) {
                     btnMusicPlayPause.setImageResource(isPlayingThis ? R.drawable.ic_media_pause : R.drawable.ic_media_play);
                     btnMusicPlayPause.setOnClickListener(v -> {
+                        if (isMultiSelectionMode) {
+                            toggleMessageSelection(message);
+                            return;
+                        }
                         if (isPlayingThis) {
                             PrimeMusicManager.INSTANCE.togglePlayPause(v.getContext());
                         } else {
@@ -1134,6 +1226,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     boolean isSaved = PrimeMusicManager.INSTANCE.isTrackInCollection(layoutMusicContainer.getContext(), path);
                     btnMusicDownload.setImageResource(isSaved ? R.drawable.ic_done : R.drawable.ic_download);
                     btnMusicDownload.setOnClickListener(v -> {
+                        if (isMultiSelectionMode) {
+                            toggleMessageSelection(message);
+                            return;
+                        }
                         TrackItem saved = PrimeMusicManager.INSTANCE.saveTrackToCollection(v.getContext(), path, title, artist);
                         if (saved != null) {
                             Toast.makeText(v.getContext(), "Сохранено в коллекцию", Toast.LENGTH_SHORT).show();
@@ -1145,6 +1241,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 }
 
                 layoutMusicContainer.setOnClickListener(v -> {
+                    if (isMultiSelectionMode) {
+                        toggleMessageSelection(message);
+                        return;
+                    }
                     PrimeMusicPlayerDialog playerDialog = new PrimeMusicPlayerDialog(v.getContext());
                     playerDialog.show(trackItem, java.util.Collections.singletonList(trackItem));
                 });
@@ -1186,13 +1286,29 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 }
 
                 if (btnFileDownload != null) {
-                    btnFileDownload.setOnClickListener(v -> startDownloadSimulation(message, position));
+                    btnFileDownload.setOnClickListener(v -> {
+                        if (isMultiSelectionMode) {
+                            toggleMessageSelection(message);
+                            return;
+                        }
+                        startDownloadSimulation(message, position);
+                    });
                 }
                 if (btnCancelDownload != null) {
-                    btnCancelDownload.setOnClickListener(v -> cancelDownloadSimulation(message, position));
+                    btnCancelDownload.setOnClickListener(v -> {
+                        if (isMultiSelectionMode) {
+                            toggleMessageSelection(message);
+                            return;
+                        }
+                        cancelDownloadSimulation(message, position);
+                    });
                 }
 
                 layoutFileContainer.setOnClickListener(v -> {
+                    if (isMultiSelectionMode) {
+                        toggleMessageSelection(message);
+                        return;
+                    }
                     String path = message.getImagePath();
                     if (path != null && new File(path).exists()) {
                         openFile(v.getContext(), path);
@@ -1254,14 +1370,26 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
-    private static void setupSingleTapMediaOpener(View targetView, ChatMessage message, List<ChatMessage> messagesList) {
+    private void setupSingleTapMediaOpener(View targetView, ChatMessage message, List<ChatMessage> messagesList) {
         if (targetView == null) return;
-        targetView.setOnClickListener(v -> showFullScreenMedia(v.getContext(), v, message, messagesList));
+        targetView.setOnClickListener(v -> {
+            if (isMultiSelectionMode) {
+                toggleMessageSelection(message);
+                return;
+            }
+            showFullScreenMedia(v.getContext(), v, message, messagesList);
+        });
     }
 
-    private static void setupSingleTapMediaOpenerIndexed(View targetView, ChatMessage message, List<ChatMessage> messagesList, int itemIndex) {
+    private void setupSingleTapMediaOpenerIndexed(View targetView, ChatMessage message, List<ChatMessage> messagesList, int itemIndex) {
         if (targetView == null) return;
-        targetView.setOnClickListener(v -> showFullScreenMedia(v.getContext(), v, message, messagesList, itemIndex));
+        targetView.setOnClickListener(v -> {
+            if (isMultiSelectionMode) {
+                toggleMessageSelection(message);
+                return;
+            }
+            showFullScreenMedia(v.getContext(), v, message, messagesList, itemIndex);
+        });
     }
 
     private void bindSingleMediaItem(ChatMessage.MediaItem item, View container, ChatMessage message, ImageView ivImage, VideoView vvPreview, ImageView ivPlay, TextView tvDur) {
@@ -1940,6 +2068,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         tvQuotedText.setText(qText != null && !qText.isEmpty() ? qText : "Вложение");
                     }
                     layoutQuotedReply.setOnClickListener(v -> {
+                        if (isMultiSelectionMode) {
+                            toggleMessageSelection(message);
+                            return;
+                        }
                         if (actionListener != null && message.getReplyToMessageId() != null) {
                             actionListener.onJumpToMessage(message.getReplyToMessageId(), message.getReplyToText());
                         }
@@ -1963,11 +2095,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 tvMessageText.setMovementMethod(LinkMovementMethod.getInstance());
                 tvMessageText.setTextIsSelectable(true);
                 setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
-                bindLinkPreview(itemView, text);
+                bindLinkPreview(itemView, text, message);
                 tvMessageText.setOnClickListener(v -> {
                     if (isMultiSelectionMode) {
                         toggleMessageSelection(message);
-                    } else {
+                    } else if (!tvMessageText.hasSelection()) {
                         showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
                     }
                 });
@@ -2153,6 +2285,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         tvQuotedText.setText(qText != null && !qText.isEmpty() ? qText : "Вложение");
                     }
                     layoutQuotedReply.setOnClickListener(v -> {
+                        if (isMultiSelectionMode) {
+                            toggleMessageSelection(message);
+                            return;
+                        }
                         if (actionListener != null && message.getReplyToMessageId() != null) {
                             actionListener.onJumpToMessage(message.getReplyToMessageId(), message.getReplyToText());
                         }
@@ -2176,11 +2312,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 tvMessageText.setMovementMethod(LinkMovementMethod.getInstance());
                 tvMessageText.setTextIsSelectable(true);
                 setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
-                bindLinkPreview(itemView, text);
+                bindLinkPreview(itemView, text, message);
                 tvMessageText.setOnClickListener(v -> {
                     if (isMultiSelectionMode) {
                         toggleMessageSelection(message);
-                    } else {
+                    } else if (!tvMessageText.hasSelection()) {
                         showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
                     }
                 });
@@ -2536,6 +2672,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         textView.setCustomSelectionActionModeCallback(new ActionMode.Callback() {
             private ActionMode activeMode = null;
+            private PopupWindow activePopupWindow = null;
+            private boolean isInternalDismiss = false;
 
             @Override
             public boolean onCreateActionMode(ActionMode mode, Menu menu) {
@@ -2547,6 +2685,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             @Override
             public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
                 menu.clear();
+                if (activePopupWindow != null && activePopupWindow.isShowing()) {
+                    isInternalDismiss = true;
+                    try { activePopupWindow.dismiss(); } catch (Exception ignored) {}
+                    activePopupWindow = null;
+                    isInternalDismiss = false;
+                }
 
                 Context context = textView.getContext();
                 View menuView = LayoutInflater.from(context).inflate(R.layout.layout_text_selection_menu, null);
@@ -2570,37 +2714,59 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         menuView,
                         menuWidth,
                         ViewGroup.LayoutParams.WRAP_CONTENT,
-                        true
+                        false
                 );
 
                 popupWindow.setElevation(16f);
                 popupWindow.setOutsideTouchable(true);
+                popupWindow.setTouchable(true);
                 popupWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+                activePopupWindow = popupWindow;
+
+                popupWindow.setOnDismissListener(() -> {
+                    if (!isInternalDismiss) {
+                        activePopupWindow = null;
+                        if (activeMode != null) {
+                            try { activeMode.finish(); } catch (Exception ignored) {}
+                        }
+                    }
+                });
 
                 View btnReply = menuView.findViewById(R.id.btnSelectionReply);
                 View btnCopy = menuView.findViewById(R.id.btnSelectionCopy);
 
-                if (!isConnectionActive && btnReply != null) {
-                    btnReply.setVisibility(View.GONE);
-                }
-
                 if (btnReply != null) {
+                    btnReply.setVisibility(View.VISIBLE);
                     btnReply.setOnClickListener(v -> {
-                        popupWindow.dismiss();
                         String selectedText = getSelectedText(textView);
-                        if (!selectedText.isEmpty() && actionListener != null) {
-                            actionListener.onReplyToSelectedText(message, selectedText, position);
+                        isInternalDismiss = true;
+                        if (activePopupWindow != null) {
+                            try { activePopupWindow.dismiss(); } catch (Exception ignored) {}
+                            activePopupWindow = null;
                         }
                         if (activeMode != null) {
                             try { activeMode.finish(); } catch (Exception ignored) {}
+                        }
+                        isInternalDismiss = false;
+                        if (!selectedText.isEmpty() && actionListener != null) {
+                            actionListener.onReplyToSelectedText(message, selectedText, position);
                         }
                     });
                 }
 
                 if (btnCopy != null) {
                     btnCopy.setOnClickListener(v -> {
-                        popupWindow.dismiss();
                         String selectedText = getSelectedText(textView);
+                        isInternalDismiss = true;
+                        if (activePopupWindow != null) {
+                            try { activePopupWindow.dismiss(); } catch (Exception ignored) {}
+                            activePopupWindow = null;
+                        }
+                        if (activeMode != null) {
+                            try { activeMode.finish(); } catch (Exception ignored) {}
+                        }
+                        isInternalDismiss = false;
                         if (!selectedText.isEmpty()) {
                             ClipboardManager clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
                             if (clipboard != null) {
@@ -2611,9 +2777,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                                     PrimeNotification.INSTANCE.show(act, "Текст скопирован", null);
                                 }
                             }
-                        }
-                        if (activeMode != null) {
-                            try { activeMode.finish(); } catch (Exception ignored) {}
                         }
                     });
                 }
@@ -2654,7 +2817,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     y = (int) (selectY + (32 * context.getResources().getDisplayMetrics().density));
                 }
 
-                popupWindow.showAtLocation(textView, Gravity.NO_GRAVITY, x, Math.max(80, y));
+                if (textView.isAttachedToWindow()) {
+                    try {
+                        popupWindow.showAtLocation(textView, Gravity.NO_GRAVITY, x, Math.max(80, y));
+                    } catch (Exception ignored) {}
+                }
 
                 return true;
             }
@@ -2667,6 +2834,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             @Override
             public void onDestroyActionMode(ActionMode mode) {
                 activeMode = null;
+                if (activePopupWindow != null && activePopupWindow.isShowing()) {
+                    isInternalDismiss = true;
+                    try { activePopupWindow.dismiss(); } catch (Exception ignored) {}
+                    activePopupWindow = null;
+                    isInternalDismiss = false;
+                }
+                try {
+                    CharSequence cs = textView.getText();
+                    if (cs instanceof android.text.Spannable) {
+                        android.text.Selection.removeSelection((android.text.Spannable) cs);
+                    }
+                } catch (Exception ignored) {}
             }
         });
     }
@@ -2929,6 +3108,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     (!currentUser.isEmpty() && author.equalsIgnoreCase(currentUser));
 
             chip.setOnClickListener(v -> {
+                if (isMultiSelectionMode) {
+                    toggleMessageSelection(message);
+                    return;
+                }
                 if (isLocalAuthor) {
                     if (actionListener != null) {
                         actionListener.onQuickReaction(message, null, position);

@@ -502,6 +502,27 @@ object PrimeNotification {
         }
     }
 
+    @JvmStatic
+    @JvmOverloads
+    fun cancelNotificationForUser(context: Context?, senderName: String?, deviceAddress: String? = null) {
+        if (context == null) return
+        try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            val keysToCancel = mutableSetOf<String>()
+            if (!deviceAddress.isNullOrEmpty()) keysToCancel.add(deviceAddress)
+            if (!senderName.isNullOrEmpty()) keysToCancel.add(senderName)
+
+            for (key in keysToCancel) {
+                val notificationId = 10000 + Math.abs(key.hashCode() % 80000)
+                nm.cancel(notificationId)
+                val rawId = Math.abs(key.hashCode())
+                nm.cancel(rawId)
+            }
+        } catch (e: Throwable) {
+            Log.e(TAG, "Failed to cancel notification for user", e)
+        }
+    }
+
     private fun getAvatarFileFor(context: Context, senderName: String?, deviceAddress: String?): File? {
         val filesDir = context.filesDir ?: return null
         val candidates = arrayOf(

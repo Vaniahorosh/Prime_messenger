@@ -229,28 +229,41 @@ class ChatListAdapter(
             }
         }
 
-        if (diffBundle.containsKey("lastMessage") || diffBundle.containsKey("activityState") || diffBundle.containsKey("isTyping")) {
+        if (diffBundle.containsKey("lastMessage") || diffBundle.containsKey("activityState") || diffBundle.containsKey("isTyping") || diffBundle.containsKey("onlineStatus")) {
             val now = System.currentTimeMillis()
-            val isCurrentlyTyping = chat.isTyping || "TYPING".equals(chat.activityState, ignoreCase = true) || (chat.typingUntil > 0 && chat.typingUntil > now)
+            val isOnline = chat.onlineStatus == OnlineStatus.ONLINE
+            val isCurrentlyTyping = isOnline && (chat.isTyping || "TYPING".equals(chat.activityState, ignoreCase = true) || (chat.typingUntil > 0 && chat.typingUntil > now))
             val accentColor = ColorAccentManager.getCurrentAccentColor(context)
 
-            if (!isCurrentlyTyping && isSearchActive && currentSearchQuery.isNotEmpty()) {
+            if (!isOnline) {
+                holder.stopTypingAnimation()
+                binding.tvLastMessage.text = if (isSearchActive && currentSearchQuery.isNotEmpty()) {
+                    highlightSearchText(chat.lastMessage, currentSearchQuery, accentColor)
+                } else {
+                    chat.lastMessage
+                }
+                binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_text_secondary))
+                binding.tvLastMessage.setTypeface(null, Typeface.NORMAL)
+            } else if (!isCurrentlyTyping && chat.activityState == "IDLE" && isSearchActive && currentSearchQuery.isNotEmpty()) {
                 holder.stopTypingAnimation()
                 binding.tvLastMessage.text = highlightSearchText(chat.lastMessage, currentSearchQuery, accentColor)
                 binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_text_secondary))
                 binding.tvLastMessage.setTypeface(null, Typeface.NORMAL)
-            } else if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true) || "SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
+            } else if ("SELECTING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SELECTING_FILE".equals(chat.activityState, ignoreCase = true)) {
+                holder.startTypingAnimation("Выбирает файл или медиа")
+                binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+            } else if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
                 holder.startTypingAnimation("Отправка медиа")
                 binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                 binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
-            } else if ("VIEWING_PHOTO".equals(chat.activityState, ignoreCase = true)) {
-                holder.stopTypingAnimation()
-                binding.tvLastMessage.text = "Смотрит фото"
+            } else if ("SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
+                holder.startTypingAnimation("Отправка файла")
                 binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                 binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
-            } else if ("VIEWING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
+            } else if ("VIEWING_PHOTO".equals(chat.activityState, ignoreCase = true) || "VIEWING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
                 holder.stopTypingAnimation()
-                binding.tvLastMessage.text = "Смотрит видео"
+                binding.tvLastMessage.text = "Смотрит медиа"
                 binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                 binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
             } else if ("VIEWING_FILE".equals(chat.activityState, ignoreCase = true)) {
@@ -368,7 +381,8 @@ class ChatListAdapter(
                 binding.ivUserAvatar.visibility = View.INVISIBLE
 
                 val now = System.currentTimeMillis()
-                val isCurrentlyTyping = chat.isTyping || "TYPING".equals(chat.activityState, ignoreCase = true) || (chat.typingUntil > 0 && chat.typingUntil > now)
+                val isOnline = chat.onlineStatus == OnlineStatus.ONLINE
+                val isCurrentlyTyping = isOnline && (chat.isTyping || "TYPING".equals(chat.activityState, ignoreCase = true) || (chat.typingUntil > 0 && chat.typingUntil > now))
 
                 val rawName = if (isBluetoothAddress(chat.name)) "Собеседник" else chat.name
                 val accentColor = ColorAccentManager.getCurrentAccentColor(context)
@@ -379,23 +393,35 @@ class ChatListAdapter(
                     binding.tvContactName.text = rawName
                 }
 
-                if (!isCurrentlyTyping && isSearchActive && currentSearchQuery.isNotEmpty()) {
+                if (!isOnline) {
+                    holder.stopTypingAnimation()
+                    binding.tvLastMessage.text = if (isSearchActive && currentSearchQuery.isNotEmpty()) {
+                        highlightSearchText(chat.lastMessage, currentSearchQuery, accentColor)
+                    } else {
+                        chat.lastMessage
+                    }
+                    binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_text_secondary))
+                    binding.tvLastMessage.setTypeface(null, Typeface.NORMAL)
+                } else if (!isCurrentlyTyping && chat.activityState == "IDLE" && isSearchActive && currentSearchQuery.isNotEmpty()) {
                     holder.stopTypingAnimation()
                     binding.tvLastMessage.text = highlightSearchText(chat.lastMessage, currentSearchQuery, accentColor)
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_text_secondary))
                     binding.tvLastMessage.setTypeface(null, Typeface.NORMAL)
-                } else if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true) || "SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
+                } else if ("SELECTING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SELECTING_FILE".equals(chat.activityState, ignoreCase = true)) {
+                    holder.startTypingAnimation("Выбирает файл или медиа")
+                    binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
+                    binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
+                } else if ("SENDING_MEDIA".equals(chat.activityState, ignoreCase = true) || "SENDING_PHOTO".equals(chat.activityState, ignoreCase = true) || "SENDING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
                     holder.startTypingAnimation("Отправка медиа")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
-                } else if ("VIEWING_PHOTO".equals(chat.activityState, ignoreCase = true)) {
-                    holder.stopTypingAnimation()
-                    binding.tvLastMessage.text = "Смотрит фото"
+                } else if ("SENDING_FILE".equals(chat.activityState, ignoreCase = true)) {
+                    holder.startTypingAnimation("Отправка файла")
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
-                } else if ("VIEWING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
+                } else if ("VIEWING_PHOTO".equals(chat.activityState, ignoreCase = true) || "VIEWING_VIDEO".equals(chat.activityState, ignoreCase = true)) {
                     holder.stopTypingAnimation()
-                    binding.tvLastMessage.text = "Смотрит видео"
+                    binding.tvLastMessage.text = "Смотрит медиа"
                     binding.tvLastMessage.setTextColor(ContextCompat.getColor(context, R.color.prime_success))
                     binding.tvLastMessage.setTypeface(null, Typeface.ITALIC)
                 } else if ("VIEWING_FILE".equals(chat.activityState, ignoreCase = true)) {

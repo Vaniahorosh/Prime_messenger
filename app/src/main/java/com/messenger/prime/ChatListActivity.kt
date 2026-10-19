@@ -951,8 +951,13 @@ class ChatListActivity : AppCompatActivity() {
                         val action = stateData.removePrefix("STATE:")
                         val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                         val user = activeTargetUsername ?: ""
-                        if (action == "TYPING") {
-                            sharedPrefs.edit().putLong("typing_until_$user", System.currentTimeMillis() + 4500L).apply()
+                        if (user.isNotEmpty()) {
+                            if ("IDLE".equals(action, ignoreCase = true)) {
+                                sharedPrefs.edit().putLong("typing_until_$user", 0L).apply()
+                            } else {
+                                val duration = if (action.startsWith("SENDING_", ignoreCase = true) || action.startsWith("SELECTING_", ignoreCase = true)) 10000L else 5000L
+                                sharedPrefs.edit().putLong("typing_until_$user", System.currentTimeMillis() + duration).apply()
+                            }
                         }
                         updateChatStatus(true, action)
                     } else {
@@ -1248,8 +1253,12 @@ class ChatListActivity : AppCompatActivity() {
 
                 val statusText = if (!isConnected) {
                     "не в сети"
-                } else if ("SENDING_MEDIA".equals(activityState, ignoreCase = true) || "SENDING_PHOTO".equals(activityState, ignoreCase = true) || "SENDING_VIDEO".equals(activityState, ignoreCase = true) || "SENDING_FILE".equals(activityState, ignoreCase = true)) {
-                    "передает медиафайл..."
+                } else if ("SELECTING_MEDIA".equals(activityState, ignoreCase = true) || "SELECTING_FILE".equals(activityState, ignoreCase = true)) {
+                    "выбирает файл или медиа..."
+                } else if ("SENDING_MEDIA".equals(activityState, ignoreCase = true) || "SENDING_PHOTO".equals(activityState, ignoreCase = true) || "SENDING_VIDEO".equals(activityState, ignoreCase = true)) {
+                    "отправка медиа..."
+                } else if ("SENDING_FILE".equals(activityState, ignoreCase = true)) {
+                    "отправка файла..."
                 } else if ("VIEWING_PHOTO".equals(activityState, ignoreCase = true)) {
                     "смотрит фото"
                 } else if ("VIEWING_VIDEO".equals(activityState, ignoreCase = true)) {
@@ -1270,14 +1279,9 @@ class ChatListActivity : AppCompatActivity() {
                     } else ContextCompat.getColor(activity, R.color.prime_text_secondary)
                 )
 
-                val onlineBadge = GradientDrawable().apply { shape = GradientDrawable.OVAL }
                 if (isConnected) {
-                    b.viewOnlineStatus.visibility = View.VISIBLE
-                    onlineBadge.setColor(ContextCompat.getColor(activity, R.color.prime_success))
-                    b.viewOnlineStatus.background = onlineBadge
                     autoRetryHandler.removeCallbacks(autoRetryRunnable)
                 } else {
-                    b.viewOnlineStatus.visibility = View.GONE
                     autoRetryHandler.removeCallbacks(autoRetryRunnable)
                     autoRetryHandler.postDelayed(autoRetryRunnable, 3500)
                 }
@@ -4075,7 +4079,7 @@ class ChatListActivity : AppCompatActivity() {
                             val typingUntil = item.optLong("typingUntil", 0L)
                             val isTyping = typingUntil > now
                             val rawActState = item.optString("activityState", "IDLE")
-                            val actState = if ("TYPING".equals(rawActState, ignoreCase = true) && !isTyping) "IDLE" else rawActState
+                            val actState = if (!isTyping) "IDLE" else rawActState
 
                             val resolvedAvatar = AvatarManager.getContactAvatarUriOrFile(this@ChatListActivity, idStr, finalName, idStr)
                             val finalAvatar = if (!resolvedAvatar.isNullOrEmpty()) resolvedAvatar else (if (rawAvatar.isNullOrEmpty()) null else rawAvatar)

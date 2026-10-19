@@ -190,17 +190,6 @@
                     app:layout_constraintTop_toTopOf="parent"
                     app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
 
-                <View
-                    android:id="@+id/viewOnlineStatus"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:visibility="gone"
-                    android:background="@android:color/transparent"
-                    app:layout_constraintBottom_toBottomOf="@+id/ivChatAvatar"
-                    app:layout_constraintEnd_toEndOf="@+id/ivChatAvatar"
-                    android:layout_marginEnd="-2dp"
-                    android:layout_marginBottom="-2dp" />
-
                 <TextView
                     android:id="@+id/tvChatName"
                     android:layout_width="0dp"
@@ -502,9 +491,241 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:tint="@color/white" />
 
+    <!-- 3. Отдельный плавающий Островок действий (Ответы, Вложения, Редактирование, Прогресс) поверх контента с реальным BlurView -->
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/layoutActionIsland"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/bg_floating_island"
+        android:elevation="12dp"
+        android:translationZ="12dp"
+        android:outlineProvider="background"
+        android:paddingStart="8dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="6dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/bottomContainer"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
 
-    <!-- 3. Нижний парящий контейнер (Floating Glass Footer) -->
+            <!-- Плавающая панель прогресса отправки / передачи -->
+            <LinearLayout
+                android:id="@+id/layoutSendingProgress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_marginBottom="4dp"
+                android:background="@drawable/bg_pending_attachment"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="12dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="10dp"
+                android:paddingBottom="8dp"
+                android:visibility="gone">
+
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:id="@+id/snakeSendingProgress"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_marginEnd="8dp"
+                    android:indeterminate="true"
+                    app:indicatorColor="@color/prime_progress_start"
+                    app:indicatorSize="22dp"
+                    app:trackColor="@color/prime_progress_track_bg"
+                    app:trackThickness="3dp" />
+
+                <ProgressBar
+                    android:id="@+id/pbSendingProgress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="0dp"
+                    android:layout_height="6dp"
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progressDrawable="@drawable/bg_progress_bar_custom" />
+
+                <TextView
+                    android:id="@+id/tvSendingProgressPercent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:textColor="@color/prime_progress_start"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    tools:text="Передача... 45%" />
+
+                <ImageButton
+                    android:id="@+id/btnCancelSendingProgress"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginStart="8dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Отменить отправку"
+                    android:src="@drawable/ic_cancel"
+                    tools:ignore="HardcodedText"
+                    app:tint="@color/prime_danger" />
+            </LinearLayout>
+
+            <!-- Плавающая панель ожидающих вложений -->
+            <LinearLayout
+                android:id="@+id/layoutPendingAttachment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_marginBottom="4dp"
+                android:background="@drawable/bg_pending_attachment"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="6dp"
+                android:paddingTop="4dp"
+                android:paddingEnd="6dp"
+                android:paddingBottom="4dp"
+                android:visibility="gone">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvPendingCards"
+                    android:layout_width="0dp"
+                    android:layout_height="80dp"
+                    android:layout_weight="1"
+                    android:clipToPadding="false"
+                    android:orientation="horizontal"
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                    tools:listitem="@layout/item_pending_card" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCancelPending"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="6dp"
+                    android:backgroundTint="#1AD32F2F"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:text="Отменить все"
+                    android:textAllCaps="false"
+                    android:textColor="@color/prime_danger"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="12dp"
+                    app:strokeColor="@color/prime_danger"
+                    app:strokeWidth="1dp" />
+            </LinearLayout>
+
+            <!-- Плавающая панель режима ответа -->
+            <LinearLayout
+                android:id="@+id/layoutReplyBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="2dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:contentDescription="Панель"
+                    android:src="@drawable/ic_undo"
+                    app:tint="@color/prime_brand" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvReplyBarTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/prime_brand"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        tools:text="Ответ пользователю" />
+
+                    <TextView
+                        android:id="@+id/tvReplyBarText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="@color/prime_text_secondary"
+                        android:textSize="11sp"
+                        tools:text="Текст сообщения..." />
+                </LinearLayout>
+
+                <ImageButton
+                    android:id="@+id/btnCloseReplyBar"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Отменить ответ"
+                    android:src="@drawable/ic_cancel"
+                    tools:ignore="HardcodedText"
+                    app:tint="@color/prime_danger" />
+            </LinearLayout>
+
+            <!-- Плавающая панель режима редактирования -->
+            <LinearLayout
+                android:id="@+id/layoutEditBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="2dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/ivEditIcon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_edit"
+                    app:tint="@color/prime_brand" />
+
+                <TextView
+                    android:id="@+id/tvEditBarTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:textColor="@color/prime_brand"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    tools:text="Редактирование сообщения" />
+
+                <ImageButton
+                    android:id="@+id/btnCloseEditBar"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Отменить редактирование"
+                    android:src="@drawable/ic_cancel"
+                    tools:ignore="HardcodedText"
+                    app:tint="@color/prime_danger" />
+            </LinearLayout>
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
+
+    <!-- 4. Нижний парящий контейнер (Floating Glass Footer) -->
     <LinearLayout
         android:id="@+id/bottomContainer"
         android:layout_width="0dp"
@@ -530,217 +751,6 @@
             android:paddingEnd="6dp"
             android:paddingBottom="4dp"
             android:visibility="gone">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-            <!-- Плавающая панель прогресса отправки / передачи -->
-            <LinearLayout
-                android:id="@+id/layoutSendingProgress"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp"
-                android:layout_marginBottom="6dp"
-                android:background="@drawable/bg_pending_attachment"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="14dp"
-                android:paddingTop="10dp"
-                android:paddingEnd="12dp"
-                android:paddingBottom="10dp"
-                android:visibility="gone">
-
-                <com.google.android.material.progressindicator.CircularProgressIndicator
-                    android:id="@+id/snakeSendingProgress"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_marginEnd="10dp"
-                    android:indeterminate="true"
-                    app:indicatorColor="@color/prime_progress_start"
-                    app:trackColor="@color/prime_progress_track_bg"
-                    app:indicatorSize="24dp"
-                    app:trackThickness="3dp" />
-
-                <ProgressBar
-                    android:id="@+id/pbSendingProgress"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="0dp"
-                    android:layout_height="6dp"
-                    android:layout_weight="1"
-                    android:max="100"
-                    android:progressDrawable="@drawable/bg_progress_bar_custom" />
-
-                <TextView
-                    android:id="@+id/tvSendingProgressPercent"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:textColor="@color/prime_progress_start"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    tools:text="Передача... 45%" />
-
-                <ImageButton
-                    android:id="@+id/btnCancelSendingProgress"
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:layout_marginStart="10dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    tools:ignore="HardcodedText"
-                    android:contentDescription="Отменить отправку"
-                    android:src="@drawable/ic_cancel"
-                    app:tint="@color/prime_danger" />
-            </LinearLayout>
-
-            <!-- Плавающая панель ожидающих вложений -->
-            <LinearLayout
-                android:id="@+id/layoutPendingAttachment"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp"
-                android:layout_marginBottom="6dp"
-                android:background="@drawable/bg_pending_attachment"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="8dp"
-                android:paddingTop="6dp"
-                android:paddingEnd="8dp"
-                android:paddingBottom="6dp"
-                android:visibility="gone">
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvPendingCards"
-                    android:layout_width="0dp"
-                    android:layout_height="82dp"
-                    android:layout_weight="1"
-                    android:clipToPadding="false"
-                    android:orientation="horizontal"
-                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-                    tools:listitem="@layout/item_pending_card" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnCancelPending"
-                    android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:layout_marginStart="6dp"
-                    android:backgroundTint="#1AD32F2F"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:text="Отменить все"
-                    android:textAllCaps="false"
-                    android:textColor="@color/prime_danger"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    app:cornerRadius="12dp"
-                    app:strokeColor="@color/prime_danger"
-                    app:strokeWidth="1dp" />
-            </LinearLayout>
-
-            <!-- Плавающая панель режима ответа -->
-            <LinearLayout
-                android:id="@+id/layoutReplyBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:visibility="gone">
-
-                <ImageView
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:contentDescription="Панель"
-                    android:src="@drawable/ic_undo"
-                    app:tint="@color/prime_brand" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/tvReplyBarTitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        tools:text="Ответ пользователю"
-                        android:textColor="@color/prime_brand"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tvReplyBarText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        tools:text="Текст сообщения..."
-                        android:textColor="@color/prime_text_secondary"
-                        android:textSize="11sp" />
-                </LinearLayout>
-
-                <ImageButton
-                    android:id="@+id/btnCloseReplyBar"
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    tools:ignore="HardcodedText"
-                    android:contentDescription="Отменить ответ"
-                    android:src="@drawable/ic_cancel"
-                    app:tint="@color/prime_danger" />
-            </LinearLayout>
-
-            <!-- Плавающая панель режима редактирования -->
-            <LinearLayout
-                android:id="@+id/layoutEditBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:visibility="gone">
-
-                <ImageView
-                    android:id="@+id/ivEditIcon"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:src="@drawable/ic_edit"
-                    app:tint="@color/prime_brand" />
-
-                <TextView
-                    android:id="@+id/tvEditBarTitle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    tools:text="Редактирование сообщения"
-                    android:textColor="@color/prime_brand"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-
-                <ImageButton
-                    android:id="@+id/btnCloseEditBar"
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    tools:ignore="HardcodedText"
-                    android:contentDescription="Отменить редактирование"
-                    android:src="@drawable/ic_cancel"
-                    app:tint="@color/prime_danger" />
-            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -798,8 +808,7 @@
                     android:src="@android:drawable/ic_menu_send"
                     app:tint="@color/prime_text_primary" />
             </LinearLayout>
-        </LinearLayout>
-    </eightbitlab.com.blurview.BlurView>
+        </eightbitlab.com.blurview.BlurView>
 
     </LinearLayout>
 

@@ -509,6 +509,7 @@ public class ChatHistoryManager {
             if (updated) {
                 sp.edit().putString(userKey, newArray.toString()).apply();
             }
+            PrimeNotification.cancelNotificationForUser(context, targetUsername, null);
         } catch (Exception e) {
             Log.e("ChatHistoryManager", "Failed to clear unread count in persisted_chats", e);
         }

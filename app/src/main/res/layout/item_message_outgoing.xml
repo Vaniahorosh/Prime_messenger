@@ -67,15 +67,22 @@
         </FrameLayout>
 
         <LinearLayout
-            android:id="@+id/layoutOutgoingBubble"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:layout_marginStart="64dp"
-        android:background="@drawable/bg_bubble_outgoing"
-        android:orientation="vertical"
-        android:elevation="0dp"
-        android:padding="12dp">
+            android:id="@+id/layoutOutgoingMessageBlock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginStart="64dp"
+            android:gravity="end"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:id="@+id/layoutOutgoingBubble"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_bubble_outgoing"
+                android:orientation="vertical"
+                android:elevation="0dp"
+                android:padding="12dp">
 
         <!-- Медиа Контейнер (1 элемент, 2 элемента сетка, 3-5 слайдер) -->
         <FrameLayout
@@ -629,34 +636,35 @@
                 android:src="@drawable/ic_done"
                 app:tint="@color/chat_bubble_outgoing_time" />
         </LinearLayout>
-    </LinearLayout>
+        </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/layoutMessageReaction"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:layout_marginEnd="8dp"
-        android:layout_marginTop="-6dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:visibility="gone">
-
-        <com.google.android.material.imageview.ShapeableImageView
-            android:id="@+id/ivReactionAvatar"
-            android:layout_width="16dp"
-            android:layout_height="16dp"
-            android:layout_marginEnd="4dp"
-            android:scaleType="centerCrop"
-            android:visibility="gone"
-            app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
-
-        <TextView
-            android:id="@+id/tvMessageReaction"
+        <!-- Отдельный плавающий островок реакций под бабблом сообщения -->
+        <LinearLayout
+            android:id="@+id/layoutMessageReaction"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:visibility="gone" />
+            android:layout_gravity="end"
+            android:layout_marginTop="3dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/ivReactionAvatar"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginEnd="4dp"
+                android:scaleType="centerCrop"
+                android:visibility="gone"
+                app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
+
+            <TextView
+                android:id="@+id/tvMessageReaction"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:visibility="gone" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Капсула быстрых действий (Реакции + Редактировать / Удалить) -->
