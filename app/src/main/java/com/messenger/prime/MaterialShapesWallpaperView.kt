@@ -186,7 +186,7 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     }
 
     fun updateThemeColors() {
-        val wp = WallpaperManager.getActiveWallpaper(context, contactKey)
+        val wp = activeWallpaper ?: WallpaperManager.getActiveWallpaper(context, contactKey)
         activeWallpaper = wp
 
         if (wp.type == "IMAGE" && !wp.imagePath.isNullOrEmpty()) {
@@ -213,18 +213,40 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
             else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         }
 
-        if (darkTheme) {
-            baseColor = Color.parseColor("#E2E8F0")
-            baseAlpha = 22
-        } else {
+        val customBgHex = wp.backgroundColor
+        val isDefaultBg = customBgHex.isNullOrBlank() || customBgHex.equals("#151D2A", ignoreCase = true) || customBgHex.equals("#0F172A", ignoreCase = true)
+
+        val effectiveBgColor = when {
+            !isDefaultBg -> {
+                try { Color.parseColor(customBgHex) } catch (_: Exception) { if (darkTheme) Color.parseColor("#0F172A") else Color.parseColor("#F1F5F9") }
+            }
+            darkTheme -> Color.parseColor("#0F172A")
+            else -> Color.parseColor("#F1F5F9")
+        }
+
+        // Luminance check to detect light vs dark background
+        val red = Color.red(effectiveBgColor)
+        val green = Color.green(effectiveBgColor)
+        val blue = Color.blue(effectiveBgColor)
+        val isLightBg = (0.299 * red + 0.587 * green + 0.114 * blue) > 160
+
+        if (isLightBg) {
             baseColor = ColorAccentManager.getCurrentAccentColor(context)
-            baseAlpha = 32
+            baseAlpha = 42
+        } else {
+            baseColor = Color.parseColor("#E2E8F0")
+            baseAlpha = 24
         }
 
         paint.color = baseColor
         strokePaint.color = baseColor
 
         invalidate()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration?) {
+        super.onConfigurationChanged(newConfig)
+        updateThemeColors()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -370,18 +392,33 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         }
 
         // MATERIAL / DEFAULT mode: Draw background color if set
-        val bgHex = wp.backgroundColor
-        if (!bgHex.isNullOrBlank()) {
-            try {
-                canvas.drawColor(Color.parseColor(bgHex))
-            } catch (_: Exception) {}
+        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
+        val darkTheme = when (themePref) {
+            "dark" -> true
+            "light" -> false
+            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         }
+
+        val customBgHex = wp.backgroundColor
+        val isDefaultBg = customBgHex.isNullOrBlank() || customBgHex.equals("#151D2A", ignoreCase = true) || customBgHex.equals("#0F172A", ignoreCase = true)
+
+        val effectiveBgColor = when {
+            !isDefaultBg -> {
+                try { Color.parseColor(customBgHex) } catch (_: Exception) { if (darkTheme) Color.parseColor("#0F172A") else Color.parseColor("#F1F5F9") }
+            }
+            darkTheme -> Color.parseColor("#0F172A")
+            else -> Color.parseColor("#F1F5F9")
+        }
+
+        canvas.drawColor(effectiveBgColor)
 
         super.onDraw(canvas)
         if (!isLavaEnabled) return
         if (shapes.isEmpty() || animProgress <= 0f) return
 
         val maxColRow = (maxCols + maxRows).coerceAtLeast(1)
+        val density = resources.displayMetrics.density
 
         for (shape in shapes) {
             val normDistance = (shape.col + shape.row).toFloat() / maxColRow
@@ -406,17 +443,21 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
 
             canvas.save()
 
+            // 1. Move canvas to shape position
+            canvas.translate(shape.x, shape.y)
+
+            // 2. Apply 3D Camera rotation around (0,0) with density-adjusted distance
+            matrix3D.reset()
             camera3D.save()
+            camera3D.setLocation(0f, 0f, -8f * density)
             camera3D.rotateY(flipY)
             camera3D.rotateX(flipX)
             camera3D.getMatrix(matrix3D)
             camera3D.restore()
 
-            matrix3D.preTranslate(-shape.x, -shape.y)
-            matrix3D.postTranslate(shape.x, shape.y)
             canvas.concat(matrix3D)
 
-            canvas.translate(shape.x, shape.y)
+            // 3. Apply 2D scale and rotation around local (0,0)
             canvas.scale(localScale, localScale)
             canvas.rotate(shape.rotation)
 
@@ -469,13 +510,26 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     }
 
     private fun drawEmojiPattern(canvas: Canvas, wp: ChatWallpaper) {
-        val bgHex = wp.backgroundColor
-        val bgColor = if (!bgHex.isNullOrBlank()) {
-            try { Color.parseColor(bgHex) } catch (_: Exception) { Color.parseColor("#151D2A") }
-        } else {
-            Color.parseColor("#151D2A")
+        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
+        val darkTheme = when (themePref) {
+            "dark" -> true
+            "light" -> false
+            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         }
-        canvas.drawColor(bgColor)
+
+        val customBgHex = wp.backgroundColor
+        val isDefaultBg = customBgHex.isNullOrBlank() || customBgHex.equals("#151D2A", ignoreCase = true) || customBgHex.equals("#0F172A", ignoreCase = true)
+
+        val effectiveBgColor = when {
+            !isDefaultBg -> {
+                try { Color.parseColor(customBgHex) } catch (_: Exception) { if (darkTheme) Color.parseColor("#0F172A") else Color.parseColor("#F1F5F9") }
+            }
+            darkTheme -> Color.parseColor("#0F172A")
+            else -> Color.parseColor("#F1F5F9")
+        }
+
+        canvas.drawColor(effectiveBgColor)
 
         val emojis = wp.customEmojis.let {
             if (it.isNullOrBlank()) "😎 ⭐ 🌸 🔷" else it

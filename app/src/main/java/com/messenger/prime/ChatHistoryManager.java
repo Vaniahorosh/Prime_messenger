@@ -32,6 +32,11 @@ public class ChatHistoryManager {
 
     private static final String PREF_NAME = "PrimeChatHistory";
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private static final Map<String, List<ChatMessage>> memoryCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static void clearMemoryCache() {
+        memoryCache.clear();
+    }
 
     public static String getCurrentUser(Context context) {
         if (context == null) return "";
@@ -298,10 +303,14 @@ public class ChatHistoryManager {
 
     public static void deleteSingleMessage(Context context, String targetUsername, String messageId) {
         if (targetUsername == null || targetUsername.isEmpty() || messageId == null || messageId.isEmpty()) return;
-        executor.execute(() -> {
-            Context appContext = context.getApplicationContext();
-            List<ChatMessage> history = loadMessages(appContext, targetUsername);
-            boolean removed = false;
+        Context appContext = context.getApplicationContext();
+        String userKey = getHistoryStorageKey(appContext, targetUsername);
+
+        synchronized (memoryCache) {
+            List<ChatMessage> history = memoryCache.get(userKey);
+            if (history == null) {
+                history = loadMessagesFromDisk(appContext, targetUsername);
+            }
             for (int i = 0; i < history.size(); i++) {
                 if (messageId.equals(history.get(i).getMessageId())) {
                     ChatMessage msg = history.remove(i);
@@ -311,31 +320,39 @@ public class ChatHistoryManager {
                             if (file.exists()) file.delete();
                         } catch (Exception ignored) {}
                     }
-                    removed = true;
                     break;
                 }
             }
-            if (removed) {
-                saveHistoryList(appContext, targetUsername, history);
-                ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
+            memoryCache.put(userKey, new ArrayList<>(history));
+        }
+
+        executor.execute(() -> {
+            List<ChatMessage> snapshot;
+            synchronized (memoryCache) {
+                List<ChatMessage> cached = memoryCache.get(userKey);
+                snapshot = cached != null ? new ArrayList<>(cached) : new ArrayList<>();
             }
+            saveHistoryList(appContext, targetUsername, snapshot);
+            ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
         });
     }
 
     public static void saveMessage(Context context, String targetUsername, ChatMessage message) {
         if (targetUsername == null || targetUsername.isEmpty()) return;
 
-        executor.execute(() -> {
-            Context appContext = context.getApplicationContext();
-            List<ChatMessage> history = loadMessages(appContext, targetUsername);
-            
-            // Handle photo saving if bitmap exists but imagePath doesn't
-            if (message.getImageBitmap() != null && (message.getImagePath() == null || message.getImagePath().isEmpty())) {
-                String path = saveBitmapToFile(appContext, message.getImageBitmap(), message.getTimestamp());
-                message.setImagePath(path);
-            }
+        Context appContext = context.getApplicationContext();
+        String userKey = getHistoryStorageKey(appContext, targetUsername);
 
-            // Check if message already exists (e.g. edit update)
+        if (message.getImageBitmap() != null && (message.getImagePath() == null || message.getImagePath().isEmpty())) {
+            String path = saveBitmapToFile(appContext, message.getImageBitmap(), message.getTimestamp());
+            message.setImagePath(path);
+        }
+
+        synchronized (memoryCache) {
+            List<ChatMessage> history = memoryCache.get(userKey);
+            if (history == null) {
+                history = loadMessagesFromDisk(appContext, targetUsername);
+            }
             boolean updated = false;
             for (int i = 0; i < history.size(); i++) {
                 if (message.getMessageId() != null && message.getMessageId().equals(history.get(i).getMessageId())) {
@@ -347,10 +364,17 @@ public class ChatHistoryManager {
             if (!updated) {
                 history.add(message);
             }
+            memoryCache.put(userKey, new ArrayList<>(history));
+        }
 
-            saveHistoryList(appContext, targetUsername, history);
-            
-            // Emit corresponding event
+        executor.execute(() -> {
+            List<ChatMessage> snapshot;
+            synchronized (memoryCache) {
+                List<ChatMessage> cached = memoryCache.get(userKey);
+                snapshot = cached != null ? new ArrayList<>(cached) : new ArrayList<>();
+            }
+            saveHistoryList(appContext, targetUsername, snapshot);
+
             if (message.isOutgoing()) {
                 ChatListNotifier.emitEvent(new ChatEvent.MessageSent(targetUsername, message));
             } else {
@@ -645,6 +669,24 @@ public class ChatHistoryManager {
     }
 
     public static List<ChatMessage> loadMessages(Context context, String targetUsername) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return new ArrayList<>();
+
+        String userKey = getHistoryStorageKey(context, targetUsername);
+        synchronized (memoryCache) {
+            List<ChatMessage> cached = memoryCache.get(userKey);
+            if (cached != null) {
+                return new ArrayList<>(cached);
+            }
+        }
+
+        List<ChatMessage> diskList = loadMessagesFromDisk(context, targetUsername);
+        synchronized (memoryCache) {
+            memoryCache.put(userKey, new ArrayList<>(diskList));
+        }
+        return new ArrayList<>(diskList);
+    }
+
+    private static List<ChatMessage> loadMessagesFromDisk(Context context, String targetUsername) {
         List<ChatMessage> list = new ArrayList<>();
         if (context == null || targetUsername == null || targetUsername.isEmpty()) return list;
 

@@ -197,7 +197,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 return START_NOT_STICKY;
             }
         }
-        return START_STICKY;
+        return START_NOT_STICKY;
     }
 
     @Override
@@ -205,11 +205,17 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         super.onTaskRemoved(rootIntent);
         Log.d(TAG, "App task removed from Recents, shutting down Bluetooth operations...");
         shutdownAllBluetoothOperations();
+        stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
     }
 
     @SuppressWarnings("MissingPermission")
     private void shutdownAllBluetoothOperations() {
+        try {
+            reconnectHandler.removeCallbacksAndMessages(null);
+            pendingReconnects.clear();
+        } catch (Throwable ignored) {}
+
         try {
             BluetoothManager manager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
             BluetoothAdapter adapter = manager != null ? manager.getAdapter() : null;

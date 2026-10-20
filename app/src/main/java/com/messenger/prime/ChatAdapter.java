@@ -402,36 +402,109 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public void deleteMessageByIdAnimated(RecyclerView recyclerView, String messageId, Runnable onComplete) {
-        if (messageId == null || messages == null || messages.isEmpty()) {
+        if (messageId == null) {
             if (onComplete != null) onComplete.run();
             return;
         }
-        int foundPos = -1;
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            if (messageId.equals(messages.get(i).getMessageId())) {
-                foundPos = i;
-                break;
-            }
+        deleteMessagesByIds(recyclerView, java.util.Collections.singletonList(messageId), onComplete);
+    }
+
+    public void deleteMessagesByIds(RecyclerView recyclerView, List<String> messageIds, Runnable onComplete) {
+        if (messageIds == null || messageIds.isEmpty() || messages == null || messages.isEmpty()) {
+            if (onComplete != null) onComplete.run();
+            return;
         }
 
-        if (foundPos == -1) {
-            String tsPart = messageId.contains("_") ? messageId.split("_")[1] : null;
-            for (int i = messages.size() - 1; i >= 0; i--) {
-                ChatMessage m = messages.get(i);
-                if (tsPart != null && m.getMessageId() != null && m.getMessageId().contains(tsPart)) {
-                    foundPos = i;
-                    break;
+        Set<String> idSet = new java.util.HashSet<>(messageIds);
+        Set<String> tsParts = new java.util.HashSet<>();
+        for (String id : messageIds) {
+            if (id != null && id.contains("_")) {
+                String[] parts = id.split("_");
+                if (parts.length > 1) {
+                    tsParts.add(parts[1]);
                 }
             }
         }
 
-        if (foundPos != -1 && foundPos < messages.size()) {
-            final int pos = foundPos;
-            RecyclerView.ViewHolder holder = recyclerView != null ? recyclerView.findViewHolderForAdapterPosition(pos) : null;
-            View viewToAnimate = holder != null ? holder.itemView : null;
-            deleteMessageAnimated(viewToAnimate, pos, onComplete);
-        } else {
+        List<Integer> positionsToDelete = new ArrayList<>();
+        List<ChatMessage> itemsToDelete = new ArrayList<>();
+
+        for (int i = 0; i < messages.size(); i++) {
+            ChatMessage m = messages.get(i);
+            if (m == null) continue;
+            String mId = m.getMessageId();
+            if (mId != null) {
+                boolean match = idSet.contains(mId);
+                if (!match && mId.contains("_")) {
+                    String[] parts = mId.split("_");
+                    if (parts.length > 1 && tsParts.contains(parts[1])) {
+                        match = true;
+                    }
+                }
+                if (match) {
+                    positionsToDelete.add(i);
+                    itemsToDelete.add(m);
+                }
+            }
+        }
+
+        if (itemsToDelete.isEmpty()) {
             if (onComplete != null) onComplete.run();
+            return;
+        }
+
+        List<View> viewsToAnimate = new ArrayList<>();
+        if (recyclerView != null) {
+            for (int pos : positionsToDelete) {
+                RecyclerView.ViewHolder holder = recyclerView.findViewHolderForAdapterPosition(pos);
+                if (holder != null && holder.itemView != null) {
+                    viewsToAnimate.add(holder.itemView);
+                }
+            }
+        }
+
+        Runnable finishAction = () -> {
+            messages.removeAll(itemsToDelete);
+            for (ChatMessage m : itemsToDelete) {
+                if (m.getMessageId() != null) {
+                    selectedMessageIds.remove(m.getMessageId());
+                }
+            }
+            if (selectedMessageIds.isEmpty()) {
+                isMultiSelectionMode = false;
+                if (actionListener != null) {
+                    actionListener.onSelectionChanged(0);
+                }
+            } else if (actionListener != null) {
+                actionListener.onSelectionChanged(selectedMessageIds.size());
+            }
+            notifyDataSetChanged();
+            if (onComplete != null) onComplete.run();
+        };
+
+        if (!viewsToAnimate.isEmpty()) {
+            int[] pendingAnimations = {viewsToAnimate.size()};
+            for (View view : viewsToAnimate) {
+                view.animate().cancel();
+                view.animate()
+                        .alpha(0f)
+                        .translationX(-view.getWidth() * 0.4f)
+                        .setDuration(200)
+                        .setInterpolator(new AccelerateInterpolator())
+                        .setListener(new AnimatorListenerAdapter() {
+                            @Override
+                            public void onAnimationEnd(Animator animation) {
+                                view.setAlpha(1f);
+                                view.setTranslationX(0f);
+                                pendingAnimations[0]--;
+                                if (pendingAnimations[0] <= 0) {
+                                    finishAction.run();
+                                }
+                            }
+                        }).start();
+            }
+        } else {
+            finishAction.run();
         }
     }
 
@@ -688,10 +761,15 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                                     ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_active);
                                     ivSelectionCheck.setImageResource(R.drawable.ic_done);
                                     ivSelectionCheck.setAlpha(1.0f);
+                                    ivSelectionCheck.setScaleX(0.3f);
+                                    ivSelectionCheck.setScaleY(0.3f);
+                                    ivSelectionCheck.animate().scaleX(1.0f).scaleY(1.0f).setDuration(250).setInterpolator(new android.view.animation.OvershootInterpolator()).start();
                                 } else {
                                     ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_idle);
                                     ivSelectionCheck.setImageDrawable(null);
                                     ivSelectionCheck.setAlpha(0.6f);
+                                    ivSelectionCheck.setScaleX(1.0f);
+                                    ivSelectionCheck.setScaleY(1.0f);
                                 }
                             }
                         } else {
@@ -2129,10 +2207,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                             ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_active);
                             ivSelectionCheck.setImageResource(R.drawable.ic_done);
                             ivSelectionCheck.setAlpha(1.0f);
+                            ivSelectionCheck.setScaleX(1.0f);
+                            ivSelectionCheck.setScaleY(1.0f);
                         } else {
                             ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_idle);
                             ivSelectionCheck.setImageDrawable(null);
                             ivSelectionCheck.setAlpha(0.6f);
+                            ivSelectionCheck.setScaleX(1.0f);
+                            ivSelectionCheck.setScaleY(1.0f);
                         }
                     }
                 } else {
@@ -2395,10 +2477,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                             ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_active);
                             ivSelectionCheck.setImageResource(R.drawable.ic_done);
                             ivSelectionCheck.setAlpha(1.0f);
+                            ivSelectionCheck.setScaleX(1.0f);
+                            ivSelectionCheck.setScaleY(1.0f);
                         } else {
                             ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_idle);
                             ivSelectionCheck.setImageDrawable(null);
                             ivSelectionCheck.setAlpha(0.6f);
+                            ivSelectionCheck.setScaleX(1.0f);
+                            ivSelectionCheck.setScaleY(1.0f);
                         }
                     }
                 } else {

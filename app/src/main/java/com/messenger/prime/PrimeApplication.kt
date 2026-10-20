@@ -139,9 +139,21 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         activityStack.add(WeakReference(activity))
         ColorAccentManager.applyAccentToActivity(activity)
         PrimeTransitions.setupActivityTransitions(activity)
-        if (activity !is SplashActivity && activity !is ChatListActivity && activity !is HiActivity && activity !is ChatPlaceholderActivity && activity !is MediaPlayerActivity && activity !is PhotoEditorActivity) {
-            PrimeTransitions.attachSlidr(activity)
-            if (activity is ComponentActivity) {
+        if (activity !is SplashActivity && activity !is ChatListActivity && activity !is HiActivity && activity !is ChatPlaceholderActivity && activity !is MediaPlayerActivity && activity !is PhotoEditorActivity && activity !is WallpaperEditorActivity) {
+            val isTablet = activity.resources.getBoolean(R.bool.isTablet)
+            if (!isTablet) {
+                // Задерживаем инициализацию Slidr, чтобы он не ломал анимации появления Activity (overridePendingTransition)
+                activity.window.decorView.postDelayed({
+                    if (!activity.isDestroyed && !activity.isFinishing) {
+                        val slidr = PrimeTransitions.attachSlidr(activity)
+                        val contentView = activity.findViewById<android.view.ViewGroup>(android.R.id.content)
+                        if (contentView != null && slidr != null) {
+                            PrimeTransitions.protectHorizontalScrollViews(contentView, slidr)
+                        }
+                    }
+                }, 350)
+            }
+            if (activity is androidx.activity.ComponentActivity) {
                 PrimePredictiveBack.attach(activity)
             }
         }

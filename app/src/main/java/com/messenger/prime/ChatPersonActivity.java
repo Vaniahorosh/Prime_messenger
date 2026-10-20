@@ -295,6 +295,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private View layoutInput;
     private ImageButton btnAttach;
+    private ImageButton btnSend;
+    private ImageButton btnVoiceVideoNote;
+    private boolean isVideoNoteMode = false;
     private ImageButton btnCancelEdit;
     private ImageButton btnCloseEditBar;
     private View layoutEditBar;
@@ -872,7 +875,23 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         });
 
         etMessage = findViewById(R.id.etMessage);
-        ImageButton btnSend = findViewById(R.id.btnSend);
+        btnSend = findViewById(R.id.btnSend);
+        btnVoiceVideoNote = findViewById(R.id.btnVoiceVideoNote);
+
+        SharedPreferences spMediaRecord = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        isVideoNoteMode = spMediaRecord.getBoolean("chat_media_record_mode_is_video", false);
+
+        if (btnVoiceVideoNote != null) {
+            btnVoiceVideoNote.setImageResource(isVideoNoteMode ? R.drawable.ic_camera : R.drawable.ic_mic);
+            btnVoiceVideoNote.setOnClickListener(v -> {
+                if (!isConnectionActive()) {
+                    Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                toggleVoiceVideoNoteMode();
+            });
+        }
+        updateActionButtonsVisibility(false);
         ImageButton btnBack = findViewById(R.id.btnBack);
         ImageView ivChatAvatar = findViewById(R.id.ivChatAvatar);
         View layoutHeader = findViewById(R.id.layoutHeader);
@@ -1880,73 +1899,81 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
         };
 
-        btnSend.setOnClickListener(v -> {
-            String text = etMessage.getText().toString().trim();
-
-            if (currentPendingAttachment != null && currentPendingAttachment.items != null && !currentPendingAttachment.items.isEmpty()) {
-                List<PendingAttachmentItem> sendItems = new ArrayList<>(currentPendingAttachment.items);
-                clearPendingAttachment();
-                etMessage.setText("");
-
-                boolean allMedia = true;
-                for (PendingAttachmentItem item : sendItems) {
-                    if (item.messageType != ChatMessage.MessageType.IMAGE && item.messageType != ChatMessage.MessageType.VIDEO) {
-                        allMedia = false;
-                        break;
-                    }
+        if (btnSend != null) {
+            btnSend.setOnClickListener(v -> {
+                if (!isConnectionActive()) {
+                    Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                    return;
                 }
+                String text = etMessage.getText().toString().trim();
 
-                if (sendItems.size() > 1 && allMedia) {
-                    sendMultiMedia(sendItems, text);
-                } else {
+                if (currentPendingAttachment != null && currentPendingAttachment.items != null && !currentPendingAttachment.items.isEmpty()) {
+                    List<PendingAttachmentItem> sendItems = new ArrayList<>(currentPendingAttachment.items);
+                    clearPendingAttachment();
+                    etMessage.setText("");
+
+                    boolean allMedia = true;
                     for (PendingAttachmentItem item : sendItems) {
-                        if (item.messageType == ChatMessage.MessageType.IMAGE) {
-                            sendPhoto(item.uri != null ? item.uri : Uri.parse(item.path), text);
-                        } else {
-                            if (item.size > 2 * 1024 * 1024 * 1024L) {
-                                PrimeNotification.INSTANCE.show(this, "Превышен лимит размера файла (до 2 ГБ)", null);
-                                continue;
-                            }
-                            sendVideoOrFile(item, text);
+                        if (item.messageType != ChatMessage.MessageType.IMAGE && item.messageType != ChatMessage.MessageType.VIDEO) {
+                            allMedia = false;
+                            break;
                         }
                     }
-                }
-                closeAttachmentPanel();
-                return;
-            }
 
-            if (isEditMode && editingMessageId != null) {
-                if (text.isEmpty()) {
-                    PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Текст не может быть пустым", null);
+                    if (sendItems.size() > 1 && allMedia) {
+                        sendMultiMedia(sendItems, text);
+                    } else {
+                        for (PendingAttachmentItem item : sendItems) {
+                            if (item.messageType == ChatMessage.MessageType.IMAGE) {
+                                sendPhoto(item.uri != null ? item.uri : Uri.parse(item.path), text);
+                            } else {
+                                if (item.size > 2 * 1024 * 1024 * 1024L) {
+                                    PrimeNotification.INSTANCE.show(this, "Превышен лимит размера файла (до 2 ГБ)", null);
+                                    continue;
+                                }
+                                sendVideoOrFile(item, text);
+                            }
+                        }
+                    }
+                    closeAttachmentPanel();
+                    updateActionButtonsVisibility(true);
                     return;
                 }
 
-                String payloadStr = editingMessageId + ":::" + text;
-                byte[] payloadBytes = payloadStr.getBytes(StandardCharsets.UTF_8);
-                if (isConnectionActive()) {
-                    sendPacket(TYPE_EDIT, payloadBytes);
-                } else {
-                    pendingMessageQueue.add(new PendingMessage(TYPE_EDIT, payloadBytes));
-                }
+                if (isEditMode && editingMessageId != null) {
+                    if (text.isEmpty()) {
+                        PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Текст не может быть пустым", null);
+                        return;
+                    }
 
-                chatAdapter.updateMessageTextById(editingMessageId, text);
-                ChatHistoryManager.updateMessageText(ChatPersonActivity.this, targetUsername, editingMessageId, text);
+                    String payloadStr = editingMessageId + ":::" + text;
+                    byte[] payloadBytes = payloadStr.getBytes(StandardCharsets.UTF_8);
+                    if (isConnectionActive()) {
+                        sendPacket(TYPE_EDIT, payloadBytes);
+                    } else {
+                        pendingMessageQueue.add(new PendingMessage(TYPE_EDIT, payloadBytes));
+                    }
 
-                ChatMessage newLast = chatAdapter.getLastMessage();
-                if (newLast != null && Objects.equals(editingMessageId, newLast.getMessageId())) {
-                    saveLastMessageToChatList(text);
-                }
+                    chatAdapter.updateMessageTextById(editingMessageId, text);
+                    ChatHistoryManager.updateMessageText(ChatPersonActivity.this, targetUsername, editingMessageId, text);
 
-                etMessage.setText("");
-                exitEditMode();
-                PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Сообщение изменено", null);
-            } else {
-                if (!text.isEmpty()) {
-                    sendText(text);
+                    ChatMessage newLast = chatAdapter.getLastMessage();
+                    if (newLast != null && Objects.equals(editingMessageId, newLast.getMessageId())) {
+                        saveLastMessageToChatList(text);
+                    }
+
                     etMessage.setText("");
+                    exitEditMode();
+                    PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Сообщение изменено", null);
+                } else {
+                    if (!text.isEmpty()) {
+                        sendText(text);
+                        etMessage.setText("");
+                    }
                 }
-            }
-        });
+                updateActionButtonsVisibility(true);
+            });
+        }
 
         etMessage.addTextChangedListener(new TextWatcher() {
             @Override
@@ -1954,6 +1981,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
+                updateActionButtonsVisibility(true);
                 senderTypingHandler.removeCallbacks(stopSenderTypingRunnable);
                 boolean hasText = s != null && !s.toString().trim().isEmpty();
                 if (!hasText) {
@@ -2127,6 +2155,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                 reloadMessagesFromHistory();
                 sendReadReceiptsForUnreadMessages();
+
+                SharedPreferences spMediaRecord = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                isVideoNoteMode = spMediaRecord.getBoolean("chat_media_record_mode_is_video", false);
+                if (btnVoiceVideoNote != null) {
+                    btnVoiceVideoNote.setImageResource(isVideoNoteMode ? R.drawable.ic_camera : R.drawable.ic_mic);
+                }
+                updateActionButtonsVisibility(false);
 
                 if (isConnectionActive()) {
                     isRemoteUserOnline = true;
@@ -2587,11 +2622,35 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         btnMultiDelete.setVisibility(hasIncoming ? View.GONE : View.VISIBLE);
     }
 
+    private void animateInputVisibility(boolean show) {
+        if (layoutInput == null) return;
+        layoutInput.animate().cancel();
+        if (show) {
+            layoutInput.setVisibility(View.VISIBLE);
+            layoutInput.animate()
+                    .translationY(0f)
+                    .alpha(1f)
+                    .setDuration(200)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        } else {
+            hideSoftKeyboard();
+            layoutInput.animate()
+                    .translationY(layoutInput.getHeight() * 1.5f)
+                    .alpha(0f)
+                    .setDuration(200)
+                    .setInterpolator(new AccelerateInterpolator())
+                    .withEndAction(() -> layoutInput.setVisibility(View.GONE))
+                    .start();
+        }
+    }
+
     private void enterMultiSelectionMode() {
         if (isMultiSelectionActive) return;
         isMultiSelectionActive = true;
         animateHeaderFlip(true);
         checkAndUpdateMultiDeleteButton();
+        animateInputVisibility(false);
     }
 
     private void exitMultiSelectionMode() {
@@ -2601,6 +2660,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             chatAdapter.clearSelection();
         }
         animateHeaderFlip(false);
+        animateInputVisibility(true);
     }
 
     private void animateHeaderFlip(boolean enteringSelection) {
@@ -2764,16 +2824,25 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 true,
                 null,
                 () -> {
+                    List<String> idsToDelete = new ArrayList<>();
                     for (ChatMessage m : selected) {
                         if (m != null && m.getMessageId() != null) {
-                            sendPacket(TYPE_DELETE_MSG, m.getMessageId().getBytes(StandardCharsets.UTF_8));
-                            ChatHistoryManager.deleteSingleMessage(ChatPersonActivity.this, targetUsername, m.getMessageId());
-                            chatAdapter.deleteMessageByIdAnimated(rvMessages, m.getMessageId(), null);
+                            String msgId = m.getMessageId();
+                            idsToDelete.add(msgId);
+                            sendPacket(TYPE_DELETE_MSG, msgId.getBytes(StandardCharsets.UTF_8));
+                            ChatHistoryManager.deleteSingleMessage(ChatPersonActivity.this, targetUsername, msgId);
+
+                            Intent deleteMsgIntent = new Intent("com.messenger.prime.MSG_DELETED").setPackage(getPackageName());
+                            deleteMsgIntent.putExtra("messageId", msgId);
+                            sendBroadcast(deleteMsgIntent);
                         }
                     }
-                    ChatMessage newLast = chatAdapter.getLastMessage();
-                    saveLastMessageToChatList(newLast != null ? (newLast.getText() != null ? newLast.getText() : "") : "");
-                    exitMultiSelectionMode();
+
+                    chatAdapter.deleteMessagesByIds(rvMessages, idsToDelete, () -> {
+                        ChatMessage newLast = chatAdapter.getLastMessage();
+                        saveLastMessageToChatList(newLast != null ? (newLast.getText() != null ? newLast.getText() : "") : "");
+                        exitMultiSelectionMode();
+                    });
                     return kotlin.Unit.INSTANCE;
                 },
                 null
@@ -4967,16 +5036,22 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     }
                 }
 
-                ImageButton btnSend = findViewById(R.id.btnSend);
                 if (btnSend != null) {
                     btnSend.setEnabled(connected);
                     btnSend.setAlpha(connected ? 1.0f : 0.4f);
+                }
+
+                if (btnVoiceVideoNote != null) {
+                    btnVoiceVideoNote.setEnabled(connected);
+                    btnVoiceVideoNote.setAlpha(connected ? 1.0f : 0.4f);
                 }
 
                 if (btnAttach != null) {
                     btnAttach.setEnabled(connected);
                     btnAttach.setAlpha(connected ? 1.0f : 0.4f);
                 }
+
+                updateActionButtonsVisibility(false);
             }
         });
     }
@@ -6661,7 +6736,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         attachmentDialog.setOnDismissListener(dialog -> {
             isAttachmentPanelOpen = false;
             if (btnAttach != null) {
-                btnAttach.setImageResource(android.R.drawable.ic_menu_gallery);
+                btnAttach.setImageResource(R.drawable.ic_photo);
             }
             if (galleryAdapter != null) galleryAdapter.clearSelection();
             if (filesAdapter != null) filesAdapter.clearSelection();
@@ -7129,7 +7204,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         isAttachmentPanelOpen = false;
         sendActivityState("IDLE");
         if (btnAttach != null) {
-            btnAttach.setImageResource(android.R.drawable.ic_menu_gallery);
+            btnAttach.setImageResource(R.drawable.ic_photo);
         }
         if (galleryAdapter != null) galleryAdapter.clearSelection();
         if (filesAdapter != null) filesAdapter.clearSelection();
@@ -7492,6 +7567,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         layoutPendingAttachment.setAlpha(1f);
         layoutPendingAttachment.setTranslationY(0f);
         updateActionIslandVisibility();
+        updateActionButtonsVisibility(true);
     }
 
     private void clearPendingAttachment() {
@@ -7508,6 +7584,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             layoutPendingAttachment.setTranslationY(0f);
         }
         updateActionIslandVisibility();
+        updateActionButtonsVisibility(true);
     }
 
     private void showSendingProgressUi(int progress) {
@@ -8360,6 +8437,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         }
                     }
                 } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                    if (action == MotionEvent.ACTION_UP && dragStartPos != -1) {
+                        chatAdapter.updateDragSelectionRange(dragStartPos, lastDragPos != -1 ? lastDragPos : dragStartPos, isDragSelectingMode[0]);
+                    }
                     autoScrollVelocity[0] = 0;
                     autoScrollHandler.removeCallbacks(autoScrollRunnable);
                     dragStartPos = -1;
@@ -8528,6 +8608,121 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 }
             }
         } catch (Exception ignored) {}
+    }
+
+    private void updateActionButtonsVisibility(boolean animate) {
+        if (btnSend == null || btnVoiceVideoNote == null || etMessage == null) return;
+
+        boolean hasText = etMessage.getText() != null && etMessage.getText().toString().trim().length() > 0;
+        boolean hasAttachment = currentPendingAttachment != null && currentPendingAttachment.items != null && !currentPendingAttachment.items.isEmpty();
+        boolean shouldShowSend = hasText || hasAttachment;
+
+        boolean active = isConnectionActive();
+        btnSend.setEnabled(active);
+        btnVoiceVideoNote.setEnabled(active);
+
+        if (shouldShowSend) {
+            if (btnSend.getVisibility() != View.VISIBLE) {
+                if (animate) {
+                    btnVoiceVideoNote.animate().cancel();
+                    btnVoiceVideoNote.animate()
+                            .scaleX(0.0f)
+                            .scaleY(0.0f)
+                            .alpha(0.0f)
+                            .setDuration(180)
+                            .withEndAction(() -> btnVoiceVideoNote.setVisibility(View.GONE))
+                            .start();
+
+                    btnSend.setVisibility(View.VISIBLE);
+                    btnSend.setScaleX(0.2f);
+                    btnSend.setScaleY(0.2f);
+                    btnSend.setRotation(-90f);
+                    btnSend.setAlpha(0.0f);
+                    btnSend.animate().cancel();
+                    btnSend.animate()
+                            .scaleX(1.0f)
+                            .scaleY(1.0f)
+                            .rotation(0f)
+                            .alpha(active ? 1.0f : 0.4f)
+                            .setDuration(220)
+                            .setInterpolator(new OvershootInterpolator(1.2f))
+                            .start();
+                } else {
+                    btnVoiceVideoNote.setVisibility(View.GONE);
+                    btnSend.setVisibility(View.VISIBLE);
+                    btnSend.setScaleX(1.0f);
+                    btnSend.setScaleY(1.0f);
+                    btnSend.setRotation(0f);
+                    btnSend.setAlpha(active ? 1.0f : 0.4f);
+                }
+            } else {
+                btnSend.setAlpha(active ? 1.0f : 0.4f);
+            }
+        } else {
+            if (btnVoiceVideoNote.getVisibility() != View.VISIBLE) {
+                if (animate) {
+                    btnSend.animate().cancel();
+                    btnSend.animate()
+                            .scaleX(0.0f)
+                            .scaleY(0.0f)
+                            .rotation(90f)
+                            .alpha(0.0f)
+                            .setDuration(180)
+                            .withEndAction(() -> btnSend.setVisibility(View.GONE))
+                            .start();
+
+                    btnVoiceVideoNote.setVisibility(View.VISIBLE);
+                    btnVoiceVideoNote.setScaleX(0.2f);
+                    btnVoiceVideoNote.setScaleY(0.2f);
+                    btnVoiceVideoNote.setAlpha(0.0f);
+                    btnVoiceVideoNote.animate().cancel();
+                    btnVoiceVideoNote.animate()
+                            .scaleX(1.0f)
+                            .scaleY(1.0f)
+                            .alpha(active ? 1.0f : 0.4f)
+                            .setDuration(220)
+                            .setInterpolator(new OvershootInterpolator(1.2f))
+                            .start();
+                } else {
+                    btnSend.setVisibility(View.GONE);
+                    btnVoiceVideoNote.setVisibility(View.VISIBLE);
+                    btnVoiceVideoNote.setScaleX(1.0f);
+                    btnVoiceVideoNote.setScaleY(1.0f);
+                    btnVoiceVideoNote.setAlpha(active ? 1.0f : 0.4f);
+                }
+            } else {
+                btnVoiceVideoNote.setAlpha(active ? 1.0f : 0.4f);
+            }
+        }
+    }
+
+    private void toggleVoiceVideoNoteMode() {
+        if (btnVoiceVideoNote == null) return;
+        btnVoiceVideoNote.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+
+        isVideoNoteMode = !isVideoNoteMode;
+        SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        sp.edit().putBoolean("chat_media_record_mode_is_video", isVideoNoteMode).apply();
+
+        btnVoiceVideoNote.animate().cancel();
+        btnVoiceVideoNote.animate()
+                .rotationBy(180f)
+                .scaleX(0.2f)
+                .scaleY(0.2f)
+                .alpha(0.0f)
+                .setDuration(160)
+                .withEndAction(() -> {
+                    btnVoiceVideoNote.setImageResource(isVideoNoteMode ? R.drawable.ic_camera : R.drawable.ic_mic);
+                    btnVoiceVideoNote.animate()
+                            .rotationBy(180f)
+                            .scaleX(1.0f)
+                            .scaleY(1.0f)
+                            .alpha(isConnectionActive() ? 1.0f : 0.4f)
+                            .setDuration(200)
+                            .setInterpolator(new OvershootInterpolator(1.3f))
+                            .start();
+                })
+                .start();
     }
 }
 

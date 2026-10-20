@@ -45,20 +45,24 @@ object PrimeTransitions {
      */
     @JvmStatic
     fun applyOpenTransition(activity: Activity) {
+        val isTablet = activity.resources.getBoolean(R.bool.isTablet)
+        val exitAnim = if (!isTablet) 0 else R.anim.prime_open_exit
+        val closeEnterAnim = if (!isTablet) 0 else R.anim.prime_close_enter
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             activity.overrideActivityTransition(
                 Activity.OVERRIDE_TRANSITION_OPEN,
                 R.anim.prime_open_enter,
-                R.anim.prime_open_exit
+                exitAnim
             )
             activity.overrideActivityTransition(
                 Activity.OVERRIDE_TRANSITION_CLOSE,
-                R.anim.prime_close_enter,
+                closeEnterAnim,
                 R.anim.prime_close_exit
             )
         } else {
             @Suppress("DEPRECATION")
-            activity.overridePendingTransition(R.anim.prime_open_enter, R.anim.prime_open_exit)
+            activity.overridePendingTransition(R.anim.prime_open_enter, exitAnim)
         }
     }
 
@@ -76,15 +80,20 @@ object PrimeTransitions {
             // Skip playing close transition animation if activity was already swiped off screen by Slidr
             return
         }
+        val isTablet = activity.resources.getBoolean(R.bool.isTablet)
+        // On phones where Slidr makes window translucent, previous activity is already visible at 0%.
+        // Animating it from -20% causes a visual jump/trail. We keep enterAnim = 0 on phones.
+        val enterAnim = if (!isTablet) 0 else R.anim.prime_close_enter
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             activity.overrideActivityTransition(
                 Activity.OVERRIDE_TRANSITION_CLOSE,
-                R.anim.prime_close_enter,
+                enterAnim,
                 R.anim.prime_close_exit
             )
         } else {
             @Suppress("DEPRECATION")
-            activity.overridePendingTransition(R.anim.prime_close_enter, R.anim.prime_close_exit)
+            activity.overridePendingTransition(enterAnim, R.anim.prime_close_exit)
         }
     }
 
@@ -159,11 +168,13 @@ object PrimeTransitions {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && activity is androidx.activity.ComponentActivity) {
             val backCallback = object : androidx.activity.OnBackPressedCallback(true) {
                 var isLeftEdge = false
+                var isGestureActive = false
                 var screenWidth = 0f
                 var contentView: android.view.View? = null
                 var prevContentView: android.view.View? = null
 
                 override fun handleOnBackStarted(backEvent: androidx.activity.BackEventCompat) {
+                    isGestureActive = true
                     isLeftEdge = backEvent.swipeEdge == androidx.activity.BackEventCompat.EDGE_LEFT
                     screenWidth = activity.resources.displayMetrics.widthPixels.toFloat()
                     contentView = activity.findViewById(android.R.id.content)
@@ -205,6 +216,7 @@ object PrimeTransitions {
                 }
 
                 override fun handleOnBackCancelled() {
+                    isGestureActive = false
                     val content = contentView ?: return
                     // Gesture cancelled, animate back to normal smoothly
                     content.animate()
@@ -237,6 +249,13 @@ object PrimeTransitions {
                 }
 
                 override fun handleOnBackPressed() {
+                    if (!isGestureActive) {
+                        isEnabled = false
+                        activity.onBackPressedDispatcher.onBackPressed()
+                        isEnabled = true
+                        return
+                    }
+                    isGestureActive = false
                     val content = contentView ?: return
                     if (isLeftEdge) {
                         isSlidrDismissing = true
@@ -351,10 +370,14 @@ object PrimeTransitions {
     fun protectHorizontalScrollViews(container: android.view.ViewGroup, slidrInterface: SlidrInterface? = null) {
         for (i in 0 until container.childCount) {
             val child = container.getChildAt(i)
+            val isHorizontalRecycler = child is androidx.recyclerview.widget.RecyclerView && 
+                (child.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager)?.orientation == androidx.recyclerview.widget.RecyclerView.HORIZONTAL
+                
             if (child is android.widget.HorizontalScrollView ||
                 child is com.google.android.material.slider.Slider ||
                 child is androidx.viewpager.widget.ViewPager ||
-                child is androidx.viewpager2.widget.ViewPager2
+                child is androidx.viewpager2.widget.ViewPager2 ||
+                isHorizontalRecycler
             ) {
                 setupProtectionOnView(child, slidrInterface)
             }

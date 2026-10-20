@@ -517,7 +517,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:contentDescription="Отправить"
-                            android:src="@android:drawable/ic_menu_send"
+                            android:src="@drawable/ic_send"
                             app:backgroundTint="@color/prime_brand"
                             app:fabCustomSize="42dp"
                             app:maxImageSize="20dp"

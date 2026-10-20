@@ -765,8 +765,8 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     tools:ignore="HardcodedText"
                     android:contentDescription="Прикрепить"
-                    android:src="@android:drawable/ic_menu_gallery"
-                    app:tint="@color/prime_text_secondary" />
+                    android:src="@drawable/ic_photo"
+                    app:tint="@color/prime_brand" />
 
                 <ImageButton
                     android:id="@+id/btnCancelEdit"
@@ -798,15 +798,37 @@
                     android:textColorHint="@color/prime_text_secondary"
                     android:textSize="15sp" />
 
-                <ImageButton
-                    android:id="@+id/btnSend"
+                <FrameLayout
+                    android:id="@+id/layoutActionButtons"
                     android:layout_width="42dp"
                     android:layout_height="42dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    tools:ignore="HardcodedText"
-                    android:contentDescription="Отправить"
-                    android:src="@android:drawable/ic_menu_send"
-                    app:tint="@color/prime_text_primary" />
+                    android:layout_gravity="center_vertical">
+
+                    <ImageButton
+                        android:id="@+id/btnVoiceVideoNote"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        tools:ignore="HardcodedText"
+                        android:contentDescription="Голосовое / Видеосообщение"
+                        android:src="@drawable/ic_mic"
+                        app:tint="@color/prime_brand" />
+
+                    <ImageButton
+                        android:id="@+id/btnSend"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        tools:ignore="HardcodedText"
+                        android:contentDescription="Отправить"
+                        android:src="@drawable/ic_send"
+                        android:visibility="gone"
+                        android:alpha="0"
+                        android:scaleX="0.2"
+                        android:scaleY="0.2"
+                        app:tint="@color/prime_brand" />
+                </FrameLayout>
+
             </LinearLayout>
         </eightbitlab.com.blurview.BlurView>
 

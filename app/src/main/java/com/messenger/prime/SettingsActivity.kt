@@ -107,7 +107,6 @@ import java.util.concurrent.Executors
 class SettingsActivity : AppCompatActivity() {
 
     private var binding: ActivitySettingsContentBinding? = null
-    private var slidrInterface: com.r0adkll.slidr.model.SlidrInterface? = null
 
     private var isClosing = false
     private val isPhotoMenuMode = mutableStateOf(false)
@@ -254,7 +253,6 @@ class SettingsActivity : AppCompatActivity() {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
         
-        slidrInterface = PrimeTransitions.attachSlidr(this)
         setContentView(R.layout.activity_settings)
 
         UpdateChecker.checkForUpdates(this)
@@ -303,10 +301,6 @@ class SettingsActivity : AppCompatActivity() {
                             val view = layoutInflater.inflate(R.layout.activity_settings_content, null)
                             val b = ActivitySettingsContentBinding.bind(view)
                             binding = b
-
-                            b.root.post {
-                                PrimeTransitions.protectHorizontalScrollViews(b.root, slidrInterface)
-                            }
 
                             // Сброс смещений при инициализации
                             b.layoutSettingsBodyContainer.translationY = 0f
@@ -761,9 +755,200 @@ class SettingsActivity : AppCompatActivity() {
             PrimeTransitions.applyCloseTransition(this)
         }
 
+        setupStickyNavToolbar(b)
+    }
+
+    private fun smoothScrollToView(nestedScrollView: androidx.core.widget.NestedScrollView, targetView: View) {
+        val location = IntArray(2)
+        targetView.getLocationOnScreen(location)
+        val scrollLocation = IntArray(2)
+        nestedScrollView.getLocationOnScreen(scrollLocation)
+        val toolbarHeight = binding?.blurStickyToolbar?.height ?: 0
+        val targetY = nestedScrollView.scrollY + (location[1] - scrollLocation[1]) - toolbarHeight - 16
+        nestedScrollView.smoothScrollTo(0, targetY.coerceAtLeast(0))
+    }
+
+    private fun getViewTopInContent(targetView: View, contentView: ViewGroup): Int {
+        var y = 0
+        var current: View? = targetView
+        while (current != null && current != contentView) {
+            y += current.top
+            val parent = current.parent
+            if (parent is View) {
+                current = parent
+            } else {
+                break
+            }
+        }
+        return y
+    }
+
+    private fun setupStickyNavToolbar(b: ActivitySettingsContentBinding) {
+        val brandColor = ContextCompat.getColor(this, R.color.prime_brand)
+        val secondaryTextColor = ContextCompat.getColor(this, R.color.prime_text_secondary)
+
+        fun updateActiveTabUI(activeTab: TextView, sectionName: String) {
+            val tabs = listOf(b.tabStickyProfile, b.tabStickyTheme, b.tabStickyData, b.tabStickyInfo)
+            tabs.forEach { tab ->
+                if (tab == activeTab) {
+                    tab.setTextColor(brandColor)
+                    tab.alpha = 1.0f
+                } else {
+                    tab.setTextColor(secondaryTextColor)
+                    tab.alpha = 0.7f
+                }
+            }
+            b.tvStickySectionBadge.text = sectionName
+
+            b.scrollStickyNav.post {
+                val tabLeft = activeTab.left
+                val tabWidth = activeTab.width
+                val scrollWidth = b.scrollStickyNav.width
+                val scrollToX = tabLeft - (scrollWidth / 2) + (tabWidth / 2)
+                b.scrollStickyNav.smoothScrollTo(scrollToX.coerceAtLeast(0), 0)
+            }
+        }
+
+        // --- Single Tap: Smooth scroll to the section ---
+        b.tabStickyProfile.setOnClickListener {
+            smoothScrollToView(b.nestedScrollView, b.layoutAccountData)
+        }
+
+        b.tabStickyTheme.setOnClickListener {
+            smoothScrollToView(b.nestedScrollView, b.layoutSettingsHeader)
+        }
+
+        b.tabStickyData.setOnClickListener {
+            smoothScrollToView(b.nestedScrollView, b.layoutDataHeader)
+        }
+
+        b.tabStickyInfo.setOnClickListener {
+            smoothScrollToView(b.nestedScrollView, b.layoutInfoHeader)
+        }
+
+        // --- Long Click: Open dropdown Popup Menu with choices ---
+        b.tabStickyProfile.setOnLongClickListener { v ->
+            val popup = androidx.appcompat.widget.PopupMenu(this, v)
+            popup.menu.add(0, 1, 0, "Имя и Логин")
+            popup.menu.add(0, 2, 1, "Сменить фото профиля")
+            popup.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    1 -> smoothScrollToView(b.nestedScrollView, b.layoutAccountData)
+                    2 -> showAvatarChoiceDialog()
+                }
+                true
+            }
+            popup.show()
+            true
+        }
+
+        b.tabStickyTheme.setOnLongClickListener { v ->
+            val popup = androidx.appcompat.widget.PopupMenu(this, v)
+            popup.menu.add(0, 1, 0, "Тема оформления")
+            popup.menu.add(0, 2, 1, "Скругление сообщений")
+            popup.menu.add(0, 3, 2, "Скругление аватарки")
+            popup.menu.add(0, 4, 3, "Обои чата")
+            popup.menu.add(0, 5, 4, "Цветовой акцент")
+            popup.menu.add(0, 6, 5, "Живой фон")
+            popup.menu.add(0, 7, 6, "Стиль навигации")
+            popup.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    1 -> smoothScrollToView(b.nestedScrollView, b.cardTheme)
+                    2 -> smoothScrollToView(b.nestedScrollView, b.tvTitleBubbleRadius)
+                    3 -> smoothScrollToView(b.nestedScrollView, b.tvTitleAvatarRadius)
+                    4 -> smoothScrollToView(b.nestedScrollView, b.cardWallpaperSection)
+                    5 -> smoothScrollToView(b.nestedScrollView, b.cardColorAccent)
+                    6 -> smoothScrollToView(b.nestedScrollView, b.cardLavaBg)
+                    7 -> smoothScrollToView(b.nestedScrollView, b.cardNavStyleSection)
+                }
+                true
+            }
+            popup.show()
+            true
+        }
+
+        b.tabStickyData.setOnLongClickListener { v ->
+            val popup = androidx.appcompat.widget.PopupMenu(this, v)
+            popup.menu.add(0, 1, 0, "Память Прайма")
+            popup.menu.add(0, 2, 1, "Детальная выборка кэша")
+            popup.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    1 -> smoothScrollToView(b.nestedScrollView, b.cardStorage)
+                    2 -> smoothScrollToView(b.nestedScrollView, b.layoutDataBlock)
+                }
+                true
+            }
+            popup.show()
+            true
+        }
+
+        b.tabStickyInfo.setOnLongClickListener { v ->
+            val popup = androidx.appcompat.widget.PopupMenu(this, v)
+            popup.menu.add(0, 1, 0, "Исходный код")
+            popup.menu.add(0, 2, 1, "Благодарности")
+            popup.menu.add(0, 3, 2, "Проверить обновления")
+            popup.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    1 -> smoothScrollToView(b.nestedScrollView, b.cardGithub)
+                    2 -> smoothScrollToView(b.nestedScrollView, b.cardThanks)
+                    3 -> smoothScrollToView(b.nestedScrollView, b.btnCheckUpdate)
+                }
+                true
+            }
+            popup.show()
+            true
+        }
+
+        // Section progress calculation & active tab sync
+        fun updateSectionProgressAndTabs() {
+            val contentView = b.nestedScrollView.getChildAt(0) as? ViewGroup ?: return
+            val maxScroll = (contentView.height - b.nestedScrollView.height).coerceAtLeast(1)
+            val scrollY = b.nestedScrollView.scrollY
+
+            val profileStart = 0
+            val themeStart = getViewTopInContent(b.layoutSettingsHeader, contentView)
+            val dataStart = getViewTopInContent(b.layoutDataHeader, contentView)
+            val infoStart = getViewTopInContent(b.layoutInfoHeader, contentView)
+
+            val sectionStart: Int
+            val sectionEnd: Int
+            val activeTab: TextView
+            val sectionName: String
+
+            if (scrollY < themeStart) {
+                sectionStart = profileStart
+                sectionEnd = themeStart
+                activeTab = b.tabStickyProfile
+                sectionName = "Профиль"
+            } else if (scrollY < dataStart) {
+                sectionStart = themeStart
+                sectionEnd = dataStart
+                activeTab = b.tabStickyTheme
+                sectionName = "Оформление"
+            } else if (scrollY < infoStart) {
+                sectionStart = dataStart
+                sectionEnd = infoStart
+                activeTab = b.tabStickyData
+                sectionName = "Данные и память"
+            } else {
+                sectionStart = infoStart
+                sectionEnd = maxScroll
+                activeTab = b.tabStickyInfo
+                sectionName = "Информация"
+            }
+
+            val sectionHeight = (sectionEnd - sectionStart).coerceAtLeast(1)
+            val progressPercent = (((scrollY - sectionStart).toFloat() / sectionHeight) * 100).toInt().coerceIn(0, 100)
+            b.pbStickyScrollProgress.progress = progressPercent
+
+            updateActiveTabUI(activeTab, sectionName)
+        }
+
         var isToolbarVisible = false
 
         b.nestedScrollView.setOnScrollChangeListener(androidx.core.widget.NestedScrollView.OnScrollChangeListener { _, _, _, _, _ ->
+            updateSectionProgressAndTabs()
+
             val header = b.layoutSettingsHeader
             if (!header.isAttachedToWindow) return@OnScrollChangeListener
 
@@ -805,6 +990,7 @@ class SettingsActivity : AppCompatActivity() {
         })
 
         b.nestedScrollView.post {
+            updateSectionProgressAndTabs()
             val header = b.layoutSettingsHeader
             if (!header.isAttachedToWindow) return@post
 

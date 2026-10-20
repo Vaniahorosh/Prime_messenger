@@ -13,18 +13,6 @@ public class BootReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         if (context == null || intent == null) return;
         String action = intent.getAction();
-        Log.d(TAG, "BootReceiver triggered with action: " + action);
-
-        if (Intent.ACTION_BOOT_COMPLETED.equals(action) ||
-            Intent.ACTION_MY_PACKAGE_REPLACED.equals(action) ||
-            "android.intent.action.LOCKED_BOOT_COMPLETED".equals(action)) {
-
-            try {
-                PrimeBluetoothService.startService(context);
-                Log.d(TAG, "Successfully started PrimeBluetoothService on boot");
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to start PrimeBluetoothService on boot", e);
-            }
-        }
+        Log.d(TAG, "BootReceiver triggered with action: " + action + " (Service auto-start disabled on boot to ensure connections run only when user opens Prime)");
     }
 }

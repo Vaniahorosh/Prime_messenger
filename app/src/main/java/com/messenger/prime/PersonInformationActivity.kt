@@ -203,7 +203,7 @@ class PersonInformationActivity : AppCompatActivity() {
         setupLeftColumnButtons()
         setupCategoryTabs()
         updateLiveStatus()
-        PrimeTransitions.protectHorizontalScrollViews(binding.root)
+        PrimeTransitions.protectHorizontalScrollViews(binding.root as android.view.ViewGroup)
         PrimeMusicManager.addListener(playerListener)
         loadSharedMediaAndFiles()
     }

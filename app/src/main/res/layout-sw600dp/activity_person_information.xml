@@ -1,0 +1,872 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/personInfoRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/prime_base"
+    tools:context=".PersonInformationActivity">
+
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    android:layout_width="0dp"
+    android:layout_height="match_parent"
+    app:layout_constraintWidth_max="600dp"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    android:background="@android:color/transparent">
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/nestedScrollView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:background="@android:color/transparent"
+        android:clipToPadding="false"
+        android:clipChildren="false"
+        android:overScrollMode="never">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:paddingBottom="40dp">
+
+            <!-- Шапка с живым фоном -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/headerStaticBlock"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:elevation="4dp"
+                android:paddingBottom="24dp"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <androidx.compose.ui.platform.ComposeView
+                    android:id="@+id/composeHeaderBackground"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- Контент с фото и кнопками -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/layoutWithPhoto"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="16dp"
+                    android:paddingBottom="16dp"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
+                    app:layout_constraintTop_toTopOf="parent">
+
+                    <!-- Левая колонка кнопок -->
+                    <LinearLayout
+                        android:id="@+id/layoutLeftColumn"
+                        android:layout_width="110dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        android:layout_marginTop="8dp">
+
+                        <!-- 1. Кнопка Назад -->
+                        <LinearLayout
+                            android:id="@+id/btnBackLayout"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnBack"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                app:backgroundTint="@android:color/transparent"
+                                app:elevation="0dp"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                android:transitionName="transition_back_btn"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_arrow_back"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="24dp"
+                                app:iconTint="@color/white" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Назад"
+                                android:textColor="@color/white"
+                                android:alpha="0.8"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- 2. Кнопка Просмотр фото -->
+                        <LinearLayout
+                            android:id="@+id/btnViewPhotoLayout"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnViewPhoto"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_photo"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="24dp"
+                                app:iconTint="@color/white" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Просмотр фото"
+                                android:textColor="@color/white"
+                                android:alpha="0.8"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- 3. Кнопка Отключиться -->
+                        <LinearLayout
+                            android:id="@+id/btnDisconnectLayout"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnDisconnect"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_exit_to_app"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="24dp"
+                                app:iconTint="@color/white" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Отключиться"
+                                android:textColor="@color/white"
+                                android:alpha="0.8"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- 4. Кнопка Удалить чат -->
+                        <LinearLayout
+                            android:id="@+id/btnDeleteChatLayout"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnDeleteChat"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/bg_chat_item_delete"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="24dp"
+                                app:iconTint="@color/prime_danger_light" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Удалить чат"
+                                android:textColor="@color/prime_danger_light"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- Карточка с фото собеседника -->
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/photoCard"
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:layout_marginEnd="16dp"
+                        app:cardBackgroundColor="@color/glass_white_10"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="8dp"
+                        app:layout_constraintBottom_toBottomOf="@+id/layoutLeftColumn"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toEndOf="@+id/layoutLeftColumn"
+                        app:layout_constraintTop_toTopOf="parent">
+
+                        <androidx.constraintlayout.widget.ConstraintLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+
+                            <ImageView
+                                android:id="@+id/ivPhotoCard"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:scaleType="centerCrop"
+                                android:transitionName="transition_avatar"
+                                android:contentDescription="Фото собеседника" />
+
+                            <TextView
+                                android:id="@+id/tvAvatarCounter"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:background="@drawable/bg_date_bubble"
+                                android:textColor="@color/white"
+                                android:textSize="12sp"
+                                android:textStyle="bold"
+                                android:paddingHorizontal="12dp"
+                                android:paddingVertical="4dp"
+                                android:elevation="10dp"
+                                android:alpha="0"
+                                android:translationY="-30dp"
+                                android:visibility="gone"
+                                app:layout_constraintTop_toTopOf="parent"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                tools:text="1 из 3"
+                                tools:visibility="visible"
+                                tools:alpha="1"
+                                tools:translationY="0dp" />
+
+                            <View
+                                android:id="@+id/viewPhotoInfoGradient"
+                                android:layout_width="match_parent"
+                                android:layout_height="90dp"
+                                android:background="@drawable/bg_photo_info_gradient"
+                                app:layout_constraintBottom_toBottomOf="parent" />
+
+                            <!-- Текст поверх фото -->
+                            <androidx.constraintlayout.widget.ConstraintLayout
+                                android:id="@+id/layoutPhotoInternal"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent">
+
+                                <TextView
+                                    android:id="@+id/tvUserNameWP"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="12dp"
+                                    android:layout_marginEnd="16dp"
+                                    android:layout_marginBottom="2dp"
+                                    android:textColor="@color/white"
+                                    android:textSize="22sp"
+                                    android:textStyle="bold"
+                                    android:singleLine="true"
+                                    android:ellipsize="marquee"
+                                    android:transitionName="transition_name"
+                                    app:layout_constraintBottom_toTopOf="@+id/tvStatusWP"
+                                    app:layout_constraintEnd_toEndOf="parent"
+                                    app:layout_constraintStart_toStartOf="parent" />
+
+                                <TextView
+                                    android:id="@+id/tvStatusWP"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginBottom="12dp"
+                                    android:text="в сети"
+                                    android:textColor="#E6FFFFFF"
+                                    android:textSize="12sp"
+                                    app:layout_constraintBottom_toBottomOf="parent"
+                                    app:layout_constraintStart_toStartOf="@+id/tvUserNameWP" />
+                            </androidx.constraintlayout.widget.ConstraintLayout>
+                        </androidx.constraintlayout.widget.ConstraintLayout>
+                    </androidx.cardview.widget.CardView>
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <!-- Сетка медиафайлов и список файлов -->
+            <LinearLayout
+                android:id="@+id/layoutContentSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="16dp"
+                android:paddingTop="12dp"
+                app:layout_constraintTop_toBottomOf="@id/headerStaticBlock">
+
+                <!-- Горизонтальный переключатель категорий (Фото и видео | Файлы | GIF | Музыка) -->
+                <HorizontalScrollView
+                    android:id="@+id/scrollCategoryTabs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:scrollbars="none"
+                    android:fillViewport="true">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingVertical="2dp">
+
+                        <!-- Вкладка 1: Фото и видео -->
+                        <LinearLayout
+                            android:id="@+id/tabPhotoVideo"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:background="@drawable/bg_date_bubble"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center"
+                            android:orientation="horizontal"
+                            android:paddingHorizontal="14dp"
+                            android:paddingVertical="8dp">
+
+                            <ImageView
+                                android:id="@+id/ivTabPhotoIcon"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:contentDescription="Фото и видео"
+                                android:src="@drawable/ic_photo"
+                                app:tint="@color/prime_brand" />
+
+                            <TextView
+                                android:id="@+id/tvTabPhotoTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:text="Фото и видео"
+                                android:textColor="@color/prime_brand"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvTabPhotoCount"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="4dp"
+                                android:textColor="@color/prime_brand"
+                                android:textSize="12sp"
+                                android:textStyle="bold"
+                                tools:text="0" />
+                        </LinearLayout>
+
+                        <!-- Вкладка 2: Файлы -->
+                        <LinearLayout
+                            android:id="@+id/tabFiles"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:background="@drawable/bg_date_bubble"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center"
+                            android:orientation="horizontal"
+                            android:paddingHorizontal="14dp"
+                            android:paddingVertical="8dp">
+
+                            <ImageView
+                                android:id="@+id/ivTabFilesIcon"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:contentDescription="Файлы"
+                                android:src="@drawable/ic_file"
+                                app:tint="@color/prime_text_secondary" />
+
+                            <TextView
+                                android:id="@+id/tvTabFilesTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:text="Файлы"
+                                android:textColor="@color/prime_text_secondary"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/tvTabFilesCount"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="4dp"
+                                android:textColor="@color/prime_text_secondary"
+                                android:textSize="12sp"
+                                tools:text="0" />
+                        </LinearLayout>
+
+                        <!-- Вкладка 3: GIF -->
+                        <LinearLayout
+                            android:id="@+id/tabGifs"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:background="@drawable/bg_date_bubble"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center"
+                            android:orientation="horizontal"
+                            android:paddingHorizontal="14dp"
+                            android:paddingVertical="8dp">
+
+                            <ImageView
+                                android:id="@+id/ivTabGifsIcon"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:contentDescription="GIF"
+                                android:src="@drawable/ic_prime_gif"
+                                app:tint="@color/prime_text_secondary" />
+
+                            <TextView
+                                android:id="@+id/tvTabGifsTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:text="GIF"
+                                android:textColor="@color/prime_text_secondary"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/tvTabGifsCount"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="4dp"
+                                android:textColor="@color/prime_text_secondary"
+                                android:textSize="12sp"
+                                tools:text="0" />
+                        </LinearLayout>
+
+                        <!-- Вкладка 4: Музыка -->
+                        <LinearLayout
+                            android:id="@+id/tabMusic"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_date_bubble"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center"
+                            android:orientation="horizontal"
+                            android:paddingHorizontal="14dp"
+                            android:paddingVertical="8dp">
+
+                            <ImageView
+                                android:id="@+id/ivTabMusicIcon"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:contentDescription="Музыка"
+                                android:src="@drawable/ic_music"
+                                app:tint="@color/prime_text_secondary" />
+
+                            <TextView
+                                android:id="@+id/tvTabMusicTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:text="Музыка"
+                                android:textColor="@color/prime_text_secondary"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/tvTabMusicCount"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="4dp"
+                                android:textColor="@color/prime_text_secondary"
+                                android:textSize="12sp"
+                                tools:text="0" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </HorizontalScrollView>
+
+                <!-- Блок контента выбранного раздела -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSharedContent"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="0dp"
+                    app:cardBackgroundColor="@color/prime_surface">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <ImageView
+                                android:id="@+id/ivSectionHeaderIcon"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:contentDescription="Иконка раздела"
+                                android:src="@drawable/ic_photo"
+                                app:tint="@color/prime_brand" />
+
+                            <TextView
+                                android:id="@+id/tvSectionHeaderTitle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginStart="8dp"
+                                android:text="Фото и видео"
+                                android:textColor="@color/prime_text_primary"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvSectionHeaderCount"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/prime_text_secondary"
+                                android:textSize="13sp"
+                                tools:text="0" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvEmptySection"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:gravity="center"
+                            android:padding="16dp"
+                            android:text="Нет сохраненных файлов"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="13sp"
+                            android:visibility="gone" />
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvSharedMedia"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:visibility="gone"
+                            android:nestedScrollingEnabled="false" />
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvSharedFiles"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:visibility="gone"
+                            android:nestedScrollingEnabled="false" />
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvSharedGifs"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:visibility="gone"
+                            android:nestedScrollingEnabled="false" />
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvSharedMusic"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:visibility="gone"
+                            android:nestedScrollingEnabled="false" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- Sticky Floating Blur Toolbar for Person Information -->
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/blurStickyToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:visibility="gone"
+        android:alpha="0"
+        android:elevation="12dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="10dp">
+
+            <!-- Верхняя строчка: Кнопка назад | Имя пользователя + Статус -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnStickyBack"
+                    style="@style/Widget.MaterialComponents.Button.Icon"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    app:backgroundTint="@android:color/transparent"
+                    app:elevation="0dp"
+                    android:padding="0dp"
+                    android:insetLeft="0dp"
+                    android:insetTop="0dp"
+                    android:insetRight="0dp"
+                    android:insetBottom="0dp"
+                    app:cornerRadius="12dp"
+                    app:icon="@drawable/ic_arrow_back"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:iconSize="22dp"
+                    app:iconTint="@color/white" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="12dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvStickyName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/white"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:singleLine="true"
+                        android:ellipsize="marquee"
+                        tools:text="Имя Собеседника" />
+
+                    <TextView
+                        android:id="@+id/tvStickyStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="#E6FFFFFF"
+                        android:textSize="12sp"
+                        tools:text="в сети" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Нижняя строчка: Переключатели категорий -->
+            <HorizontalScrollView
+                android:id="@+id/scrollCategoryTabsSticky"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:scrollbars="none"
+                android:fillViewport="true">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingVertical="2dp">
+
+                    <!-- Вкладка 1: Фото и видео -->
+                    <LinearLayout
+                        android:id="@+id/tabPhotoVideoSticky"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/bg_date_bubble"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp">
+
+                        <ImageView
+                            android:id="@+id/ivTabPhotoIconSticky"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:contentDescription="Фото и видео"
+                            android:src="@drawable/ic_photo"
+                            app:tint="@color/prime_brand" />
+
+                        <TextView
+                            android:id="@+id/tvTabPhotoTitleSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="Фото и видео"
+                            android:textColor="@color/prime_brand"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvTabPhotoCountSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:textColor="@color/prime_brand"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            tools:text="0" />
+                    </LinearLayout>
+
+                    <!-- Вкладка 2: Файлы -->
+                    <LinearLayout
+                        android:id="@+id/tabFilesSticky"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/bg_date_bubble"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp">
+
+                        <ImageView
+                            android:id="@+id/ivTabFilesIconSticky"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:contentDescription="Файлы"
+                            android:src="@drawable/ic_file"
+                            app:tint="@color/prime_text_secondary" />
+
+                        <TextView
+                            android:id="@+id/tvTabFilesTitleSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="Файлы"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/tvTabFilesCountSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="11sp"
+                            tools:text="0" />
+                    </LinearLayout>
+
+                    <!-- Вкладка 3: GIF -->
+                    <LinearLayout
+                        android:id="@+id/tabGifsSticky"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/bg_date_bubble"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp">
+
+                        <ImageView
+                            android:id="@+id/ivTabGifsIconSticky"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:contentDescription="GIF"
+                            android:src="@drawable/ic_prime_gif"
+                            app:tint="@color/prime_text_secondary" />
+
+                        <TextView
+                            android:id="@+id/tvTabGifsTitleSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="GIF"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/tvTabGifsCountSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="11sp"
+                            tools:text="0" />
+                    </LinearLayout>
+
+                    <!-- Вкладка 4: Музыка -->
+                    <LinearLayout
+                        android:id="@+id/tabMusicSticky"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_date_bubble"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp">
+
+                        <ImageView
+                            android:id="@+id/ivTabMusicIconSticky"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:contentDescription="Музыка"
+                            android:src="@drawable/ic_music"
+                            app:tint="@color/prime_text_secondary" />
+
+                        <TextView
+                            android:id="@+id/tvTabMusicTitleSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="Музыка"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/tvTabMusicCountSticky"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="11sp"
+                            tools:text="0" />
+                    </LinearLayout>
+                </LinearLayout>
+            </HorizontalScrollView>
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

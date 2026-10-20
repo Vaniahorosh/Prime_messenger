@@ -96,13 +96,13 @@ class WallpaperEditorActivity : AppCompatActivity() {
     )
 
     private val colorChoices = listOf(
-        ColorChoice("#151D2A", "Полночный"),
-        ColorChoice("#0F172A", "Тёмно-синий"),
+        ColorChoice("#151D2A", "Авто (Тема)"),
+        ColorChoice("#F1F5F9", "Светлый"),
+        ColorChoice("#0F172A", "Полночный"),
         ColorChoice("#090D16", "Глубокая ночь"),
         ColorChoice("#1E1B2E", "Фиолетовый"),
         ColorChoice("#062C22", "Изумрудный"),
-        ColorChoice("#261C14", "Шоколадный"),
-        ColorChoice("#F1F5F9", "Светлый")
+        ColorChoice("#261C14", "Шоколадный")
     )
 
     private data class AnimationChoice(
