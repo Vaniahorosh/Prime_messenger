@@ -430,9 +430,6 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
 
             val shapeProgress = waveInterpolator.getInterpolation(rawProgress)
 
-            val flipY = (1f - rawProgress) * 180f
-            val flipX = sin(rawProgress * Math.PI.toFloat()) * 20f
-
             val localScale = 0.2f + (0.8f * shapeProgress)
             val currentAlpha = (baseAlpha * shape.alphaMultiplier * rawProgress).toInt().coerceIn(0, 255)
 
@@ -446,18 +443,7 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
             // 1. Move canvas to shape position
             canvas.translate(shape.x, shape.y)
 
-            // 2. Apply 3D Camera rotation around (0,0) with density-adjusted distance
-            matrix3D.reset()
-            camera3D.save()
-            camera3D.setLocation(0f, 0f, -8f * density)
-            camera3D.rotateY(flipY)
-            camera3D.rotateX(flipX)
-            camera3D.getMatrix(matrix3D)
-            camera3D.restore()
-
-            canvas.concat(matrix3D)
-
-            // 3. Apply 2D scale and rotation around local (0,0)
+            // 2. Apply 2D scale and rotation around local (0,0)
             canvas.scale(localScale, localScale)
             canvas.rotate(shape.rotation)
 

@@ -14,6 +14,8 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.Outline
+import android.view.ViewOutlineProvider
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
@@ -787,35 +789,37 @@ class SettingsActivity : AppCompatActivity() {
         val brandColor = ContextCompat.getColor(this, R.color.prime_brand)
         val secondaryTextColor = ContextCompat.getColor(this, R.color.prime_text_secondary)
 
-        fun updateActiveTabUI(activeTab: TextView, sectionName: String) {
+        fun updateActiveTabUI(activeTab: TextView?, sectionName: String) {
             val tabs = listOf(b.tabStickyProfile, b.tabStickyTheme, b.tabStickyData, b.tabStickyInfo)
             tabs.forEach { tab ->
-                if (tab == activeTab) {
+                if (tab == activeTab && tab != null) {
                     tab.setTextColor(brandColor)
                     tab.alpha = 1.0f
-                } else {
+                } else if (tab != null) {
                     tab.setTextColor(secondaryTextColor)
                     tab.alpha = 0.7f
                 }
             }
             b.tvStickySectionBadge.text = sectionName
 
-            b.scrollStickyNav.post {
-                val tabLeft = activeTab.left
-                val tabWidth = activeTab.width
-                val scrollWidth = b.scrollStickyNav.width
-                val scrollToX = tabLeft - (scrollWidth / 2) + (tabWidth / 2)
-                b.scrollStickyNav.smoothScrollTo(scrollToX.coerceAtLeast(0), 0)
+            if (activeTab != null) {
+                b.scrollStickyNav.post {
+                    val tabLeft = activeTab.left
+                    val tabWidth = activeTab.width
+                    val scrollWidth = b.scrollStickyNav.width
+                    val scrollToX = tabLeft - (scrollWidth / 2) + (tabWidth / 2)
+                    b.scrollStickyNav.smoothScrollTo(scrollToX.coerceAtLeast(0), 0)
+                }
             }
         }
 
         // --- Single Tap: Smooth scroll to the section ---
         b.tabStickyProfile.setOnClickListener {
-            smoothScrollToView(b.nestedScrollView, b.layoutAccountData)
+            b.layoutAccountData?.let { smoothScrollToView(b.nestedScrollView, it) }
         }
 
         b.tabStickyTheme.setOnClickListener {
-            smoothScrollToView(b.nestedScrollView, b.layoutSettingsHeader)
+            b.layoutSettingsHeader?.let { smoothScrollToView(b.nestedScrollView, it) }
         }
 
         b.tabStickyData.setOnClickListener {
@@ -847,15 +851,17 @@ class SettingsActivity : AppCompatActivity() {
             popup.menu.add(0, 1, 0, "Тема оформления")
             popup.menu.add(0, 2, 1, "Скругление сообщений")
             popup.menu.add(0, 3, 2, "Скругление аватарки")
-            popup.menu.add(0, 4, 3, "Обои чата")
-            popup.menu.add(0, 5, 4, "Цветовой акцент")
-            popup.menu.add(0, 6, 5, "Живой фон")
-            popup.menu.add(0, 7, 6, "Стиль навигации")
+            popup.menu.add(0, 8, 3, "Форма кружков (Видео)")
+            popup.menu.add(0, 4, 4, "Обои чата")
+            popup.menu.add(0, 5, 5, "Цветовой акцент")
+            popup.menu.add(0, 6, 6, "Живой фон")
+            popup.menu.add(0, 7, 7, "Стиль навигации")
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     1 -> smoothScrollToView(b.nestedScrollView, b.cardTheme)
                     2 -> smoothScrollToView(b.nestedScrollView, b.tvTitleBubbleRadius)
                     3 -> smoothScrollToView(b.nestedScrollView, b.tvTitleAvatarRadius)
+                    8 -> b.cardVideoNotesSection?.let { smoothScrollToView(b.nestedScrollView, it) }
                     4 -> smoothScrollToView(b.nestedScrollView, b.cardWallpaperSection)
                     5 -> smoothScrollToView(b.nestedScrollView, b.cardColorAccent)
                     6 -> smoothScrollToView(b.nestedScrollView, b.cardLavaBg)
@@ -903,16 +909,18 @@ class SettingsActivity : AppCompatActivity() {
         fun updateSectionProgressAndTabs() {
             val contentView = b.nestedScrollView.getChildAt(0) as? ViewGroup ?: return
             val maxScroll = (contentView.height - b.nestedScrollView.height).coerceAtLeast(1)
+            val toolbarHeight = b.blurStickyToolbar?.height ?: 0
+            val offset = toolbarHeight + (20 * resources.displayMetrics.density).toInt()
             val scrollY = b.nestedScrollView.scrollY
 
             val profileStart = 0
-            val themeStart = getViewTopInContent(b.layoutSettingsHeader, contentView)
-            val dataStart = getViewTopInContent(b.layoutDataHeader, contentView)
-            val infoStart = getViewTopInContent(b.layoutInfoHeader, contentView)
+            val themeStart = (getViewTopInContent(b.layoutSettingsHeader, contentView) - offset).coerceAtLeast(1)
+            val dataStart = (getViewTopInContent(b.layoutDataHeader, contentView) - offset).coerceAtLeast(themeStart + 1)
+            val infoStart = (getViewTopInContent(b.layoutInfoHeader, contentView) - offset).coerceAtLeast(dataStart + 1)
 
             val sectionStart: Int
             val sectionEnd: Int
-            val activeTab: TextView
+            val activeTab: TextView?
             val sectionName: String
 
             if (scrollY < themeStart) {
@@ -1122,6 +1130,7 @@ class SettingsActivity : AppCompatActivity() {
         setupNavStyleSection(b)
         setupBubbleRadiusSection(b)
         setupAvatarRadiusSection(b)
+        setupVideoMessageSection(b)
     }
 
     private fun setupNavStyleSection(b: ActivitySettingsContentBinding) {
@@ -3158,5 +3167,137 @@ class SettingsActivity : AppCompatActivity() {
     override fun onDestroy() {
         stopWobbling()
         super.onDestroy()
+    }
+
+    private fun setupVideoMessageSection(b: ActivitySettingsContentBinding) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+
+        val savedRadiusPercent = sharedPrefs.getInt("video_message_corner_radius", 50)
+        val savedSizeDp = sharedPrefs.getInt("video_message_size_dp", 180)
+
+        val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
+        val isDark = when (themePref) {
+            "dark" -> true
+            "light" -> false
+            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        }
+
+        b.layoutVideoNotePreviewBg?.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            colors = intArrayOf(
+                if (isDark) Color.parseColor("#1E293B") else Color.parseColor("#E2E8F0"),
+                if (isDark) Color.parseColor("#0F172A") else Color.parseColor("#F1F5F9")
+            )
+            orientation = GradientDrawable.Orientation.TOP_BOTTOM
+        }
+        b.cardVideoNotePreviewBlock?.strokeColor = if (isDark) Color.parseColor("#33FFFFFF") else Color.parseColor("#1A000000")
+
+        fun updatePreviewAndLabels(radiusPercent: Int, sizeDp: Int) {
+            val labelText = when {
+                radiusPercent >= 50 -> "$radiusPercent% (Круг)"
+                radiusPercent == 0 -> "0% (Квадрат)"
+                else -> "$radiusPercent% (Сквиркл)"
+            }
+            b.tvVideoCornerRadiusValue?.text = labelText
+            b.tvVideoSizeValue?.text = "$sizeDp dp"
+
+            b.layoutVideoNotePreviewFrame?.let { frame ->
+                val density = resources.displayMetrics.density
+                val previewSizePx = (sizeDp * density).toInt()
+
+                val lp = frame.layoutParams
+                if (lp != null && (lp.width != previewSizePx || lp.height != previewSizePx)) {
+                    lp.width = previewSizePx
+                    lp.height = previewSizePx
+                    frame.layoutParams = lp
+                }
+
+                val cornerRadiusPx = (previewSizePx * (radiusPercent / 100f))
+
+                frame.clipToOutline = true
+                frame.outlineProvider = object : ViewOutlineProvider() {
+                    override fun getOutline(view: View, outline: Outline) {
+                        outline.setRoundRect(0, 0, view.width, view.height, cornerRadiusPx)
+                    }
+                }
+                frame.invalidateOutline()
+            }
+
+            b.pbVideoNotePreviewFrame?.let { pb ->
+                pb.isBorderProgressMode = true
+                pb.staticShapeType = radiusPercent.toString()
+                val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+                pb.setIndicatorColor(accentColor)
+                pb.progress = 65
+            }
+        }
+
+        b.sliderVideoCornerRadius?.value = savedRadiusPercent.toFloat().coerceIn(0f, 50f)
+        b.sliderVideoSize?.value = savedSizeDp.toFloat().coerceIn(120f, 260f)
+
+        updatePreviewAndLabels(savedRadiusPercent, savedSizeDp)
+
+        b.sliderVideoCornerRadius?.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) {
+                val radius = value.toInt()
+                val currentSize = b.sliderVideoSize?.value?.toInt() ?: 180
+                sharedPrefs.edit().putInt("video_message_corner_radius", radius).apply()
+                updatePreviewAndLabels(radius, currentSize)
+            }
+        }
+
+        b.sliderVideoSize?.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) {
+                val size = value.toInt()
+                val currentRadius = b.sliderVideoCornerRadius?.value?.toInt() ?: 50
+                sharedPrefs.edit().putInt("video_message_size_dp", size).apply()
+                updatePreviewAndLabels(currentRadius, size)
+            }
+        }
+
+        val qualityOptions = arrayOf("Низкое (Быстрое)", "Среднее (Баланс)", "Высокое (HD)")
+        val qualityAdapter = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_item, qualityOptions)
+        qualityAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        b.spinnerVideoQuality?.adapter = qualityAdapter
+        val savedQuality = sharedPrefs.getInt("video_message_quality", 1)
+        b.spinnerVideoQuality?.setSelection(savedQuality)
+        b.spinnerVideoQuality?.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                sharedPrefs.edit().putInt("video_message_quality", position).apply()
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+
+        val fpsOptions = arrayOf("30 FPS", "60 FPS (Плавно)")
+        val fpsAdapter = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_item, fpsOptions)
+        fpsAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        b.spinnerVideoFps?.adapter = fpsAdapter
+        val savedFps = sharedPrefs.getInt("video_message_fps", 0)
+        b.spinnerVideoFps?.setSelection(savedFps)
+        b.spinnerVideoFps?.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                sharedPrefs.edit().putInt("video_message_fps", position).apply()
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+
+        val savedStab = sharedPrefs.getBoolean("video_message_stabilization", true)
+        b.switchVideoStabilization?.isChecked = savedStab
+        b.switchVideoStabilization?.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("video_message_stabilization", isChecked).apply()
+        }
+
+        val apiOptions = arrayOf("CameraX (Стабильно)", "Camera2 (Устаревшее)")
+        val apiAdapter = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_item, apiOptions)
+        apiAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        b.spinnerCameraApi?.adapter = apiAdapter
+        val savedApi = sharedPrefs.getInt("video_message_api", 0)
+        b.spinnerCameraApi?.setSelection(savedApi)
+        b.spinnerCameraApi?.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                sharedPrefs.edit().putInt("video_message_api", position).apply()
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
     }
 }

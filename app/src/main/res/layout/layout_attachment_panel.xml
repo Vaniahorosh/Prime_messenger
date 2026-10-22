@@ -158,12 +158,12 @@
                     android:visibility="gone">
 
                     <!-- Loading Spinner -->
-                    <ProgressBar
+                    <com.messenger.prime.PrimeWaterLoadingView
                         android:id="@+id/pbGifLoading"
-                        style="?android:attr/progressBarStyleSmall"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
                         android:layout_gravity="center"
+                        android:indeterminate="true"
                         android:visibility="gone" />
 
                     <!-- Tenor GIFs Grid -->

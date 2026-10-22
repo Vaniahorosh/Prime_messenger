@@ -934,6 +934,11 @@ class PersonInformationActivity : AppCompatActivity() {
             var totalMusicCount = 0
 
             for (msg in history) {
+                if (msg.isVideoNote || (msg.text != null && msg.text.startsWith("VIDEO_NOTE:")) || (msg.imagePath != null && msg.imagePath.contains("video_notes"))) {
+                    // BARRIER: Video notes are strictly excluded from PersonInformationActivity media gallery!
+                    continue
+                }
+
                 if (msg.isMultiMedia || (!msg.imagePath.isNullOrEmpty() && msg.imagePath.startsWith("MULTI:"))) {
                     val subItems = msg.getMediaItems()
                     for (it in subItems) {

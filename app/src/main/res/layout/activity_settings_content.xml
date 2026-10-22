@@ -1458,6 +1458,223 @@
                                     </LinearLayout>
                                 </LinearLayout>
                             </com.google.android.material.card.MaterialCardView>
+
+                            <!-- Блок Кружков (Видеосообщений) внутри карточки Оформления -->
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:layout_marginTop="16dp"
+                                android:layout_marginBottom="16dp"
+                                android:background="@color/prime_divider" />
+
+                            <LinearLayout
+                                android:id="@+id/cardVideoNotesSection"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Настройки видеокружков"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="Настройте уровень скругления и локальный размер кружка."
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="13sp" />
+
+                                <!-- Скриптор 1: Уровень скругления -->
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal"
+                                    android:layout_marginTop="12dp">
+                                    <TextView
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:text="Скругление видеокружка"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="14sp"
+                                        android:textStyle="bold" />
+                                    <TextView
+                                        android:id="@+id/tvVideoCornerRadiusValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="50% (Круг)"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="12sp"
+                                        android:textStyle="bold" />
+                                </LinearLayout>
+
+                                <com.google.android.material.slider.Slider
+                                    android:id="@+id/sliderVideoCornerRadius"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="-10dp"
+                                    android:layout_marginTop="-4dp"
+                                    android:valueFrom="0"
+                                    android:valueTo="50"
+                                    android:stepSize="1"
+                                    android:value="50"
+                                    app:thumbColor="@color/prime_brand"
+                                    app:trackColorActive="@color/prime_brand" />
+
+                                <!-- Скриптор 2: Локальный размер -->
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal"
+                                    android:layout_marginTop="8dp">
+                                    <TextView
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:text="Размер видеокружка"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="14sp"
+                                        android:textStyle="bold" />
+                                    <TextView
+                                        android:id="@+id/tvVideoSizeValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="180 dp"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="12sp"
+                                        android:textStyle="bold" />
+                                </LinearLayout>
+
+                                <com.google.android.material.slider.Slider
+                                    android:id="@+id/sliderVideoSize"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="-10dp"
+                                    android:layout_marginTop="-4dp"
+                                    android:valueFrom="120"
+                                    android:valueTo="260"
+                                    android:stepSize="10"
+                                    android:value="180"
+                                    app:thumbColor="@color/prime_brand"
+                                    app:trackColorActive="@color/prime_brand" />
+
+                                <!-- Блок предпросмотра -->
+                                <com.google.android.material.card.MaterialCardView
+                                    android:id="@+id/cardVideoNotePreviewBlock"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="8dp"
+                                    android:layout_marginBottom="16dp"
+                                    app:cardCornerRadius="16dp"
+                                    app:cardElevation="0dp"
+                                    app:strokeWidth="1dp"
+                                    app:strokeColor="#1A000000">
+
+                                    <LinearLayout
+                                        android:id="@+id/layoutVideoNotePreviewBg"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:gravity="end"
+                                        android:orientation="vertical"
+                                        android:padding="16dp">
+
+                                        <!-- Исходящий видеокружок -->
+                                        <FrameLayout
+                                            android:id="@+id/layoutVideoNotePreviewFrame"
+                                            android:layout_width="180dp"
+                                            android:layout_height="180dp"
+                                            android:layout_gravity="end">
+
+                                            <ImageView
+                                                android:id="@+id/ivVideoNotePreviewImage"
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:background="#20FFFFFF"
+                                                android:padding="48dp"
+                                                android:scaleType="fitCenter"
+                                                android:src="@drawable/ic_camera"
+                                                app:tint="@color/prime_brand" />
+
+                                            <com.messenger.prime.PrimeWaterLoadingView
+                                                android:id="@+id/pbVideoNotePreviewFrame"
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent" />
+
+                                            <!-- Бейдж времени и двойной галочки как в чате -->
+                                            <LinearLayout
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:layout_gravity="bottom|end"
+                                                android:layout_margin="8dp"
+                                                android:background="@drawable/bg_glass_button"
+                                                android:gravity="center_vertical"
+                                                android:orientation="horizontal"
+                                                android:paddingHorizontal="6dp"
+                                                android:paddingVertical="2dp">
+
+                                                <TextView
+                                                    android:id="@+id/tvVideoNotePreviewTime"
+                                                    android:layout_width="wrap_content"
+                                                    android:layout_height="wrap_content"
+                                                    android:text="12:34"
+                                                    android:textColor="#FFFFFF"
+                                                    android:textSize="11sp"
+                                                    android:textStyle="bold" />
+
+                                                <ImageView
+                                                    android:layout_width="14dp"
+                                                    android:layout_height="14dp"
+                                                    android:layout_marginStart="4dp"
+                                                    android:src="@drawable/ic_done_all"
+                                                    app:tint="@color/prime_brand" />
+                                            </LinearLayout>
+                                        </FrameLayout>
+                                    </LinearLayout>
+                                </com.google.android.material.card.MaterialCardView>
+
+                                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/prime_divider" android:layout_marginBottom="16dp" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Настройки камеры"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold" />
+
+                                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="12dp" android:gravity="center_vertical">
+                                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Качество записи" android:textColor="@color/prime_text_primary" android:textSize="15sp"/>
+                                    <Spinner android:id="@+id/spinnerVideoQuality" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                                </LinearLayout>
+
+                                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="16dp" android:gravity="center_vertical">
+                                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Частота кадров (FPS)" android:textColor="@color/prime_text_primary" android:textSize="15sp"/>
+                                    <Spinner android:id="@+id/spinnerVideoFps" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                                </LinearLayout>
+
+                                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="16dp" android:gravity="center_vertical">
+                                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Стабилизация видео" android:textColor="@color/prime_text_primary" android:textSize="15sp"/>
+                                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Снижает тряску (зависит от устройства)" android:textColor="@color/prime_text_secondary" android:textSize="12sp"/>
+                                    </LinearLayout>
+                                    <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchVideoStabilization" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checked="true"/>
+                                </LinearLayout>
+
+                                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="16dp" android:gravity="center_vertical">
+                                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Camera API" android:textColor="@color/prime_text_primary" android:textSize="15sp"/>
+                                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Использовать CameraX (Стабильно)" android:textColor="@color/prime_text_secondary" android:textSize="12sp"/>
+                                    </LinearLayout>
+                                    <Spinner android:id="@+id/spinnerCameraApi" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                                </LinearLayout>
+                            </LinearLayout>
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 

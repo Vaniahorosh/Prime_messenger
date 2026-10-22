@@ -65,4 +65,12 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
 
     implementation("androidx.window:window:1.5.1")
+
+    // CameraX
+    val cameraxVersion = "1.6.2"
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-video:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
 }

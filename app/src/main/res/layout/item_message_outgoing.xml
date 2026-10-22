@@ -84,6 +84,58 @@
                 android:elevation="0dp"
                 android:padding="12dp">
 
+        <!-- Бесшовный фигурный контейнер для кружков (без фона пузыря) -->
+        <FrameLayout
+            android:id="@+id/layoutVideoNoteContainer"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/ivVideoNoteImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop" />
+
+            <com.messenger.prime.TextureVideoView
+                android:id="@+id/vvVideoNotePlayer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center"
+                android:visibility="gone" />
+
+            <com.messenger.prime.PrimeWaterLoadingView
+                android:id="@+id/pbVideoNoteFrameProgress"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:max="100"
+                android:progress="0" />
+
+            <ImageView
+                android:id="@+id/ivVideoNotePlayIcon"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_glass_button"
+                android:padding="10dp"
+                android:src="@drawable/ic_media_play"
+                app:tint="@color/white" />
+
+            <TextView
+                android:id="@+id/tvVideoNoteTimeBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|end"
+                android:layout_margin="8dp"
+                android:background="@drawable/bg_date_bubble"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:textColor="@color/white"
+                android:textSize="10sp"
+                tools:text="14:23" />
+        </FrameLayout>
+
         <!-- Медиа Контейнер (1 элемент, 2 элемента сетка, 3-5 слайдер) -->
         <FrameLayout
             android:id="@+id/layoutMediaContainer"
@@ -307,15 +359,12 @@
                     android:orientation="vertical"
                     android:visibility="gone">
 
-                    <com.google.android.material.progressindicator.CircularProgressIndicator
+                    <com.messenger.prime.PrimeWaterLoadingView
                         android:id="@+id/pbDownloadProgress"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:indeterminate="true"
-                        app:indicatorColor="@color/white"
-                        app:trackColor="#40FFFFFF"
-                        app:indicatorSize="22dp"
-                        app:trackThickness="2.5dp" />
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_gravity="center"
+                        android:indeterminate="true" />
 
                     <TextView
                         android:id="@+id/tvDownloadPercent"
@@ -582,14 +631,13 @@
             android:paddingEnd="2dp"
             android:visibility="gone">
 
-            <ProgressBar
+            <com.messenger.prime.PrimeWaterLoadingView
                 android:id="@+id/pbMessageProgress"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="0dp"
-                android:layout_height="6dp"
-                android:layout_weight="1"
-                android:max="100"
-                android:progressDrawable="@drawable/bg_progress_bar_custom" />
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:layout_marginEnd="4dp"
+                android:max="100" />
 
             <TextView
                 android:id="@+id/tvMessageProgressPercent"

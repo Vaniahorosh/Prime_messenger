@@ -295,7 +295,12 @@ public class ChatMessage {
         this.audioDuration = audioDuration;
     }
 
+    public boolean isVideoNote() {
+        return text != null && text.startsWith("VIDEO_NOTE:");
+    }
+
     public boolean isVideo() {
+        if (isVideoNote()) return false;
         if (messageType == MessageType.VIDEO) return true;
         if (messageType == MessageType.MUSIC || messageType == MessageType.FILE || messageType == MessageType.VOICE || messageType == MessageType.IMAGE) return false;
         if (imagePath != null && !imagePath.startsWith("MULTI:")) {

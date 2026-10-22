@@ -317,7 +317,7 @@
         android:layout_marginEnd="12dp"
         android:background="@drawable/bg_glass_island"
         android:outlineProvider="background"
-        android:elevation="6dp"
+        android:elevation="24dp"
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone"
@@ -449,6 +449,127 @@
         </LinearLayout>
     </eightbitlab.com.blurview.BlurView>
 
+    <!-- Видеоостровок для воспроизведения кружков -->
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/layoutVideoNoteIsland"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="12dp"
+        android:background="@drawable/bg_glass_island"
+        android:outlineProvider="background"
+        android:elevation="24dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layoutHeader">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="6dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageButton
+                    android:id="@+id/btnVideoIslandPlayPause"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Пауза"
+                    android:src="@drawable/ic_media_pause"
+                    app:tint="@color/white" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="8dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvVideoIslandSenderName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Собеседник"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <ProgressBar
+                        android:id="@+id/pbVideoIslandProgress"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="2.5dp"
+                        android:layout_marginTop="3dp"
+                        android:layout_marginBottom="2dp"
+                        android:max="100"
+                        android:progress="0"
+                        android:progressDrawable="@drawable/bg_progress_bar_custom" />
+
+                    <TextView
+                        android:id="@+id/tvVideoIslandDuration"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="00:00 / 00:00"
+                        android:textColor="@color/prime_text_secondary"
+                        android:textSize="10sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/btnVideoIslandSpeed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_glass_button"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="4dp"
+                    android:text="1.0x"
+                    android:textColor="@color/white"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <ImageButton
+                    android:id="@+id/btnVideoIslandClose"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="6dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Закрыть"
+                    android:src="@drawable/ic_cancel"
+                    app:tint="@color/prime_text_secondary" />
+            </LinearLayout>
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
+
+    <!-- Плавающий закругленный PiP оверлей для кружков -->
+    <FrameLayout
+        android:id="@+id/layoutVideoNoteFloatingPip"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:layout_margin="16dp"
+        android:visibility="gone"
+        android:elevation="12dp"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layoutHeader">
+
+        <com.messenger.prime.TextureVideoView
+            android:id="@+id/vvFloatingPip"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </FrameLayout>
+
     <!-- Плавающая плашка даты при скроллинге (текст слева) -->
     <TextView
         android:id="@+id/tvFloatingDate"
@@ -534,25 +655,14 @@
                 android:paddingBottom="8dp"
                 android:visibility="gone">
 
-                <com.google.android.material.progressindicator.CircularProgressIndicator
-                    android:id="@+id/snakeSendingProgress"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_marginEnd="8dp"
-                    android:indeterminate="true"
-                    app:indicatorColor="@color/prime_progress_start"
-                    app:indicatorSize="22dp"
-                    app:trackColor="@color/prime_progress_track_bg"
-                    app:trackThickness="3dp" />
-
-                <ProgressBar
+                <!-- Only one PrimeWaterLoadingView instead of two -->
+                <com.messenger.prime.PrimeWaterLoadingView
                     android:id="@+id/pbSendingProgress"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="0dp"
-                    android:layout_height="6dp"
-                    android:layout_weight="1"
-                    android:max="100"
-                    android:progressDrawable="@drawable/bg_progress_bar_custom" />
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="8dp"
+                    android:max="100" />
 
                 <TextView
                     android:id="@+id/tvSendingProgressPercent"
@@ -833,5 +943,352 @@
         </eightbitlab.com.blurview.BlurView>
 
     </LinearLayout>
+
+    <!-- Оверлей записи кружков (Видеосообщений) -->
+    <FrameLayout
+        android:id="@+id/layoutVideoRecordOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:elevation="10dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="#80000000">
+
+        <!-- Размытие чата -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/blurVideoRecord"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <FrameLayout
+                android:layout_width="250dp"
+                android:layout_height="250dp">
+
+                <!-- Камера Preview / Видеоплеер для просмотра -->
+                <FrameLayout
+                    android:id="@+id/viewCameraPreview"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <com.messenger.prime.TextureVideoView
+                        android:id="@+id/vvVideoRecordPlayback"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_gravity="center"
+                        android:visibility="gone" />
+                </FrameLayout>
+
+                <!-- Рамка с прогрессом ограничения времени (2 минуты) -->
+                <com.messenger.prime.PrimeWaterLoadingView
+                    android:id="@+id/pbVideoRecordTime"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:max="120"
+                    android:progress="0" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvVideoRecordTimer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="00:00"
+                android:textColor="#FFFFFF"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:shadowColor="#000000"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="3" />
+        </LinearLayout>
+
+        <!-- Нижняя панель с кнопками для превью (после отпускания записи) -->
+        <LinearLayout
+            android:id="@+id/layoutVideoPreviewControls"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:padding="20dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <!-- Триммер видео -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <!-- Кнопка Включить/Выключить звук -->
+                <ImageButton
+                    android:id="@+id/btnVideoRecordMute"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_notifications_off"
+                    app:tint="#FFFFFF" />
+
+                <TextView
+                    android:id="@+id/tvTrimStart"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp" />
+
+                <com.google.android.material.slider.RangeSlider
+                    android:id="@+id/sliderVideoTrim"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    app:thumbColor="@color/prime_brand"
+                    app:trackColorActive="@color/prime_brand" />
+
+                <TextView
+                    android:id="@+id/tvTrimEnd"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <!-- Кнопка Отмена (Крестик) -->
+                <ImageButton
+                    android:id="@+id/btnVideoRecordCancel"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_cancel"
+                    app:tint="#FF5252" />
+
+                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+
+                <!-- Кнопка Перезапись -->
+                <ImageButton
+                    android:id="@+id/btnVideoRecordRetry"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_undo"
+                    app:tint="#FFFFFF" />
+
+                <View android:layout_width="16dp" android:layout_height="1dp" />
+
+                <!-- Кнопка Отправить -->
+                <ImageButton
+                    android:id="@+id/btnVideoRecordSend"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_send"
+                    app:tint="@color/prime_brand" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Индикатор замочка для свайпа вверх -->
+        <LinearLayout
+            android:id="@+id/layoutVideoLockIndicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="120dp"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/ivVideoLockIcon"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:padding="8dp"
+                android:src="@drawable/ic_lock_closed"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:id="@+id/tvVideoLockHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Свайп вверх для фиксации"
+                android:textColor="#CCFFFFFF"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Интерактивный блок корзины отмены при свайпе влево -->
+        <LinearLayout
+            android:id="@+id/layoutVideoCancelContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="24dp"
+            android:layout_marginBottom="36dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/ivVideoTrashIcon"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="@android:color/transparent"
+                android:padding="6dp"
+                android:src="@drawable/ic_trash"
+                app:tint="#FF5252" />
+
+            <TextView
+                android:id="@+id/tvVideoCancelHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Отпустите для отмены"
+                android:textColor="#FF5252"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Ползунок регулировки зума (внизу, над кнопками) -->
+        <LinearLayout
+            android:id="@+id/layoutVideoZoomControls"
+            android:layout_width="220dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="96dp"
+            android:background="@android:color/transparent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="2dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1x"
+                android:textColor="#CCFFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.slider.Slider
+                android:id="@+id/sliderVideoZoom"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="-6dp"
+                android:layout_weight="1"
+                android:valueFrom="1.0"
+                android:valueTo="5.0"
+                android:stepSize="0.1"
+                android:value="1.0"
+                app:thumbColor="@color/prime_brand"
+                app:trackColorActive="@color/prime_brand" />
+
+            <TextView
+                android:id="@+id/tvVideoZoomBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1.0x"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Центральная панель кнопок съемки (Отмена, Переворот, Пауза/Плей, Финиш) -->
+        <LinearLayout
+            android:id="@+id/layoutVideoCenterControls"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="24dp"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <!-- 1. Кнопка Отмена / Мусорка -->
+            <ImageButton
+                android:id="@+id/btnVideoRecordCancelMid"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_trash"
+                app:tint="#FF5252" />
+
+            <!-- 2. Кнопка Переворота Камеры -->
+            <ImageButton
+                android:id="@+id/btnVideoRecordFlipMid"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_flip_camera"
+                app:tint="#FFFFFF" />
+
+            <!-- 3. Кнопка Паузы / Возобновления -->
+            <ImageButton
+                android:id="@+id/btnVideoRecordPauseResume"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_media_pause"
+                app:tint="#FFFFFF" />
+
+            <!-- 4. Кнопка Финиша / Завершения -->
+            <ImageButton
+                android:id="@+id/btnVideoRecordFinishLocked"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_send"
+                app:tint="@color/prime_brand" />
+        </LinearLayout>
+
+        <!-- Кнопка Стоп (появляется при свайпе вверх) -->
+        <ImageButton
+            android:id="@+id/btnVideoRecordStopLocked"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_cancel"
+            android:visibility="gone"
+            app:tint="#FF5252" />
+
+        <!-- Верхняя панель управления (Настройки слева) -->
+        <LinearLayout
+            android:id="@+id/layoutVideoTopControls"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:layout_marginTop="40dp"
+            android:paddingHorizontal="16dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btnVideoRecordSettings"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_settings"
+                app:tint="#FFFFFF" />
+        </LinearLayout>
+    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
