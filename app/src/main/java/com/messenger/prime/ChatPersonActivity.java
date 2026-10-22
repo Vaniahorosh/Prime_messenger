@@ -406,7 +406,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private String currentActivityState = "IDLE";
     private String myLocalActivityState = "IDLE";
     private int remoteVersionCode = -1;
-    private boolean remoteHasVideoNotesSupport = false;
+    private boolean remoteHasVideoNotesSupport = true;
 
     public void setOpeningSubActivity(boolean openingSubActivity) {
         this.isOpeningSubActivity = openingSubActivity;
@@ -801,8 +801,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (layoutMusicIsland != null) {
             layoutMusicIsland.setOnClickListener(v -> {
                 if (layoutMusicSection != null && layoutMusicSection.getVisibility() == View.VISIBLE) {
-                    PrimeMusicPlayerDialog dialog = new PrimeMusicPlayerDialog(this);
-                    dialog.show(null, new ArrayList<>());
+                    com.messenger.prime.TrackItem currentTrack = PrimeMusicManager.INSTANCE.getCurrentTrack();
+                    java.util.List<com.messenger.prime.TrackItem> playlist = PrimeMusicManager.INSTANCE.getCurrentPlaylist();
+                    if (currentTrack != null) {
+                        PrimeMusicPlayerDialog dialog = new PrimeMusicPlayerDialog(this);
+                        dialog.show(null, playlist);
+                    }
                 }
             });
         }
@@ -817,9 +821,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         if (btnMusicIslandClose != null) {
             btnMusicIslandClose.setOnClickListener(v -> {
-                stopAllVideoNotePlayback();
-                isVersionInfoDismissed = true;
-                if (layoutVersionInfo != null) layoutVersionInfo.setVisibility(View.GONE);
+                PrimeMusicManager.INSTANCE.stopAndReleasePlayer(this);
+                if (layoutMusicSection != null) layoutMusicSection.setVisibility(View.GONE);
                 updateIslandVisibility();
             });
         }
@@ -2347,6 +2350,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     @SuppressLint("MissingPermission")
     protected void onPause() {
         super.onPause();
+        if (videoMessageRecorder != null) {
+            videoMessageRecorder.cancelRecording();
+        }
         isActivityForeground = false;
         activeChatPersonAddress = null;
         activeChatPersonName = null;
@@ -2593,6 +2599,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         if (tvReplyBarText != null) {
             String text = message.getText();
+            if (message.isVideoNote() || (text != null && (text.startsWith("VIDEO_NOTE:") || text.startsWith("vn_")))) {
+                text = "📹 Видеосообщение";
+            }
             tvReplyBarText.setText(text != null && !text.isEmpty() ? text : "Сообщение");
         }
 
@@ -4049,6 +4058,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             message.setReplyToMessageId(replyingToMessage.getMessageId());
             message.setReplyToSender(replyingToMessage.getSenderLogin());
             String qText = replyingToText != null && !replyingToText.isEmpty() ? replyingToText : replyingToMessage.getText();
+            if (replyingToMessage.isVideoNote() || (qText != null && (qText.startsWith("VIDEO_NOTE:") || qText.startsWith("vn_")))) {
+                qText = "📹 Видеосообщение";
+            }
             message.setReplyToText(qText != null && !qText.isEmpty() ? qText : "Сообщение");
             cancelReplyMode();
         }
@@ -5204,6 +5216,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (currentSendingMessageId != null) {
             cancelCurrentFileSending();
         }
+        stopAllVideoNotePlayback();
+        PrimeMusicManager.INSTANCE.removeListener(this);
         super.onDestroy();
         try {
             if (ioExecutor != null) ioExecutor.shutdownNow();
@@ -5419,6 +5433,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                         try {
                                             remoteVersionCode = Integer.parseInt(p.substring(8));
                                         } catch (Exception ignored) {}
+                                    } else if (p.startsWith("features=")) {
+                                        remoteHasVideoNotesSupport = p.contains("vn");
                                     }
                                 }
                             } else {
@@ -6200,13 +6216,14 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 byte[] fileBytes = getBytesFromPending(pending);
 
                 String localSavedPath = pending.path;
-                if (isVideo && pending.uri != null) {
+                if ((isVideo || isMusic) && pending.uri != null) {
                     if (localSavedPath == null || localSavedPath.startsWith("content://") || !new File(localSavedPath).exists()) {
                         try {
-                            File videoFile = new File(getFilesDir(), "sent_video_" + timestamp + "_" + fileName);
+                            String prefix = isMusic ? "sent_music_" : "sent_video_";
+                            File mediaFile = new File(getFilesDir(), prefix + timestamp + "_" + fileName);
                             try (InputStream is = getContentResolver().openInputStream(pending.uri)) {
                                 if (is != null) {
-                                    FileOutputStream fos = new FileOutputStream(videoFile);
+                                    FileOutputStream fos = new FileOutputStream(mediaFile);
                                     byte[] buf = new byte[8192];
                                     int len;
                                     while ((len = is.read(buf)) > 0) {
@@ -6214,11 +6231,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                     }
                                     fos.flush();
                                     fos.close();
-                                    localSavedPath = videoFile.getAbsolutePath();
+                                    localSavedPath = mediaFile.getAbsolutePath();
                                 }
                             }
                         } catch (Exception e) {
-                            Log.e(TAG, "Failed to save sent video locally", e);
+                            Log.e(TAG, "Failed to save sent media locally", e);
                         }
                     }
                 }
@@ -6245,6 +6262,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     msg.setReplyToMessageId(replyingToMessage.getMessageId());
                     msg.setReplyToSender(replyingToMessage.getSenderLogin());
                     String qText = replyingToText != null && !replyingToText.isEmpty() ? replyingToText : replyingToMessage.getText();
+                    if (replyingToMessage.isVideoNote() || (qText != null && (qText.startsWith("VIDEO_NOTE:") || qText.startsWith("vn_")))) {
+                        qText = "📹 Видеосообщение";
+                    }
                     msg.setReplyToText(qText != null && !qText.isEmpty() ? qText : (isMusic ? "Аудиозапись" : (isVideo ? "Видео" : "Файл")));
                     runOnUiThread(this::cancelReplyMode);
                 }
@@ -7078,8 +7098,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         boolean hasVersionInfo = (layoutVersionInfo != null && layoutVersionInfo.getVisibility() == View.VISIBLE);
         boolean hasMusicInfo = (layoutMusicSection != null && layoutMusicSection.getVisibility() == View.VISIBLE);
+        boolean isVideoNoteActive = chatAdapter != null && chatAdapter.getCurrentlyPlayingPosition() != -1;
 
-        if (hasVersionInfo || hasMusicInfo) {
+        if ((hasVersionInfo || hasMusicInfo) && !isVideoNoteActive) {
             showMusicIslandWithAnimation();
         } else {
             hideMusicIslandWithAnimation();
@@ -7089,12 +7110,35 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void showMusicIslandWithAnimation() {
         if (layoutMusicIsland == null) return;
 
+        boolean hasVersionInfo = (layoutVersionInfo != null && layoutVersionInfo.getVisibility() == View.VISIBLE);
+        boolean hasMusicInfo = (layoutMusicSection != null && layoutMusicSection.getVisibility() == View.VISIBLE);
+        if (!hasVersionInfo && !hasMusicInfo) {
+            layoutMusicIsland.animate().cancel();
+            layoutMusicIsland.setVisibility(View.GONE);
+            layoutMusicIsland.setTranslationY(0f);
+            layoutMusicIsland.setAlpha(1f);
+            isMusicIslandShowing = false;
+            return;
+        }
+
         ViewGroup rootView = getWindow().getDecorView().findViewById(android.R.id.content);
         if (rootView == null) rootView = (ViewGroup) getWindow().getDecorView();
+
+        float density = getResources().getDisplayMetrics().density;
+        float cornerRadiusPx = 26f * density;
+        layoutMusicIsland.setClipToOutline(true);
+        layoutMusicIsland.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, android.graphics.Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), cornerRadiusPx);
+            }
+        });
+
         boolean isDark = (getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES;
         android.graphics.drawable.Drawable windowBg = getWindow().getDecorView().getBackground();
         int overlayColor = isDark ? Color.parseColor("#400F172A") : Color.parseColor("#40154B87");
         BlurViewKt.setupBlur(layoutMusicIsland, rootView, 16f, overlayColor, windowBg);
+        layoutMusicIsland.invalidateOutline();
 
         if (isMusicIslandShowing && layoutMusicIsland.getVisibility() == View.VISIBLE) return;
 
@@ -7102,42 +7146,32 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         layoutMusicIsland.setVisibility(View.VISIBLE);
         layoutMusicIsland.animate().cancel();
 
-        float initialTranslationY = -80f * getResources().getDisplayMetrics().density;
-        if (layoutMusicIsland.getHeight() > 0) {
-            initialTranslationY = -layoutMusicIsland.getHeight() - (12f * getResources().getDisplayMetrics().density);
-        }
-
         layoutMusicIsland.setAlpha(0f);
-        layoutMusicIsland.setTranslationY(initialTranslationY);
+        layoutMusicIsland.setTranslationY(-30f * density);
 
         layoutMusicIsland.animate()
                 .translationY(0f)
                 .alpha(1f)
-                .setDuration(320)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f))
+                .setDuration(260)
+                .setInterpolator(new android.view.animation.OvershootInterpolator(1.2f))
                 .start();
     }
 
     private void hideMusicIslandWithAnimation() {
         if (layoutMusicIsland == null) return;
-        if (!isMusicIslandShowing && layoutMusicIsland.getVisibility() == View.GONE) return;
-
         isMusicIslandShowing = false;
         layoutMusicIsland.animate().cancel();
 
-        float targetTranslationY = -80f * getResources().getDisplayMetrics().density;
-        if (layoutMusicIsland.getHeight() > 0) {
-            targetTranslationY = -layoutMusicIsland.getHeight() - (12f * getResources().getDisplayMetrics().density);
-        }
-
+        float density = getResources().getDisplayMetrics().density;
         layoutMusicIsland.animate()
-                .translationY(targetTranslationY)
+                .translationY(-30f * density)
                 .alpha(0f)
-                .setDuration(260)
-                .setInterpolator(new android.view.animation.AccelerateInterpolator(1.5f))
+                .setDuration(200)
+                .setInterpolator(new android.view.animation.AccelerateInterpolator())
                 .withEndAction(() -> {
                     layoutMusicIsland.setVisibility(View.GONE);
                     layoutMusicIsland.setTranslationY(0f);
+                    layoutMusicIsland.setAlpha(1f);
                 })
                 .start();
     }
@@ -8675,7 +8709,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         boolean active = isConnectionActive();
         btnSend.setEnabled(active);
-        btnVoiceVideoNote.setEnabled(true);
+        btnVoiceVideoNote.setEnabled(active);
 
         if (shouldShowSend) {
             if (btnSend.getVisibility() != View.VISIBLE) {
@@ -8744,16 +8778,20 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     btnVoiceVideoNote.setVisibility(View.VISIBLE);
                     btnVoiceVideoNote.setScaleX(1.0f);
                     btnVoiceVideoNote.setScaleY(1.0f);
-                    btnVoiceVideoNote.setAlpha(1.0f);
+                    btnVoiceVideoNote.setAlpha(active ? 1.0f : 0.4f);
                 }
             } else {
-                btnVoiceVideoNote.setAlpha(1.0f);
+                btnVoiceVideoNote.setAlpha(active ? 1.0f : 0.4f);
             }
         }
     }
 
     private void toggleVoiceVideoNoteMode() {
         if (btnVoiceVideoNote == null) return;
+        if (!isConnectionActive()) {
+            PrimeNotification.INSTANCE.show(this, "Переключение недоступно без подключения", null);
+            return;
+        }
         btnVoiceVideoNote.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
 
         isVideoNoteMode = !isVideoNoteMode;
@@ -8833,6 +8871,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     @Override
                     public void onRecordingStateChanged(boolean isRecording) {
                         if (isRecording) {
+                            stopAllVideoNotePlayback();
                             if (slidrInterface != null) slidrInterface.lock();
                             sendActivityState("RECORDING_VIDEO_NOTE");
                         } else {
@@ -8898,7 +8937,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 if (isConnectionActive()) {
                     sendActivityState("SENDING_VIDEO_NOTE");
                     if (!remoteHasVideoNotesSupport) {
-                        String fallbackText = "Ваша версия не поддерживает это сообщение, обновите прайм в разделе \"Настройки\" в самом низу, или по ссылке на гитхаб https://github.com/prime-messenger/Prime";
+                        String fallbackText = "Ваша версия не поддерживает это сообщение, обновите прайм в разделе \"Настройки\" в самом низу, или по ссылке на гитхаб https://github.com/Vaniahorosh/Prime_messenger/releases";
                         byte[] textBytes = fallbackText.getBytes(StandardCharsets.UTF_8);
                         sendPacket(TYPE_TEXT, textBytes);
                     } else {
@@ -8951,6 +8990,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         videoNoteIslandManager.hideIsland();
                     }
                     return kotlin.Unit.INSTANCE;
+                },
+                () -> {
+                    if (chatAdapter != null && rvMessages != null) {
+                        int pos = chatAdapter.getCurrentlyPlayingPosition();
+                        if (pos != -1) {
+                            rvMessages.smoothScrollToPosition(pos);
+                        }
+                    }
+                    return kotlin.Unit.INSTANCE;
                 }
             );
         }
@@ -8981,6 +9029,24 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 return kotlin.Unit.INSTANCE;
             });
 
+            videoNoteIslandManager.setOnSpeedClickListener(speed -> {
+                if (floatingPipManager != null && floatingPipManager.isShowing()) {
+                    floatingPipManager.setSpeed(speed);
+                } else if (chatAdapter != null && rvMessages != null) {
+                    int activePos = chatAdapter.getCurrentlyPlayingPosition();
+                    if (activePos != -1) {
+                        RecyclerView.ViewHolder holder = rvMessages.findViewHolderForAdapterPosition(activePos);
+                        if (holder != null && holder.itemView != null) {
+                            com.messenger.prime.TextureVideoView vv = holder.itemView.findViewById(R.id.vvVideoNotePlayer);
+                            if (vv != null) {
+                                vv.setSpeed(speed);
+                            }
+                        }
+                    }
+                }
+                return kotlin.Unit.INSTANCE;
+            });
+
             videoNoteIslandManager.setOnCloseClickListener(() -> {
                 stopAllVideoNotePlayback();
                 return kotlin.Unit.INSTANCE;
@@ -8995,13 +9061,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         PrimeMusicManager.INSTANCE.stopAndReleasePlayer(ChatPersonActivity.this);
                     } catch (Exception ignored) {}
                     if (layoutMusicSection != null) layoutMusicSection.setVisibility(View.GONE);
+                    hideMusicIslandWithAnimation();
 
                     if (videoNoteIslandManager != null) {
                         videoNoteIslandManager.showIsland(formatDisplayName(message.getSenderLogin()), mp != null ? mp.getDuration() : 0);
                     }
                     if (videoNoteMediaSessionManager != null) {
-                        videoNoteMediaSessionManager.startMediaSession(formatDisplayName(message.getSenderLogin()), message.getImagePath(), mp.getDuration(), true);
+                        videoNoteMediaSessionManager.startMediaSession(formatDisplayName(message.getSenderLogin()), message.getImagePath(), mp != null ? mp.getDuration() : 0, true);
                     }
+                    startIslandProgressLoop();
                 }
 
                 @Override
@@ -9061,8 +9129,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             }
                         } else {
                             if (floatingPipManager != null && floatingPipManager.isShowing()) {
-                                int pipMs = floatingPipManager.getCurrentPosition();
-                                floatingPipManager.dismissPip();
+                                int pipMs = floatingPipManager.hidePipForReturn();
                                 if (chatAdapter != null) {
                                     chatAdapter.syncVideoNoteTimestamp(rvMessages, activePos, pipMs);
                                 }
@@ -9101,7 +9168,55 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
     }
 
+    private final Handler islandProgressHandler = new Handler(Looper.getMainLooper());
+    private Runnable islandProgressRunnable = null;
+
+    private void startIslandProgressLoop() {
+        stopIslandProgressLoop();
+        islandProgressRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (chatAdapter != null) {
+                    int activePos = chatAdapter.getCurrentlyPlayingPosition();
+                    if (activePos != -1) {
+                        int curMs = 0;
+                        int durMs = 0;
+
+                        if (floatingPipManager != null && floatingPipManager.isShowing()) {
+                            curMs = floatingPipManager.getCurrentPosition();
+                        } else if (rvMessages != null) {
+                            RecyclerView.ViewHolder holder = rvMessages.findViewHolderForAdapterPosition(activePos);
+                            if (holder != null && holder.itemView != null) {
+                                com.messenger.prime.TextureVideoView vv = holder.itemView.findViewById(R.id.vvVideoNotePlayer);
+                                if (vv != null) {
+                                    curMs = vv.getCurrentPosition();
+                                    durMs = vv.getDuration();
+                                }
+                            }
+                        }
+
+                        if (videoNoteIslandManager != null) {
+                            videoNoteIslandManager.updateProgressUI(curMs, durMs);
+                        }
+                        islandProgressHandler.postDelayed(this, 100);
+                        return;
+                    }
+                }
+                stopIslandProgressLoop();
+            }
+        };
+        islandProgressHandler.post(islandProgressRunnable);
+    }
+
+    private void stopIslandProgressLoop() {
+        if (islandProgressRunnable != null) {
+            islandProgressHandler.removeCallbacks(islandProgressRunnable);
+            islandProgressRunnable = null;
+        }
+    }
+
     private void stopAllVideoNotePlayback() {
+        stopIslandProgressLoop();
         if (chatAdapter != null) {
             chatAdapter.stopCurrentlyPlayingVideoNote();
         }
@@ -9114,12 +9229,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (videoNoteMediaSessionManager != null) {
             videoNoteMediaSessionManager.stopMediaSession();
         }
-        try {
-            PrimeMusicManager.INSTANCE.stopAndReleasePlayer(this);
-            if (layoutMusicSection != null) {
-                layoutMusicSection.setVisibility(View.GONE);
-            }
-        } catch (Exception ignored) {}
     }
 }
 

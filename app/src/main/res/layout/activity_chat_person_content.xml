@@ -329,8 +329,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="6dp">
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="8dp">
 
             <!-- Блок информации о версии приложения собеседника -->
             <LinearLayout
@@ -471,8 +471,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="6dp">
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="8dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -549,6 +549,40 @@
                     app:tint="@color/prime_text_secondary" />
             </LinearLayout>
         </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
+
+    <!-- Прозрачный оверлей клика для закрытия меню скоростей по клику вне его -->
+    <View
+        android:id="@+id/viewVideoSpeedMenuDismiss"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        android:elevation="31dp" />
+
+    <!-- Кастомный островок выбора скорости с BlurView и закруглением -->
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/layoutVideoSpeedMenuBlur"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="52dp"
+        android:layout_marginEnd="20dp"
+        android:background="@drawable/bg_glass_island"
+        android:elevation="32dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layoutHeader">
+
+        <LinearLayout
+            android:id="@+id/layoutVideoSpeedItemsContainer"
+            android:layout_width="140dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="8dp" />
     </eightbitlab.com.blurview.BlurView>
 
     <!-- Плавающий закругленный PiP оверлей для кружков -->
@@ -1025,16 +1059,6 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:layout_marginBottom="8dp">
-
-                <!-- Кнопка Включить/Выключить звук -->
-                <ImageButton
-                    android:id="@+id/btnVideoRecordMute"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:layout_marginEnd="8dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:src="@drawable/ic_notifications_off"
-                    app:tint="#FFFFFF" />
 
                 <TextView
                     android:id="@+id/tvTrimStart"

@@ -156,18 +156,25 @@
                 android:src="@drawable/ic_media_play"
                 app:tint="@color/white" />
 
-            <TextView
-                android:id="@+id/tvVideoNoteTimeBadge"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="bottom|end"
-                android:layout_margin="8dp"
-                android:background="@drawable/bg_date_bubble"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/bg_glass_button"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
                 android:paddingHorizontal="6dp"
-                android:paddingVertical="2dp"
-                android:textColor="@color/white"
-                android:textSize="10sp"
-                tools:text="14:23" />
+                android:paddingVertical="2dp">
+
+                <TextView
+                    android:id="@+id/tvVideoNoteTimeBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/white"
+                    android:textSize="10sp"
+                    tools:text="14:23" />
+            </LinearLayout>
         </FrameLayout>
 
         <!-- Медиа Контейнер (1 элемент, 2 элемента сетка, 3-5 слайдер) -->
@@ -694,14 +701,22 @@
                 app:tint="@color/prime_danger" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvMessageTime"
+        <LinearLayout
+            android:id="@+id/layoutMessageTimeContainer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
             android:layout_marginTop="4dp"
-            android:textColor="@color/chat_bubble_incoming_time"
-            android:textSize="11sp" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvMessageTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/chat_bubble_incoming_time"
+                android:textSize="11sp" />
+        </LinearLayout>
         </LinearLayout>
 
         <!-- Отдельный плавающий островок реакций под бабблом сообщения -->

@@ -10,10 +10,13 @@ import android.widget.FrameLayout
 class FloatingPipManager(
     private val pipView: FrameLayout,
     private val videoView: TextureVideoView,
-    private val onDismiss: () -> Unit
+    private val onDismiss: () -> Unit,
+    private val onClick: () -> Unit = {}
 ) {
     private var dX = 0f
     private var dY = 0f
+    private var initialX = 0f
+    private var initialY = 0f
     private var isPipVisible = false
 
     init {
@@ -40,8 +43,11 @@ class FloatingPipManager(
         pipView.setOnTouchListener { view, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    initialX = event.rawX
+                    initialY = event.rawY
                     dX = view.x - event.rawX
                     dY = view.y - event.rawY
+                    view.animate().cancel()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -51,13 +57,26 @@ class FloatingPipManager(
                     view.y = newY
 
                     val screenWidth = view.resources.displayMetrics.widthPixels
-                    if (newX < -view.width * 0.6f || newX > screenWidth - view.width * 0.4f) {
+                    if (newX < -view.width * 0.5f || newX > screenWidth - view.width * 0.5f) {
                         dismissPip()
                     }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    view.performClick()
+                    val dist = Math.hypot((event.rawX - initialX).toDouble(), (event.rawY - initialY).toDouble())
+                    if (dist < 20) {
+                        view.performClick()
+                        onClick()
+                    } else if (isPipVisible) {
+                        val screenWidth = view.resources.displayMetrics.widthPixels
+                        val density = view.resources.displayMetrics.density
+                        val targetX = if (view.x + view.width / 2 < screenWidth / 2) 16f * density else screenWidth - view.width - 16f * density
+                        view.animate()
+                            .x(targetX)
+                            .setDuration(250)
+                            .setInterpolator(android.view.animation.OvershootInterpolator(1.2f))
+                            .start()
+                    }
                     true
                 }
                 else -> false
@@ -81,13 +100,17 @@ class FloatingPipManager(
         pipView.alpha = 1f
         videoView.setVideoPath(videoPath)
         videoView.setOnPreparedListener { mp ->
-            mp.isLooping = true
+            mp.isLooping = false
             if (startMs > 0) {
                 try {
                     mp.seekTo(startMs)
                 } catch (ignored: Exception) {}
             }
             mp.start()
+        }
+        videoView.setOnCompletionListener {
+            hidePipForReturn()
+            onDismiss()
         }
     }
 
@@ -103,11 +126,29 @@ class FloatingPipManager(
         videoView.seekTo(msec)
     }
 
+    fun setSpeed(speed: Float) {
+        videoView.setSpeed(speed)
+    }
+
     fun getCurrentPosition(): Int {
         return videoView.currentPosition
     }
 
     fun isShowing(): Boolean = isPipVisible
+
+    fun hidePipForReturn(): Int {
+        if (!isPipVisible) return 0
+        isPipVisible = false
+
+        val pos = videoView.currentPosition
+        videoView.stopPlayback()
+
+        pipView.animate().cancel()
+        pipView.visibility = View.GONE
+        pipView.alpha = 1f
+
+        return pos
+    }
 
     fun dismissPip() {
         if (!isPipVisible) return

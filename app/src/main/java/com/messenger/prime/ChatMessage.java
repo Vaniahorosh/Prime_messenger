@@ -16,6 +16,9 @@ public class ChatMessage {
 
     public static String getSummaryDescription(ChatMessage msg) {
         if (msg == null) return "";
+        if (msg.isVideoNote() || (msg.getText() != null && msg.getText().startsWith("VIDEO_NOTE:"))) {
+            return "📹 Видеосообщение";
+        }
         if (msg.isMultiMedia()) {
             List<MediaItem> items = msg.getMediaItems();
             int count = items.size();
@@ -311,6 +314,7 @@ public class ChatMessage {
     }
 
     public boolean isFile() {
+        if (isVideoNote() || (text != null && text.startsWith("VIDEO_NOTE:"))) return false;
         if (messageType == MessageType.FILE) return true;
         return fileName != null && !fileName.isEmpty() && !isVideo() && !isMusic() && messageType != MessageType.IMAGE && messageType != MessageType.VOICE;
     }

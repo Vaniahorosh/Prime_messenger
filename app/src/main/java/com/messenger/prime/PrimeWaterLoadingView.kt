@@ -1,6 +1,7 @@
 package com.messenger.prime
 
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -34,6 +35,10 @@ class PrimeWaterLoadingView @JvmOverloads constructor(
             field = value
             invalidate()
         }
+
+    var isScrubbingEnabled: Boolean = false
+
+    var onProgressChangeListener: ((Int) -> Unit)? = null
 
     var staticShapeType: String = "circle"
         set(value) {
@@ -198,6 +203,38 @@ class PrimeWaterLoadingView @JvmOverloads constructor(
         val finalWidth = if (width < desiredSize / 2) desiredSize else width
 
         setMeasuredDimension(finalWidth, finalHeight)
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
+        if (!isScrubbingEnabled || !isBorderProgressMode) return super.onTouchEvent(event)
+
+        val x = event.x - width / 2f
+        val y = event.y - height / 2f
+
+        when (event.actionMasked) {
+            android.view.MotionEvent.ACTION_DOWN,
+            android.view.MotionEvent.ACTION_MOVE -> {
+                parent?.requestDisallowInterceptTouchEvent(true)
+
+                // Calculate angle from center (0 degrees is top, clockwise)
+                var angle = Math.toDegrees(kotlin.math.atan2(y.toDouble(), x.toDouble())).toFloat()
+                angle += 90f // Shift 0 to top
+                if (angle < 0f) angle += 360f
+
+                val newProgress = ((angle / 360f) * max).toInt().coerceIn(0, max)
+                progress = newProgress
+                onProgressChangeListener?.invoke(newProgress)
+                invalidate()
+                return true
+            }
+            android.view.MotionEvent.ACTION_UP,
+            android.view.MotionEvent.ACTION_CANCEL -> {
+                parent?.requestDisallowInterceptTouchEvent(false)
+                return true
+            }
+        }
+        return super.onTouchEvent(event)
     }
 
     private fun drawBorderProgress(canvas: Canvas, w: Float, h: Float) {

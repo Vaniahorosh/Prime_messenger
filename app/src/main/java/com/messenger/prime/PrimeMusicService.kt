@@ -13,15 +13,32 @@ class PrimeMusicService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        
+
         val track = PrimeMusicManager.getCurrentTrack()
         val isPlaying = PrimeMusicManager.isPlaying()
-        
-        if (track != null) {
-            val notification = PrimeNotification.createMediaNotification(this, track, isPlaying, PrimeMusicManager.mediaSession?.sessionToken)
-            startForeground(2001, notification)
+
+        val notification = if (track != null) {
+            PrimeNotification.createMediaNotification(this, track, isPlaying, PrimeMusicManager.mediaSession?.sessionToken)
+        } else {
+            PrimeNotification.createMediaNotification(
+                this,
+                TrackItem("dummy", "Prime Music", "Воспроизведение", "", 0L, "00:00"),
+                isPlaying,
+                PrimeMusicManager.mediaSession?.sessionToken
+            )
         }
-        
+
+        // ALWAYS call startForeground IMMEDIATELY to prevent ForegroundServiceStartNotAllowed / startForeground timeout crash!
+        try {
+            startForeground(2001, notification)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        if (track == null && !isPlaying) {
+            stopSelf()
+        }
+
         return START_NOT_STICKY
     }
 }

@@ -1239,6 +1239,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         View layoutMusicContainer = layoutFileContainer != null && layoutFileContainer.getParent() != null ?
                 ((View) layoutFileContainer.getParent()).findViewById(R.id.layoutMusicContainer) : null;
 
+        if (message.isVideoNote() || (message.getText() != null && message.getText().startsWith("VIDEO_NOTE:"))) {
+            if (layoutMediaContainer != null) layoutMediaContainer.setVisibility(View.GONE);
+            if (layoutFileContainer != null) layoutFileContainer.setVisibility(View.GONE);
+            if (layoutMusicContainer != null) layoutMusicContainer.setVisibility(View.GONE);
+            if (videoMessagePreview != null) videoMessagePreview.setVisibility(View.GONE);
+            return;
+        }
+
         if (message.isMusic()) {
             if (layoutMediaContainer != null) layoutMediaContainer.setVisibility(View.GONE);
             if (videoMessagePreview != null) videoMessagePreview.setVisibility(View.GONE);
@@ -1338,7 +1346,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         return;
                     }
                     PrimeMusicPlayerDialog playerDialog = new PrimeMusicPlayerDialog(v.getContext());
-                    playerDialog.show(trackItem, java.util.Collections.singletonList(trackItem));
+                    if (isPlayingThis) {
+                        playerDialog.show(null, java.util.Collections.singletonList(trackItem));
+                    } else {
+                        playerDialog.show(trackItem, java.util.Collections.singletonList(trackItem));
+                    }
                 });
             }
             return;
@@ -1521,11 +1533,26 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         this.mRecyclerView = null;
     }
 
+    private void requestAudioFocusForVideoNote(Context context) {
+        android.media.AudioManager audioManager = (android.media.AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        if (audioManager != null) {
+            audioManager.requestAudioFocus(null, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+        }
+    }
+
+    private void abandonAudioFocusForVideoNote(Context context) {
+        android.media.AudioManager audioManager = (android.media.AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        if (audioManager != null) {
+            audioManager.abandonAudioFocus(null);
+        }
+    }
+
     public void stopCurrentlyPlayingVideoNote() {
         stopVideoProgressAnimation();
         if (currentlyPlayingPosition >= 0 && mRecyclerView != null) {
             RecyclerView.ViewHolder holder = mRecyclerView.findViewHolderForAdapterPosition(currentlyPlayingPosition);
             if (holder != null && holder.itemView != null) {
+                abandonAudioFocusForVideoNote(holder.itemView.getContext());
                 com.messenger.prime.TextureVideoView vv = holder.itemView.findViewById(R.id.vvVideoNotePlayer);
                 ImageView ivPlayIcon = holder.itemView.findViewById(R.id.ivVideoNotePlayIcon);
                 ImageView ivImg = holder.itemView.findViewById(R.id.ivVideoNoteImage);
@@ -1536,6 +1563,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 }
                 if (ivImg != null) ivImg.setVisibility(View.VISIBLE);
                 if (ivPlayIcon != null) ivPlayIcon.setVisibility(View.VISIBLE);
+                
+                com.messenger.prime.PrimeWaterLoadingView pb = holder.itemView.findViewById(R.id.pbVideoNoteFrameProgress);
+                if (pb != null) pb.setProgress(0);
             }
         }
         currentlyPlayingVideoNote = null;
@@ -1752,12 +1782,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 vvPlayer.stopPlayback();
                 vvPlayer.setVisibility(View.GONE);
             }
-            if (ivImg != null) {
-                ivImg.setVisibility(View.VISIBLE);
-            }
-            if (ivPlayIcon != null) {
-                ivPlayIcon.setVisibility(View.VISIBLE);
-            }
+            if (ivImg != null) ivImg.setVisibility(View.VISIBLE);
+            if (ivPlayIcon != null) ivPlayIcon.setVisibility(View.VISIBLE);
+            if (pbFrame != null) pbFrame.setProgress(0);
         }
 
         String videoPath = message.getImagePath();
@@ -1777,8 +1804,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 if (vvPlayer != null) {
                     if (vvPlayer.isPlaying()) {
                         vvPlayer.pause();
+                        vvPlayer.stopPlayback();
+                        vvPlayer.setVisibility(View.GONE);
+                        if (ivImg != null) ivImg.setVisibility(View.VISIBLE);
                         stopVideoProgressAnimation();
                         if (ivPlayIcon != null) ivPlayIcon.setVisibility(View.VISIBLE);
+                        if (pbFrame != null) pbFrame.setProgress(0);
                         if (videoNotePlaybackListener != null) {
                             videoNotePlaybackListener.onVideoNoteStopped(message);
                         }
@@ -1792,6 +1823,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         vvPlayer.setVideoPath(videoPath);
                         vvPlayer.setOnPreparedListener(mp -> {
                             mp.setLooping(false);
+                            requestAudioFocusForVideoNote(itemView.getContext());
                             mp.start();
                             startVideoProgressAnimation(vvPlayer, pbFrame);
                             currentlyPlayingVideoNote = message;
@@ -1801,12 +1833,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                             }
                         });
                         vvPlayer.setOnCompletionListener(mp -> {
+                            abandonAudioFocusForVideoNote(itemView.getContext());
                             stopVideoProgressAnimation();
                             if (vvPlayer != null) {
                                 vvPlayer.setVisibility(View.GONE);
                             }
                             if (ivImg != null) ivImg.setVisibility(View.VISIBLE);
                             if (ivPlayIcon != null) ivPlayIcon.setVisibility(View.VISIBLE);
+                            if (pbFrame != null) pbFrame.setProgress(0);
                             currentlyPlayingVideoNote = null;
                             currentlyPlayingPosition = -1;
                             if (videoNotePlaybackListener != null) {
@@ -2480,6 +2514,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     if (tvQuotedSender != null) tvQuotedSender.setText(message.getReplyToSender());
                     if (tvQuotedText != null) {
                         String qText = message.getReplyToText();
+                        if (qText != null && (qText.startsWith("VIDEO_NOTE:") || qText.startsWith("vn_"))) {
+                            qText = "📹 Видеосообщение";
+                        }
                         tvQuotedText.setText(qText != null && !qText.isEmpty() ? qText : "Вложение");
                     }
                     layoutQuotedReply.setOnClickListener(v -> {
@@ -2532,6 +2569,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
 
             tvMessageTime.setText(formatTime(message.getTimestamp(), message.getTime(), message.isEdited()));
+            View layoutMessageTime = itemView.findViewById(R.id.layoutMessageTimeContainer);
+            if (layoutMessageTime != null) {
+                layoutMessageTime.setVisibility(isVideoNote ? View.GONE : View.VISIBLE);
+            } else {
+                tvMessageTime.setVisibility(isVideoNote ? View.GONE : View.VISIBLE);
+            }
 
             if (layoutMessageReaction instanceof LinearLayout) {
                 bindReactions((LinearLayout) layoutMessageReaction, message, position);
@@ -2708,6 +2751,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     if (tvQuotedSender != null) tvQuotedSender.setText(message.getReplyToSender());
                     if (tvQuotedText != null) {
                         String qText = message.getReplyToText();
+                        if (qText != null && (qText.startsWith("VIDEO_NOTE:") || qText.startsWith("vn_"))) {
+                            qText = "📹 Видеосообщение";
+                        }
                         tvQuotedText.setText(qText != null && !qText.isEmpty() ? qText : "Вложение");
                     }
                     layoutQuotedReply.setOnClickListener(v -> {
@@ -2760,6 +2806,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
 
             tvMessageTime.setText(formatTime(message.getTimestamp(), message.getTime(), message.isEdited()));
+            View layoutMessageTime = itemView.findViewById(R.id.layoutMessageTimeContainer);
+            if (layoutMessageTime != null) {
+                layoutMessageTime.setVisibility(isVideoNoteOutgoing ? View.GONE : View.VISIBLE);
+            } else {
+                tvMessageTime.setVisibility(isVideoNoteOutgoing ? View.GONE : View.VISIBLE);
+            }
 
             if (layoutMessageReaction instanceof LinearLayout) {
                 bindReactions((LinearLayout) layoutMessageReaction, message, position);

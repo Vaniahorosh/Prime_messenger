@@ -122,18 +122,34 @@
                 android:src="@drawable/ic_media_play"
                 app:tint="@color/white" />
 
-            <TextView
-                android:id="@+id/tvVideoNoteTimeBadge"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="bottom|end"
-                android:layout_margin="8dp"
-                android:background="@drawable/bg_date_bubble"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/bg_glass_button"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
                 android:paddingHorizontal="6dp"
-                android:paddingVertical="2dp"
-                android:textColor="@color/white"
-                android:textSize="10sp"
-                tools:text="14:23" />
+                android:paddingVertical="2dp">
+
+                <TextView
+                    android:id="@+id/tvVideoNoteTimeBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/white"
+                    android:textSize="10sp"
+                    tools:text="14:23" />
+
+                <ImageView
+                    android:id="@+id/ivVideoNoteStatusBadge"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:layout_marginStart="4dp"
+                    android:src="@drawable/ic_done"
+                    android:visibility="gone"
+                    app:tint="@color/white" />
+            </LinearLayout>
         </FrameLayout>
 
         <!-- Медиа Контейнер (1 элемент, 2 элемента сетка, 3-5 слайдер) -->
@@ -661,6 +677,7 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/layoutMessageTimeContainer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"

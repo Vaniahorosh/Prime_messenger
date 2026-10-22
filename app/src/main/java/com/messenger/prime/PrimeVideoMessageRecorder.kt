@@ -12,7 +12,6 @@ import android.os.Looper
 import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
-import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
@@ -96,11 +95,15 @@ class PrimeVideoMessageRecorder(
     private var isRecording = false
     private var isRecordingStarting = false
     private var isRecordingPaused = false
+    private var isFlippingCamera = false
     private var shouldStopPending = false
     private var isInCancelZone = false
     private var startX = 0f
     private var startY = 0f
     private var currentVideoFile: File? = null
+    private val recordedSegments = mutableListOf<File>()
+    private var accumulatedDurationMs = 0L
+    private var segmentStartTimestamp = 0L
 
     private var trimStartMs: Int = 0
     private var trimEndMs: Int = 0
@@ -108,19 +111,46 @@ class PrimeVideoMessageRecorder(
     private val handler = Handler(Looper.getMainLooper())
     private var longPressRunnable: Runnable? = null
     private var isLongPressTriggered = false
-    private var scaleDetector: ScaleGestureDetector? = null
+
+    private val recordingProgressRunnable = object : Runnable {
+        override fun run() {
+            if (isRecording && !isRecordingPaused) {
+                val now = System.currentTimeMillis()
+                val currentSegmentMs = if (segmentStartTimestamp > 0) now - segmentStartTimestamp else 0L
+                val totalMs = (accumulatedDurationMs + currentSegmentMs).toInt()
+
+                val seconds = totalMs / 1000
+                tvTimer.text = String.format(Locale.US, "%02d:%02d", seconds / 60, seconds % 60)
+                pbVideoRecordTime.max = 120000
+                pbVideoRecordTime.progress = totalMs.coerceIn(0, 120000)
+
+                if (totalMs >= 120000) {
+                    stopRecording()
+                    return
+                }
+                handler.postDelayed(this, 30)
+            }
+        }
+    }
 
     private val checkTrimLoopRunnable = object : Runnable {
         override fun run() {
             videoPlaybackView?.let { vv ->
                 if (vv.visibility == View.VISIBLE && vv.isPlaying) {
                     val cur = vv.currentPosition
-                    if (trimEndMs > 0 && cur >= trimEndMs) {
+                    val dur = vv.duration
+                    if (dur > 0) {
+                        pbVideoRecordTime.max = dur
+                        pbVideoRecordTime.progress = cur.coerceIn(0, dur)
+                    }
+
+                    if (trimEndMs > 0 && cur >= trimEndMs - 50) {
+                        vv.pause()
                         vv.seekTo(trimStartMs)
                         vv.start()
                     }
                 }
-                handler.postDelayed(this, 100)
+                handler.postDelayed(this, 30)
             }
         }
     }
@@ -169,7 +199,6 @@ class PrimeVideoMessageRecorder(
         tvTrimEnd = layoutPreviewControls.findViewById(R.id.tvTrimEnd)
         layoutVideoLockIndicator = overlayView.findViewById(R.id.layoutVideoLockIndicator)
         ivVideoLockIcon = overlayView.findViewById(R.id.ivVideoLockIcon)
-        layoutVideoCancelContainer = overlayView.findViewById(R.id.layoutVideoCancelContainer)
         layoutVideoCancelContainer = overlayView.findViewById(R.id.layoutVideoCancelContainer)
         ivVideoTrashIcon = overlayView.findViewById(R.id.ivVideoTrashIcon)
         tvZoomBadge = overlayView.findViewById(R.id.tvVideoZoomBadge)
@@ -231,6 +260,26 @@ class PrimeVideoMessageRecorder(
         }
     }
 
+    private fun animate3DCameraFlip(onHalfway: () -> Unit) {
+        val density = activity.resources.displayMetrics.density
+        previewContainer.cameraDistance = 8000f * density
+
+        previewContainer.animate()
+            .rotationY(90f)
+            .setDuration(150)
+            .setInterpolator(android.view.animation.AccelerateInterpolator())
+            .withEndAction {
+                onHalfway()
+                previewContainer.rotationY = -90f
+                previewContainer.animate()
+                    .rotationY(0f)
+                    .setDuration(150)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator())
+                    .start()
+            }
+            .start()
+    }
+
     private fun flipCameraProcess() {
         triggerHaptic(HapticFeedbackConstants.KEYBOARD_TAP)
 
@@ -250,56 +299,34 @@ class PrimeVideoMessageRecorder(
             return
         }
 
-        cameraSelector = nextSelector
+        animate3DCameraFlip {
+            cameraSelector = nextSelector
 
-        if (isRecording) {
-            try {
-                recording?.pause()
-                bindCameraUseCases(provider) {
-                    try {
-                        recording?.resume()
-                    } catch (e: Exception) {
-                        Log.e("PrimeVideo", "Failed to resume recording after flip", e)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("PrimeVideo", "Failed to flip camera during recording", e)
+            if (isRecording) {
+                isFlippingCamera = true
+                recording?.stop()
+            } else if (overlayView.visibility == View.VISIBLE) {
+                startCamera {}
             }
-        } else if (overlayView.visibility == View.VISIBLE) {
-            startCamera {}
         }
     }
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupListeners() {
-        scaleDetector = ScaleGestureDetector(activity, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-            override fun onScale(detector: ScaleGestureDetector): Boolean {
-                val cam = camera ?: return false
-                val currentZoom = cam.cameraInfo.zoomState.value?.zoomRatio ?: 1f
-                val targetZoom = currentZoom * detector.scaleFactor
-                cam.cameraControl.setZoomRatio(targetZoom)
-
-                tvZoomBadge?.visibility = View.VISIBLE
-                tvZoomBadge?.text = String.format(Locale.US, "%.1fx", targetZoom)
-                return true
-            }
-        })
-
-        previewContainer.setOnTouchListener { _, event ->
-            scaleDetector?.onTouchEvent(event)
-            if (event.action == MotionEvent.ACTION_UP) {
-                videoPlaybackView?.let { vv ->
-                    if (vv.visibility == View.VISIBLE) {
-                        if (vv.isPlaying) {
-                            vv.pause()
-                        } else {
-                            vv.start()
-                        }
+        val togglePlayback = View.OnClickListener {
+            videoPlaybackView?.let { vv ->
+                if (vv.visibility == View.VISIBLE) {
+                    if (vv.isPlaying) {
+                        vv.pause()
+                    } else {
+                        vv.start()
                     }
                 }
             }
-            true
         }
+
+        previewContainer.setOnClickListener(togglePlayback)
+        videoPlaybackView?.setOnClickListener(togglePlayback)
 
         btnCancelMid?.setOnClickListener {
             triggerHaptic(HapticFeedbackConstants.KEYBOARD_TAP)
@@ -313,17 +340,24 @@ class PrimeVideoMessageRecorder(
                 if (isRecordingPaused) {
                     rec.resume()
                     isRecordingPaused = false
+                    segmentStartTimestamp = System.currentTimeMillis()
                     btnPauseResume?.setImageResource(R.drawable.ic_media_pause)
+                    handler.post(recordingProgressRunnable)
                 } else {
                     rec.pause()
                     isRecordingPaused = true
+                    if (segmentStartTimestamp > 0) {
+                        accumulatedDurationMs += (System.currentTimeMillis() - segmentStartTimestamp)
+                        segmentStartTimestamp = 0L
+                    }
+                    handler.removeCallbacks(recordingProgressRunnable)
                     btnPauseResume?.setImageResource(R.drawable.ic_media_play)
                 }
             }
         }
 
         btnFinishLocked?.setOnClickListener {
-            triggerHaptic(HapticFeedbackConstants.KEYBOARD_TAP)
+            triggerHaptic(HapticFeedbackConstants.VIRTUAL_KEY)
             if (isRecording || isRecordingStarting) {
                 stopRecording()
             }
@@ -390,17 +424,6 @@ class PrimeVideoMessageRecorder(
                             isInCancelZone = false
                             layoutVideoCancelContainer?.visibility = View.GONE
                         }
-
-                        // 3. Camera Zoom during recording
-                        if (dy > 40) {
-                            val linearZoom = ((dy - 40) / 250f).coerceIn(0f, 1f)
-                            camera?.cameraControl?.setLinearZoom(linearZoom)
-                            val displayZoom = 1.0f + (linearZoom * 3.0f)
-                            tvZoomBadge?.visibility = View.VISIBLE
-                            tvZoomBadge?.text = String.format(Locale.US, "%.1fx", displayZoom)
-                        } else {
-                            tvZoomBadge?.visibility = View.GONE
-                        }
                     }
                     true
                 }
@@ -410,7 +433,7 @@ class PrimeVideoMessageRecorder(
                     if (isLongPressTriggered) {
                         triggerHaptic(HapticFeedbackConstants.VIRTUAL_KEY)
                         if (isInCancelZone) {
-                            resetUI()
+                            cancelRecording()
                         } else if ((isRecording || isRecordingStarting) && !isLocked) {
                             stopRecording()
                         }
@@ -439,12 +462,12 @@ class PrimeVideoMessageRecorder(
 
         btnCancel.setOnClickListener {
             triggerHaptic(HapticFeedbackConstants.KEYBOARD_TAP)
-            resetUI()
+            cancelRecording()
         }
 
         btnRetry.setOnClickListener {
             triggerHaptic(HapticFeedbackConstants.KEYBOARD_TAP)
-            resetUI()
+            cancelRecording()
             startRecordingProcess()
         }
 
@@ -497,6 +520,10 @@ class PrimeVideoMessageRecorder(
     }
 
     private fun startRecordingProcess() {
+        recordedSegments.clear()
+        accumulatedDurationMs = 0L
+        segmentStartTimestamp = 0L
+
         val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val shape = sharedPrefs.getString("video_message_shape", "circle") ?: "circle"
 
@@ -504,6 +531,8 @@ class PrimeVideoMessageRecorder(
         pbVideoRecordTime.isBorderProgressMode = true
         pbVideoRecordTime.staticShapeType = shape
         pbVideoRecordTime.setIndicatorColor(accentColor)
+        pbVideoRecordTime.max = 120000
+        pbVideoRecordTime.progress = 0
 
         applyShapeClipping(previewContainer)
 
@@ -522,7 +551,6 @@ class PrimeVideoMessageRecorder(
         tvZoomBadge?.text = "1.0x"
         btnVoiceVideoNote.visibility = View.INVISIBLE
         tvTimer.text = "00:00"
-        pbVideoRecordTime.progress = 0
 
         listener.onRecordingStateChanged(true)
 
@@ -551,7 +579,7 @@ class PrimeVideoMessageRecorder(
 
         val videoFile = File(
             activity.externalCacheDir,
-            SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(System.currentTimeMillis()) + ".mp4"
+            SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(System.currentTimeMillis()) + "_seg" + recordedSegments.size + ".mp4"
         )
         currentVideoFile = videoFile
 
@@ -566,36 +594,42 @@ class PrimeVideoMessageRecorder(
                         is VideoRecordEvent.Start -> {
                             isRecordingStarting = false
                             isRecording = true
+                            segmentStartTimestamp = System.currentTimeMillis()
+                            handler.removeCallbacks(recordingProgressRunnable)
+                            handler.post(recordingProgressRunnable)
+
                             if (shouldStopPending) {
                                 shouldStopPending = false
                                 stopRecording()
                             }
                         }
                         is VideoRecordEvent.Status -> {
-                            val durationMs = recordEvent.recordingStats.recordedDurationNanos / 1_000_000
-                            val seconds = (durationMs / 1000).toInt()
-                            val formattedTime = String.format(Locale.US, "%02d:%02d", seconds / 60, seconds % 60)
-                            tvTimer.text = formattedTime
-                            pbVideoRecordTime.progress = seconds
-
-                            if (seconds >= 120) {
-                                stopRecording()
-                            }
+                            // High precision live progress handled via 30ms smooth recordingProgressRunnable!
                         }
                         is VideoRecordEvent.Finalize -> {
                             isRecordingStarting = false
                             isRecording = false
-                            if (!recordEvent.hasError()) {
-                                showPreviewControls()
-                            } else {
-                                if (currentVideoFile?.exists() == true && (currentVideoFile?.length() ?: 0) > 1000) {
-                                    showPreviewControls()
-                                } else {
-                                    recording?.close()
-                                    recording = null
-                                    Log.e("PrimeVideo", "Video capture error: ${recordEvent.error}")
-                                    resetUI()
+                            handler.removeCallbacks(recordingProgressRunnable)
+
+                            if (segmentStartTimestamp > 0) {
+                                val segmentMs = System.currentTimeMillis() - segmentStartTimestamp
+                                accumulatedDurationMs += segmentMs
+                                segmentStartTimestamp = 0L
+                            }
+
+                            currentVideoFile?.let { file ->
+                                if (file.exists() && file.length() > 500) {
+                                    recordedSegments.add(file)
                                 }
+                            }
+
+                            if (isFlippingCamera) {
+                                isFlippingCamera = false
+                                startCamera {
+                                    startRecording()
+                                }
+                            } else {
+                                processFinalRecordingsAndShowPreview()
                             }
                         }
                     }
@@ -603,8 +637,29 @@ class PrimeVideoMessageRecorder(
         } catch (e: Exception) {
             isRecordingStarting = false
             isRecording = false
+            handler.removeCallbacks(recordingProgressRunnable)
             Log.e("PrimeVideo", "Failed to start recording", e)
             resetUI()
+        }
+    }
+
+    private fun processFinalRecordingsAndShowPreview() {
+        if (recordedSegments.isEmpty()) {
+            resetUI()
+            return
+        }
+
+        if (recordedSegments.size == 1) {
+            currentVideoFile = recordedSegments[0]
+            showPreviewControls()
+        } else {
+            val joinedFile = File(
+                activity.externalCacheDir,
+                "joined_" + System.currentTimeMillis() + ".mp4"
+            )
+            VideoTrimmer.concatenateVideos(recordedSegments, joinedFile)
+            currentVideoFile = joinedFile
+            showPreviewControls()
         }
     }
 
@@ -622,10 +677,12 @@ class PrimeVideoMessageRecorder(
     }
 
     private fun showPreviewControls() {
+        handler.removeCallbacks(recordingProgressRunnable)
         layoutPreviewControls.bringToFront()
         layoutPreviewControls.visibility = View.VISIBLE
         btnStopLocked.visibility = View.GONE
         layoutVideoCenterControls?.visibility = View.GONE
+        layoutVideoZoomControls?.visibility = View.GONE
         btnVoiceVideoNote.visibility = View.GONE
 
         handler.removeCallbacks(checkTrimLoopRunnable)
@@ -644,6 +701,9 @@ class PrimeVideoMessageRecorder(
                         trimEndMs = durationMs
                         start()
 
+                        pbVideoRecordTime.max = durationMs
+                        pbVideoRecordTime.progress = 0
+
                         val formatMs = { ms: Float ->
                             val sec = (ms / 1000).toInt()
                             String.format(Locale.US, "%02d:%02d", sec / 60, sec % 60)
@@ -658,7 +718,9 @@ class PrimeVideoMessageRecorder(
                             values = listOf(0f, durationMs.toFloat().coerceAtLeast(100f))
 
                             clearOnChangeListeners()
-                            addOnChangeListener { slider, _, _ ->
+                            clearOnSliderTouchListeners()
+
+                            addOnChangeListener { slider, value, fromUser ->
                                 val vals = slider.values
                                 if (vals.size >= 2) {
                                     trimStartMs = vals[0].toInt()
@@ -666,9 +728,23 @@ class PrimeVideoMessageRecorder(
                                     tvTrimStart?.text = formatMs(vals[0])
                                     tvTrimEnd?.text = formatMs(vals[1])
 
-                                    seekTo(trimStartMs)
+                                    if (fromUser) {
+                                        videoPlaybackView?.pause()
+                                        videoPlaybackView?.seekTo(value.toInt())
+                                    }
                                 }
                             }
+
+                            addOnSliderTouchListener(object : RangeSlider.OnSliderTouchListener {
+                                override fun onStartTrackingTouch(slider: RangeSlider) {
+                                    videoPlaybackView?.pause()
+                                }
+
+                                override fun onStopTrackingTouch(slider: RangeSlider) {
+                                    videoPlaybackView?.seekTo(trimStartMs)
+                                    videoPlaybackView?.start()
+                                }
+                            })
                         }
                     }
                 }
@@ -677,6 +753,7 @@ class PrimeVideoMessageRecorder(
     }
 
     private fun resetUI() {
+        handler.removeCallbacks(recordingProgressRunnable)
         handler.removeCallbacks(checkTrimLoopRunnable)
         videoPlaybackView?.apply {
             stopPlayback()
@@ -695,8 +772,17 @@ class PrimeVideoMessageRecorder(
         isRecording = false
         isRecordingStarting = false
         isRecordingPaused = false
+        isFlippingCamera = false
         shouldStopPending = false
         isInCancelZone = false
+
+        for (f in recordedSegments) {
+            try { if (f.exists()) f.delete() } catch (ignored: Exception) {}
+        }
+        recordedSegments.clear()
+        accumulatedDurationMs = 0L
+        segmentStartTimestamp = 0L
+
         currentVideoFile = null
         listener.onRecordingStateChanged(false)
     }
@@ -706,6 +792,12 @@ class PrimeVideoMessageRecorder(
     }
 
     fun cancelRecording() {
+        if (isRecording || isRecordingStarting) {
+            try {
+                recording?.stop()
+            } catch (ignored: Exception) {}
+            recording = null
+        }
         resetUI()
     }
 
@@ -729,11 +821,29 @@ class PrimeVideoMessageRecorder(
     }
 
     private fun bindCameraUseCases(cameraProvider: ProcessCameraProvider, onCameraReady: () -> Unit) {
-        val preview = Preview.Builder().build().also { p ->
-            previewView?.let { pv ->
-                p.setSurfaceProvider(pv.surfaceProvider)
+        val displayRotation = previewView?.display?.rotation
+            ?: activity.windowManager.defaultDisplay.rotation
+
+        val captureTargetRotation = if (cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
+            when (displayRotation) {
+                android.view.Surface.ROTATION_0 -> android.view.Surface.ROTATION_180
+                android.view.Surface.ROTATION_180 -> android.view.Surface.ROTATION_0
+                android.view.Surface.ROTATION_90 -> android.view.Surface.ROTATION_270
+                android.view.Surface.ROTATION_270 -> android.view.Surface.ROTATION_90
+                else -> android.view.Surface.ROTATION_180
             }
+        } else {
+            displayRotation
         }
+
+        val preview = Preview.Builder()
+            .setTargetRotation(displayRotation)
+            .build()
+            .also { p ->
+                previewView?.let { pv ->
+                    p.setSurfaceProvider(pv.surfaceProvider)
+                }
+            }
 
         val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val savedQuality = sharedPrefs.getInt("video_message_quality", 1)
@@ -746,7 +856,10 @@ class PrimeVideoMessageRecorder(
         val recorder = Recorder.Builder()
             .setQualitySelector(qualitySelector)
             .build()
-        videoCapture = VideoCapture.withOutput(recorder)
+
+        videoCapture = VideoCapture.Builder(recorder)
+            .setTargetRotation(captureTargetRotation)
+            .build()
 
         try {
             if (!cameraProvider.hasCamera(cameraSelector)) {

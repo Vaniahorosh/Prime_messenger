@@ -1773,6 +1773,7 @@ class ChatListActivity : AppCompatActivity() {
             }
 
             b.btnMusicIslandClose.setOnClickListener {
+                PrimeMusicManager.stopAndReleasePlayer(activity)
                 hideMusicIsland(b)
             }
 
@@ -1976,7 +1977,12 @@ class ChatListActivity : AppCompatActivity() {
             replyingToMessage = message
             binding?.layoutReplyBar?.visibility = View.VISIBLE
             binding?.tvReplyBarTitle?.text = message.senderLogin ?: "Собеседник"
-            binding?.tvReplyBarText?.text = message.text ?: "Медиафайл"
+            val text = if (message.isVideoNote || (message.text != null && (message.text.startsWith("VIDEO_NOTE:") || message.text.startsWith("vn_")))) {
+                "📹 Видеосообщение"
+            } else {
+                message.text ?: "Медиафайл"
+            }
+            binding?.tvReplyBarText?.text = text
         }
 
         override fun onReplyToSelectedText(message: ChatMessage?, selectedText: String?, position: Int) {

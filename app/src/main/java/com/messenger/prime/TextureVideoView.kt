@@ -3,15 +3,17 @@ package com.messenger.prime
 import android.content.Context
 import android.graphics.Matrix
 import android.graphics.SurfaceTexture
+import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
+import android.net.Uri
 import android.util.AttributeSet
 import android.view.Surface
 import android.view.TextureView
 
 /**
  * Custom TextureView for video playback that supports 100% reliable hardware clipping
- * (ViewOutlineProvider / setClipToOutline) and internal Matrix CENTER_CROP scaling
- * so video never overflows, stretches wide, or distorts.
+ * (ViewOutlineProvider / setClipToOutline) and internal Matrix CENTER_CROP scaling.
+ * Correctly respects video orientation rotation metadata (90° / 270°) to prevent any sideways rotation.
  */
 class TextureVideoView @JvmOverloads constructor(
     context: Context,
@@ -126,32 +128,75 @@ class TextureVideoView @JvmOverloads constructor(
         }
     }
 
-    private fun updateCenterCropMatrix(videoWidth: Int, videoHeight: Int) {
-        post {
-            val viewWidth = width.toFloat()
-            val viewHeight = height.toFloat()
-
-            if (videoWidth <= 0 || videoHeight <= 0 || viewWidth <= 0 || viewHeight <= 0) return@post
-
-            val videoAspect = videoWidth.toFloat() / videoHeight.toFloat()
-            val viewAspect = viewWidth / viewHeight
-
-            val scaleX: Float
-            val scaleY: Float
-
-            if (videoAspect > viewAspect) {
-                scaleX = videoAspect / viewAspect
-                scaleY = 1f
-            } else {
-                scaleX = 1f
-                scaleY = viewAspect / videoAspect
+    fun setSpeed(speed: Float) {
+        mediaPlayer?.let { mp ->
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    val params = mp.playbackParams
+                    params.speed = speed
+                    mp.playbackParams = params
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-
-            val matrix = Matrix()
-            matrix.setScale(scaleX, scaleY, viewWidth / 2f, viewHeight / 2f)
-            setTransform(matrix)
-            invalidate()
         }
+    }
+
+    private fun getRotationDegrees(): Int {
+        val path = videoPath ?: return 0
+        return try {
+            val retriever = MediaMetadataRetriever()
+            if (path.startsWith("content://")) {
+                retriever.setDataSource(context, Uri.parse(path))
+            } else {
+                retriever.setDataSource(path)
+            }
+            val rotationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+            retriever.release()
+            rotationStr?.toInt() ?: 0
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    private fun updateCenterCropMatrix(rawVideoWidth: Int, rawVideoHeight: Int) {
+        val viewWidth = width.toFloat()
+        val viewHeight = height.toFloat()
+
+        if (rawVideoWidth <= 0 || rawVideoHeight <= 0) return
+        if (viewWidth <= 0 || viewHeight <= 0) {
+            post { updateCenterCropMatrix(rawVideoWidth, rawVideoHeight) }
+            return
+        }
+
+        val rotation = getRotationDegrees()
+        val isSwapped = (rotation == 90 || rotation == 270) && (rawVideoWidth > rawVideoHeight)
+
+        val realWidth = if (isSwapped) rawVideoHeight.toFloat() else rawVideoWidth.toFloat()
+        val realHeight = if (isSwapped) rawVideoWidth.toFloat() else rawVideoHeight.toFloat()
+
+        val videoAspect = realWidth / realHeight
+        val viewAspect = viewWidth / viewHeight
+
+        val scaleX: Float
+        val scaleY: Float
+
+        if (videoAspect > viewAspect) {
+            scaleX = videoAspect / viewAspect
+            scaleY = 1.0f
+        } else {
+            scaleX = 1.0f
+            scaleY = viewAspect / videoAspect
+        }
+
+        val cx = viewWidth / 2f
+        val cy = viewHeight / 2f
+
+        val matrix = Matrix()
+        matrix.setScale(scaleX, scaleY, cx, cy)
+
+        setTransform(matrix)
+        invalidate()
     }
 
     override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
