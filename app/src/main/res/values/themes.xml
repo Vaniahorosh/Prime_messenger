@@ -41,6 +41,10 @@
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Material3.Expressive.Small</item>
 
         <item name="materialAlertDialogTheme">@style/Theme.Prime.AlertDialog</item>
+        <item name="popupMenuStyle">@style/Widget.Prime.PopupMenu</item>
+        <item name="android:popupMenuStyle">@style/Widget.Prime.PopupMenu</item>
+        <item name="actionOverflowMenuStyle">@style/Widget.Prime.PopupMenu</item>
+        <item name="android:dropDownListViewStyle">@style/Widget.Prime.DropDownListView</item>
     </style>
 
     <style name="ShapeAppearance.Material3.Expressive.ExtraLarge" parent="ShapeAppearance.Material3.Corner.ExtraLarge">
@@ -201,5 +205,16 @@
         <item name="colorAccent">#E91E63</item>
         <item name="colorPrimaryContainer">#CCE91E63</item>
         <item name="colorSecondary">#E91E63</item>
+    </style>
+
+    <style name="Widget.Prime.PopupMenu" parent="Widget.AppCompat.PopupMenu">
+        <item name="android:popupBackground">@drawable/bg_glass_dropdown</item>
+        <item name="android:dropDownVerticalOffset">4dp</item>
+    </style>
+
+    <style name="Widget.Prime.DropDownListView" parent="Widget.AppCompat.ListView.DropDown">
+        <item name="android:divider">@null</item>
+        <item name="android:dividerHeight">0dp</item>
+        <item name="android:listSelector">@drawable/bg_glass_button</item>
     </style>
 </resources>

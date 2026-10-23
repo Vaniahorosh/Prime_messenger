@@ -589,17 +589,6 @@ class MediaPlayerActivity : AppCompatActivity() {
         if (pos !in list.indices) return
         val item = list[pos]
 
-        val dialogView = layoutInflater.inflate(R.layout.dialog_media_more_menu, null)
-        val blurCard = dialogView.findViewById<BlurView>(R.id.blurDialogCard)
-        val tvMenuTitle = dialogView.findViewById<TextView>(R.id.tvMenuTitle)
-        val tvMenuSubTitle = dialogView.findViewById<TextView>(R.id.tvMenuSubTitle)
-        val btnMenuSave = dialogView.findViewById<View>(R.id.btnMenuSave)
-        val btnMenuEdit = dialogView.findViewById<View>(R.id.btnMenuEdit)
-        val btnMenuInfo = dialogView.findViewById<View>(R.id.btnMenuInfo)
-        val btnMenuDelete = dialogView.findViewById<View>(R.id.btnMenuDelete)
-        val ivMenuEditIcon = dialogView.findViewById<ImageView>(R.id.ivMenuEditIcon)
-        val tvMenuEditText = dialogView.findViewById<TextView>(R.id.tvMenuEditText)
-
         val isContactAvatarPreview = item.messageId?.contains("contact_avatar_preview") == true
         val isMyAvatarPreview = item.messageId?.contains("my_avatar_preview") == true
         val isAvatarPreview = isContactAvatarPreview || isMyAvatarPreview
@@ -607,106 +596,55 @@ class MediaPlayerActivity : AppCompatActivity() {
                 || item.time == "Это вы"
                 || item.time == "В прайме!"
 
-        if (isContactAvatarPreview) {
-            tvMenuTitle.text = "Аватар собеседника"
-            tvMenuSubTitle.text = "${pos + 1} из ${list.size}" + (if (pos == 0) " • Активный аватар" else "")
-            btnMenuSave.visibility = View.VISIBLE
-            btnMenuInfo.visibility = View.VISIBLE
-            btnMenuEdit.visibility = View.GONE
-            btnMenuDelete.visibility = View.GONE
-        } else if (isAvatarPreview) {
-            tvMenuTitle.text = "Аватар профиля"
-            tvMenuSubTitle.text = "${pos + 1} из ${list.size}" + (if (pos == 0) " • Активный аватар" else "")
-            ivMenuEditIcon?.setImageResource(R.drawable.ic_done)
-            tvMenuEditText?.text = "Установить по умолчанию"
-            btnMenuSave.visibility = View.VISIBLE
-            btnMenuInfo.visibility = View.VISIBLE
-            btnMenuEdit.visibility = View.VISIBLE
-            btnMenuDelete.visibility = View.VISIBLE
-        } else if (item.isVideo || item.messageType == ChatMessage.MessageType.VIDEO) {
-            tvMenuTitle.text = "Видеозапись"
-            tvMenuSubTitle.text = "Отправитель: ${if (!item.senderLogin.isNullOrEmpty()) item.senderLogin else "Пользователь"}"
-            ivMenuEditIcon?.setImageResource(R.drawable.ic_edit)
-            tvMenuEditText?.text = "Редактировать в редакторе"
-            btnMenuSave.visibility = View.VISIBLE
-            btnMenuInfo.visibility = View.VISIBLE
-            btnMenuEdit.visibility = View.VISIBLE
-            btnMenuDelete.visibility = View.VISIBLE
-        } else {
-            tvMenuTitle.text = "Фотография"
-            tvMenuSubTitle.text = "Отправитель: ${if (!item.senderLogin.isNullOrEmpty()) item.senderLogin else "Пользователь"}"
-            ivMenuEditIcon?.setImageResource(R.drawable.ic_edit)
-            tvMenuEditText?.text = "Редактировать в редакторе"
-            btnMenuSave.visibility = View.VISIBLE
-            btnMenuInfo.visibility = View.VISIBLE
-            btnMenuEdit.visibility = View.VISIBLE
-            btnMenuDelete.visibility = View.VISIBLE
-        }
+        val editTitle = if (isAvatarPreview) "Установить по умолчанию" else "Редактировать в редакторе"
+        val editIcon = if (isAvatarPreview) R.drawable.ic_done else R.drawable.ic_edit
 
-        val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
-        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val overlayColor = if (isDark) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
-        blurCard?.setupBlur(rootView, 16f, overlayColor, window.decorView.background)
-
-        val dialog = MaterialAlertDialogBuilder(this, R.style.Theme_Prime_AlertDialog)
-            .setView(dialogView)
-            .create()
-
-        dialog.window?.let { win ->
-            win.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                try {
-                    win.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-                    win.attributes = win.attributes.apply { blurBehindRadius = 60 }
-                } catch (_: Throwable) {}
+        val popup = PrimePopupMenu.create(this, btnMoreMenu)
+            .addItem("Сохранить", R.drawable.ic_download) {
+                saveCurrentMediaToGallery(item)
             }
-        }
 
-        btnMenuSave.setOnClickListener {
-            dialog.dismiss()
-            saveCurrentMediaToGallery(item)
-        }
-
-        btnMenuEdit.setOnClickListener {
-            dialog.dismiss()
-            if (isAvatarPreview) {
-                val path = item.imagePath ?: return@setOnClickListener
-                if (item.isOutgoing) {
-                    AvatarHistoryManager.addMyAvatar(this, path)
-                    sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
-                    showIslandBadge("Аватар установлен по умолчанию")
-                    finish()
-                } else {
-                    val sender = item.senderLogin ?: ""
-                    AvatarHistoryManager.addContactAvatar(this, sender, path)
-                    sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
-                    showIslandBadge("Аватар установлен по умолчанию")
-                    finish()
-                }
-            } else {
-                val path = item.imagePath
-                if (!path.isNullOrEmpty() && !item.isVideo) {
-                    val intent = Intent(this, PhotoEditorActivity::class.java).apply {
-                        putExtra("EXTRA_IMAGE_URI", path)
+        if (!isContactAvatarPreview) {
+            popup.addItem(editTitle, editIcon) {
+                if (isAvatarPreview) {
+                    val path = item.imagePath ?: return@addItem
+                    if (item.isOutgoing) {
+                        AvatarHistoryManager.addMyAvatar(this, path)
+                        sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
+                        showIslandBadge("Аватар установлен по умолчанию")
+                        finish()
+                    } else {
+                        val sender = item.senderLogin ?: ""
+                        AvatarHistoryManager.addContactAvatar(this, sender, path)
+                        sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
+                        showIslandBadge("Аватар установлен по умолчанию")
+                        finish()
                     }
-                    startActivity(intent)
                 } else {
-                    showIslandBadge("Редактирование недоступно")
+                    val path = item.imagePath
+                    if (!path.isNullOrEmpty() && !item.isVideo) {
+                        val intent = Intent(this, PhotoEditorActivity::class.java).apply {
+                            putExtra("EXTRA_IMAGE_URI", path)
+                        }
+                        startActivity(intent)
+                    } else {
+                        showIslandBadge("Редактирование недоступно")
+                    }
                 }
             }
         }
 
-        btnMenuInfo.setOnClickListener {
-            dialog.dismiss()
+        popup.addItem("Информация", R.drawable.ic_clock) {
             showMediaInfoDialog(item)
         }
 
-        btnMenuDelete.setOnClickListener {
-            dialog.dismiss()
-            deleteCurrentMediaItem(pos)
+        if (!isContactAvatarPreview) {
+            popup.addItem("Удалить", R.drawable.ic_trash) {
+                deleteCurrentMediaItem(pos)
+            }
         }
 
-        dialog.show()
+        popup.show()
     }
 
     private fun shareCurrentMedia(item: ChatMessage) {

@@ -31,6 +31,10 @@
         <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
         <item name="materialCardViewStyle">@style/Widget.Material3.CardView.Elevated.Custom</item>
         <item name="materialAlertDialogTheme">@style/Theme.Prime.AlertDialog</item>
+        <item name="popupMenuStyle">@style/Widget.Prime.PopupMenu</item>
+        <item name="android:popupMenuStyle">@style/Widget.Prime.PopupMenu</item>
+        <item name="actionOverflowMenuStyle">@style/Widget.Prime.PopupMenu</item>
+        <item name="android:dropDownListViewStyle">@style/Widget.Prime.DropDownListView</item>
     </style>
 
     <style name="Widget.MaterialComponents.TextInputLayout.OutlinedBox" parent="Widget.Material3.TextInputLayout.OutlinedBox">

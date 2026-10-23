@@ -32,6 +32,7 @@ class TextureVideoView @JvmOverloads constructor(
     private var mediaPlayer: MediaPlayer? = null
     private var videoPath: String? = null
     private var isPrepared = false
+    private var playbackSpeed: Float = 1.0f
     private var onPreparedListener: OnPreparedListener? = null
     private var onCompletionListener: OnCompletionListener? = null
 
@@ -72,6 +73,15 @@ class TextureVideoView @JvmOverloads constructor(
                 setOnPreparedListener { mp ->
                     isPrepared = true
                     updateCenterCropMatrix(mp.videoWidth, mp.videoHeight)
+                    if (playbackSpeed != 1.0f && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                        try {
+                            val params = mp.playbackParams
+                            params.speed = playbackSpeed
+                            mp.playbackParams = params
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
                     onPreparedListener?.onPrepared(mp)
                 }
                 setOnCompletionListener { mp ->
@@ -129,7 +139,9 @@ class TextureVideoView @JvmOverloads constructor(
     }
 
     fun setSpeed(speed: Float) {
+        this.playbackSpeed = speed
         mediaPlayer?.let { mp ->
+            if (!isPrepared) return@let
             try {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                     val params = mp.playbackParams

@@ -1680,21 +1680,28 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         break;
                     case MESSAGE_SEND_PROGRESS:
                         int sendProg = msg.arg1;
-                        if (chatAdapter != null && currentSendingMessageId != null) {
-                            chatAdapter.updateMessageSendingProgress(currentSendingMessageId, sendProg);
+                        String targetMsgId = (msg.obj instanceof String) ? (String) msg.obj : currentSendingMessageId;
+                        if (chatAdapter != null && targetMsgId != null) {
+                            chatAdapter.updateMessageSendingProgress(targetMsgId, sendProg);
+                            showSendingProgressUi(sendProg);
                             if (sendProg >= 100) {
-                                String msgIdFinished = currentSendingMessageId;
+                                String msgIdFinished = targetMsgId;
                                 chatAdapter.updateMessageStatusById(msgIdFinished, MessageStatus.SENT);
                                 ChatHistoryManager.updateMessageStatus(ChatPersonActivity.this, targetUsername, msgIdFinished, MessageStatus.SENT);
-                                currentSendingMessageId = null;
+                                if (Objects.equals(currentSendingMessageId, msgIdFinished)) {
+                                    currentSendingMessageId = null;
+                                }
                                 if (layoutSendingProgress != null) {
                                     layoutSendingProgress.setVisibility(View.GONE);
                                 }
                                 saveActivityStateToChatList(targetUsername, "IDLE");
+                                sendActivityState("IDLE");
                                 ChatMessage sentMsg = chatAdapter.findMessageById(msgIdFinished);
                                 String summaryStr = "Медиафайл";
                                 if (sentMsg != null) {
-                                    if (sentMsg.getMessageType() == ChatMessage.MessageType.IMAGE) summaryStr = "Фотография";
+                                    if (sentMsg.isVideoNote() || (sentMsg.getText() != null && sentMsg.getText().startsWith("VIDEO_NOTE:"))) {
+                                        summaryStr = "📹 Видеосообщение";
+                                    } else if (sentMsg.getMessageType() == ChatMessage.MessageType.IMAGE) summaryStr = "Фотография";
                                     else if (sentMsg.getMessageType() == ChatMessage.MessageType.VIDEO) summaryStr = "Видео: " + (sentMsg.getFileName() != null ? sentMsg.getFileName() : "");
                                     else if (sentMsg.getMessageType() == ChatMessage.MessageType.FILE) summaryStr = "Файл: " + (sentMsg.getFileName() != null ? sentMsg.getFileName() : "");
                                 }
@@ -3950,7 +3957,33 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 if (m.isOutgoing() && (m.getMessageStatus() == MessageStatus.SENDING || m.getMessageStatus() == MessageStatus.NONE || m.getMessageStatus() == MessageStatus.ERROR)) {
                     String msgId = m.getMessageId();
                     String text = m.getText();
-                    if (text != null && !text.isEmpty()) {
+                    String imgPath = m.getImagePath();
+
+                    if (imgPath != null && new File(imgPath).exists()) {
+                        File mediaFile = new File(imgPath);
+                        boolean isVn = m.isVideoNote() || (text != null && text.startsWith("VIDEO_NOTE:"));
+                        String tag = (text != null && !text.isEmpty()) ? text : (isVn ? "VIDEO_NOTE:circle" : "FILE");
+
+                        PendingAttachmentItem pendingItem = new PendingAttachmentItem(
+                            Uri.fromFile(mediaFile),
+                            mediaFile.getAbsolutePath(),
+                            mediaFile.getName(),
+                            mediaFile.length(),
+                            isVn,
+                            false,
+                            m.getMessageType() != null ? m.getMessageType() : ChatMessage.MessageType.FILE,
+                            null,
+                            "00:00"
+                        );
+                        sendVideoOrFile(pendingItem, tag);
+                        m.setMessageStatus(MessageStatus.SENT);
+                        ChatHistoryManager.updateMessageStatus(ChatPersonActivity.this, targetUsername, msgId, MessageStatus.SENT);
+                        runOnUiThread(() -> {
+                            if (chatAdapter != null && msgId != null) {
+                                chatAdapter.updateMessageStatusById(msgId, MessageStatus.SENT);
+                            }
+                        });
+                    } else if (text != null && !text.isEmpty()) {
                         String packetContent = (msgId != null ? msgId : (localUsername + "_" + m.getTimestamp())) + ":::" + text;
                         if (m.isReply()) {
                             packetContent += ":::REPLY:::" + m.getReplyToMessageId() + ":::" + m.getReplyToSender() + ":::" + m.getReplyToText();
@@ -4037,7 +4070,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
         }
 
-        BluetoothConnectionManager.getInstance().sendPacket(targetAddr, type, payload);
+        boolean sentViaSocketHolder = BluetoothSocketHolder.sendPacket(targetAddr, targetUsername, type, payload);
+        if (!sentViaSocketHolder) {
+            BluetoothConnectionManager.getInstance().sendPacket(targetAddr, type, payload);
+        }
     }
 
     private void sendText(String text) {
@@ -4066,7 +4102,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
 
         boolean isConnected = isConnectionActive();
-        message.setMessageStatus(isConnected ? MessageStatus.SENT : MessageStatus.ERROR);
+        message.setMessageStatus(isConnected ? MessageStatus.SENT : MessageStatus.SENDING);
 
         String packetContent = message.getMessageId() + ":::" + text;
         if (message.isReply()) {
@@ -4077,7 +4113,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (isConnected) {
             sendPacket(TYPE_TEXT, payload);
         } else {
-            message.setMessageStatus(MessageStatus.ERROR);
+            pendingMessageQueue.add(new PendingMessage(TYPE_TEXT, payload));
+            runOnUiThread(this::startPrimeConnection);
         }
         addMessageToUI(message);
     }
@@ -4243,6 +4280,34 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     System.arraycopy(headerBytes, 0, fullPayload, 0, headerBytes.length);
                     System.arraycopy(finalPhotoBytes, 0, fullPayload, headerBytes.length, finalPhotoBytes.length);
 
+                    final String photoPath = savedPhotoPath;
+                    ChatMessage photoMsg = new ChatMessage(captionText, time, localUsername, true, null, timestamp, photoPath, messageId);
+                    photoMsg.setMessageType(ChatMessage.MessageType.IMAGE);
+                    photoMsg.setMessageStatus(MessageStatus.SENDING);
+                    photoMsg.setSendingProgress(0);
+                    if (replyingToMessage != null) {
+                        photoMsg.setReplyToMessageId(replyingToMessage.getMessageId());
+                        photoMsg.setReplyToSender(replyingToMessage.getSenderLogin());
+                        String qText = replyingToText != null && !replyingToText.isEmpty() ? replyingToText : replyingToMessage.getText();
+                        photoMsg.setReplyToText(qText != null && !qText.isEmpty() ? qText : "Фотография");
+                    }
+
+                    java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+                    runOnUiThread(() -> {
+                        cancelReplyMode();
+                        showSendingProgressUi(0);
+                        saveActivityStateToChatList(targetUsername, "SENDING_MEDIA");
+                        sendActivityState("SENDING_MEDIA");
+                        addMessageToUI(photoMsg);
+                        ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, photoMsg);
+                        saveLastMessageToChatList("Фотография", MessageStatus.SENDING, false, "ONLINE");
+                        latch.countDown();
+                    });
+
+                    try {
+                        latch.await(2, java.util.concurrent.TimeUnit.SECONDS);
+                    } catch (InterruptedException ignored) {}
+
                     currentSendingMessageId = messageId;
 
                     if (isConnectionActive()) {
@@ -4251,28 +4316,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         pendingMessageQueue.add(new PendingMessage(TYPE_PHOTO, fullPayload));
                         runOnUiThread(this::startPrimeConnection);
                     }
-
-                    final String photoPath = savedPhotoPath;
-                    runOnUiThread(() -> {
-                        showSendingProgressUi(0);
-                        saveActivityStateToChatList(targetUsername, "SENDING_MEDIA");
-                        sendActivityState("SENDING_MEDIA");
-
-                        ChatMessage photoMsg = new ChatMessage(captionText, time, localUsername, true, null, timestamp, photoPath, messageId);
-                        photoMsg.setMessageType(ChatMessage.MessageType.IMAGE);
-                        photoMsg.setMessageStatus(MessageStatus.SENDING);
-                        photoMsg.setSendingProgress(0);
-                        if (replyingToMessage != null) {
-                            photoMsg.setReplyToMessageId(replyingToMessage.getMessageId());
-                            photoMsg.setReplyToSender(replyingToMessage.getSenderLogin());
-                            String qText = replyingToText != null && !replyingToText.isEmpty() ? replyingToText : replyingToMessage.getText();
-                            photoMsg.setReplyToText(qText != null && !qText.isEmpty() ? qText : "Фотография");
-                            cancelReplyMode();
-                        }
-                        addMessageToUI(photoMsg);
-                        ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, photoMsg);
-                        saveLastMessageToChatList("Фотография", MessageStatus.SENT, false, "ONLINE");
-                    });
                 } else {
                     Log.e(TAG, "Failed to decode photo from URI: " + uri);
                     runOnUiThread(() -> PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Не удалось загрузить фото", null));
@@ -4866,7 +4909,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     } else {
                         String textMsgId = extractMsgId(textData);
                         if (textMsgId != null && !textMsgId.isEmpty()) {
+                        if (isActivityForeground) {
                             sendPacket(TYPE_READ_RECEIPT, textMsgId.getBytes(StandardCharsets.UTF_8));
+                        } else {
+                            pendingReadReceiptMsgId = textMsgId;
+                            sendPacket(TYPE_ACK, new byte[0]);
+                        }
                         }
                         if (isDuplicatePacket(textMsgId)) break;
                         handler.obtainMessage(MESSAGE_READ, payload.length, -1, payload).sendToTarget();
@@ -4882,7 +4930,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     if (payload.length > 0) {
                         String photoMsgId = extractMsgId(new String(payload, 0, Math.min(payload.length, 300), StandardCharsets.UTF_8));
                         if (photoMsgId != null && !photoMsgId.isEmpty()) {
+                        if (isActivityForeground) {
                             sendPacket(TYPE_READ_RECEIPT, photoMsgId.getBytes(StandardCharsets.UTF_8));
+                        } else {
+                            pendingReadReceiptMsgId = photoMsgId;
+                            sendPacket(TYPE_ACK, new byte[0]);
+                        }
                         }
                         if (isDuplicatePacket(photoMsgId)) break;
                         handler.obtainMessage(MESSAGE_READ_PHOTO, payload.length, -1, payload).sendToTarget();
@@ -4898,7 +4951,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         String fileMetaStr = new String(payload, 0, Math.min(payload.length, 500), StandardCharsets.UTF_8);
                         String fileMsgId = extractMsgId(fileMetaStr);
                         if (fileMsgId != null && !fileMsgId.isEmpty()) {
+                        if (isActivityForeground) {
                             sendPacket(TYPE_READ_RECEIPT, fileMsgId.getBytes(StandardCharsets.UTF_8));
+                        } else {
+                            pendingReadReceiptMsgId = fileMsgId;
+                            sendPacket(TYPE_ACK, new byte[0]);
+                        }
                         }
                         if (isDuplicatePacket(fileMsgId)) break;
                         handler.obtainMessage(MESSAGE_READ_FILE, payload.length, -1, payload).sendToTarget();
@@ -5496,7 +5554,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         if (activeUiHandler != null) {
                             String textMsgId = extractMsgId(receivedData);
                             if (textMsgId != null && !textMsgId.isEmpty()) {
-                                sendPacket(TYPE_READ_RECEIPT, textMsgId.getBytes(StandardCharsets.UTF_8));
+                if (isActivityForeground) {
+                    sendPacket(TYPE_READ_RECEIPT, textMsgId.getBytes(StandardCharsets.UTF_8));
+                } else {
+                    pendingReadReceiptMsgId = textMsgId;
+                    sendPacket(TYPE_ACK, new byte[0]);
+                }
                             }
                             postToUi(MESSAGE_READ, payload.length, -1, payload);
                         } else {
@@ -5518,7 +5581,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         }
 
                         if (photoMsgId != null && !photoMsgId.isEmpty()) {
+                        if (isActivityForeground) {
                             sendPacket(TYPE_READ_RECEIPT, photoMsgId.getBytes(StandardCharsets.UTF_8));
+                        } else {
+                            pendingReadReceiptMsgId = photoMsgId;
+                            sendPacket(TYPE_ACK, new byte[0]);
+                        }
                         }
 
                         if (activeUiHandler != null) {
@@ -5531,7 +5599,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         String fileMetaStr = new String(payload, 0, Math.min(payload.length, 500), StandardCharsets.UTF_8);
                         String fileMsgId = extractMsgId(fileMetaStr);
                         if (fileMsgId != null && !fileMsgId.isEmpty()) {
+                        if (isActivityForeground) {
                             sendPacket(TYPE_READ_RECEIPT, fileMsgId.getBytes(StandardCharsets.UTF_8));
+                        } else {
+                            pendingReadReceiptMsgId = fileMsgId;
+                            sendPacket(TYPE_ACK, new byte[0]);
+                        }
                         }
 
                         if (activeUiHandler != null) {
@@ -5935,6 +6008,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 isMediaSendingCancelled = false;
             }
 
+            String msgId = null;
+            if (showProgressUi && payload != null && payload.length > 0) {
+                String metaStr = new String(payload, 0, Math.min(payload.length, 300), StandardCharsets.UTF_8);
+                msgId = ChatPersonActivity.extractMsgId(metaStr);
+            }
+            final String finalMsgId = msgId;
+
             executor.execute(() -> {
                 synchronized (writeLock) {
                     try {
@@ -5948,7 +6028,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                 if (isMediaSendingCancelled) {
                                     Log.d(TAG, "Media send cancelled by user");
                                     isMediaSendingCancelled = false;
-                                    postToUi(MESSAGE_SEND_CANCELLED, -1, -1, null);
+                                    postToUi(MESSAGE_SEND_CANCELLED, -1, -1, finalMsgId);
                                     return;
                                 }
                                 int bytesToWrite = Math.min(chunkSize, length - offset);
@@ -5959,7 +6039,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                 if (isChunkedMedia) {
                                     if (showProgressUi && length > 1024) {
                                         int progress = (int) ((offset * 100L) / length);
-                                        postToUi(MESSAGE_SEND_PROGRESS, progress, -1, null);
+                                        postToUi(MESSAGE_SEND_PROGRESS, progress, -1, finalMsgId);
                                     }
                                 }
                             }
@@ -5967,12 +6047,87 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             mmOutStream.flush();
                         }
                         if (showProgressUi && !isMediaSendingCancelled) {
-                            postToUi(MESSAGE_SEND_PROGRESS, 100, -1, null);
+                            postToUi(MESSAGE_SEND_PROGRESS, 100, -1, finalMsgId);
                         }
                     } catch (IOException e) {
                         Log.e(TAG, "Exception during write", e);
                         if (showProgressUi) {
-                            postToUi(MESSAGE_SEND_PROGRESS, -1, -1, null);
+                            postToUi(MESSAGE_SEND_PROGRESS, -1, -1, finalMsgId);
+                        }
+                    }
+                }
+            });
+        }
+
+        public void streamFilePacket(byte type, byte[] header, java.io.File file) {
+            if (mmOutStream == null) return;
+            boolean isChunkedMedia = (type == TYPE_PHOTO || type == TYPE_FILE || type == TYPE_AVATAR);
+            boolean showProgressUi = (type == TYPE_PHOTO || type == TYPE_FILE);
+            ExecutorService executor = isChunkedMedia ? mediaWriteExecutor : controlWriteExecutor;
+
+            if (isChunkedMedia) {
+                isMediaSendingCancelled = false;
+            }
+
+            String msgId = null;
+            if (showProgressUi && header != null && header.length > 0) {
+                String metaStr = new String(header, 0, Math.min(header.length, 300), StandardCharsets.UTF_8);
+                msgId = ChatPersonActivity.extractMsgId(metaStr);
+            }
+            final String finalMsgId = msgId;
+
+            executor.execute(() -> {
+                synchronized (writeLock) {
+                    try {
+                        mmOutStream.writeByte(type);
+                        long fileLength = file != null ? file.length() : 0;
+                        int headerLen = header != null ? header.length : 0;
+                        long totalLen = fileLength + headerLen;
+
+                        if (totalLen > Integer.MAX_VALUE) {
+                             throw new IOException("File too large");
+                        }
+                        mmOutStream.writeInt((int)totalLen);
+                        
+                        if (headerLen > 0) {
+                            mmOutStream.write(header);
+                        }
+
+                        if (fileLength > 0 && file != null) {
+                            try (InputStream fis = new java.io.FileInputStream(file)) {
+                                int offset = 0;
+                                int chunkSize = isChunkedMedia ? 16384 : 4096;
+                                byte[] buf = new byte[chunkSize];
+                                int read;
+                                while ((read = fis.read(buf)) != -1) {
+                                    if (isMediaSendingCancelled) {
+                                        Log.d(TAG, "Media send cancelled by user");
+                                        isMediaSendingCancelled = false;
+                                        postToUi(MESSAGE_SEND_CANCELLED, -1, -1, finalMsgId);
+                                        return;
+                                    }
+                                    mmOutStream.write(buf, 0, read);
+                                    offset += read;
+                                    mmOutStream.flush();
+
+                                    if (isChunkedMedia) {
+                                        if (showProgressUi && fileLength > 1024) {
+                                            int progress = (int) ((offset * 100L) / fileLength);
+                                            postToUi(MESSAGE_SEND_PROGRESS, progress, -1, finalMsgId);
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            mmOutStream.flush();
+                        }
+                        if (showProgressUi && !isMediaSendingCancelled) {
+                            postToUi(MESSAGE_SEND_PROGRESS, 100, -1, finalMsgId);
+                        }
+                    } catch (IOException e) {
+                        Log.e(TAG, "Exception during stream write", e);
+                        if (showProgressUi) {
+                            postToUi(MESSAGE_SEND_PROGRESS, -1, -1, finalMsgId);
                         }
                     }
                 }
@@ -6176,10 +6331,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void sendVideoOrFile(PendingAttachmentItem pending, String text) {
         if (pending == null) return;
-        senderTypingHandler.removeCallbacks(stopSenderTypingRunnable);
-        sendActivityState("IDLE");
-
-        showSendingProgressUi(0);
+        
+        runOnUiThread(() -> {
+            senderTypingHandler.removeCallbacks(stopSenderTypingRunnable);
+            sendActivityState("IDLE");
+            showSendingProgressUi(0);
+        });
 
         runOnIoThread(() -> {
             try {
@@ -6213,8 +6370,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 long fileSize = pending.size;
                 String durStr = pending.durationStr != null ? pending.durationStr : "00:00";
 
-                byte[] fileBytes = getBytesFromPending(pending);
-
                 String localSavedPath = pending.path;
                 if ((isVideo || isMusic) && pending.uri != null) {
                     if (localSavedPath == null || localSavedPath.startsWith("content://") || !new File(localSavedPath).exists()) {
@@ -6239,11 +6394,16 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         }
                     }
                 }
+                
+                long fileSizeBytes = fileSize > 0 ? fileSize : 0;
+                if (localSavedPath != null && new File(localSavedPath).exists()) {
+                     fileSizeBytes = new File(localSavedPath).length();
+                }
 
                 ChatMessage msg = new ChatMessage(text, time, localUsername, true, pending.thumbnail, timestamp, localSavedPath, messageId);
                 msg.setMessageType(type);
                 msg.setFileName(fileName);
-                msg.setFileSize(fileSize > 0 ? fileSize : fileBytes.length);
+                msg.setFileSize(fileSizeBytes);
                 if (isVideo) msg.setVideoDuration(durStr);
                 if (isMusic) {
                     msg.setAudioDuration(durStr);
@@ -6258,7 +6418,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 msg.setMessageStatus(MessageStatus.SENDING);
                 msg.setSendingProgress(0);
 
-                if (replyingToMessage != null) {
+                boolean hasReply = (replyingToMessage != null);
+                if (hasReply) {
                     msg.setReplyToMessageId(replyingToMessage.getMessageId());
                     msg.setReplyToSender(replyingToMessage.getSenderLogin());
                     String qText = replyingToText != null && !replyingToText.isEmpty() ? replyingToText : replyingToMessage.getText();
@@ -6266,7 +6427,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         qText = "📹 Видеосообщение";
                     }
                     msg.setReplyToText(qText != null && !qText.isEmpty() ? qText : (isMusic ? "Аудиозапись" : (isVideo ? "Видео" : "Файл")));
-                    runOnUiThread(this::cancelReplyMode);
                 }
 
                 String header = messageId + ":::" + fileName + ":::" + msg.getFileSize() + ":::" + (text != null ? text : "") + ":::DURATION:::" + durStr + ":::IS_VIDEO:::" + (isVideo ? "1" : "0") + ":::MSG_TYPE:::" + type.name();
@@ -6276,32 +6436,66 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 header += ":::HEADER_END:::";
 
                 byte[] headerBytes = header.getBytes(StandardCharsets.UTF_8);
-                byte[] fullPayload = new byte[headerBytes.length + fileBytes.length];
-                System.arraycopy(headerBytes, 0, fullPayload, 0, headerBytes.length);
-                if (fileBytes.length > 0) {
-                    System.arraycopy(fileBytes, 0, fullPayload, headerBytes.length, fileBytes.length);
-                }
 
-                currentSendingMessageId = messageId;
-
-                if (isConnectionActive()) {
-                    sendPacket(TYPE_FILE, fullPayload);
-                } else {
-                    pendingMessageQueue.add(new PendingMessage(TYPE_FILE, fullPayload));
-                    runOnUiThread(this::startPrimeConnection);
-                }
-
+                java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
                 runOnUiThread(() -> {
+                    if (hasReply) cancelReplyMode();
                     showSendingProgressUi(0);
                     addMessageToUI(msg);
                     ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, msg);
                     String summaryStr = ChatMessage.getSummaryDescription(msg);
-                    saveLastMessageToChatList(summaryStr, MessageStatus.SENT, false, "ONLINE");
+                    saveLastMessageToChatList(summaryStr, MessageStatus.SENDING, false, "ONLINE");
                     String pendingState = isVideo ? "SENDING_MEDIA" : "SENDING_FILE";
                     saveActivityStateToChatList(targetUsername, pendingState);
                     sendActivityState(pendingState);
                     clearPendingAttachment();
+                    latch.countDown();
                 });
+
+                try {
+                    latch.await(2, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (InterruptedException ignored) {}
+
+                currentSendingMessageId = messageId;
+
+                if (isConnectionActive()) {
+                    if (localSavedPath != null && new File(localSavedPath).exists()) {
+                         String targetAddr = resolveTargetAddress();
+                         boolean sentViaSocketHolder = BluetoothSocketHolder.streamFilePacket(targetAddr, targetUsername, TYPE_FILE, headerBytes, new File(localSavedPath));
+                         if (!sentViaSocketHolder) {
+                             BluetoothConnectionManager.getInstance().streamFilePacket(targetUsername, TYPE_FILE, headerBytes, new File(localSavedPath));
+                         }
+                    } else {
+                         // Fallback if not saved locally
+                         byte[] fileBytes = getBytesFromPending(pending);
+                         byte[] fullPayload = new byte[headerBytes.length + fileBytes.length];
+                         System.arraycopy(headerBytes, 0, fullPayload, 0, headerBytes.length);
+                         if (fileBytes.length > 0) {
+                             System.arraycopy(fileBytes, 0, fullPayload, headerBytes.length, fileBytes.length);
+                         }
+                         sendPacket(TYPE_FILE, fullPayload);
+                    }
+                } else {
+                    if (localSavedPath != null && new File(localSavedPath).exists()) {
+                         // We can't queue stream easily in pendingMessageQueue, so we fallback to full bytes
+                         byte[] fileBytes = getBytesFromPending(pending);
+                         byte[] fullPayload = new byte[headerBytes.length + fileBytes.length];
+                         System.arraycopy(headerBytes, 0, fullPayload, 0, headerBytes.length);
+                         if (fileBytes.length > 0) {
+                             System.arraycopy(fileBytes, 0, fullPayload, headerBytes.length, fileBytes.length);
+                         }
+                         pendingMessageQueue.add(new PendingMessage(TYPE_FILE, fullPayload));
+                    } else {
+                         byte[] fileBytes = getBytesFromPending(pending);
+                         byte[] fullPayload = new byte[headerBytes.length + fileBytes.length];
+                         System.arraycopy(headerBytes, 0, fullPayload, 0, headerBytes.length);
+                         if (fileBytes.length > 0) {
+                             System.arraycopy(fileBytes, 0, fullPayload, headerBytes.length, fileBytes.length);
+                         }
+                         pendingMessageQueue.add(new PendingMessage(TYPE_FILE, fullPayload));
+                    }
+                    runOnUiThread(this::startPrimeConnection);
+                }
             } catch (Throwable e) {
                 Log.e(TAG, "Error in sendVideoOrFile", e);
                 runOnUiThread(() -> {
@@ -8789,7 +8983,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void toggleVoiceVideoNoteMode() {
         if (btnVoiceVideoNote == null) return;
         if (!isConnectionActive()) {
-            PrimeNotification.INSTANCE.show(this, "Переключение недоступно без подключения", null);
+            Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
             return;
         }
         btnVoiceVideoNote.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
@@ -8890,72 +9084,55 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         runOnUiThread(this::stopAllVideoNotePlayback);
 
         SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-        int radiusPercent = sharedPrefs.getInt("video_message_corner_radius", 50);
-        String shapeTag = String.valueOf(radiusPercent);
+        String shape = sharedPrefs.getString("video_message_shape", "circle");
+        if (shape == null || shape.trim().isEmpty()) {
+            int radiusPercent = sharedPrefs.getInt("video_message_corner_radius", 50);
+            shape = String.valueOf(radiusPercent);
+        }
+        final String finalShapeTag = shape.trim();
+
+        File storageDir = new File(getFilesDir(), "video_notes");
+        if (!storageDir.exists()) storageDir.mkdirs();
+
+        String fileName = "vn_" + System.currentTimeMillis() + "_" + finalShapeTag + ".mp4";
+        File permFile = new File(storageDir, fileName);
+
+        try {
+            java.nio.file.Files.copy(file.toPath(), permFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (Exception e) {
+            Log.e(TAG, "Error copying video note file", e);
+            return;
+        }
 
         runOnIoThread(() -> {
             try {
-                File storageDir = new File(getFilesDir(), "video_notes");
-                if (!storageDir.exists()) storageDir.mkdirs();
+                String durationStr = "00:00";
+                try {
+                    android.media.MediaMetadataRetriever retriever = new android.media.MediaMetadataRetriever();
+                    retriever.setDataSource(permFile.getAbsolutePath());
+                    String timeStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+                    if (timeStr != null) {
+                        long durationMs = Long.parseLong(timeStr);
+                        long sec = (durationMs / 1000) % 60;
+                        long min = (durationMs / (1000 * 60)) % 60;
+                        durationStr = String.format(Locale.US, "%02d:%02d", min, sec);
+                    }
+                    retriever.release();
+                } catch (Exception ignored) {}
 
-                String fileName = "vn_" + System.currentTimeMillis() + "_" + shapeTag + ".mp4";
-                File permFile = new File(storageDir, fileName);
-
-                java.nio.file.Files.copy(file.toPath(), permFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-
-                String msgId = UUID.randomUUID().toString();
-                long now = System.currentTimeMillis();
-
-                SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
-                String timeStr = sdf.format(new Date(now));
-
-                ChatMessage msg = new ChatMessage(
-                    "VIDEO_NOTE:" + shapeTag,
-                    timeStr,
-                    localUsername,
-                    true,
-                    null,
-                    now,
+                Uri fileUri = Uri.fromFile(permFile);
+                PendingAttachmentItem pendingItem = new PendingAttachmentItem(
+                    fileUri,
                     permFile.getAbsolutePath(),
-                    msgId
+                    permFile.getName(),
+                    permFile.length(),
+                    true,
+                    false,
+                    ChatMessage.MessageType.VIDEO,
+                    null,
+                    durationStr
                 );
-                msg.setMessageType(ChatMessage.MessageType.VIDEO);
-                msg.setMessageStatus(isConnectionActive() ? MessageStatus.SENT : MessageStatus.ERROR);
-
-                runOnUiThread(() -> {
-                    if (chatAdapter != null) {
-                        chatAdapter.addMessage(msg);
-                        if (rvMessages != null) {
-                            rvMessages.scrollToPosition(chatAdapter.getItemCount() - 1);
-                        }
-                    }
-                });
-
-                ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, msg);
-                saveLastMessageToChatList("Видеосообщение", msg.getMessageStatus(), false, "ONLINE");
-
-                if (isConnectionActive()) {
-                    sendActivityState("SENDING_VIDEO_NOTE");
-                    if (!remoteHasVideoNotesSupport) {
-                        String fallbackText = "Ваша версия не поддерживает это сообщение, обновите прайм в разделе \"Настройки\" в самом низу, или по ссылке на гитхаб https://github.com/Vaniahorosh/Prime_messenger/releases";
-                        byte[] textBytes = fallbackText.getBytes(StandardCharsets.UTF_8);
-                        sendPacket(TYPE_TEXT, textBytes);
-                    } else {
-                        Uri fileUri = Uri.fromFile(permFile);
-                        PendingAttachmentItem pendingItem = new PendingAttachmentItem(
-                            fileUri,
-                            permFile.getAbsolutePath(),
-                            permFile.getName(),
-                            permFile.length(),
-                            true,
-                            false,
-                            ChatMessage.MessageType.VIDEO,
-                            null,
-                            "00:00"
-                        );
-                        sendVideoOrFile(pendingItem, "VIDEO_NOTE:" + shapeTag);
-                    }
-                }
+                sendVideoOrFile(pendingItem, "VIDEO_NOTE:" + finalShapeTag);
             } catch (Exception e) {
                 Log.e(TAG, "Error sending video note", e);
             }
@@ -9081,7 +9258,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 public void onPlayNextVideoNote(int nextPosition) {
                     runOnUiThread(() -> {
                         if (rvMessages != null && chatAdapter != null) {
-                            rvMessages.scrollToPosition(nextPosition);
+                            rvMessages.smoothScrollToPosition(nextPosition);
                             rvMessages.postDelayed(() -> {
                                 RecyclerView.ViewHolder holder = rvMessages.findViewHolderForAdapterPosition(nextPosition);
                                 if (holder != null && holder.itemView != null) {

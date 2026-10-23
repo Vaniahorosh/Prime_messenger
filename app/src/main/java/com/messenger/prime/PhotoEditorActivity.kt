@@ -989,18 +989,26 @@ class PhotoEditorActivity : AppCompatActivity() {
         try {
             val croppedBitmap = Bitmap.createBitmap(resultBitmap, left, top, width, height)
             val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
-            FileOutputStream(file).use { out ->
-                croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-                out.flush()
+            java.util.concurrent.Executors.newSingleThreadExecutor().execute {
+                try {
+                    FileOutputStream(file).use { out ->
+                        croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                        out.flush()
+                    }
+                    val uriStr = Uri.fromFile(file).toString()
+                    val resultIntent = Intent().apply {
+                        putExtra("EDITED_IMAGE_URI", uriStr)
+                        putExtra("EXTRA_IMAGE_URI", uriStr)
+                    }
+                    runOnUiThread {
+                        setResult(RESULT_OK, resultIntent)
+                        finish()
+                        PrimeTransitions.applyCloseTransition(this@PhotoEditorActivity)
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread { finish() }
+                }
             }
-            val uriStr = Uri.fromFile(file).toString()
-            val resultIntent = Intent().apply {
-                putExtra("EDITED_IMAGE_URI", uriStr)
-                putExtra("EXTRA_IMAGE_URI", uriStr)
-            }
-            setResult(RESULT_OK, resultIntent)
-            finish()
-            PrimeTransitions.applyCloseTransition(this)
         } catch (e: Exception) { finish() }
     }
 

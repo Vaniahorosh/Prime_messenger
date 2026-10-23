@@ -45,32 +45,18 @@ public class LinkPreviewManager {
     private LinkPreviewManager() {}
 
     public void fetchPreview(String rawUrl, Callback callback) {
-        if (rawUrl == null || rawUrl.trim().isEmpty()) return;
-
-        String formattedUrl = rawUrl.trim();
-        if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
-            formattedUrl = "https://" + formattedUrl;
+        // Disabled to prevent data leak to third parties (IP leak & sensitive URL access).
+        if (callback != null) {
+            LinkPreviewData fallback = new LinkPreviewData();
+            fallback.url = rawUrl;
+            fallback.title = rawUrl;
+            try {
+                fallback.domain = new java.net.URL(rawUrl.startsWith("http") ? rawUrl : "https://" + rawUrl).getHost();
+            } catch (Exception e) {
+                fallback.domain = rawUrl;
+            }
+            callback.onDataLoaded(fallback);
         }
-
-        final String targetUrl = formattedUrl;
-
-        LinkPreviewData cached = cache.get(targetUrl);
-        if (cached != null) {
-            if (callback != null) {
-                callback.onDataLoaded(cached);
-            }
-            return;
-        }
-
-        executor.execute(() -> {
-            LinkPreviewData data = parseOpenGraph(targetUrl);
-            if (data != null) {
-                cache.put(targetUrl, data);
-            }
-            if (callback != null) {
-                mainHandler.post(() -> callback.onDataLoaded(data));
-            }
-        });
     }
 
     private LinkPreviewData parseOpenGraph(String urlString) {
@@ -189,11 +175,11 @@ public class LinkPreviewManager {
         try {
             Pattern p = Pattern.compile("<meta\\s+[^>]*property=[\"']" + Pattern.quote(property) + "[\"']\\s+[^>]*content=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
             Matcher m = p.matcher(html);
-            if (m.find()) return m.group(1).trim();
+            if (m.find() && m.group(1) != null) return m.group(1).trim();
 
             Pattern p2 = Pattern.compile("<meta\\s+[^>]*content=[\"']([^\"']+)[\"']\\s+[^>]*property=[\"']" + Pattern.quote(property) + "[\"']", Pattern.CASE_INSENSITIVE);
             Matcher m2 = p2.matcher(html);
-            if (m2.find()) return m2.group(1).trim();
+            if (m2.find() && m2.group(1) != null) return m2.group(1).trim();
         } catch (Exception ignored) {}
         return null;
     }
@@ -202,11 +188,11 @@ public class LinkPreviewManager {
         try {
             Pattern p = Pattern.compile("<meta\\s+[^>]*name=[\"']" + Pattern.quote(name) + "[\"']\\s+[^>]*content=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
             Matcher m = p.matcher(html);
-            if (m.find()) return m.group(1).trim();
+            if (m.find() && m.group(1) != null) return m.group(1).trim();
 
             Pattern p2 = Pattern.compile("<meta\\s+[^>]*content=[\"']([^\"']+)[\"']\\s+[^>]*name=[\"']" + Pattern.quote(name) + "[\"']", Pattern.CASE_INSENSITIVE);
             Matcher m2 = p2.matcher(html);
-            if (m2.find()) return m2.group(1).trim();
+            if (m2.find() && m2.group(1) != null) return m2.group(1).trim();
         } catch (Exception ignored) {}
         return null;
     }
@@ -215,7 +201,7 @@ public class LinkPreviewManager {
         try {
             Pattern p = Pattern.compile("<" + Pattern.quote(tag) + "[^>]*>(.*?)</" + Pattern.quote(tag) + ">", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
             Matcher m = p.matcher(html);
-            if (m.find()) {
+            if (m.find() && m.group(1) != null) {
                 return m.group(1).replaceAll("<[^>]+>", "").trim();
             }
         } catch (Exception ignored) {}

@@ -313,4 +313,46 @@ public class BluetoothSocketHolder {
             e.printStackTrace();
         }
     }
+
+    public static synchronized boolean sendPacket(String address, String name, byte type, byte[] payload) {
+        Object targetThread = getThreadFor(address, name);
+        if (targetThread == null) {
+            targetThread = connectedThreadInstance;
+        }
+        if (targetThread == null && !threadMap.isEmpty()) {
+            targetThread = threadMap.values().iterator().next();
+        }
+        if (targetThread != null) {
+            try {
+                java.lang.reflect.Method sendPacketMethod = targetThread.getClass().getMethod("sendPacket", byte.class, byte[].class);
+                sendPacketMethod.setAccessible(true);
+                sendPacketMethod.invoke(targetThread, type, payload);
+                return true;
+            } catch (Exception e) {
+                android.util.Log.e("BluetoothSocketHolder", "Error sending packet via reflection", e);
+            }
+        }
+        return false;
+    }
+
+    public static synchronized boolean streamFilePacket(String address, String name, byte type, byte[] header, java.io.File file) {
+        Object targetThread = getThreadFor(address, name);
+        if (targetThread == null) {
+            targetThread = connectedThreadInstance;
+        }
+        if (targetThread == null && !threadMap.isEmpty()) {
+            targetThread = threadMap.values().iterator().next();
+        }
+        if (targetThread != null) {
+            try {
+                java.lang.reflect.Method streamPacketMethod = targetThread.getClass().getMethod("streamFilePacket", byte.class, byte[].class, java.io.File.class);
+                streamPacketMethod.setAccessible(true);
+                streamPacketMethod.invoke(targetThread, type, header, file);
+                return true;
+            } catch (Exception e) {
+                android.util.Log.e("BluetoothSocketHolder", "Error sending stream via reflection", e);
+            }
+        }
+        return false;
+    }
 }

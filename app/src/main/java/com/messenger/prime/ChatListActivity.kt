@@ -1185,11 +1185,6 @@ class ChatListActivity : AppCompatActivity() {
             b.btnSend.setOnClickListener {
                 val currentConn = BluetoothConnectionManager.getInstance().isConnected(targetAddr) ||
                     BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername)
-                if (!currentConn) {
-                    PrimeNotification.show(activity, "Сообщение не отправлено: нет подключения к собеседнику")
-                    updateInputState(false)
-                    return@setOnClickListener
-                }
 
                 val text = b.etMessage.text.toString().trim()
                 if (text.isEmpty()) return@setOnClickListener
@@ -1200,7 +1195,9 @@ class ChatListActivity : AppCompatActivity() {
                     ChatHistoryManager.updateMessageText(activity, targetUsername, editId, text)
 
                     val payloadStr = "$editId:::$text"
-                    BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x0C.toByte(), payloadStr.toByteArray(java.nio.charset.StandardCharsets.UTF_8))
+                    if (currentConn) {
+                        BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x0C.toByte(), payloadStr.toByteArray(java.nio.charset.StandardCharsets.UTF_8))
+                    }
 
                     exitEditMode()
                     b.etMessage.setText("")
@@ -1213,7 +1210,7 @@ class ChatListActivity : AppCompatActivity() {
                 val messageId = "${myDisplayName}_${timestamp}_${UUID.randomUUID().toString().substring(0, 4)}"
 
                 val msg = ChatMessage(text, time, myDisplayName, true, null, timestamp, null, messageId)
-                msg.messageStatus = MessageStatus.SENT
+                msg.messageStatus = if (currentConn) MessageStatus.SENT else MessageStatus.SENDING
 
                 if (replyingToMessage != null) {
                     msg.replyToMessageId = replyingToMessage?.messageId
@@ -1231,7 +1228,9 @@ class ChatListActivity : AppCompatActivity() {
                     packetContent += ":::REPLY:::${msg.replyToMessageId}:::${msg.replyToSender}:::${msg.replyToText}"
                 }
                 val payload = packetContent.toByteArray(java.nio.charset.StandardCharsets.UTF_8)
-                BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x01.toByte(), payload)
+                if (currentConn) {
+                    BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x01.toByte(), payload)
+                }
 
                 b.etMessage.setText("")
             }
@@ -1301,24 +1300,16 @@ class ChatListActivity : AppCompatActivity() {
             updateChatStatus(isConnected)
             val b = binding ?: return
             activity.runOnUiThread {
-                b.etMessage.isEnabled = isConnected
-                b.etMessage.isFocusable = isConnected
-                b.etMessage.isFocusableInTouchMode = isConnected
-                if (isConnected) {
-                    b.etMessage.hint = "Сообщение..."
-                    b.etMessage.alpha = 1.0f
-                } else {
-                    b.etMessage.hint = "Не в сети"
-                    b.etMessage.alpha = 0.5f
-                    b.etMessage.clearFocus()
-                    val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-                    imm?.hideSoftInputFromWindow(b.etMessage.windowToken, 0)
-                }
+                b.etMessage.isEnabled = true
+                b.etMessage.isFocusable = true
+                b.etMessage.isFocusableInTouchMode = true
+                b.etMessage.hint = "Сообщение..."
+                b.etMessage.alpha = 1.0f
 
-                b.btnSend.isEnabled = isConnected
-                b.btnSend.alpha = if (isConnected) 1.0f else 0.4f
-                b.btnAttach.isEnabled = isConnected
-                b.btnAttach.alpha = if (isConnected) 1.0f else 0.4f
+                b.btnSend.isEnabled = true
+                b.btnSend.alpha = 1.0f
+                b.btnAttach.isEnabled = true
+                b.btnAttach.alpha = 1.0f
 
                 chatAdapter?.setConnectionActive(isConnected)
             }

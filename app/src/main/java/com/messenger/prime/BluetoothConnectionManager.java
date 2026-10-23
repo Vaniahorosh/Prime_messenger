@@ -436,6 +436,15 @@ public class BluetoothConnectionManager {
         }
     }
 
+    public synchronized void streamFilePacket(String deviceAddress, byte type, byte[] header, java.io.File file) {
+        ConnectedThread r = getThreadFor(deviceAddress);
+        if (r != null && r.isAlive()) {
+            r.streamFilePacket(type, header, file);
+        } else {
+            Log.w(TAG, "Cannot stream file packet, no active connected thread for " + deviceAddress);
+        }
+    }
+
     public synchronized void broadcastPacket(byte type, byte[] payload) {
         for (ConnectedThread r : connectionPool.values()) {
             if (r != null && r.isAlive()) {
@@ -725,8 +734,10 @@ public class BluetoothConnectionManager {
             DataInputStream tmpIn = null;
             DataOutputStream tmpOut = null;
             try {
-                tmpIn = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 65536));
-                tmpOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
+                if (socket != null) {
+                    tmpIn = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 65536));
+                    tmpOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
+                }
             } catch (IOException e) {
                 Log.e(TAG, "Sockets streams create failed", e);
             }
@@ -781,10 +792,6 @@ public class BluetoothConnectionManager {
 
                         if (length > 0) {
                             mmInStream.readFully(payloadData);
-                        }
-
-                        if (type == 0x03) { // TYPE_PING (0x03)
-                            continue;
                         }
 
                         notifyPacketReceived(threadDeviceAddress, type, payloadData);
@@ -856,6 +863,78 @@ public class BluetoothConnectionManager {
                     }
                 } catch (IOException e) {
                     Log.e(TAG, "Error writing packet type " + type, e);
+                    if (isRunning) {
+                        handleThreadDisconnect("Ошибка отправки данных: " + e.getMessage(), isMediaPacket);
+                    }
+                }
+            });
+        }
+        
+        public void streamFilePacket(byte type, byte[] header, java.io.File file) {
+            if (!isRunning || mmOutStream == null) return;
+            boolean isMediaPacket = (type == 0x02 || type == 0x0E); // TYPE_PHOTO (0x02), TYPE_FILE (0x0E)
+            if (isMediaPacket) {
+                isMediaSendingCancelled = false;
+            }
+            writeExecutor.execute(() -> {
+                try {
+                    synchronized (this) {
+                        mmOutStream.writeByte(type);
+                        long fileLength = file != null ? file.length() : 0;
+                        int headerLen = header != null ? header.length : 0;
+                        long totalLen = fileLength + headerLen;
+                        
+                        if (totalLen > Integer.MAX_VALUE) {
+                             throw new IOException("File too large");
+                        }
+                        
+                        mmOutStream.writeInt((int)totalLen);
+                        
+                        if (headerLen > 0) {
+                            mmOutStream.write(header);
+                        }
+                        
+                        if (fileLength > 0 && file != null) {
+                            try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+                                byte[] buf = new byte[16384];
+                                int read;
+                                long offset = 0;
+                                long lastProgressReportTime = 0L;
+                                int lastReportedProgress = -1;
+
+                                while ((read = fis.read(buf)) != -1) {
+                                    if (!isRunning) break;
+                                    if (isMediaPacket && isMediaSendingCancelled) {
+                                        Log.d(TAG, "Media send cancelled by user");
+                                        isMediaSendingCancelled = false;
+                                        notifySendProgress(threadDeviceAddress, -1);
+                                        throw new IOException("Media send cancelled by user - socket desynced, forcing reconnect.");
+                                    }
+                                    mmOutStream.write(buf, 0, read);
+                                    mmOutStream.flush();
+                                    offset += read;
+
+                                    if (isMediaPacket) {
+                                        int progress = (int) ((offset * 100L) / fileLength);
+                                        long now = SystemClock.elapsedRealtime();
+                                        if (progress != lastReportedProgress && (now - lastProgressReportTime > 80L || progress == 100)) {
+                                            lastReportedProgress = progress;
+                                            lastProgressReportTime = now;
+                                            notifySendProgress(threadDeviceAddress, progress);
+                                        }
+                                    }
+                                }
+                            }
+                            mmOutStream.flush();
+                            if (isMediaPacket && !isMediaSendingCancelled) {
+                                notifySendProgress(threadDeviceAddress, 100);
+                            }
+                        } else {
+                            mmOutStream.flush();
+                        }
+                    }
+                } catch (IOException e) {
+                    Log.e(TAG, "Error streaming packet type " + type, e);
                     if (isRunning) {
                         handleThreadDisconnect("Ошибка отправки данных: " + e.getMessage(), isMediaPacket);
                     }

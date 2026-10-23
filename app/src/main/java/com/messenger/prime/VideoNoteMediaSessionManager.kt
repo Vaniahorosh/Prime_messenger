@@ -136,22 +136,26 @@ class VideoNoteMediaSessionManager(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setContentTitle("Видеосообщение")
-            .setContentText(senderName)
-            .setSmallIcon(R.drawable.ic_camera)
-            .setLargeIcon(thumbnail)
-            .setContentIntent(pendingIntent)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setStyle(
-                MediaStyle()
-                    .setMediaSession(session.sessionToken)
-                    .setShowActionsInCompactView(0)
-            )
-            .setOngoing(isPlaying)
-            .build()
+        try {
+            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setContentTitle("Видеосообщение")
+                .setContentText(senderName)
+                .setSmallIcon(R.drawable.ic_camera)
+                .setLargeIcon(thumbnail)
+                .setContentIntent(pendingIntent)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setStyle(
+                    MediaStyle()
+                        .setMediaSession(session.sessionToken)
+                        .setShowActionsInCompactView(0)
+                )
+                .setOngoing(isPlaying)
+                .build()
 
-        notificationManager?.notify(NOTIFICATION_ID, notification)
+            notificationManager?.notify(NOTIFICATION_ID, notification)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun stopMediaSession() {

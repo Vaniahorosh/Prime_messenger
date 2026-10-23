@@ -832,76 +832,71 @@ class SettingsActivity : AppCompatActivity() {
 
         // --- Long Click: Open dropdown Popup Menu with choices ---
         b.tabStickyProfile.setOnLongClickListener { v ->
-            val popup = androidx.appcompat.widget.PopupMenu(this, v)
-            popup.menu.add(0, 1, 0, "Имя и Логин")
-            popup.menu.add(0, 2, 1, "Сменить фото профиля")
-            popup.setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    1 -> smoothScrollToView(b.nestedScrollView, b.layoutAccountData)
-                    2 -> showAvatarChoiceDialog()
+            PrimePopupMenu.create(this, v)
+                .addItem(1, "Имя и Логин", R.drawable.ic_person) {
+                    smoothScrollToView(b.nestedScrollView, b.layoutAccountData)
                 }
-                true
-            }
-            popup.show()
+                .addItem(2, "Сменить фото профиля", R.drawable.ic_camera) {
+                    showAvatarChoiceDialog()
+                }
+                .show()
             true
         }
 
         b.tabStickyTheme.setOnLongClickListener { v ->
-            val popup = androidx.appcompat.widget.PopupMenu(this, v)
-            popup.menu.add(0, 1, 0, "Тема оформления")
-            popup.menu.add(0, 2, 1, "Скругление сообщений")
-            popup.menu.add(0, 3, 2, "Скругление аватарки")
-            popup.menu.add(0, 8, 3, "Форма кружков (Видео)")
-            popup.menu.add(0, 4, 4, "Обои чата")
-            popup.menu.add(0, 5, 5, "Цветовой акцент")
-            popup.menu.add(0, 6, 6, "Живой фон")
-            popup.menu.add(0, 7, 7, "Стиль навигации")
-            popup.setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    1 -> smoothScrollToView(b.nestedScrollView, b.cardTheme)
-                    2 -> smoothScrollToView(b.nestedScrollView, b.tvTitleBubbleRadius)
-                    3 -> smoothScrollToView(b.nestedScrollView, b.tvTitleAvatarRadius)
-                    8 -> b.cardVideoNotesSection?.let { smoothScrollToView(b.nestedScrollView, it) }
-                    4 -> smoothScrollToView(b.nestedScrollView, b.cardWallpaperSection)
-                    5 -> smoothScrollToView(b.nestedScrollView, b.cardColorAccent)
-                    6 -> smoothScrollToView(b.nestedScrollView, b.cardLavaBg)
-                    7 -> smoothScrollToView(b.nestedScrollView, b.cardNavStyleSection)
+            PrimePopupMenu.create(this, v)
+                .addItem(1, "Тема оформления", R.drawable.ic_tema) {
+                    smoothScrollToView(b.nestedScrollView, b.cardTheme)
                 }
-                true
-            }
-            popup.show()
+                .addItem(2, "Скругление сообщений", R.drawable.ic_edit) {
+                    smoothScrollToView(b.nestedScrollView, b.tvTitleBubbleRadius)
+                }
+                .addItem(3, "Скругление аватарки", R.drawable.ic_person) {
+                    smoothScrollToView(b.nestedScrollView, b.tvTitleAvatarRadius)
+                }
+                .addItem(8, "Форма кружков (Видео)", R.drawable.ic_camera) {
+                    b.cardVideoNotesSection?.let { smoothScrollToView(b.nestedScrollView, it) }
+                }
+                .addItem(4, "Обои чата", R.drawable.ic_photo) {
+                    smoothScrollToView(b.nestedScrollView, b.cardWallpaperSection)
+                }
+                .addItem(5, "Цветовой акцент", R.drawable.ic_settings) {
+                    smoothScrollToView(b.nestedScrollView, b.cardColorAccent)
+                }
+                .addItem(6, "Живой фон", R.drawable.ic_live_fon) {
+                    smoothScrollToView(b.nestedScrollView, b.cardLavaBg)
+                }
+                .addItem(7, "Стиль навигации", R.drawable.ic_settings) {
+                    smoothScrollToView(b.nestedScrollView, b.cardNavStyleSection)
+                }
+                .show()
             true
         }
 
         b.tabStickyData.setOnLongClickListener { v ->
-            val popup = androidx.appcompat.widget.PopupMenu(this, v)
-            popup.menu.add(0, 1, 0, "Память Прайма")
-            popup.menu.add(0, 2, 1, "Детальная выборка кэша")
-            popup.setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    1 -> smoothScrollToView(b.nestedScrollView, b.cardStorage)
-                    2 -> smoothScrollToView(b.nestedScrollView, b.layoutDataBlock)
+            PrimePopupMenu.create(this, v)
+                .addItem(1, "Память Прайма", R.drawable.ic_file) {
+                    smoothScrollToView(b.nestedScrollView, b.cardStorage)
                 }
-                true
-            }
-            popup.show()
+                .addItem(2, "Детальная выборка кэша", R.drawable.ic_trash) {
+                    smoothScrollToView(b.nestedScrollView, b.layoutDataBlock)
+                }
+                .show()
             true
         }
 
         b.tabStickyInfo.setOnLongClickListener { v ->
-            val popup = androidx.appcompat.widget.PopupMenu(this, v)
-            popup.menu.add(0, 1, 0, "Исходный код")
-            popup.menu.add(0, 2, 1, "Благодарности")
-            popup.menu.add(0, 3, 2, "Проверить обновления")
-            popup.setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    1 -> smoothScrollToView(b.nestedScrollView, b.cardGithub)
-                    2 -> smoothScrollToView(b.nestedScrollView, b.cardThanks)
-                    3 -> smoothScrollToView(b.nestedScrollView, b.btnCheckUpdate)
+            PrimePopupMenu.create(this, v)
+                .addItem(1, "Исходный код", R.drawable.ic_github_logo) {
+                    smoothScrollToView(b.nestedScrollView, b.cardGithub)
                 }
-                true
-            }
-            popup.show()
+                .addItem(2, "Благодарности", R.drawable.ic_heart) {
+                    smoothScrollToView(b.nestedScrollView, b.cardThanks)
+                }
+                .addItem(3, "Проверить обновления", R.drawable.ic_prime_statusbar) {
+                    smoothScrollToView(b.nestedScrollView, b.btnCheckUpdate)
+                }
+                .show()
             true
         }
 
@@ -2769,7 +2764,7 @@ class SettingsActivity : AppCompatActivity() {
             AvatarManager.syncActiveUserProfile(this, newLogin, newName)
 
             currentNameInDB = newName; currentLoginInDB = newLogin; currentPassInDB = newPass
-            sendProfileUpdateOverBluetooth()
+            Executors.newSingleThreadExecutor().execute { sendProfileUpdateOverBluetooth() }
             
             b.tvUserNameStatic.text = newName
             b.tvUserNameWP.text = newName
@@ -2911,7 +2906,7 @@ class SettingsActivity : AppCompatActivity() {
         if (b != null) {
             updatePhotoCardImage(b)
         }
-        sendProfileUpdateOverBluetooth()
+        Executors.newSingleThreadExecutor().execute { sendProfileUpdateOverBluetooth() }
         sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
         PrimeNotification.show(this, "Фото удалено")
     }
@@ -3259,13 +3254,21 @@ class SettingsActivity : AppCompatActivity() {
         val qualityAdapter = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_item, qualityOptions)
         qualityAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         b.spinnerVideoQuality?.adapter = qualityAdapter
-        val savedQuality = sharedPrefs.getInt("video_message_quality", 1)
+        val savedQuality = sharedPrefs.getInt("video_message_quality", 0)
         b.spinnerVideoQuality?.setSelection(savedQuality)
-        b.spinnerVideoQuality?.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                sharedPrefs.edit().putInt("video_message_quality", position).apply()
+        b.spinnerVideoQuality?.setOnTouchListener { v, event ->
+            if (event.action == android.view.MotionEvent.ACTION_UP) {
+                val current = sharedPrefs.getInt("video_message_quality", 0)
+                val menu = PrimePopupMenu.create(this, v)
+                qualityOptions.forEachIndexed { index, title ->
+                    menu.addItem(title, isSelected = (index == current)) {
+                        sharedPrefs.edit().putInt("video_message_quality", index).apply()
+                        b.spinnerVideoQuality?.setSelection(index)
+                    }
+                }
+                menu.show()
             }
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+            true
         }
 
         val fpsOptions = arrayOf("30 FPS", "60 FPS (Плавно)")
@@ -3274,11 +3277,19 @@ class SettingsActivity : AppCompatActivity() {
         b.spinnerVideoFps?.adapter = fpsAdapter
         val savedFps = sharedPrefs.getInt("video_message_fps", 0)
         b.spinnerVideoFps?.setSelection(savedFps)
-        b.spinnerVideoFps?.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                sharedPrefs.edit().putInt("video_message_fps", position).apply()
+        b.spinnerVideoFps?.setOnTouchListener { v, event ->
+            if (event.action == android.view.MotionEvent.ACTION_UP) {
+                val current = sharedPrefs.getInt("video_message_fps", 0)
+                val menu = PrimePopupMenu.create(this, v)
+                fpsOptions.forEachIndexed { index, title ->
+                    menu.addItem(title, isSelected = (index == current)) {
+                        sharedPrefs.edit().putInt("video_message_fps", index).apply()
+                        b.spinnerVideoFps?.setSelection(index)
+                    }
+                }
+                menu.show()
             }
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+            true
         }
 
         val savedStab = sharedPrefs.getBoolean("video_message_stabilization", true)
@@ -3293,11 +3304,19 @@ class SettingsActivity : AppCompatActivity() {
         b.spinnerCameraApi?.adapter = apiAdapter
         val savedApi = sharedPrefs.getInt("video_message_api", 0)
         b.spinnerCameraApi?.setSelection(savedApi)
-        b.spinnerCameraApi?.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                sharedPrefs.edit().putInt("video_message_api", position).apply()
+        b.spinnerCameraApi?.setOnTouchListener { v, event ->
+            if (event.action == android.view.MotionEvent.ACTION_UP) {
+                val current = sharedPrefs.getInt("video_message_api", 0)
+                val menu = PrimePopupMenu.create(this, v)
+                apiOptions.forEachIndexed { index, title ->
+                    menu.addItem(title, isSelected = (index == current)) {
+                        sharedPrefs.edit().putInt("video_message_api", index).apply()
+                        b.spinnerCameraApi?.setSelection(index)
+                    }
+                }
+                menu.show()
             }
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+            true
         }
     }
 }

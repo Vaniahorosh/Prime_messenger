@@ -91,12 +91,14 @@ class PrimeVideoMessageRecorder(
 
     private var blurView: BlurView? = null
 
+    private var currentRecordingSessionId = 0L
     private var isLocked = false
     private var isRecording = false
     private var isRecordingStarting = false
     private var isRecordingPaused = false
     private var isFlippingCamera = false
     private var shouldStopPending = false
+    private var autoSendOnFinalize = false
     private var isInCancelZone = false
     private var startX = 0f
     private var startY = 0f
@@ -178,7 +180,9 @@ class PrimeVideoMessageRecorder(
 
         ProcessCameraProvider.getInstance(activity).addListener({
             try {
-                cameraProvider = ProcessCameraProvider.getInstance(activity).get()
+                val p = ProcessCameraProvider.getInstance(activity).get()
+                cameraProvider = p
+                bindCameraUseCases(p) {}
             } catch (e: Exception) {
                 Log.e("PrimeVideo", "Failed to cache camera provider", e)
             }
@@ -320,6 +324,8 @@ class PrimeVideoMessageRecorder(
                         vv.pause()
                     } else {
                         vv.start()
+                        handler.removeCallbacks(checkTrimLoopRunnable)
+                        handler.post(checkTrimLoopRunnable)
                     }
                 }
             }
@@ -372,6 +378,7 @@ class PrimeVideoMessageRecorder(
                     isInCancelZone = false
 
                     if (!listener.isConnectionActive()) {
+                        Toast.makeText(activity, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show()
                         return@setOnTouchListener false
                     }
 
@@ -435,6 +442,7 @@ class PrimeVideoMessageRecorder(
                         if (isInCancelZone) {
                             cancelRecording()
                         } else if ((isRecording || isRecordingStarting) && !isLocked) {
+                            autoSendOnFinalize = true
                             stopRecording()
                         }
                     } else {
@@ -507,12 +515,21 @@ class PrimeVideoMessageRecorder(
 
     private fun applyShapeClipping(container: FrameLayout) {
         val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val radiusPercent = sharedPrefs.getInt("video_message_corner_radius", 50)
+        val shape = sharedPrefs.getString("video_message_shape", "circle") ?: "circle"
+        val radiusPercent = try {
+            sharedPrefs.getInt("video_message_corner_radius", 50)
+        } catch (e: Exception) { 50 }
 
         container.clipToOutline = true
         container.outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
-                val cornerRadiusPx = view.width * (radiusPercent / 100f)
+                val cornerRadiusPx = when (shape) {
+                    "square" -> 16f * view.resources.displayMetrics.density
+                    "circle" -> view.width / 2f
+                    "star" -> view.width * 0.35f
+                    "prime" -> view.width * 0.25f
+                    else -> (view.width / 2f) * (radiusPercent / 50f)
+                }
                 outline.setRoundRect(0, 0, view.width, view.height, cornerRadiusPx)
             }
         }
@@ -520,6 +537,7 @@ class PrimeVideoMessageRecorder(
     }
 
     private fun startRecordingProcess() {
+        currentRecordingSessionId++
         recordedSegments.clear()
         accumulatedDurationMs = 0L
         segmentStartTimestamp = 0L
@@ -585,51 +603,60 @@ class PrimeVideoMessageRecorder(
 
         val outputOptions = FileOutputOptions.Builder(videoFile).build()
 
+        val recordingSession = currentRecordingSessionId
+
         try {
             recording = videoCapture.output
                 .prepareRecording(activity, outputOptions)
                 .withAudioEnabled()
                 .start(ContextCompat.getMainExecutor(activity)) { recordEvent ->
-                    when (recordEvent) {
-                        is VideoRecordEvent.Start -> {
-                            isRecordingStarting = false
-                            isRecording = true
-                            segmentStartTimestamp = System.currentTimeMillis()
-                            handler.removeCallbacks(recordingProgressRunnable)
-                            handler.post(recordingProgressRunnable)
+                    if (recordingSession == currentRecordingSessionId) {
+                        when (recordEvent) {
+                            is VideoRecordEvent.Start -> {
+                                isRecordingStarting = false
+                                isRecording = true
+                                segmentStartTimestamp = System.currentTimeMillis()
+                                handler.removeCallbacks(recordingProgressRunnable)
+                                handler.post(recordingProgressRunnable)
 
-                            if (shouldStopPending) {
-                                shouldStopPending = false
-                                stopRecording()
-                            }
-                        }
-                        is VideoRecordEvent.Status -> {
-                            // High precision live progress handled via 30ms smooth recordingProgressRunnable!
-                        }
-                        is VideoRecordEvent.Finalize -> {
-                            isRecordingStarting = false
-                            isRecording = false
-                            handler.removeCallbacks(recordingProgressRunnable)
-
-                            if (segmentStartTimestamp > 0) {
-                                val segmentMs = System.currentTimeMillis() - segmentStartTimestamp
-                                accumulatedDurationMs += segmentMs
-                                segmentStartTimestamp = 0L
-                            }
-
-                            currentVideoFile?.let { file ->
-                                if (file.exists() && file.length() > 500) {
-                                    recordedSegments.add(file)
+                                if (shouldStopPending) {
+                                    shouldStopPending = false
+                                    stopRecording()
                                 }
                             }
+                            is VideoRecordEvent.Status -> {
+                                // High precision live progress handled via 30ms smooth recordingProgressRunnable!
+                            }
+                            is VideoRecordEvent.Finalize -> {
+                                isRecordingStarting = false
+                                isRecording = false
+                                handler.removeCallbacks(recordingProgressRunnable)
 
-                            if (isFlippingCamera) {
-                                isFlippingCamera = false
-                                startCamera {
-                                    startRecording()
+                                if (segmentStartTimestamp > 0) {
+                                    val segmentMs = System.currentTimeMillis() - segmentStartTimestamp
+                                    accumulatedDurationMs += segmentMs
+                                    segmentStartTimestamp = 0L
                                 }
-                            } else {
-                                processFinalRecordingsAndShowPreview()
+
+                                currentVideoFile?.let { file ->
+                                    if (file.exists() && file.length() > 500) {
+                                        recordedSegments.add(file)
+                                    }
+                                }
+
+                                if (isFlippingCamera) {
+                                    isFlippingCamera = false
+                                    startCamera {
+                                        startRecording()
+                                    }
+                                } else {
+                                    if (autoSendOnFinalize) {
+                                        autoSendOnFinalize = false
+                                        processFinalRecordingsAndSend()
+                                    } else {
+                                        processFinalRecordingsAndShowPreview()
+                                    }
+                                }
                             }
                         }
                     }
@@ -641,6 +668,30 @@ class PrimeVideoMessageRecorder(
             Log.e("PrimeVideo", "Failed to start recording", e)
             resetUI()
         }
+    }
+
+    private fun processFinalRecordingsAndSend() {
+        if (recordedSegments.isEmpty()) {
+            Toast.makeText(activity, "Запись слишком короткая", Toast.LENGTH_SHORT).show()
+            resetUI()
+            return
+        }
+
+        val finalFile = if (recordedSegments.size == 1) {
+            recordedSegments[0]
+        } else {
+            val joinedFile = File(
+                activity.externalCacheDir,
+                "joined_" + System.currentTimeMillis() + ".mp4"
+            )
+            VideoTrimmer.concatenateVideos(recordedSegments, joinedFile)
+            joinedFile
+        }
+
+        if (finalFile.exists() && finalFile.length() > 0) {
+            listener.onVideoRecorded(finalFile)
+        }
+        resetUI()
     }
 
     private fun processFinalRecordingsAndShowPreview() {
@@ -666,6 +717,19 @@ class PrimeVideoMessageRecorder(
     private fun stopRecording() {
         if (isRecordingStarting) {
             shouldStopPending = true
+            return
+        }
+        val durationRecorded = if (segmentStartTimestamp > 0) System.currentTimeMillis() - segmentStartTimestamp else 0L
+        if (isRecording && durationRecorded < 800) {
+            val recToStop = recording
+            recording = null
+            handler.postDelayed({
+                try {
+                    recToStop?.stop()
+                } catch (e: Exception) {
+                    Log.e("PrimeVideo", "Error stopping recording", e)
+                }
+            }, 800 - durationRecorded)
             return
         }
         try {
@@ -792,6 +856,7 @@ class PrimeVideoMessageRecorder(
     }
 
     fun cancelRecording() {
+        currentRecordingSessionId++
         if (isRecording || isRecordingStarting) {
             try {
                 recording?.stop()
@@ -824,17 +889,7 @@ class PrimeVideoMessageRecorder(
         val displayRotation = previewView?.display?.rotation
             ?: activity.windowManager.defaultDisplay.rotation
 
-        val captureTargetRotation = if (cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
-            when (displayRotation) {
-                android.view.Surface.ROTATION_0 -> android.view.Surface.ROTATION_180
-                android.view.Surface.ROTATION_180 -> android.view.Surface.ROTATION_0
-                android.view.Surface.ROTATION_90 -> android.view.Surface.ROTATION_270
-                android.view.Surface.ROTATION_270 -> android.view.Surface.ROTATION_90
-                else -> android.view.Surface.ROTATION_180
-            }
-        } else {
-            displayRotation
-        }
+        val captureTargetRotation = displayRotation
 
         val preview = Preview.Builder()
             .setTargetRotation(displayRotation)
@@ -846,7 +901,8 @@ class PrimeVideoMessageRecorder(
             }
 
         val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val savedQuality = sharedPrefs.getInt("video_message_quality", 1)
+        // Устанавливаем 0 (SD) как качество по умолчанию для кружков (чтобы файл весил меньше и передавался в разы быстрее)
+        val savedQuality = sharedPrefs.getInt("video_message_quality", 0)
         val qualitySelector = when (savedQuality) {
             0 -> QualitySelector.from(Quality.SD)
             1 -> QualitySelector.from(Quality.HD)

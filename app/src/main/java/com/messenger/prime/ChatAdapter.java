@@ -381,6 +381,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             return;
         }
 
+        if (currentlyPlayingVideoNote != null) {
+            ChatMessage msgAtPos = messages.get(position);
+            if (msgAtPos != null && msgAtPos.getMessageId() != null &&
+                msgAtPos.getMessageId().equals(currentlyPlayingVideoNote.getMessageId())) {
+                stopCurrentlyPlayingVideoNote();
+            }
+        }
+
         if (itemView != null) {
             itemView.animate().cancel();
             itemView.animate()
@@ -419,6 +427,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (messageIds == null || messageIds.isEmpty() || messages == null || messages.isEmpty()) {
             if (onComplete != null) onComplete.run();
             return;
+        }
+
+        if (currentlyPlayingVideoNote != null && currentlyPlayingVideoNote.getMessageId() != null) {
+            if (messageIds.contains(currentlyPlayingVideoNote.getMessageId())) {
+                stopCurrentlyPlayingVideoNote();
+            }
         }
 
         Set<String> idSet = new java.util.HashSet<>(messageIds);
@@ -907,6 +921,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     private void stopVideoPreviewInViewHolder(RecyclerView.ViewHolder holder) {
+        if (holder == null) return;
+
         VideoView vv = null;
         if (holder instanceof IncomingViewHolder) {
             vv = ((IncomingViewHolder) holder).videoMessagePreview;
@@ -917,6 +933,17 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             vv.removeCallbacks(null);
             try {
                 vv.stopPlayback();
+            } catch (Exception ignored) {}
+        }
+
+        com.messenger.prime.TextureVideoView vvNote = holder.itemView.findViewById(R.id.vvVideoNotePlayer);
+        if (vvNote != null) {
+            try {
+                if (vvNote.isPlaying()) {
+                    vvNote.pause();
+                    vvNote.stopPlayback();
+                }
+                vvNote.setVisibility(View.GONE);
             } catch (Exception ignored) {}
         }
     }
@@ -1841,14 +1868,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                             if (ivImg != null) ivImg.setVisibility(View.VISIBLE);
                             if (ivPlayIcon != null) ivPlayIcon.setVisibility(View.VISIBLE);
                             if (pbFrame != null) pbFrame.setProgress(0);
+                            
+                            int currentPos = position;
                             currentlyPlayingVideoNote = null;
                             currentlyPlayingPosition = -1;
-                            if (videoNotePlaybackListener != null) {
+
+                            int nextPos = findNextVideoNotePosition(currentPos);
+                            if (nextPos != -1 && videoNotePlaybackListener != null) {
+                                videoNotePlaybackListener.onPlayNextVideoNote(nextPos);
+                            } else if (videoNotePlaybackListener != null) {
                                 videoNotePlaybackListener.onVideoNoteStopped(message);
                             }
                         });
-                        vvPlayer.start();
-                        startVideoProgressAnimation(vvPlayer, pbFrame);
                     }
                 }
             };
@@ -1857,6 +1888,96 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (vvPlayer != null) vvPlayer.setOnClickListener(toggleListener);
             if (pbFrame != null) pbFrame.setOnClickListener(toggleListener);
             if (ivPlayIcon != null) ivPlayIcon.setOnClickListener(toggleListener);
+            if (ivImg != null) ivImg.setOnClickListener(toggleListener);
+        }
+
+        View.OnLongClickListener longClickListener = v -> {
+            if (isMultiSelectionMode) {
+                toggleMessageSelection(message);
+            } else {
+                showMessageContextMenu(v, message, position, 0f, 0f);
+            }
+            return true;
+        };
+
+        vnContainer.setOnLongClickListener(longClickListener);
+        if (vvPlayer != null) vvPlayer.setOnLongClickListener(longClickListener);
+        if (pbFrame != null) pbFrame.setOnLongClickListener(longClickListener);
+        if (ivPlayIcon != null) ivPlayIcon.setOnLongClickListener(longClickListener);
+        if (ivImg != null) ivImg.setOnLongClickListener(longClickListener);
+        itemView.setOnLongClickListener(longClickListener);
+
+        View layoutSelectionCircle = itemView.findViewById(R.id.layoutSelectionCircle);
+        ImageView ivSelectionCheck = itemView.findViewById(R.id.ivSelectionCheck);
+        boolean isSelected = isSelectedInMultiMode(message);
+
+        if (layoutSelectionCircle != null) {
+            if (isMultiSelectionMode) {
+                layoutSelectionCircle.setVisibility(View.VISIBLE);
+                if (ivSelectionCheck != null) {
+                    if (isSelected) {
+                        ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_active);
+                        ivSelectionCheck.setImageResource(R.drawable.ic_done);
+                        ivSelectionCheck.setAlpha(1.0f);
+                    } else {
+                        ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_idle);
+                        ivSelectionCheck.setImageDrawable(null);
+                        ivSelectionCheck.setAlpha(0.6f);
+                    }
+                }
+            } else {
+                layoutSelectionCircle.setVisibility(View.GONE);
+            }
+        }
+
+        ImageView ivMessageStatus = itemView.findViewById(R.id.ivMessageStatus);
+        if (ivMessageStatus != null) {
+            if (message.getMessageStatus() == MessageStatus.SENDING) {
+                ivMessageStatus.setVisibility(View.VISIBLE);
+                ivMessageStatus.setImageResource(R.drawable.ic_clock);
+                ivMessageStatus.setOnClickListener(null);
+            } else if (message.getMessageStatus() == MessageStatus.READ) {
+                ivMessageStatus.setVisibility(View.VISIBLE);
+                ivMessageStatus.setImageResource(R.drawable.ic_done_all);
+                ivMessageStatus.setOnClickListener(null);
+            } else if (message.getMessageStatus() == MessageStatus.SENT) {
+                ivMessageStatus.setVisibility(View.VISIBLE);
+                ivMessageStatus.setImageResource(R.drawable.ic_done);
+                ivMessageStatus.setOnClickListener(null);
+            } else if (message.getMessageStatus() == MessageStatus.ERROR) {
+                ivMessageStatus.setVisibility(View.VISIBLE);
+                ivMessageStatus.setImageResource(R.drawable.ic_error);
+                ivMessageStatus.setOnClickListener(v -> {
+                    if (actionListener != null) {
+                        actionListener.onRetryMessage(message, position);
+                    }
+                });
+            } else {
+                ivMessageStatus.setVisibility(View.GONE);
+                ivMessageStatus.setOnClickListener(null);
+            }
+        }
+
+        View layoutMessageProgress = itemView.findViewById(R.id.layoutMessageProgress);
+        com.messenger.prime.PrimeWaterLoadingView pbMessageProgress = itemView.findViewById(R.id.pbMessageProgress);
+        TextView tvMessageProgressPercent = itemView.findViewById(R.id.tvMessageProgressPercent);
+        ImageButton btnCancelMessageSending = itemView.findViewById(R.id.btnCancelMessageSending);
+
+        if (layoutMessageProgress != null) {
+            if (message.getMessageStatus() == MessageStatus.SENDING && message.getSendingProgress() > 0 && message.getSendingProgress() < 100) {
+                layoutMessageProgress.setVisibility(View.VISIBLE);
+                if (pbMessageProgress != null) pbMessageProgress.setProgress(message.getSendingProgress());
+                if (tvMessageProgressPercent != null) tvMessageProgressPercent.setText(message.getSendingProgress() + "%");
+                if (btnCancelMessageSending != null) {
+                    btnCancelMessageSending.setOnClickListener(v -> {
+                        if (actionListener != null) {
+                            actionListener.onCancelSending(message, position);
+                        }
+                    });
+                }
+            } else {
+                layoutMessageProgress.setVisibility(View.GONE);
+            }
         }
     }
 
@@ -2964,13 +3085,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         // Check connection status
         if (!isConnectionActive) {
-            // Offline/Disconnected: ONLY Copy option is available!
             if (layoutReactionsRow != null) layoutReactionsRow.setVisibility(View.GONE);
-            if (btnMenuReply != null) btnMenuReply.setVisibility(View.GONE);
+            if (btnMenuReply != null) btnMenuReply.setVisibility(View.VISIBLE);
             if (btnMenuForward != null) btnMenuForward.setVisibility(View.GONE);
             if (btnMenuEdit != null) btnMenuEdit.setVisibility(View.GONE);
-            if (btnMenuDelete != null) btnMenuDelete.setVisibility(View.GONE);
-            if (btnMenuSelect != null) btnMenuSelect.setVisibility(View.GONE);
+            if (btnMenuDelete != null) btnMenuDelete.setVisibility(View.VISIBLE);
+            if (btnMenuSelect != null) btnMenuSelect.setVisibility(View.VISIBLE);
             if (btnMenuCopy != null) btnMenuCopy.setVisibility(View.VISIBLE);
         } else {
             // Online/Connected state
