@@ -2083,8 +2083,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         int bottomBarRadiusDp = sp.getInt("settings_bottom_bar_radius_dp", 24);
 
         float density = getResources().getDisplayMetrics().density;
-        float topRadiusPx = topBarRadiusDp * density;
-        float bottomRadiusPx = bottomBarRadiusDp * density;
+        final float topRadiusPx = topBarRadiusDp * density;
+        final float bottomRadiusPx = bottomBarRadiusDp * density;
 
         eightbitlab.com.blurview.BlurView layoutHeader = findViewById(R.id.layoutHeader);
         if (layoutHeader != null) {
@@ -2096,18 +2096,43 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 }
             });
             layoutHeader.invalidateOutline();
+            updateViewBackgroundCorners(layoutHeader, topRadiusPx);
         }
 
-        eightbitlab.com.blurview.BlurView layoutInput = findViewById(R.id.layoutInput);
-        if (layoutInput != null) {
-            layoutInput.setClipToOutline(true);
-            layoutInput.setOutlineProvider(new android.view.ViewOutlineProvider() {
-                @Override
-                public void getOutline(View view, android.graphics.Outline outline) {
-                    outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), bottomRadiusPx);
+        eightbitlab.com.blurview.BlurView[] blurViews = new eightbitlab.com.blurview.BlurView[] {
+            findViewById(R.id.layoutInput),
+            findViewById(R.id.layoutActionIsland)
+        };
+
+        for (eightbitlab.com.blurview.BlurView bv : blurViews) {
+            if (bv != null) {
+                bv.setClipToOutline(true);
+                bv.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                    @Override
+                    public void getOutline(View view, android.graphics.Outline outline) {
+                        outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), bottomRadiusPx);
+                    }
+                });
+                bv.invalidateOutline();
+                updateViewBackgroundCorners(bv, bottomRadiusPx);
+            }
+        }
+    }
+
+    private void updateViewBackgroundCorners(View view, float radiusPx) {
+        if (view == null) return;
+        android.graphics.drawable.Drawable bg = view.getBackground();
+        if (bg == null) return;
+        if (bg instanceof android.graphics.drawable.GradientDrawable) {
+            ((android.graphics.drawable.GradientDrawable) bg).setCornerRadius(radiusPx);
+        } else if (bg instanceof android.graphics.drawable.RippleDrawable) {
+            android.graphics.drawable.RippleDrawable ripple = (android.graphics.drawable.RippleDrawable) bg;
+            for (int i = 0; i < ripple.getNumberOfLayers(); i++) {
+                android.graphics.drawable.Drawable layer = ripple.getDrawable(i);
+                if (layer instanceof android.graphics.drawable.GradientDrawable) {
+                    ((android.graphics.drawable.GradientDrawable) layer).setCornerRadius(radiusPx);
                 }
-            });
-            layoutInput.invalidateOutline();
+            }
         }
     }
 
@@ -2127,7 +2152,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             } else if ("com.messenger.prime.CHAT_DELETED".equals(action)) {
                 isChatDeleted = true;
                 finish();
-            } else if ("com.messenger.prime.AVATAR_CHANGED".equals(action) || "com.messenger.prime.NAME_CHANGED".equals(action) || "com.messenger.prime.ACCENT_CHANGED".equals(action) || "com.messenger.prime.THEME_CHANGED".equals(action) || "com.messenger.prime.BUBBLE_RADIUS_CHANGED".equals(action) || "com.messenger.prime.AVATAR_RADIUS_CHANGED".equals(action) || "com.messenger.prime.WALLPAPER_CHANGED".equals(action) || "com.messenger.prime.CHAT_UI_RADIUS_CHANGED".equals(action)) {
+            } else if ("com.messenger.prime.AVATAR_CHANGED".equals(action) || "com.messenger.prime.NAME_CHANGED".equals(action) || "com.messenger.prime.ACCENT_CHANGED".equals(action) || "com.messenger.prime.THEME_CHANGED".equals(action) || "com.messenger.prime.BUBBLE_RADIUS_CHANGED".equals(action) || "com.messenger.prime.AVATAR_RADIUS_CHANGED".equals(action) || "com.messenger.prime.WALLPAPER_CHANGED".equals(action) || "com.messenger.prime.CHAT_UI_RADIUS_CHANGED".equals(action) || "com.messenger.prime.NAV_STYLE_CHANGED".equals(action)) {
                 applyChatUiCornerRadius();
                 reloadLocalProfileFromSettings();
                 String updatedName = AvatarManager.getContactDisplayName(ChatPersonActivity.this, targetUsername, deviceAddress, targetUsername);

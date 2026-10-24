@@ -30,20 +30,27 @@ object AvatarHistoryManager {
         if (json == null) json = "[]"
 
         val list = mutableListOf<String>()
+        var historyChanged = false
         try {
             val array = JSONArray(json)
             for (i in 0 until array.length()) {
                 val path = array.getString(i)
                 if (path.isNotBlank()) {
                     val (_, file) = parseAvatarModelAndFile(path)
-                    if (file == null || file.exists()) {
+                    if (file == null || (file.exists() && file.length() > 0)) {
                         if (!list.any { isSameAvatarPath(it, path) }) {
                             list.add(path)
                         }
+                    } else {
+                        historyChanged = true
                     }
                 }
             }
         } catch (_: Exception) {}
+
+        if (historyChanged) {
+            saveMyAvatarHistory(context, list)
+        }
 
         // Fallback to single avatar if history is empty
         if (list.isEmpty()) {
@@ -57,7 +64,7 @@ object AvatarHistoryManager {
             }
             if (!legacy.isNullOrBlank()) {
                 val (_, legacyFile) = parseAvatarModelAndFile(legacy)
-                if (legacyFile == null || legacyFile.exists()) {
+                if (legacyFile == null || (legacyFile.exists() && legacyFile.length() > 0)) {
                     list.add(legacy)
                     saveMyAvatarHistory(context, list)
                 }
@@ -125,40 +132,48 @@ object AvatarHistoryManager {
 
         if (isLocal || isGeneric) return emptyList()
 
-        val historyKey = if (currentUser.isNotEmpty()) "contact_avatar_history_${currentUser}_$addressOrName" else "contact_avatar_history_$addressOrName"
+        val cleanKey = addressOrName.trim()
+        val historyKey = if (currentUser.isNotEmpty()) "contact_avatar_history_${currentUser}_$cleanKey" else "contact_avatar_history_$cleanKey"
         var json = sharedPrefs.getString(historyKey, null)
         if (json == null && currentUser.isEmpty()) {
-            json = sharedPrefs.getString("contact_avatar_history_$addressOrName", "[]")
+            json = sharedPrefs.getString("contact_avatar_history_$cleanKey", "[]")
         }
         if (json == null) json = "[]"
 
         val list = mutableListOf<String>()
+        var historyChanged = false
         try {
             val array = JSONArray(json)
             for (i in 0 until array.length()) {
                 val path = array.getString(i)
                 if (path.isNotBlank()) {
                     val (_, file) = parseAvatarModelAndFile(path)
-                    if (file == null || file.exists()) {
+                    if (file == null || (file.exists() && file.length() > 0)) {
                         if (!list.any { isSameAvatarPath(it, path) }) {
                             list.add(path)
                         }
+                    } else {
+                        historyChanged = true
                     }
                 }
             }
         } catch (_: Exception) {}
 
+        if (historyChanged) {
+            saveContactAvatarHistory(context, addressOrName, list)
+        }
+
         if (list.isEmpty()) {
             val legacy = if (currentUser.isNotEmpty()) {
-                sharedPrefs.getString("contact_avatar_${currentUser}_$addressOrName", null)
+                sharedPrefs.getString("contact_avatar_${currentUser}_$cleanKey", null)
             } else {
-                sharedPrefs.getString("contact_avatar_$addressOrName", null)
-                    ?: sharedPrefs.getString("${addressOrName}_avatar", null)
-                    ?: sharedPrefs.getString("${addressOrName}_avatarUri", null)
+                sharedPrefs.getString("contact_avatar_$cleanKey", null)
+                    ?: sharedPrefs.getString("${cleanKey}_avatar", null)
+                    ?: sharedPrefs.getString("${cleanKey}_avatarUri", null)
             }
             if (!legacy.isNullOrBlank()) {
                 val (_, legacyFile) = parseAvatarModelAndFile(legacy)
-                if (legacyFile == null || legacyFile.exists()) {
+                if (legacyFile == null || (legacyFile.exists() && legacyFile.length() > 0)) {
                     list.add(legacy)
                     saveContactAvatarHistory(context, addressOrName, list)
                 }

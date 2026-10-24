@@ -59,13 +59,19 @@ class PrimePopupMenu private constructor(
 
         val density = context.resources.displayMetrics.density
         val accentColor = ColorAccentManager.getCurrentAccentColor(context)
+        val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+
+        val cardBgColor = if (isDark) Color.parseColor("#EE0F172A") else Color.parseColor("#FAFAFA")
+        val strokeColor = if (isDark) Color.parseColor("#30FFFFFF") else Color.parseColor("#20000000")
+        val itemUnselectedBg = if (isDark) Color.parseColor("#15FFFFFF") else Color.parseColor("#0F000000")
+        val itemTextColor = if (isDark) Color.parseColor("#E2E8F0") else Color.parseColor("#1E293B")
 
         // Outer layout card
         val cardBackground = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = 20f * density
-            setColor(Color.parseColor("#EE0F172A"))
-            setStroke((1 * density).toInt(), Color.parseColor("#30FFFFFF"))
+            setColor(cardBgColor)
+            setStroke((1 * density).toInt(), strokeColor)
         }
 
         val cardLayout = LinearLayout(context).apply {
@@ -104,7 +110,7 @@ class PrimePopupMenu private constructor(
                     if (item.isSelected) {
                         setColor(accentColor)
                     } else {
-                        setColor(Color.parseColor("#15FFFFFF"))
+                        setColor(itemUnselectedBg)
                     }
                 }
                 background = shapeDrawable
@@ -118,7 +124,7 @@ class PrimePopupMenu private constructor(
                             setMargins(0, 0, (10 * density).toInt(), 0)
                         }
                         setImageResource(item.iconResId)
-                        setColorFilter(if (item.isSelected) Color.WHITE else Color.parseColor("#E2E8F0"))
+                        setColorFilter(if (item.isSelected) Color.WHITE else itemTextColor)
                     }
                     addView(iconIv)
                 }
@@ -132,7 +138,7 @@ class PrimePopupMenu private constructor(
                     text = item.title
                     textSize = 13f
                     typeface = Typeface.DEFAULT_BOLD
-                    setTextColor(if (item.isSelected) Color.WHITE else Color.parseColor("#E2E8F0"))
+                    setTextColor(if (item.isSelected) Color.WHITE else itemTextColor)
                 }
                 addView(tv)
 

@@ -3083,14 +3083,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         View btnMenuDelete = menuView.findViewById(R.id.btnMenuDelete);
         View btnMenuSelect = menuView.findViewById(R.id.btnMenuSelect);
 
-        // Check connection status
+        // Check connection status: when offline/disconnected, only Copy is available
         if (!isConnectionActive) {
             if (layoutReactionsRow != null) layoutReactionsRow.setVisibility(View.GONE);
-            if (btnMenuReply != null) btnMenuReply.setVisibility(View.VISIBLE);
+            if (btnMenuReply != null) btnMenuReply.setVisibility(View.GONE);
             if (btnMenuForward != null) btnMenuForward.setVisibility(View.GONE);
             if (btnMenuEdit != null) btnMenuEdit.setVisibility(View.GONE);
-            if (btnMenuDelete != null) btnMenuDelete.setVisibility(View.VISIBLE);
-            if (btnMenuSelect != null) btnMenuSelect.setVisibility(View.VISIBLE);
+            if (btnMenuDelete != null) btnMenuDelete.setVisibility(View.GONE);
+            if (btnMenuSelect != null) btnMenuSelect.setVisibility(View.GONE);
             if (btnMenuCopy != null) btnMenuCopy.setVisibility(View.VISIBLE);
         } else {
             // Online/Connected state

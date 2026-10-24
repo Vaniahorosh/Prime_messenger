@@ -761,13 +761,21 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun smoothScrollToView(nestedScrollView: androidx.core.widget.NestedScrollView, targetView: View) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val animationsDisabled = sharedPrefs.getBoolean("disable_animations", false)
+
         val location = IntArray(2)
         targetView.getLocationOnScreen(location)
         val scrollLocation = IntArray(2)
         nestedScrollView.getLocationOnScreen(scrollLocation)
         val toolbarHeight = binding?.blurStickyToolbar?.height ?: 0
         val targetY = nestedScrollView.scrollY + (location[1] - scrollLocation[1]) - toolbarHeight - 16
-        nestedScrollView.smoothScrollTo(0, targetY.coerceAtLeast(0))
+
+        if (animationsDisabled) {
+            nestedScrollView.scrollTo(0, targetY.coerceAtLeast(0))
+        } else {
+            nestedScrollView.smoothScrollTo(0, targetY.coerceAtLeast(0))
+        }
     }
 
     private fun getViewTopInContent(targetView: View, contentView: ViewGroup): Int {
@@ -786,21 +794,22 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupStickyNavToolbar(b: ActivitySettingsContentBinding) {
-        val brandColor = ContextCompat.getColor(this, R.color.prime_brand)
         val secondaryTextColor = ContextCompat.getColor(this, R.color.prime_text_secondary)
 
         fun updateActiveTabUI(activeTab: TextView?, sectionName: String) {
-            val tabs = listOf(b.tabStickyProfile, b.tabStickyTheme, b.tabStickyData, b.tabStickyInfo)
+            val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+            val tabs = listOfNotNull(b.tabStickyProfile, b.tabStickyTheme, b.tabStickyChat, b.tabStickyData, b.tabStickyInfo)
             tabs.forEach { tab ->
-                if (tab == activeTab && tab != null) {
-                    tab.setTextColor(brandColor)
+                if (tab == activeTab) {
+                    tab.setTextColor(accentColor)
                     tab.alpha = 1.0f
-                } else if (tab != null) {
+                } else {
                     tab.setTextColor(secondaryTextColor)
                     tab.alpha = 0.7f
                 }
             }
             b.tvStickySectionBadge.text = sectionName
+            b.tvStickySectionBadge.setTextColor(accentColor)
 
             if (activeTab != null) {
                 b.scrollStickyNav.post {
@@ -820,6 +829,10 @@ class SettingsActivity : AppCompatActivity() {
 
         b.tabStickyTheme.setOnClickListener {
             b.layoutSettingsHeader?.let { smoothScrollToView(b.nestedScrollView, it) }
+        }
+
+        b.tabStickyChat?.setOnClickListener {
+            b.layoutChatHeader?.let { smoothScrollToView(b.nestedScrollView, it) }
         }
 
         b.tabStickyData.setOnClickListener {
@@ -848,26 +861,38 @@ class SettingsActivity : AppCompatActivity() {
                 .addItem(1, "Тема оформления", R.drawable.ic_tema) {
                     smoothScrollToView(b.nestedScrollView, b.cardTheme)
                 }
+                .addItem(2, "Стиль навигации", R.drawable.ic_perspective) {
+                    smoothScrollToView(b.nestedScrollView, b.cardNavStyleSection)
+                }
+                .addItem(3, "Цветовой акцент", R.drawable.ic_pipette) {
+                    smoothScrollToView(b.nestedScrollView, b.cardColorAccent)
+                }
+                .addItem(4, "Живой фон", R.drawable.ic_live_fon) {
+                    smoothScrollToView(b.nestedScrollView, b.cardLavaBg)
+                }
+                .addItem(5, "Отключение анимаций", R.drawable.ic_clock) {
+                    b.layoutDisableAnimationsSection?.let { smoothScrollToView(b.nestedScrollView, it) }
+                }
+                .show()
+            true
+        }
+
+        b.tabStickyChat?.setOnLongClickListener { v ->
+            PrimePopupMenu.create(this, v)
+                .addItem(1, "Обои чата", R.drawable.ic_photo) {
+                    smoothScrollToView(b.nestedScrollView, b.cardWallpaperSection)
+                }
                 .addItem(2, "Скругление сообщений", R.drawable.ic_edit) {
                     smoothScrollToView(b.nestedScrollView, b.tvTitleBubbleRadius)
                 }
                 .addItem(3, "Скругление аватарки", R.drawable.ic_person) {
                     smoothScrollToView(b.nestedScrollView, b.tvTitleAvatarRadius)
                 }
-                .addItem(8, "Форма кружков (Видео)", R.drawable.ic_camera) {
+                .addItem(4, "Скругление блоков в чате", R.drawable.ic_perspective) {
+                    b.tvTitleBottomBarRadius?.let { smoothScrollToView(b.nestedScrollView, it) }
+                }
+                .addItem(5, "Форма кружков (Видео)", R.drawable.ic_camera) {
                     b.cardVideoNotesSection?.let { smoothScrollToView(b.nestedScrollView, it) }
-                }
-                .addItem(4, "Обои чата", R.drawable.ic_photo) {
-                    smoothScrollToView(b.nestedScrollView, b.cardWallpaperSection)
-                }
-                .addItem(5, "Цветовой акцент", R.drawable.ic_settings) {
-                    smoothScrollToView(b.nestedScrollView, b.cardColorAccent)
-                }
-                .addItem(6, "Живой фон", R.drawable.ic_live_fon) {
-                    smoothScrollToView(b.nestedScrollView, b.cardLavaBg)
-                }
-                .addItem(7, "Стиль навигации", R.drawable.ic_settings) {
-                    smoothScrollToView(b.nestedScrollView, b.cardNavStyleSection)
                 }
                 .show()
             true
@@ -910,7 +935,8 @@ class SettingsActivity : AppCompatActivity() {
 
             val profileStart = 0
             val themeStart = (getViewTopInContent(b.layoutSettingsHeader, contentView) - offset).coerceAtLeast(1)
-            val dataStart = (getViewTopInContent(b.layoutDataHeader, contentView) - offset).coerceAtLeast(themeStart + 1)
+            val chatStart = b.layoutChatHeader?.let { (getViewTopInContent(it, contentView) - offset).coerceAtLeast(themeStart + 1) } ?: (themeStart + 1)
+            val dataStart = (getViewTopInContent(b.layoutDataHeader, contentView) - offset).coerceAtLeast(chatStart + 1)
             val infoStart = (getViewTopInContent(b.layoutInfoHeader, contentView) - offset).coerceAtLeast(dataStart + 1)
 
             val sectionStart: Int
@@ -923,11 +949,16 @@ class SettingsActivity : AppCompatActivity() {
                 sectionEnd = themeStart
                 activeTab = b.tabStickyProfile
                 sectionName = "Профиль"
-            } else if (scrollY < dataStart) {
+            } else if (scrollY < chatStart) {
                 sectionStart = themeStart
-                sectionEnd = dataStart
+                sectionEnd = chatStart
                 activeTab = b.tabStickyTheme
                 sectionName = "Оформление"
+            } else if (scrollY < dataStart) {
+                sectionStart = chatStart
+                sectionEnd = dataStart
+                activeTab = b.tabStickyChat
+                sectionName = "В чате"
             } else if (scrollY < infoStart) {
                 sectionStart = dataStart
                 sectionEnd = infoStart
@@ -1125,7 +1156,54 @@ class SettingsActivity : AppCompatActivity() {
         setupNavStyleSection(b)
         setupBubbleRadiusSection(b)
         setupAvatarRadiusSection(b)
+        setupBottomBarRadiusSection(b)
         setupVideoMessageSection(b)
+        setupDisableAnimationsSection(b)
+    }
+
+    private fun setupBottomBarRadiusSection(b: ActivitySettingsContentBinding) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentRadius = sharedPrefs.getInt("settings_chat_ui_radius_dp", sharedPrefs.getInt("settings_bottom_bar_radius_dp", 24))
+        val density = resources.displayMetrics.density
+
+        val updatePreview = { radiusDp: Int ->
+            b.tvBottomBarRadiusValue?.text = "${radiusDp} dp"
+            val radiusPx = radiusDp * density
+            b.cardHeaderPreviewInput?.radius = radiusPx
+            b.cardBottomBarPreviewInput?.radius = radiusPx
+            val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+            b.cardHeaderPreviewInput?.strokeColor = accentColor
+            b.cardBottomBarPreviewInput?.strokeColor = accentColor
+        }
+
+        updatePreview(currentRadius)
+        b.sliderBottomBarRadius?.value = currentRadius.coerceIn(0, 36).toFloat()
+
+        b.sliderBottomBarRadius?.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) {
+                val radiusInt = value.toInt()
+                updatePreview(radiusInt)
+                sharedPrefs.edit()
+                    .putInt("settings_chat_ui_radius_dp", radiusInt)
+                    .putInt("settings_bottom_bar_radius_dp", radiusInt)
+                    .putInt("settings_top_bar_radius_dp", radiusInt)
+                    .apply()
+                setupBottomNav(b)
+                sendBroadcast(Intent("com.messenger.prime.CHAT_UI_RADIUS_CHANGED").setPackage(packageName))
+                sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+            }
+        }
+    }
+
+    private fun setupDisableAnimationsSection(b: ActivitySettingsContentBinding) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val isDisabled = sharedPrefs.getBoolean("disable_animations", false)
+        b.switchDisableAnimations?.isChecked = isDisabled
+
+        b.switchDisableAnimations?.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("disable_animations", isChecked).apply()
+            sendBroadcast(Intent("com.messenger.prime.ANIMATIONS_TOGGLED").setPackage(packageName))
+        }
     }
 
     private fun setupNavStyleSection(b: ActivitySettingsContentBinding) {
@@ -1138,6 +1216,24 @@ class SettingsActivity : AppCompatActivity() {
             b.rbStyleBottomBar.isChecked = !isIsland
 
             val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+            val isNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+            val radioTintList = ColorStateList(
+                arrayOf(
+                    intArrayOf(android.R.attr.state_checked),
+                    intArrayOf(-android.R.attr.state_checked)
+                ),
+                intArrayOf(
+                    accentColor,
+                    if (isNight) android.graphics.Color.parseColor("#66FFFFFF") else android.graphics.Color.parseColor("#66000000")
+                )
+            )
+            b.rbStyleIsland.buttonTintList = radioTintList
+            b.rbStyleBottomBar.buttonTintList = radioTintList
+
+            b.rbStyleIsland.setTextColor(if (isIsland) accentColor else ContextCompat.getColor(this, R.color.prime_text_primary))
+            b.rbStyleBottomBar.setTextColor(if (!isIsland) accentColor else ContextCompat.getColor(this, R.color.prime_text_primary))
+
             b.cardStyleIsland.strokeColor = if (isIsland) accentColor else android.graphics.Color.TRANSPARENT
             b.cardStyleIsland.strokeWidth = if (isIsland) (2 * resources.displayMetrics.density).toInt() else 0
 
@@ -2155,36 +2251,83 @@ class SettingsActivity : AppCompatActivity() {
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
         val colorStateList = ColorStateList.valueOf(accentColor)
 
-        // Tint all card titles & headers
+        // Tint all main section divider headers ("ОФОРМЛЕНИЕ", "В ЧАТЕ", "ДАННЫЕ И ПАМЯТЬ", "ИНФОРМАЦИЯ")
+        val sectionHeaderLayouts = listOfNotNull(
+            b.layoutSettingsHeader,
+            b.layoutChatHeader,
+            b.layoutDataHeader,
+            b.layoutInfoHeader
+        )
+        for (headerLayout in sectionHeaderLayouts) {
+            for (i in 0 until headerLayout.childCount) {
+                val child = headerLayout.getChildAt(i)
+                if (child is TextView) {
+                    child.setTextColor(accentColor)
+                } else if (child is View) {
+                    child.backgroundTintList = colorStateList
+                }
+            }
+        }
+
+        // Tint all card titles & sub-headers
         b.tvTitleTheme.setTextColor(accentColor)
-        b.tvTitleWallpaper.setTextColor(accentColor)
+        b.tvTitleNavStyle.setTextColor(accentColor)
         b.tvTitleAccent.setTextColor(accentColor)
+        b.tvTitleLava.setTextColor(accentColor)
+        b.tvTitleDisableAnimations?.setTextColor(accentColor)
+        b.tvTitleWallpaper.setTextColor(accentColor)
         b.tvTitleBubbleRadius.setTextColor(accentColor)
         b.tvTitleAvatarRadius.setTextColor(accentColor)
-        b.tvTitleLava.setTextColor(accentColor)
-        b.tvTitleNavStyle.setTextColor(accentColor)
+        b.tvTitleBottomBarRadius?.setTextColor(accentColor)
         b.tvTitleStorage.setTextColor(accentColor)
+        b.tvSelectAllStorage.setTextColor(accentColor)
 
-        // Tint value texts
+        // Tint value texts & badges
         b.tvAccentSummary.text = ColorAccentManager.getAccentSummary(this)
         b.vAccentColorPreview.backgroundTintList = colorStateList
         b.tvBubbleRadiusValue.setTextColor(accentColor)
         b.tvAvatarRadiusValue.setTextColor(accentColor)
+        b.tvBottomBarRadiusValue?.setTextColor(accentColor)
+        b.tvVideoCornerRadiusValue?.setTextColor(accentColor)
+        b.tvVideoSizeValue?.setTextColor(accentColor)
+        b.tvStickySectionBadge.setTextColor(accentColor)
+        b.cardHeaderPreviewInput?.strokeColor = accentColor
+        b.cardBottomBarPreviewInput?.strokeColor = accentColor
+
+        // Tint sticky progress line
+        b.pbStickyScrollProgress.progressTintList = colorStateList
 
         // Tint all card header icons
         b.ivIconTheme.imageTintList = colorStateList
-        b.ivIconWallpaper.imageTintList = colorStateList
+        b.ivIconNavStyle.imageTintList = colorStateList
         b.ivIconAccent.imageTintList = colorStateList
         b.ivIconLava.imageTintList = colorStateList
-        b.ivIconNavStyle.imageTintList = colorStateList
+        b.ivIconDisableAnimations?.imageTintList = colorStateList
+        b.ivIconWallpaper.imageTintList = colorStateList
         b.ivIconStorage.imageTintList = colorStateList
         b.ivThanksIcon.imageTintList = colorStateList
 
-        // Tint sliders
-        b.sliderBubbleRadius.thumbTintList = colorStateList
-        b.sliderBubbleRadius.trackActiveTintList = colorStateList
-        b.sliderAvatarRadius.thumbTintList = colorStateList
-        b.sliderAvatarRadius.trackActiveTintList = colorStateList
+        // Tint all sliders (thumb, active track, inactive track, halo)
+        val sliders = listOfNotNull(
+            b.sliderBubbleRadius,
+            b.sliderAvatarRadius,
+            b.sliderBottomBarRadius,
+            b.sliderVideoCornerRadius,
+            b.sliderVideoSize
+        )
+        val inactiveTrackTint = ColorStateList.valueOf(androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 60))
+        val haloTint = ColorStateList.valueOf(androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 32))
+
+        for (slider in sliders) {
+            slider.thumbTintList = colorStateList
+            slider.trackActiveTintList = colorStateList
+            slider.trackInactiveTintList = inactiveTrackTint
+            slider.haloTintList = haloTint
+        }
+
+        // Tint sticky progress line & track
+        b.pbStickyScrollProgress.progressTintList = colorStateList
+        b.pbStickyScrollProgress.progressBackgroundTintList = ColorStateList.valueOf(androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 40))
 
         // Spectrum button
         b.btnCustomPicker.setTextColor(accentColor)
@@ -2194,6 +2337,7 @@ class SettingsActivity : AppCompatActivity() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentTheme = sharedPrefs.getString("app_theme", "system") ?: "system"
         updateThemeSelectionUI(b, currentTheme)
+        setupNavStyleSection(b)
 
         ColorAccentManager.tintViewTree(b.root, accentColor)
     }

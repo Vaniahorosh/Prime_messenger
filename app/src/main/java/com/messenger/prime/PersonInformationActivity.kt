@@ -208,6 +208,16 @@ class PersonInformationActivity : AppCompatActivity() {
         loadSharedMediaAndFiles()
     }
 
+    private val liveStatusHandler = Handler(Looper.getMainLooper())
+    private val liveStatusRunnable = object : Runnable {
+        override fun run() {
+            if (!isFinishing && !isDestroyed) {
+                updateLiveStatus()
+                liveStatusHandler.postDelayed(this, 2000)
+            }
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         if (::binding.isInitialized) {
@@ -215,6 +225,13 @@ class PersonInformationActivity : AppCompatActivity() {
         }
         setupHeaderUi()
         updateLiveStatus()
+        liveStatusHandler.removeCallbacks(liveStatusRunnable)
+        liveStatusHandler.post(liveStatusRunnable)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        liveStatusHandler.removeCallbacks(liveStatusRunnable)
     }
 
     override fun onDestroy() {
@@ -531,8 +548,52 @@ class PersonInformationActivity : AppCompatActivity() {
 
     private var currentAvatarIndex = 0
 
+    private fun getCombinedContactAvatarHistory(): List<String> {
+        val list = mutableListOf<String>()
+        fun addAllUnique(items: List<String>) {
+            for (item in items) {
+                if (item.isNotBlank() && !list.contains(item)) {
+                    list.add(item)
+                }
+            }
+        }
+
+        if (!deviceAddress.isNullOrEmpty()) {
+            addAllUnique(AvatarHistoryManager.getContactAvatarHistory(this, deviceAddress!!))
+        }
+        if (!targetUsername.isNullOrEmpty()) {
+            addAllUnique(AvatarHistoryManager.getContactAvatarHistory(this, targetUsername))
+        }
+
+        if (list.isEmpty() && !avatarUriStr.isNullOrEmpty()) {
+            val (_, file) = parseAvatarModelAndFile(avatarUriStr)
+            if (file == null || file.exists()) {
+                if (!deviceAddress.isNullOrEmpty()) {
+                    AvatarHistoryManager.addContactAvatar(this, deviceAddress!!, avatarUriStr!!)
+                }
+                if (!targetUsername.isNullOrEmpty()) {
+                    AvatarHistoryManager.addContactAvatar(this, targetUsername, avatarUriStr!!)
+                }
+                if (!deviceAddress.isNullOrEmpty()) {
+                    addAllUnique(AvatarHistoryManager.getContactAvatarHistory(this, deviceAddress!!))
+                }
+                if (!targetUsername.isNullOrEmpty()) {
+                    addAllUnique(AvatarHistoryManager.getContactAvatarHistory(this, targetUsername))
+                }
+            }
+        }
+        return list
+    }
+
     private fun setupHeaderUi() {
-        val displayContactName = AvatarManager.getContactDisplayName(this, targetUsername, deviceAddress, targetUsername)
+        var displayContactName = AvatarManager.getContactDisplayName(this, targetUsername, deviceAddress, targetUsername)
+        if (displayContactName.isBlank() || displayContactName == "Пользователь" || displayContactName == "Собеседник") {
+            val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+            val nameFromAddr = if (!deviceAddress.isNullOrEmpty()) sp.getString("contact_name_$deviceAddress", null) else null
+            val nameFromUser = if (!targetUsername.isNullOrEmpty()) sp.getString("contact_name_$targetUsername", null) else null
+            if (!nameFromAddr.isNullOrBlank()) displayContactName = nameFromAddr
+            else if (!nameFromUser.isNullOrBlank()) displayContactName = nameFromUser
+        }
         binding.tvUserNameWP.text = displayContactName
 
         setupAvatarCardSwipe()
@@ -541,22 +602,7 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     private fun updateHeaderPhoto() {
-        val targetKey = if (!deviceAddress.isNullOrEmpty()) deviceAddress!! else targetUsername
-        var history = AvatarHistoryManager.getContactAvatarHistory(this, targetKey)
-        if (history.isEmpty() && !targetUsername.isNullOrEmpty()) {
-            history = AvatarHistoryManager.getContactAvatarHistory(this, targetUsername)
-        }
-
-        if (history.isEmpty() && !avatarUriStr.isNullOrEmpty()) {
-            val (_, file) = parseAvatarModelAndFile(avatarUriStr)
-            if (file == null || file.exists()) {
-                AvatarHistoryManager.addContactAvatar(this, targetKey, avatarUriStr!!)
-                if (!targetUsername.isNullOrEmpty()) {
-                    AvatarHistoryManager.addContactAvatar(this, targetUsername, avatarUriStr!!)
-                }
-                history = AvatarHistoryManager.getContactAvatarHistory(this, targetKey)
-            }
-        }
+        val history = getCombinedContactAvatarHistory()
 
         if (history.isEmpty()) {
             binding.ivPhotoCard.setImageResource(R.drawable.ic_person)
@@ -618,11 +664,7 @@ class PersonInformationActivity : AppCompatActivity() {
                 val diffX = e2.x - e1.x
                 val diffY = e2.y - e1.y
                 if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60 && Math.abs(velocityX) > 100) {
-                    val targetKey = if (!deviceAddress.isNullOrEmpty()) deviceAddress!! else targetUsername
-                    var history = AvatarHistoryManager.getContactAvatarHistory(this@PersonInformationActivity, targetKey)
-                    if (history.isEmpty() && !targetUsername.isNullOrEmpty()) {
-                        history = AvatarHistoryManager.getContactAvatarHistory(this@PersonInformationActivity, targetUsername)
-                    }
+                    val history = getCombinedContactAvatarHistory()
                     if (history.size > 1) {
                         val isRightToLeft = diffX < 0
                         if (isRightToLeft) {
@@ -674,25 +716,11 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     private fun openAvatarInMediaPlayer() {
-        val targetKey = if (!deviceAddress.isNullOrEmpty()) deviceAddress!! else targetUsername
-        var contactHistory = AvatarHistoryManager.getContactAvatarHistory(this, targetKey)
-        if (contactHistory.isEmpty() && !targetUsername.isNullOrEmpty()) {
-            contactHistory = AvatarHistoryManager.getContactAvatarHistory(this, targetUsername)
-        }
-
-        if (contactHistory.isEmpty() && !avatarUriStr.isNullOrEmpty()) {
-            val (_, file) = parseAvatarModelAndFile(avatarUriStr)
-            if (file == null || file.exists()) {
-                AvatarHistoryManager.addContactAvatar(this, targetKey, avatarUriStr!!)
-                if (!targetUsername.isNullOrEmpty()) {
-                    AvatarHistoryManager.addContactAvatar(this, targetUsername, avatarUriStr!!)
-                }
-                contactHistory = AvatarHistoryManager.getContactAvatarHistory(this, targetKey)
-            }
-        }
+        val contactHistory = getCombinedContactAvatarHistory()
 
         if (contactHistory.isNotEmpty()) {
             val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+            val targetKey = if (!deviceAddress.isNullOrEmpty()) deviceAddress!! else targetUsername
             val contactName = if (targetKey.isNotEmpty()) {
                 sharedPrefs.getString("contact_name_$targetKey", null) ?: targetUsername
             } else targetUsername
@@ -723,18 +751,24 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     private fun updateLiveStatus() {
-        val targetAddr = deviceAddress ?: targetUsername
-        val isConnected = BluetoothConnectionManager.getInstance().isConnected(targetAddr)
+        val isConnected = (!deviceAddress.isNullOrEmpty() && BluetoothConnectionManager.getInstance().isConnected(deviceAddress))
+            || (!targetUsername.isNullOrEmpty() && BluetoothConnectionManager.getInstance().isConnected(targetUsername))
+
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-        val state = sharedPrefs.getString("activity_state_$targetUsername", "IDLE") ?: "IDLE"
-        val typingUntil = sharedPrefs.getLong("typing_until_$targetUsername", 0L)
+        val state1 = sharedPrefs.getString("activity_state_$targetUsername", "IDLE") ?: "IDLE"
+        val state2 = if (!deviceAddress.isNullOrEmpty()) sharedPrefs.getString("activity_state_$deviceAddress", "IDLE") ?: "IDLE" else "IDLE"
+        val typing1 = sharedPrefs.getLong("typing_until_$targetUsername", 0L)
+        val typing2 = if (!deviceAddress.isNullOrEmpty()) sharedPrefs.getLong("typing_until_$deviceAddress", 0L) else 0L
         val now = System.currentTimeMillis()
 
-        val isTyping = typingUntil > now || "TYPING".equals(state, ignoreCase = true)
+        val activeState = if (!"IDLE".equals(state1, ignoreCase = true)) state1 else state2
+        val isTyping = typing1 > now || typing2 > now || "TYPING".equals(state1, ignoreCase = true) || "TYPING".equals(state2, ignoreCase = true)
 
         val statusText = when {
             !isConnected -> {
-                val lastSeen = sharedPrefs.getLong("last_seen_$targetUsername", 0L)
+                val lastSeen1 = sharedPrefs.getLong("last_seen_$targetUsername", 0L)
+                val lastSeen2 = if (!deviceAddress.isNullOrEmpty()) sharedPrefs.getLong("last_seen_$deviceAddress", 0L) else 0L
+                val lastSeen = maxOf(lastSeen1, lastSeen2)
                 if (lastSeen > 0) {
                     val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
                     "был(а) в " + sdf.format(Date(lastSeen))
@@ -743,10 +777,10 @@ class PersonInformationActivity : AppCompatActivity() {
                 }
             }
             isTyping -> "печатает..."
-            "VIEWING_PHOTO".equals(state, ignoreCase = true) -> "смотрит фото"
-            "VIEWING_VIDEO".equals(state, ignoreCase = true) -> "смотрит видео"
-            "VIEWING_FILE".equals(state, ignoreCase = true) -> "смотрит файл"
-            "SENDING_PHOTO".equals(state, ignoreCase = true) || "SENDING_VIDEO".equals(state, ignoreCase = true) || "SENDING_FILE".equals(state, ignoreCase = true) || "SENDING_MEDIA".equals(state, ignoreCase = true) -> "Отправка медиа..."
+            "VIEWING_PHOTO".equals(activeState, ignoreCase = true) -> "смотрит фото"
+            "VIEWING_VIDEO".equals(activeState, ignoreCase = true) -> "смотрит видео"
+            "VIEWING_FILE".equals(activeState, ignoreCase = true) -> "смотрит файл"
+            "SENDING_PHOTO".equals(activeState, ignoreCase = true) || "SENDING_VIDEO".equals(activeState, ignoreCase = true) || "SENDING_FILE".equals(activeState, ignoreCase = true) || "SENDING_MEDIA".equals(activeState, ignoreCase = true) -> "Отправка медиа..."
             else -> "в сети"
         }
 

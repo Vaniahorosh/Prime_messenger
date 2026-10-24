@@ -18,12 +18,28 @@ import com.r0adkll.slidr.model.SlidrPosition
 object PrimeTransitions {
 
     /**
+     * Checks if global animations are disabled in SharedPreferences for weak devices.
+     */
+    @JvmStatic
+    fun areAnimationsDisabled(context: android.content.Context): Boolean {
+        val sp = context.getSharedPreferences("PrimeLocalDB", android.content.Context.MODE_PRIVATE)
+        return sp.getBoolean("disable_animations", false)
+    }
+
+    /**
      * Registers both OPEN and CLOSE activity transitions upfront on Android 14+ (API 34+).
      * Registering CLOSE transition upfront in `onCreate` guarantees the system
      * predictive gesture engine can seek and animate the closing transition interactively.
      */
     @JvmStatic
     fun setupActivityTransitions(activity: Activity) {
+        if (areAnimationsDisabled(activity)) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN, 0, 0)
+                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
+            }
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             activity.overrideActivityTransition(
                 Activity.OVERRIDE_TRANSITION_OPEN,
@@ -45,6 +61,16 @@ object PrimeTransitions {
      */
     @JvmStatic
     fun applyOpenTransition(activity: Activity) {
+        if (areAnimationsDisabled(activity)) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN, 0, 0)
+                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
+            } else {
+                @Suppress("DEPRECATION")
+                activity.overridePendingTransition(0, 0)
+            }
+            return
+        }
         val isTablet = activity.resources.getBoolean(R.bool.isTablet)
         val exitAnim = if (!isTablet) 0 else R.anim.prime_open_exit
         val closeEnterAnim = if (!isTablet) 0 else R.anim.prime_close_enter
@@ -80,6 +106,15 @@ object PrimeTransitions {
             // Skip playing close transition animation if activity was already swiped off screen by Slidr
             return
         }
+        if (areAnimationsDisabled(activity)) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
+            } else {
+                @Suppress("DEPRECATION")
+                activity.overridePendingTransition(0, 0)
+            }
+            return
+        }
         val isTablet = activity.resources.getBoolean(R.bool.isTablet)
         // On phones where Slidr makes window translucent, previous activity is already visible at 0%.
         // Animating it from -20% causes a visual jump/trail. We keep enterAnim = 0 on phones.
@@ -104,6 +139,16 @@ object PrimeTransitions {
     @JvmStatic
     @JvmOverloads
     fun applyPageFlipTransition(activity: Activity, isForward: Boolean = true) {
+        if (areAnimationsDisabled(activity)) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN, 0, 0)
+                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
+            } else {
+                @Suppress("DEPRECATION")
+                activity.overridePendingTransition(0, 0)
+            }
+            return
+        }
         val enterAnim = if (isForward) R.anim.slide_in_right else R.anim.slide_in_left
         val exitAnim = if (isForward) R.anim.slide_out_left else R.anim.slide_out_right
 

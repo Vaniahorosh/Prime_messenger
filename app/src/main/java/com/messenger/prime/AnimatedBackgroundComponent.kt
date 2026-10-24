@@ -224,6 +224,10 @@ fun AnimatedBackground(
     ignoreSettingsToggle: Boolean = true // By default, ignore toggle (for Entry screens)
 ) {
     val context = LocalContext.current
+    val isAnimationsDisabled = remember(context) {
+        context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).getBoolean("disable_animations", false)
+    }
+
     val isEnabled = remember(context) {
         context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).getBoolean("settings_lava_bg", true)
     }
@@ -235,8 +239,8 @@ fun AnimatedBackground(
     val accentColorInt = ColorAccentManager.getCurrentAccentColor(context)
     val bgColor = if (darkTheme) Color(0xFF1E293B) else Color(accentColorInt)
     
-    // If not ignoring toggle AND setting is off, OR if it's a weak device -> show static background
-    if ((!ignoreSettingsToggle && !isEnabled) || isLowRam) {
+    // If animations are disabled, or setting is off, or weak device -> show static background
+    if (isAnimationsDisabled || (!ignoreSettingsToggle && !isEnabled) || isLowRam) {
         Box(modifier = modifier.fillMaxSize().background(bgColor))
         return
     }
