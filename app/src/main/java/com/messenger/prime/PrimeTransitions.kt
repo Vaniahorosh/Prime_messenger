@@ -40,16 +40,17 @@ object PrimeTransitions {
             }
             return
         }
+        val isTablet = activity.resources.getBoolean(R.bool.isTablet)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             activity.overrideActivityTransition(
                 Activity.OVERRIDE_TRANSITION_OPEN,
-                R.anim.prime_open_enter,
-                R.anim.prime_open_exit
+                if (!isTablet) 0 else R.anim.prime_open_enter,
+                if (!isTablet) 0 else R.anim.prime_open_exit
             )
             activity.overrideActivityTransition(
                 Activity.OVERRIDE_TRANSITION_CLOSE,
-                R.anim.prime_close_enter,
-                R.anim.prime_close_exit
+                if (!isTablet) 0 else R.anim.prime_close_enter,
+                if (!isTablet) 0 else R.anim.prime_close_exit
             )
         }
     }
@@ -72,23 +73,25 @@ object PrimeTransitions {
             return
         }
         val isTablet = activity.resources.getBoolean(R.bool.isTablet)
+        // Disable XML transitions for phones (custom PrimePredictiveBack handles Enter transition)
+        val enterAnim = if (!isTablet) 0 else R.anim.prime_open_enter
         val exitAnim = if (!isTablet) 0 else R.anim.prime_open_exit
         val closeEnterAnim = if (!isTablet) 0 else R.anim.prime_close_enter
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             activity.overrideActivityTransition(
                 Activity.OVERRIDE_TRANSITION_OPEN,
-                R.anim.prime_open_enter,
+                enterAnim,
                 exitAnim
             )
             activity.overrideActivityTransition(
                 Activity.OVERRIDE_TRANSITION_CLOSE,
                 closeEnterAnim,
-                R.anim.prime_close_exit
+                if (!isTablet) 0 else R.anim.prime_close_exit
             )
         } else {
             @Suppress("DEPRECATION")
-            activity.overridePendingTransition(R.anim.prime_open_enter, exitAnim)
+            activity.overridePendingTransition(enterAnim, exitAnim)
         }
     }
 
@@ -116,19 +119,19 @@ object PrimeTransitions {
             return
         }
         val isTablet = activity.resources.getBoolean(R.bool.isTablet)
-        // On phones where Slidr makes window translucent, previous activity is already visible at 0%.
-        // Animating it from -20% causes a visual jump/trail. We keep enterAnim = 0 on phones.
+        // Disable XML transitions for phones (custom PrimePredictiveBack handles Exit transition)
         val enterAnim = if (!isTablet) 0 else R.anim.prime_close_enter
+        val exitAnim = if (!isTablet) 0 else R.anim.prime_close_exit
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             activity.overrideActivityTransition(
                 Activity.OVERRIDE_TRANSITION_CLOSE,
                 enterAnim,
-                R.anim.prime_close_exit
+                exitAnim
             )
         } else {
             @Suppress("DEPRECATION")
-            activity.overridePendingTransition(enterAnim, R.anim.prime_close_exit)
+            activity.overridePendingTransition(enterAnim, exitAnim)
         }
     }
 

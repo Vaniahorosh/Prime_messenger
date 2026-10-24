@@ -420,10 +420,16 @@ object PrimeNotification {
             val senderPerson = personBuilder.build()
             val mePerson = Person.Builder().setName("Вы").build()
 
+            val displayMessageText = when {
+                messageText == "Голосовое сообщение" -> "🎤 Голосовое сообщение"
+                !messageText.isNullOrEmpty() -> messageText
+                else -> "Новое сообщение"
+            }
+
             val messagingStyle = NotificationCompat.MessagingStyle(mePerson)
                 .setConversationTitle(displaySenderName)
                 .addMessage(
-                    if (!messageText.isNullOrEmpty()) messageText else "Новое сообщение",
+                    displayMessageText,
                     System.currentTimeMillis(),
                     senderPerson
                 )

@@ -47,7 +47,7 @@ public class ChatMessage {
         if (type == MessageType.VIDEO) return "Видео";
         if (type == MessageType.FILE) return "Файл";
         if (type == MessageType.IMAGE) return "Фотография";
-        if (type == MessageType.VOICE) return "Голосовое сообщение";
+        if (type == MessageType.VOICE) return "🎤 Голосовое сообщение";
         return msg.getText() != null ? msg.getText() : "";
     }
 
@@ -265,10 +265,12 @@ public class ChatMessage {
     }
 
     public boolean isMusic() {
+        if (messageType == MessageType.VOICE) return false;
         if (messageType == MessageType.MUSIC) return true;
-        if (messageType == MessageType.VIDEO || messageType == MessageType.IMAGE || messageType == MessageType.VOICE) return false;
+        if (messageType == MessageType.VIDEO || messageType == MessageType.IMAGE) return false;
         if (imagePath != null && !imagePath.startsWith("MULTI:")) {
             String lower = imagePath.toLowerCase(Locale.US);
+            if (lower.contains("/voices/") || lower.contains("voice_")) return false;
             return lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac") || lower.endsWith(".opus") || lower.endsWith(".wma");
         }
         return false;
@@ -460,6 +462,8 @@ public class ChatMessage {
     private String replyToMessageId = null;
     private String replyToSender = null;
     private String replyToText = null;
+    private List<Integer> waveformChunks;
+    private String minAppVersion;
 
     public String getReplyToMessageId() {
         return replyToMessageId;
@@ -475,6 +479,22 @@ public class ChatMessage {
 
     public void setReplyToSender(String replyToSender) {
         this.replyToSender = replyToSender;
+    }
+
+    public List<Integer> getWaveformChunks() {
+        return waveformChunks;
+    }
+
+    public void setWaveformChunks(List<Integer> waveformChunks) {
+        this.waveformChunks = waveformChunks;
+    }
+
+    public String getMinAppVersion() {
+        return minAppVersion;
+    }
+
+    public void setMinAppVersion(String minAppVersion) {
+        this.minAppVersion = minAppVersion;
     }
 
     public String getReplyToText() {

@@ -68,6 +68,9 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     @Override
     public void onDestroy() {
         BluetoothConnectionManager.getInstance().unregisterCallback(this);
+        reconnectHandler.removeCallbacksAndMessages(null);
+        pendingReconnects.clear();
+        reconnectAttempts.clear();
         if (wakeLock != null && wakeLock.isHeld()) {
             try { wakeLock.release(); } catch (Throwable ignored) {}
         }
@@ -1052,11 +1055,13 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
             if (parsedType == null) {
                 String lowerName = fileName.toLowerCase(Locale.US);
-                boolean isAudio = lowerName.endsWith(".mp3") || lowerName.endsWith(".m4a") || lowerName.endsWith(".aac") || lowerName.endsWith(".wav") || lowerName.endsWith(".ogg") || lowerName.endsWith(".flac") || lowerName.endsWith(".opus") || lowerName.endsWith(".wma");
-                boolean isVid = !isAudio && (isVideoFlag || lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".3gp") || lowerName.endsWith(".webm") || lowerName.endsWith(".mov") || lowerName.endsWith(".avi"));
-                boolean isImg = !isAudio && !isVid && (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".png") || lowerName.endsWith(".webp") || lowerName.endsWith(".gif"));
+                boolean isVoice = lowerName.contains("voice_") || lowerName.contains("/voices/") || "Голосовое сообщение".equals(text);
+                boolean isAudio = !isVoice && (lowerName.endsWith(".mp3") || lowerName.endsWith(".m4a") || lowerName.endsWith(".aac") || lowerName.endsWith(".wav") || lowerName.endsWith(".ogg") || lowerName.endsWith(".flac") || lowerName.endsWith(".opus") || lowerName.endsWith(".wma"));
+                boolean isVid = !isAudio && !isVoice && (isVideoFlag || lowerName.endsWith(".mp4") || lowerName.endsWith(".mkv") || lowerName.endsWith(".3gp") || lowerName.endsWith(".webm") || lowerName.endsWith(".mov") || lowerName.endsWith(".avi"));
+                boolean isImg = !isAudio && !isVid && !isVoice && (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".png") || lowerName.endsWith(".webp") || lowerName.endsWith(".gif"));
 
-                if (isAudio) parsedType = ChatMessage.MessageType.MUSIC;
+                if (isVoice) parsedType = ChatMessage.MessageType.VOICE;
+                else if (isAudio) parsedType = ChatMessage.MessageType.MUSIC;
                 else if (isVid) parsedType = ChatMessage.MessageType.VIDEO;
                 else if (isImg) parsedType = ChatMessage.MessageType.IMAGE;
                 else parsedType = ChatMessage.MessageType.FILE;

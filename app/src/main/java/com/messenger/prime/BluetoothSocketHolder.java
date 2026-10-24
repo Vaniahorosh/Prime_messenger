@@ -279,15 +279,15 @@ public class BluetoothSocketHolder {
             byte[] avatarBytes = new byte[0];
             if (localAvatarUri != null && !localAvatarUri.isEmpty()) {
                 try {
-                    InputStream is = context.getContentResolver().openInputStream(Uri.parse(localAvatarUri));
-                    if (is != null) {
-                        Bitmap bitmap = BitmapFactory.decodeStream(is);
-                        is.close();
-                        if (bitmap != null) {
-                            Bitmap scaled = Bitmap.createScaledBitmap(bitmap, 96, 96, false);
-                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                            scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos);
-                            avatarBytes = baos.toByteArray();
+                    try (InputStream is = context.getContentResolver().openInputStream(Uri.parse(localAvatarUri))) {
+                        if (is != null) {
+                            Bitmap bitmap = BitmapFactory.decodeStream(is);
+                            if (bitmap != null) {
+                                Bitmap scaled = Bitmap.createScaledBitmap(bitmap, 96, 96, false);
+                                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                                scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos);
+                                avatarBytes = baos.toByteArray();
+                            }
                         }
                     }
                 } catch (Exception ignored) {}

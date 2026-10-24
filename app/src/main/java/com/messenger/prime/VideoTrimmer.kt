@@ -12,14 +12,16 @@ import java.nio.ByteBuffer
 object VideoTrimmer {
 
     private fun getVideoRotation(file: File): Int {
+        var retriever: MediaMetadataRetriever? = null
         return try {
-            val retriever = MediaMetadataRetriever()
+            retriever = MediaMetadataRetriever()
             retriever.setDataSource(file.absolutePath)
             val rotationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
-            retriever.release()
             rotationStr?.toInt() ?: 0
         } catch (e: Exception) {
             0
+        } finally {
+            try { retriever?.release() } catch (_: Exception) {}
         }
     }
 

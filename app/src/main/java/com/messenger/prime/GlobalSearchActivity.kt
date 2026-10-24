@@ -135,11 +135,7 @@ class GlobalSearchActivity : AppCompatActivity() {
             finish()
             PrimeTransitions.applyCloseTransition(this)
         }
-
-        PrimePredictiveBack.attach(this) {
-            finish()
-            PrimeTransitions.applyCloseTransition(this)
-        }
+        // PrimePredictiveBack is now attached centrally in PrimeApplication
 
         btnBack.setOnClickListener {
             backAction()

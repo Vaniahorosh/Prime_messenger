@@ -79,13 +79,15 @@ class VideoNoteMediaSessionManager(
 
             var videoThumbnail: Bitmap? = null
             if (!videoPath.isNullOrEmpty()) {
+                var retriever: MediaMetadataRetriever? = null
                 try {
-                    val retriever = MediaMetadataRetriever()
+                    retriever = MediaMetadataRetriever()
                     retriever.setDataSource(videoPath)
                     videoThumbnail = retriever.getFrameAtTime(100000)
-                    retriever.release()
                 } catch (e: Exception) {
                     e.printStackTrace()
+                } finally {
+                    try { retriever?.release() } catch (_: Exception) {}
                 }
             }
 

@@ -13,6 +13,7 @@ import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
@@ -30,6 +31,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.google.android.material.slider.RangeSlider
 import eightbitlab.com.blurview.BlurView
 import eightbitlab.com.blurview.RenderEffectBlur
@@ -58,6 +61,7 @@ class PrimeVideoMessageRecorder(
 ) {
     interface VideoRecordListener {
         fun onVideoRecorded(file: File)
+        fun onVoiceRecorded(file: File, amplitudes: List<Int>)
         fun onOpenSettings()
         fun isVideoMode(): Boolean
         fun isConnectionActive(): Boolean
@@ -336,126 +340,54 @@ class PrimeVideoMessageRecorder(
 
         btnCancelMid?.setOnClickListener {
             triggerHaptic(HapticFeedbackConstants.KEYBOARD_TAP)
-            cancelRecording()
+            if (isAudioRecording) {
+                cancelVoiceRecording()
+            } else {
+                cancelRecording()
+            }
         }
         btnFlipMid?.setOnClickListener { flipCameraProcess() }
 
         btnPauseResume?.setOnClickListener {
             triggerHaptic(HapticFeedbackConstants.KEYBOARD_TAP)
-            recording?.let { rec ->
+            if (isAudioRecording) {
                 if (isRecordingPaused) {
-                    rec.resume()
                     isRecordingPaused = false
-                    segmentStartTimestamp = System.currentTimeMillis()
                     btnPauseResume?.setImageResource(R.drawable.ic_media_pause)
-                    handler.post(recordingProgressRunnable)
                 } else {
-                    rec.pause()
                     isRecordingPaused = true
-                    if (segmentStartTimestamp > 0) {
-                        accumulatedDurationMs += (System.currentTimeMillis() - segmentStartTimestamp)
-                        segmentStartTimestamp = 0L
-                    }
-                    handler.removeCallbacks(recordingProgressRunnable)
                     btnPauseResume?.setImageResource(R.drawable.ic_media_play)
+                }
+            } else {
+                recording?.let { rec ->
+                    if (isRecordingPaused) {
+                        rec.resume()
+                        isRecordingPaused = false
+                        segmentStartTimestamp = System.currentTimeMillis()
+                        btnPauseResume?.setImageResource(R.drawable.ic_media_pause)
+                        handler.post(recordingProgressRunnable)
+                    } else {
+                        rec.pause()
+                        isRecordingPaused = true
+                        if (segmentStartTimestamp > 0) {
+                            accumulatedDurationMs += (System.currentTimeMillis() - segmentStartTimestamp)
+                            segmentStartTimestamp = 0L
+                        }
+                        handler.removeCallbacks(recordingProgressRunnable)
+                        btnPauseResume?.setImageResource(R.drawable.ic_media_play)
+                    }
                 }
             }
         }
 
         btnFinishLocked?.setOnClickListener {
             triggerHaptic(HapticFeedbackConstants.VIRTUAL_KEY)
-            if (isRecording || isRecordingStarting) {
+            if (isAudioRecording) {
+                stopVoiceRecording()
+            } else if (isRecording || isRecordingStarting) {
                 stopRecording()
-            }
-        }
-
-        btnVoiceVideoNote.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    startX = event.rawX
-                    startY = event.rawY
-                    isLongPressTriggered = false
-                    isInCancelZone = false
-
-                    if (!listener.isConnectionActive()) {
-                        Toast.makeText(activity, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show()
-                        return@setOnTouchListener false
-                    }
-
-                    if (listener.isVideoMode()) {
-                        longPressRunnable = Runnable {
-                            isLongPressTriggered = true
-                            triggerHaptic(HapticFeedbackConstants.LONG_PRESS)
-                            if (checkPermissions()) {
-                                startRecordingProcess()
-                            } else {
-                                requestPermissions()
-                            }
-                        }
-                        handler.postDelayed(longPressRunnable!!, 150)
-                    }
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (isRecording && !isLocked) {
-                        val dy = startY - event.rawY
-                        val dx = startX - event.rawX
-                        val screenWidth = activity.resources.displayMetrics.widthPixels
-
-                        // 1. Interactive Lock indicator (Swipe UP)
-                        if (dy > 30) {
-                            layoutVideoLockIndicator?.visibility = View.VISIBLE
-                            val animY = (-dy * 0.5f).coerceAtLeast(-120f)
-                            val scale = 0.8f + (dy / 120f) * 0.4f
-                            layoutVideoLockIndicator?.translationY = animY
-                            ivVideoLockIcon?.scaleX = scale.coerceAtMost(1.4f)
-                            ivVideoLockIcon?.scaleY = scale.coerceAtMost(1.4f)
-
-                            if (dy > 120) {
-                                triggerHaptic(HapticFeedbackConstants.CONTEXT_CLICK)
-                                lockRecording()
-                                layoutVideoLockIndicator?.visibility = View.GONE
-                            }
-                        } else {
-                            layoutVideoLockIndicator?.visibility = View.GONE
-                        }
-
-                        // 2. Interactive Trash Container (Drag LEFT)
-                        if (dx > 80 || event.rawX < screenWidth * 0.35f) {
-                            isInCancelZone = true
-                            layoutVideoCancelContainer?.visibility = View.VISIBLE
-                            val trashScale = 1.0f + ((dx - 80) / 100f).coerceIn(0f, 0.5f)
-                            ivVideoTrashIcon?.scaleX = trashScale
-                            ivVideoTrashIcon?.scaleY = trashScale
-                        } else {
-                            isInCancelZone = false
-                            layoutVideoCancelContainer?.visibility = View.GONE
-                        }
-                    }
-                    true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    longPressRunnable?.let { handler.removeCallbacks(it) }
-
-                    if (isLongPressTriggered) {
-                        triggerHaptic(HapticFeedbackConstants.VIRTUAL_KEY)
-                        if (isInCancelZone) {
-                            cancelRecording()
-                        } else if ((isRecording || isRecordingStarting) && !isLocked) {
-                            autoSendOnFinalize = true
-                            stopRecording()
-                        }
-                    } else {
-                        btnVoiceVideoNote.performClick()
-                    }
-                    isLongPressTriggered = false
-                    isInCancelZone = false
-                    layoutVideoLockIndicator?.visibility = View.GONE
-                    layoutVideoCancelContainer?.visibility = View.GONE
-                    tvZoomBadge?.visibility = View.GONE
-                    true
-                }
-                else -> false
+            } else {
+                resetUI()
             }
         }
 
@@ -470,30 +402,43 @@ class PrimeVideoMessageRecorder(
 
         btnCancel.setOnClickListener {
             triggerHaptic(HapticFeedbackConstants.KEYBOARD_TAP)
-            cancelRecording()
+            if (isAudioRecording) {
+                cancelVoiceRecording()
+            } else {
+                cancelRecording()
+            }
         }
 
         btnRetry.setOnClickListener {
             triggerHaptic(HapticFeedbackConstants.KEYBOARD_TAP)
-            cancelRecording()
-            startRecordingProcess()
+            if (isAudioRecording) {
+                cancelVoiceRecording()
+                startVoiceRecordingProcess()
+            } else {
+                cancelRecording()
+                startRecordingProcess()
+            }
         }
 
         btnSend.setOnClickListener {
             triggerHaptic(HapticFeedbackConstants.KEYBOARD_TAP)
             btnSend.isEnabled = false
-            val file = currentVideoFile
-            currentVideoFile = null
-            if (file != null) {
-                if (trimStartMs > 0 || (trimEndMs > 0 && trimEndMs < (videoPlaybackView?.duration ?: Int.MAX_VALUE) - 500)) {
-                    val trimmedFile = File(activity.externalCacheDir, "trimmed_" + file.name)
-                    VideoTrimmer.trimVideo(file, trimmedFile, trimStartMs.toLong(), trimEndMs.toLong())
-                    listener.onVideoRecorded(trimmedFile)
-                } else {
-                    listener.onVideoRecorded(file)
+            if (isAudioRecording) {
+                stopVoiceRecording()
+            } else {
+                val file = currentVideoFile
+                currentVideoFile = null
+                if (file != null) {
+                    if (trimStartMs > 0 || (trimEndMs > 0 && trimEndMs < (videoPlaybackView?.duration ?: Int.MAX_VALUE) - 500)) {
+                        val trimmedFile = File(activity.externalCacheDir, "trimmed_" + file.name)
+                        VideoTrimmer.trimVideo(file, trimmedFile, trimStartMs.toLong(), trimEndMs.toLong())
+                        listener.onVideoRecorded(trimmedFile)
+                    } else {
+                        listener.onVideoRecorded(file)
+                    }
                 }
+                resetUI()
             }
-            resetUI()
             btnSend.isEnabled = true
         }
 
@@ -504,10 +449,159 @@ class PrimeVideoMessageRecorder(
         }
     }
 
+    fun startVideoRecordingIfPermitted() {
+        if (checkPermissions()) {
+            startRecordingProcess()
+        } else {
+            requestPermissions()
+        }
+    }
+
+    fun handleVideoMove(startX: Float, startY: Float, rawX: Float, rawY: Float) {
+        if ((isRecording || isRecordingStarting) && !isLocked) {
+            val dy = startY - rawY
+            val dx = startX - rawX
+            val screenWidth = activity.resources.displayMetrics.widthPixels
+
+            if (dy > 30) {
+                layoutVideoLockIndicator?.visibility = View.VISIBLE
+                val animY = (-dy * 0.5f).coerceAtLeast(-120f)
+                val scale = 0.8f + (dy / 120f) * 0.4f
+                layoutVideoLockIndicator?.translationY = animY
+                ivVideoLockIcon?.scaleX = scale.coerceAtMost(1.4f)
+                ivVideoLockIcon?.scaleY = scale.coerceAtMost(1.4f)
+
+                if (dy > 120) {
+                    triggerHaptic(HapticFeedbackConstants.CONTEXT_CLICK)
+                    lockRecording()
+                    layoutVideoLockIndicator?.visibility = View.GONE
+                }
+            } else {
+                layoutVideoLockIndicator?.visibility = View.GONE
+            }
+
+            if (dx > 80 || rawX < screenWidth * 0.35f) {
+                isInCancelZone = true
+                layoutVideoCancelContainer?.visibility = View.VISIBLE
+                val trashScale = 1.0f + ((dx - 80) / 100f).coerceIn(0f, 0.5f)
+                ivVideoTrashIcon?.scaleX = trashScale
+                ivVideoTrashIcon?.scaleY = trashScale
+            } else {
+                isInCancelZone = false
+                layoutVideoCancelContainer?.visibility = View.GONE
+            }
+        }
+    }
+
+    fun handleVideoUp() {
+        triggerHaptic(HapticFeedbackConstants.VIRTUAL_KEY)
+        if (isInCancelZone) {
+            cancelRecording()
+        } else if ((isRecording || isRecordingStarting) && !isLocked) {
+            autoSendOnFinalize = true
+            stopRecording()
+        }
+        isInCancelZone = false
+        layoutVideoLockIndicator?.visibility = View.GONE
+        layoutVideoCancelContainer?.visibility = View.GONE
+        tvZoomBadge?.visibility = View.GONE
+    }
+
     private fun checkPermissions(): Boolean {
         val hasCamera = ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         val hasAudio = ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         return hasCamera && hasAudio
+    }
+
+    private fun checkAudioPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestAudioPermission() {
+        Toast.makeText(activity, "Предоставьте разрешение на Запись звука", Toast.LENGTH_SHORT).show()
+        ActivityCompat.requestPermissions(
+            activity, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_CODE_PERMISSIONS
+        )
+    }
+
+    private var isAudioRecording = false
+    private var voiceTimerJob: kotlinx.coroutines.Job? = null
+
+    private fun startVoiceRecordingProcess() {
+        Log.d("VoiceRecord", "startVoiceRecordingProcess called")
+        val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+        activity.currentFocus?.let {
+            imm?.hideSoftInputFromWindow(it.windowToken, 0)
+            it.clearFocus()
+        }
+
+        val file = AudioRecordManager.startRecording(activity)
+        if (file == null) {
+            Log.e("VoiceRecord", "AudioRecordManager.startRecording failed")
+            Toast.makeText(activity, "Ошибка запуска записи звука", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        isAudioRecording = true
+        isRecording = true
+        listener.onRecordingStateChanged(true)
+
+        overlayView.visibility = View.VISIBLE
+        previewContainer.visibility = View.GONE
+        tvTimer.visibility = View.VISIBLE
+        tvTimer.text = "00:00"
+
+        val liveWaveform = overlayView.findViewById<VoiceMessageItemView>(R.id.liveVoiceWaveform)
+        liveWaveform?.visibility = View.VISIBLE
+
+        voiceTimerJob = (activity as? androidx.lifecycle.LifecycleOwner)?.let { owner ->
+            owner.lifecycleScope.launch {
+                launch {
+                    AudioRecordManager.recordingDuration.collect { durationMs ->
+                        val sec = (durationMs / 1000) % 60
+                        val min = (durationMs / 1000) / 60
+                        tvTimer.text = String.format(Locale.US, "%02d:%02d", min, sec)
+                    }
+                }
+                launch {
+                    AudioRecordManager.amplitudes.collect { amps ->
+                        liveWaveform?.setWaveform(amps)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopVoiceRecording() {
+        Log.d("VoiceRecord", "stopVoiceRecording called")
+        voiceTimerJob?.cancel()
+        voiceTimerJob = null
+
+        overlayView.findViewById<VoiceMessageItemView>(R.id.liveVoiceWaveform)?.visibility = View.GONE
+
+        val (file, amplitudes) = AudioRecordManager.stopRecording()
+        isAudioRecording = false
+        isRecording = false
+        listener.onRecordingStateChanged(false)
+        resetUI()
+
+        if (file != null && file.exists() && file.length() > 0) {
+            listener.onVoiceRecorded(file, amplitudes)
+        }
+    }
+
+    private fun cancelVoiceRecording() {
+        Log.d("VoiceRecord", "cancelVoiceRecording called")
+        voiceTimerJob?.cancel()
+        voiceTimerJob = null
+
+        overlayView.findViewById<VoiceMessageItemView>(R.id.liveVoiceWaveform)?.visibility = View.GONE
+
+        AudioRecordManager.cancelRecording()
+        isAudioRecording = false
+        isRecording = false
+        listener.onRecordingStateChanged(false)
+        resetUI()
     }
 
     private fun requestPermissions() {
@@ -585,7 +679,13 @@ class PrimeVideoMessageRecorder(
         isLocked = true
         layoutVideoCenterControls?.bringToFront()
         layoutVideoCenterControls?.visibility = View.VISIBLE
-        btnStopLocked.visibility = View.GONE
+        btnCancelMid?.isClickable = true
+        btnCancelMid?.isFocusable = true
+        btnPauseResume?.isClickable = true
+        btnPauseResume?.isFocusable = true
+        btnFinishLocked?.isClickable = true
+        btnFinishLocked?.isFocusable = true
+        btnStopLocked?.visibility = View.GONE
         btnVoiceVideoNote.visibility = View.GONE
     }
 
@@ -821,6 +921,7 @@ class PrimeVideoMessageRecorder(
     }
 
     private fun resetUI() {
+        PrimePredictiveBack.isGestureLocked = false
         handler.removeCallbacks(recordingProgressRunnable)
         handler.removeCallbacks(checkTrimLoopRunnable)
         videoPlaybackView?.apply {
@@ -834,11 +935,12 @@ class PrimeVideoMessageRecorder(
         layoutVideoCenterControls?.visibility = View.GONE
         layoutVideoZoomControls?.visibility = View.GONE
         tvZoomBadge?.visibility = View.GONE
-        btnStopLocked.visibility = View.GONE
+        btnStopLocked?.visibility = View.GONE
         btnVoiceVideoNote.visibility = View.VISIBLE
         isLocked = false
         isRecording = false
         isRecordingStarting = false
+        isAudioRecording = false
         isRecordingPaused = false
         isFlippingCamera = false
         shouldStopPending = false

@@ -333,6 +333,24 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
+    private String lastVoicePlayingMessageId = null;
+
+    public void updateVoicePlaybackState(String msgId, PrimeMediaPlaybackService.PlaybackState state) {
+        if (!Objects.equals(lastVoicePlayingMessageId, msgId)) {
+            if (lastVoicePlayingMessageId != null) {
+                int oldPos = findPositionByMessageId(lastVoicePlayingMessageId);
+                if (oldPos != -1) notifyItemChanged(oldPos, "VOICE_PROGRESS");
+            }
+            lastVoicePlayingMessageId = msgId;
+        }
+        if (msgId != null && !msgId.isEmpty()) {
+            int pos = findPositionByMessageId(msgId);
+            if (pos != -1) {
+                notifyItemChanged(pos, "VOICE_PROGRESS");
+            }
+        }
+    }
+
     public void setMessages(List<ChatMessage> newMessages) {
         List<ChatMessage> incomingMessages = newMessages != null ? newMessages : new ArrayList<>();
         DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new DiffUtil.Callback() {
@@ -795,6 +813,44 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         } else {
                             layoutSelectionCircle.setVisibility(View.GONE);
                         }
+                    }
+                }
+                return;
+            }
+
+            if (payloads.contains("VOICE_PROGRESS")) {
+                View layoutVoiceContainer = holder.itemView.findViewById(R.id.layoutVoiceContainer);
+                if (layoutVoiceContainer != null && position >= 0 && position < messages.size()) {
+                    ChatMessage msg = messages.get(position);
+                    ImageButton btnPlay = layoutVoiceContainer.findViewById(R.id.btnVoicePlayPause);
+                    VoiceMessageItemView waveformView = layoutVoiceContainer.findViewById(R.id.voiceWaveform);
+                    TextView tvDuration = layoutVoiceContainer.findViewById(R.id.tvVoiceDuration);
+
+                    boolean isCurrentPlaying = Objects.equals(msg.getMessageId(), PrimeMediaPlaybackService.Companion.getCurrentVoiceMessageId());
+                    PrimeMediaPlaybackService.PlaybackState state = PrimeMediaPlaybackService.Companion.getPlaybackState().getValue();
+
+                    if (isCurrentPlaying && state instanceof PrimeMediaPlaybackService.PlaybackState.Playing) {
+                        PrimeMediaPlaybackService.PlaybackState.Playing playing = (PrimeMediaPlaybackService.PlaybackState.Playing) state;
+                        if (btnPlay != null) btnPlay.setImageResource(R.drawable.ic_media_pause);
+                        if (waveformView != null) waveformView.setProgress(playing.getProgress());
+                        if (tvDuration != null) {
+                            long curSec = (long)(playing.getDurationMs() * playing.getProgress() / 1000);
+                            long totalSec = playing.getDurationMs() / 1000;
+                            tvDuration.setText(String.format(java.util.Locale.US, "%02d:%02d / %02d:%02d", curSec / 60, curSec % 60, totalSec / 60, totalSec % 60));
+                        }
+                    } else if (isCurrentPlaying && state instanceof PrimeMediaPlaybackService.PlaybackState.Paused) {
+                        PrimeMediaPlaybackService.PlaybackState.Paused paused = (PrimeMediaPlaybackService.PlaybackState.Paused) state;
+                        if (btnPlay != null) btnPlay.setImageResource(R.drawable.ic_media_play);
+                        if (waveformView != null) waveformView.setProgress(paused.getProgress());
+                        if (tvDuration != null) {
+                            long curSec = (long)(paused.getDurationMs() * paused.getProgress() / 1000);
+                            long totalSec = paused.getDurationMs() / 1000;
+                            tvDuration.setText(String.format(java.util.Locale.US, "%02d:%02d / %02d:%02d", curSec / 60, curSec % 60, totalSec / 60, totalSec % 60));
+                        }
+                    } else {
+                        if (btnPlay != null) btnPlay.setImageResource(R.drawable.ic_media_play);
+                        if (waveformView != null) waveformView.setProgress(0f);
+                        if (tvDuration != null) tvDuration.setText(msg.getAudioDuration() != null ? msg.getAudioDuration() : "00:00");
                     }
                 }
                 return;
@@ -1265,6 +1321,87 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     ) {
         View layoutMusicContainer = layoutFileContainer != null && layoutFileContainer.getParent() != null ?
                 ((View) layoutFileContainer.getParent()).findViewById(R.id.layoutMusicContainer) : null;
+        View layoutVoiceContainer = layoutFileContainer != null && layoutFileContainer.getParent() != null ?
+                ((View) layoutFileContainer.getParent()).findViewById(R.id.layoutVoiceContainer) : null;
+
+        if (message.getMessageType() == ChatMessage.MessageType.VOICE) {
+            if (layoutMediaContainer != null) layoutMediaContainer.setVisibility(View.GONE);
+            if (layoutFileContainer != null) layoutFileContainer.setVisibility(View.GONE);
+            if (layoutMusicContainer != null) layoutMusicContainer.setVisibility(View.GONE);
+            if (videoMessagePreview != null) videoMessagePreview.setVisibility(View.GONE);
+            if (layoutVoiceContainer != null) {
+                layoutVoiceContainer.setVisibility(View.VISIBLE);
+                
+                ImageButton btnPlay = layoutVoiceContainer.findViewById(R.id.btnVoicePlayPause);
+                VoiceMessageItemView waveformView = layoutVoiceContainer.findViewById(R.id.voiceWaveform);
+                TextView tvDuration = layoutVoiceContainer.findViewById(R.id.tvVoiceDuration);
+
+                if (message.getWaveformChunks() != null) {
+                    waveformView.setWaveform(message.getWaveformChunks());
+                }
+
+                boolean isCurrentPlaying = Objects.equals(message.getMessageId(), PrimeMediaPlaybackService.Companion.getCurrentVoiceMessageId());
+                PrimeMediaPlaybackService.PlaybackState state = PrimeMediaPlaybackService.Companion.getPlaybackState().getValue();
+                
+                if (isCurrentPlaying && state instanceof PrimeMediaPlaybackService.PlaybackState.Playing) {
+                    PrimeMediaPlaybackService.PlaybackState.Playing playing = (PrimeMediaPlaybackService.PlaybackState.Playing) state;
+                    btnPlay.setImageResource(R.drawable.ic_media_pause);
+                    waveformView.setProgress(playing.getProgress());
+                    long curSec = (long)(playing.getDurationMs() * playing.getProgress() / 1000);
+                    long totalSec = playing.getDurationMs() / 1000;
+                    tvDuration.setText(String.format(java.util.Locale.US, "%02d:%02d / %02d:%02d", curSec / 60, curSec % 60, totalSec / 60, totalSec % 60));
+                } else if (isCurrentPlaying && state instanceof PrimeMediaPlaybackService.PlaybackState.Paused) {
+                    PrimeMediaPlaybackService.PlaybackState.Paused paused = (PrimeMediaPlaybackService.PlaybackState.Paused) state;
+                    btnPlay.setImageResource(R.drawable.ic_media_play);
+                    waveformView.setProgress(paused.getProgress());
+                    long curSec = (long)(paused.getDurationMs() * paused.getProgress() / 1000);
+                    long totalSec = paused.getDurationMs() / 1000;
+                    tvDuration.setText(String.format(java.util.Locale.US, "%02d:%02d / %02d:%02d", curSec / 60, curSec % 60, totalSec / 60, totalSec % 60));
+                } else {
+                    btnPlay.setImageResource(R.drawable.ic_media_play);
+                    waveformView.setProgress(0f);
+                    tvDuration.setText(message.getAudioDuration() != null ? message.getAudioDuration() : "00:00");
+                }
+
+                btnPlay.setOnClickListener(v -> {
+                    Intent intent = new Intent(v.getContext(), PrimeMediaPlaybackService.class);
+                    if (isCurrentPlaying && state instanceof PrimeMediaPlaybackService.PlaybackState.Playing) {
+                        intent.setAction("PAUSE_VOICE");
+                        v.getContext().startService(intent);
+                    } else if (isCurrentPlaying && state instanceof PrimeMediaPlaybackService.PlaybackState.Paused) {
+                        intent.setAction("RESUME_VOICE");
+                        v.getContext().startService(intent);
+                    } else {
+                        intent.setAction("PLAY_VOICE");
+                        intent.putExtra("EXTRA_PATH", message.getImagePath());
+                        intent.putExtra("EXTRA_AUTHOR", message.getSenderLogin());
+                        intent.putExtra("EXTRA_MSG_ID", message.getMessageId());
+                        v.getContext().startService(intent);
+                    }
+                });
+
+                waveformView.setOnSeekListener(prog -> {
+                    Context ctx = layoutVoiceContainer.getContext();
+                    Intent intent = new Intent(ctx, PrimeMediaPlaybackService.class);
+                    if (isCurrentPlaying) {
+                        intent.setAction("SEEK_VOICE");
+                        intent.putExtra("EXTRA_PROGRESS", prog);
+                        ctx.startService(intent);
+                    } else {
+                        intent.setAction("PLAY_VOICE");
+                        intent.putExtra("EXTRA_PATH", message.getImagePath());
+                        intent.putExtra("EXTRA_AUTHOR", message.getSenderLogin());
+                        intent.putExtra("EXTRA_MSG_ID", message.getMessageId());
+                        intent.putExtra("EXTRA_SEEK_PROGRESS", prog);
+                        ctx.startService(intent);
+                    }
+                    return kotlin.Unit.INSTANCE;
+                });
+            }
+            return;
+        } else {
+            if (layoutVoiceContainer != null) layoutVoiceContainer.setVisibility(View.GONE);
+        }
 
         if (message.isVideoNote() || (message.getText() != null && message.getText().startsWith("VIDEO_NOTE:"))) {
             if (layoutMediaContainer != null) layoutMediaContainer.setVisibility(View.GONE);
@@ -2669,7 +2806,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 resetBubbleForNormalMessage(itemView, false);
             }
 
-            if (!isVideoNote && text != null && !text.isEmpty() && !"Фото".equals(text) && !"Фото отправлено".equals(text) && !"Фотография".equals(text) && !"Файл".equals(text)) {
+            if (!isVideoNote && message.getMessageType() != ChatMessage.MessageType.VOICE && text != null && !text.isEmpty() && !"Голосовое сообщение".equals(text) && !"Фото".equals(text) && !"Фото отправлено".equals(text) && !"Фотография".equals(text) && !"Файл".equals(text)) {
                 tvMessageText.setVisibility(View.VISIBLE);
                 tvMessageText.setText(text);
                 tvMessageText.setMovementMethod(LinkMovementMethod.getInstance());
@@ -2906,7 +3043,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 resetBubbleForNormalMessage(itemView, true);
             }
 
-            if (!isVideoNoteOutgoing && text != null && !text.isEmpty() && !"Фото".equals(text) && !"Фото отправлено".equals(text) && !"Фотография".equals(text) && !"Файл".equals(text)) {
+            if (!isVideoNoteOutgoing && message.getMessageType() != ChatMessage.MessageType.VOICE && text != null && !text.isEmpty() && !"Голосовое сообщение".equals(text) && !"Фото".equals(text) && !"Фото отправлено".equals(text) && !"Фотография".equals(text) && !"Файл".equals(text)) {
                 tvMessageText.setVisibility(View.VISIBLE);
                 tvMessageText.setText(text);
                 tvMessageText.setMovementMethod(LinkMovementMethod.getInstance());

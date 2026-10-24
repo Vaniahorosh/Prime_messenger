@@ -156,18 +156,20 @@ class TextureVideoView @JvmOverloads constructor(
 
     private fun getRotationDegrees(): Int {
         val path = videoPath ?: return 0
+        var retriever: MediaMetadataRetriever? = null
         return try {
-            val retriever = MediaMetadataRetriever()
+            retriever = MediaMetadataRetriever()
             if (path.startsWith("content://")) {
                 retriever.setDataSource(context, Uri.parse(path))
             } else {
                 retriever.setDataSource(path)
             }
             val rotationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
-            retriever.release()
             rotationStr?.toInt() ?: 0
         } catch (e: Exception) {
             0
+        } finally {
+            try { retriever?.release() } catch (_: Exception) {}
         }
     }
 

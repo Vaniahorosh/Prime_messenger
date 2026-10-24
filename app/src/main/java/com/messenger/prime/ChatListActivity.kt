@@ -1311,16 +1311,27 @@ class ChatListActivity : AppCompatActivity() {
             updateChatStatus(isConnected)
             val b = binding ?: return
             activity.runOnUiThread {
-                b.etMessage.isEnabled = true
-                b.etMessage.isFocusable = true
-                b.etMessage.isFocusableInTouchMode = true
-                b.etMessage.hint = "Сообщение..."
-                b.etMessage.alpha = 1.0f
+                b.etMessage.isEnabled = isConnected
+                b.etMessage.isFocusable = isConnected
+                b.etMessage.isFocusableInTouchMode = isConnected
+                if (isConnected) {
+                    b.etMessage.hint = "Сообщение..."
+                    b.etMessage.alpha = 1.0f
+                } else {
+                    b.etMessage.hint = "Не в сети"
+                    b.etMessage.alpha = 0.5f
+                }
 
-                b.btnSend.isEnabled = true
-                b.btnSend.alpha = 1.0f
+                b.btnSend.isEnabled = isConnected
+                b.btnSend.alpha = if (isConnected) 1.0f else 0.4f
+
                 b.btnAttach.isEnabled = true
-                b.btnAttach.alpha = 1.0f
+                b.btnAttach.isClickable = true
+                b.btnAttach.alpha = if (isConnected) 1.0f else 0.4f
+
+                if (!isConnected && attachmentDialog?.isShowing == true) {
+                    attachmentDialog?.dismiss()
+                }
 
                 chatAdapter?.setConnectionActive(isConnected)
             }
@@ -1517,6 +1528,17 @@ class ChatListActivity : AppCompatActivity() {
         private var attachmentDialog: BottomSheetDialog? = null
 
         fun openAttachmentPanel() {
+            val targetAddr = if (!activeDeviceAddress.isNullOrEmpty()) activeDeviceAddress!! else (activeTargetUsername ?: "")
+            val isConnected = (targetAddr.isNotEmpty() && BluetoothConnectionManager.getInstance().isConnected(targetAddr)) ||
+                BluetoothSocketHolder.isConnectedWith(activeDeviceAddress, activeTargetUsername) ||
+                BluetoothConnectionManager.getInstance().getConnectedDeviceCount() > 0 ||
+                BluetoothSocketHolder.hasAnyActiveConnection()
+            if (!isConnected) {
+                Toast.makeText(activity, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show()
+                binding?.btnAttach?.alpha = 0.4f
+                attachmentDialog?.dismiss()
+                return
+            }
             if (attachmentDialog == null) {
                 initAttachmentPanel()
             }
@@ -1553,20 +1575,37 @@ class ChatListActivity : AppCompatActivity() {
                 dialog.window?.setDimAmount(0.5f)
             }
 
+            fun checkConn(): Boolean {
+                val targetAddr = if (!activeDeviceAddress.isNullOrEmpty()) activeDeviceAddress!! else (activeTargetUsername ?: "")
+                val isConn = (targetAddr.isNotEmpty() && BluetoothConnectionManager.getInstance().isConnected(targetAddr)) ||
+                    BluetoothSocketHolder.isConnectedWith(activeDeviceAddress, activeTargetUsername) ||
+                    BluetoothConnectionManager.getInstance().getConnectedDeviceCount() > 0 ||
+                    BluetoothSocketHolder.hasAnyActiveConnection()
+                if (!isConn) {
+                    Toast.makeText(activity, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                    return false
+                }
+                return true
+            }
+
             val btnPickGifFromGallery = dialogView.findViewById<View>(R.id.btnPickGifFromGallery)
             btnPickGifFromGallery?.setOnClickListener {
+                if (!checkConn()) return@setOnClickListener
                 dialog.dismiss()
                 activity.pickEmbeddedImageLauncher.launch("image/*")
             }
 
             val btnOpenSystemGallery = dialogView.findViewById<View>(R.id.btnOpenSystemGallery)
             btnOpenSystemGallery?.setOnClickListener {
+                if (!checkConn()) return@setOnClickListener
                 dialog.dismiss()
                 activity.pickEmbeddedImageLauncher.launch("image/*")
             }
 
             val btnOpenSystemFiles = dialogView.findViewById<View>(R.id.btnOpenSystemFileManager)
             btnOpenSystemFiles?.setOnClickListener {
+                if (!checkConn()) return@setOnClickListener
                 dialog.dismiss()
                 activity.pickEmbeddedFileLauncher.launch("*/*")
             }

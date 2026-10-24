@@ -942,6 +942,55 @@
                     android:textColorHint="@color/prime_text_secondary"
                     android:textSize="15sp" />
 
+                <!-- Специализированная панель записи ГС -->
+                <LinearLayout
+                    android:id="@+id/layoutVoiceRecordBar"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <ImageButton
+                        android:id="@+id/btnVoiceRecordCancel"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        tools:ignore="HardcodedText"
+                        android:contentDescription="Отмена"
+                        android:src="@drawable/ic_trash"
+                        app:tint="@color/prime_danger" />
+
+                    <TextView
+                        android:id="@+id/tvVoiceRecordTimer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:textColor="@color/prime_danger"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:text="0:00" />
+
+                    <com.messenger.prime.VoiceMessageItemView
+                        android:id="@+id/voiceRecordWaveform"
+                        android:layout_width="0dp"
+                        android:layout_height="28dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginEnd="8dp" />
+
+                    <ImageButton
+                        android:id="@+id/btnVoiceRecordSend"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        tools:ignore="HardcodedText"
+                        android:contentDescription="Отправить"
+                        android:src="@drawable/ic_send"
+                        app:tint="@color/prime_brand" />
+                </LinearLayout>
+
                 <FrameLayout
                     android:id="@+id/layoutActionButtons"
                     android:layout_width="42dp"
@@ -1040,6 +1089,13 @@
                 android:shadowDx="1"
                 android:shadowDy="1"
                 android:shadowRadius="3" />
+
+            <com.messenger.prime.VoiceMessageItemView
+                android:id="@+id/liveVoiceWaveform"
+                android:layout_width="220dp"
+                android:layout_height="36dp"
+                android:layout_marginTop="12dp"
+                android:visibility="gone" />
         </LinearLayout>
 
         <!-- Нижняя панель с кнопками для превью (после отпускания записи) -->

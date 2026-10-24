@@ -389,6 +389,11 @@ public class BluetoothConnectionManager {
 
     public synchronized ConnectedThread getThreadFor(String addressOrName) {
         if (addressOrName == null || addressOrName.isEmpty()) {
+            if (!connectionPool.isEmpty()) {
+                for (ConnectedThread t : connectionPool.values()) {
+                    if (t != null && t.isAlive()) return t;
+                }
+            }
             return null;
         }
 
@@ -403,6 +408,14 @@ public class BluetoothConnectionManager {
             if (thread != null && thread.isAlive()) {
                 if (addressOrName.equalsIgnoreCase(thread.getThreadDeviceAddress()) ||
                     addressOrName.equalsIgnoreCase(thread.getThreadRemoteUsername())) {
+                    return thread;
+                }
+            }
+        }
+
+        if (connectionPool.size() == 1) {
+            for (ConnectedThread thread : connectionPool.values()) {
+                if (thread != null && thread.isAlive()) {
                     return thread;
                 }
             }

@@ -262,10 +262,7 @@ class SettingsActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
 
-        PrimePredictiveBack.attach(this) {
-            finish()
-            PrimeTransitions.applyCloseTransition(this)
-        }
+        // PrimePredictiveBack is now attached centrally in PrimeApplication
 
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         setupEdgeToEdge(isDarkIcons = !isDark)
@@ -1166,6 +1163,20 @@ class SettingsActivity : AppCompatActivity() {
         val currentRadius = sharedPrefs.getInt("settings_chat_ui_radius_dp", sharedPrefs.getInt("settings_bottom_bar_radius_dp", 24))
         val density = resources.displayMetrics.density
 
+        val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
+        val isDark = when (themePref) {
+            "dark" -> true
+            "light" -> false
+            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        }
+
+        b.layoutBottomBarPreviewBg?.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 16 * density
+            setColor(if (isDark) android.graphics.Color.parseColor("#151D2A") else android.graphics.Color.parseColor("#F1F5F9"))
+        }
+        b.cardBottomBarPreviewBlock?.strokeColor = if (isDark) android.graphics.Color.parseColor("#33FFFFFF") else android.graphics.Color.parseColor("#1A000000")
+
         val updatePreview = { radiusDp: Int ->
             b.tvBottomBarRadiusValue?.text = "${radiusDp} dp"
             val radiusPx = radiusDp * density
@@ -1180,9 +1191,9 @@ class SettingsActivity : AppCompatActivity() {
         b.sliderBottomBarRadius?.value = currentRadius.coerceIn(0, 36).toFloat()
 
         b.sliderBottomBarRadius?.addOnChangeListener { _, value, fromUser ->
+            val radiusInt = value.toInt()
+            updatePreview(radiusInt)
             if (fromUser) {
-                val radiusInt = value.toInt()
-                updatePreview(radiusInt)
                 sharedPrefs.edit()
                     .putInt("settings_chat_ui_radius_dp", radiusInt)
                     .putInt("settings_bottom_bar_radius_dp", radiusInt)
@@ -3215,41 +3226,42 @@ class SettingsActivity : AppCompatActivity() {
 
         b.sliderAvatarRadius.value = savedPercent.toFloat()
 
-        val updateAvatarPreview = { percent: Int ->
-            AvatarManager.clearAvatarRadiusCache()
-            b.tvAvatarRadiusValue.text = "$percent%"
+        val myAvatar = currentAvatarUri ?: sharedPrefs.getString("my_avatar_uri", null)
+        val myName = currentNameInDB.ifBlank { "Пользователь" }
 
-            val density = resources.displayMetrics.density
-            val viewSizePx = (48 * density).toInt()
+        if (!myAvatar.isNullOrEmpty()) {
+            b.ivAvatarPreviewImage.visibility = View.VISIBLE
+            b.tvAvatarPreviewInitials.visibility = View.GONE
+            loadAvatarIntoView(this, myAvatar, b.ivAvatarPreviewImage, myName)
+        } else {
+            b.ivAvatarPreviewImage.visibility = View.GONE
+            b.tvAvatarPreviewInitials.visibility = View.VISIBLE
+            val initial = if (myName.isNotBlank()) myName.take(1).uppercase() else "P"
+            b.tvAvatarPreviewInitials.text = initial
+        }
+
+        val density = resources.displayMetrics.density
+        val viewSizePx = (48 * density).toInt()
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+        b.layoutAvatarPreviewBg.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 16 * density
+            setColor(if (isDark) android.graphics.Color.parseColor("#151D2A") else android.graphics.Color.parseColor("#F1F5F9"))
+        }
+        b.cardAvatarPreviewBlock.strokeColor = if (isDark) android.graphics.Color.parseColor("#33FFFFFF") else android.graphics.Color.parseColor("#1A000000")
+
+        val updateAvatarPreview = { percent: Int ->
+            b.tvAvatarRadiusValue.text = "$percent%"
             val radiusPx = getAvatarCornerRadiusPx(this, viewSizePx)
 
-            val myAvatar = currentAvatarUri ?: sharedPrefs.getString("my_avatar_uri", null)
-            val myName = currentNameInDB.ifBlank { "Пользователь" }
-
-            if (!myAvatar.isNullOrEmpty()) {
-                b.ivAvatarPreviewImage.visibility = View.VISIBLE
-                b.tvAvatarPreviewInitials.visibility = View.GONE
-                loadAvatarIntoView(this, myAvatar, b.ivAvatarPreviewImage, myName)
-            } else {
-                b.ivAvatarPreviewImage.visibility = View.GONE
-                b.tvAvatarPreviewInitials.visibility = View.VISIBLE
-                val initial = if (myName.isNotBlank()) myName.take(1).uppercase() else "P"
-                b.tvAvatarPreviewInitials.text = initial
-                val initialsBg = GradientDrawable().apply {
+            if (b.tvAvatarPreviewInitials.visibility == View.VISIBLE) {
+                b.tvAvatarPreviewInitials.background = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE
                     cornerRadius = radiusPx.toFloat()
                     setColor(ColorAccentManager.getAvatarColor(myName))
                 }
-                b.tvAvatarPreviewInitials.background = initialsBg
             }
-
-            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            b.layoutAvatarPreviewBg.background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = 16 * density
-                setColor(if (isDark) android.graphics.Color.parseColor("#151D2A") else android.graphics.Color.parseColor("#F1F5F9"))
-            }
-            b.cardAvatarPreviewBlock.strokeColor = if (isDark) android.graphics.Color.parseColor("#33FFFFFF") else android.graphics.Color.parseColor("#1A000000")
 
             b.ivAvatarPreviewImage.outlineProvider = object : android.view.ViewOutlineProvider() {
                 override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
@@ -3258,6 +3270,9 @@ class SettingsActivity : AppCompatActivity() {
             }
             b.ivAvatarPreviewImage.clipToOutline = true
             b.ivAvatarPreviewImage.invalidateOutline()
+
+            val currentTheme = sharedPrefs.getString("app_theme", "system") ?: "system"
+            updateThemeChatPreview(b, currentTheme)
         }
 
         updateAvatarPreview(savedPercent)
@@ -3267,8 +3282,6 @@ class SettingsActivity : AppCompatActivity() {
             sharedPrefs.edit().putInt("settings_avatar_radius_percent", percent).apply()
             AvatarManager.clearAvatarRadiusCache()
             updateAvatarPreview(percent)
-            val currentTheme = sharedPrefs.getString("app_theme", "system") ?: "system"
-            updateThemeChatPreview(b, currentTheme)
             if (fromUser) {
                 sendBroadcast(Intent("com.messenger.prime.AVATAR_RADIUS_CHANGED").setPackage(packageName))
             }

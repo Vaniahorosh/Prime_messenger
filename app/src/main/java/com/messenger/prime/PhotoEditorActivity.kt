@@ -738,9 +738,11 @@ class PhotoEditorActivity : AppCompatActivity() {
     }
 
     private fun setOriginalAndFinish() {
-        if (isGifMode && originalUri != null) {
-            saveGifAndFinish(originalUri!!)
-            return
+        if (isGifMode) {
+            originalUri?.let {
+                saveGifAndFinish(it)
+                return
+            }
         }
         val bitmap = originalBitmap ?: return
         val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
@@ -1067,10 +1069,10 @@ class PhotoEditorActivity : AppCompatActivity() {
 
     private fun loadOptimizedBitmap(uri: Uri): Bitmap? {
         return try {
-            val inputStream = contentResolver.openInputStream(uri) ?: return null
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeStream(inputStream, null, options)
-            inputStream.close()
+            contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, options)
+            } ?: return null
 
             val screenWidth = resources.displayMetrics.widthPixels
             val screenHeight = resources.displayMetrics.heightPixels
@@ -1089,18 +1091,16 @@ class PhotoEditorActivity : AppCompatActivity() {
                 inMutable = true
             }
             
-            val finalStream = contentResolver.openInputStream(uri)
-            val bitmap = BitmapFactory.decodeStream(finalStream, null, finalOptions)
-            finalStream?.close()
-            bitmap
+            contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, finalOptions)
+            }
         } catch (t: Throwable) {
             t.printStackTrace()
             try {
                 val options = BitmapFactory.Options().apply { inSampleSize = 4 }
-                val fallbackStream = contentResolver.openInputStream(uri)
-                val bmp = BitmapFactory.decodeStream(fallbackStream, null, options)
-                fallbackStream?.close()
-                bmp
+                contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, options)
+                }
             } catch (e: Exception) {
                 null
             }

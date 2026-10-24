@@ -142,50 +142,10 @@ class PersonInformationActivity : AppCompatActivity() {
         avatarUriStr = intent.getStringExtra("EXTRA_AVATAR_URI")
         isOnline = intent.getBooleanExtra("EXTRA_IS_ONLINE", false)
 
-        // Set transition names for smooth flying animation
-        ViewCompat.setTransitionName(binding.btnBack, "transition_back_btn")
-        ViewCompat.setTransitionName(binding.ivPhotoCard, "transition_avatar")
-        ViewCompat.setTransitionName(binding.tvUserNameWP, "transition_name")
 
 
-        PrimePredictiveBack.attach(this) {
-            val config = resources.configuration
-            val isTablet = config.smallestScreenWidthDp >= 600 ||
-                    try {
-                        androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this)
-                    } catch (_: Exception) {
-                        false
-                    }
 
-            if (isTablet) {
-                // Tablet Mode: ChatInfo -> ChatList (close secondary pane, revealing ChatList on primary pane)
-                finish()
-                PrimeTransitions.applyCloseTransition(this)
-            } else {
-                // Phone Mode: ChatInfo -> ChatPerson
-                val chatName = intent.getStringExtra("EXTRA_CHAT_NAME")
-                    ?: intent.getStringExtra("targetUsername")
-                    ?: intent.getStringExtra("EXTRA_NAME")
-                val chatAddress = intent.getStringExtra("EXTRA_DEVICE_ADDRESS")
-                    ?: intent.getStringExtra("deviceAddress")
-                    ?: intent.getStringExtra("EXTRA_MAC")
-
-                if (chatName != null && chatName.isNotEmpty()) {
-                    val personIntent = Intent(this@PersonInformationActivity, ChatPersonActivity::class.java).apply {
-                        putExtra("EXTRA_CHAT_NAME", chatName)
-                        if (chatAddress != null && chatAddress.isNotEmpty()) {
-                            putExtra("EXTRA_DEVICE_ADDRESS", chatAddress)
-                        }
-                        flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                    }
-                    PrimeTransitions.startActivityWithTransition(this@PersonInformationActivity, personIntent)
-                    finish()
-                } else {
-                    finish()
-                    PrimeTransitions.applyCloseTransition(this)
-                }
-            }
-        }
+        // PrimePredictiveBack is now attached centrally in PrimeApplication
 
         val filter = IntentFilter().apply {
             addAction("com.messenger.prime.STATUS_UPDATED")
@@ -864,21 +824,21 @@ class PersonInformationActivity : AppCompatActivity() {
         // Ensure MAC is not blocked
         try {
             BluetoothConnectionManager.getInstance().unblockMacAddress(targetAddr)
-            if (!deviceAddress.isNullOrEmpty()) {
-                BluetoothConnectionManager.getInstance().unblockMacAddress(deviceAddress!!)
+            deviceAddress?.let {
+                if (it.isNotEmpty()) BluetoothConnectionManager.getInstance().unblockMacAddress(it)
             }
         } catch (_: Exception) {}
 
         // 1. Disconnect current socket FIRST & cancel background reconnects
         try {
             BluetoothConnectionManager.getInstance().disconnect(targetAddr)
-            if (!deviceAddress.isNullOrEmpty()) {
-                BluetoothConnectionManager.getInstance().disconnect(deviceAddress!!)
+            deviceAddress?.let {
+                if (it.isNotEmpty()) {
+                    BluetoothConnectionManager.getInstance().disconnect(it)
+                    PrimeBluetoothService.cancelReconnect(this, it)
+                }
             }
             PrimeBluetoothService.cancelReconnect(this, targetAddr)
-            if (!deviceAddress.isNullOrEmpty()) {
-                PrimeBluetoothService.cancelReconnect(this, deviceAddress!!)
-            }
         } catch (_: Exception) {}
 
         // 2. Unbond / remove bond from Bluetooth adapter
@@ -985,10 +945,11 @@ class PersonInformationActivity : AppCompatActivity() {
                     }
                 } else {
                     val pathOrName = (msg.imagePath ?: msg.fileName ?: "").lowercase(Locale.US)
-                    val isVid = msg.isVideo || pathOrName.endsWith(".mp4") || pathOrName.endsWith(".mkv") || pathOrName.endsWith(".3gp") || pathOrName.endsWith(".webm") || pathOrName.endsWith(".mov") || pathOrName.endsWith(".avi")
-                    val isImg = msg.messageType == ChatMessage.MessageType.IMAGE || (!msg.imagePath.isNullOrEmpty() && !msg.isFile) || msg.imageBitmap != null
-                    val isGif = pathOrName.endsWith(".gif")
-                    val isMusic = msg.messageType == ChatMessage.MessageType.MUSIC || pathOrName.endsWith(".mp3") || pathOrName.endsWith(".m4a") || pathOrName.endsWith(".aac") || pathOrName.endsWith(".wav") || pathOrName.endsWith(".ogg") || pathOrName.endsWith(".flac")
+                    val isVoice = msg.messageType == ChatMessage.MessageType.VOICE || pathOrName.contains("/voices/") || pathOrName.contains("voice_")
+                    val isVid = !isVoice && (msg.isVideo || pathOrName.endsWith(".mp4") || pathOrName.endsWith(".mkv") || pathOrName.endsWith(".3gp") || pathOrName.endsWith(".webm") || pathOrName.endsWith(".mov") || pathOrName.endsWith(".avi"))
+                    val isImg = !isVoice && (msg.messageType == ChatMessage.MessageType.IMAGE || (!msg.imagePath.isNullOrEmpty() && !msg.isFile) || msg.imageBitmap != null)
+                    val isGif = !isVoice && pathOrName.endsWith(".gif")
+                    val isMusic = !isVoice && (msg.messageType == ChatMessage.MessageType.MUSIC || pathOrName.endsWith(".mp3") || pathOrName.endsWith(".m4a") || pathOrName.endsWith(".aac") || pathOrName.endsWith(".wav") || pathOrName.endsWith(".ogg") || pathOrName.endsWith(".flac"))
 
                     if (isGif) {
                         msg.messageType = ChatMessage.MessageType.IMAGE

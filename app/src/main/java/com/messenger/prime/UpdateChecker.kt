@@ -303,29 +303,27 @@ object UpdateChecker {
                     tempFile.delete()
                 }
 
-                val input = connection.inputStream
-                val output = FileOutputStream(tempFile)
+                connection.inputStream.use { input ->
+                    FileOutputStream(tempFile).use { output ->
+                        val data = ByteArray(4096)
+                        var total: Long = 0
+                        var count: Int
 
-                val data = ByteArray(4096)
-                var total: Long = 0
-                var count: Int
-
-                while (input.read(data).also { count = it } != -1) {
-                    total += count
-                    if (fileLength > 0) {
-                        val progress = (total * 100 / fileLength).toInt()
-                        Handler(Looper.getMainLooper()).post {
-                            progressBar.isIndeterminate = false
-                            progressBar.progress = progress
-                            tvProgress.text = "Загружено: $progress%"
+                        while (input.read(data).also { count = it } != -1) {
+                            total += count
+                            if (fileLength > 0) {
+                                val progress = (total * 100 / fileLength).toInt()
+                                Handler(Looper.getMainLooper()).post {
+                                    progressBar.isIndeterminate = false
+                                    progressBar.progress = progress
+                                    tvProgress.text = "Загружено: $progress%"
+                                }
+                            }
+                            output.write(data, 0, count)
                         }
+                        output.flush()
                     }
-                    output.write(data, 0, count)
                 }
-
-                output.flush()
-                output.close()
-                input.close()
 
                 Handler(Looper.getMainLooper()).post {
                     progressDialog.dismiss()

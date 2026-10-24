@@ -115,7 +115,7 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden|keyboard"
             android:windowSoftInputMode="adjustResize"
             android:exported="false"
-            android:theme="@style/Theme.Prime" />
+            android:theme="@style/Theme.Prime.Swipe" />
 
         <activity
             android:name=".PersonInformationActivity"
@@ -146,6 +146,12 @@
 
         <service
             android:name=".PrimeMusicService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <service
+            android:name=".PrimeMediaPlaybackService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />

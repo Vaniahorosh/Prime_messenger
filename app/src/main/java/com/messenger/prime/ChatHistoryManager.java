@@ -857,6 +857,15 @@ public class ChatHistoryManager {
                         msg.setReplyToText(replyToText);
                     }
 
+                    org.json.JSONArray ampsArray = obj.optJSONArray("waveformChunks");
+                    if (ampsArray != null) {
+                        List<Integer> ampsList = new ArrayList<>();
+                        for (int k = 0; k < ampsArray.length(); k++) {
+                            ampsList.add(ampsArray.optInt(k));
+                        }
+                        msg.setWaveformChunks(ampsList);
+                    }
+
                     try {
                         MessageStatus status = MessageStatus.valueOf(msgStatusStr);
                         if (status == MessageStatus.SENDING) {
@@ -901,6 +910,14 @@ public class ChatHistoryManager {
                 obj.put("replyToSender", msg.getReplyToSender() != null ? msg.getReplyToSender() : "");
                 obj.put("replyToText", msg.getReplyToText() != null ? msg.getReplyToText() : "");
                 
+                if (msg.getWaveformChunks() != null && !msg.getWaveformChunks().isEmpty()) {
+                    org.json.JSONArray ampsArray = new org.json.JSONArray();
+                    for (int amp : msg.getWaveformChunks()) {
+                        ampsArray.put(amp);
+                    }
+                    obj.put("waveformChunks", ampsArray);
+                }
+                
                 JSONObject reactionsObj = new JSONObject();
                 for (Map.Entry<String, String> entry : msg.getReactionsMap().entrySet()) {
                     reactionsObj.put(entry.getKey(), entry.getValue());
@@ -928,10 +945,10 @@ public class ChatHistoryManager {
     public static String saveBitmapToFile(Context context, Bitmap bitmap, long timestamp) {
         try {
             File file = new File(context.getFilesDir(), "cache_img_" + timestamp + ".jpg");
-            FileOutputStream fos = new FileOutputStream(file);
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, fos);
-            fos.flush();
-            fos.close();
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, fos);
+                fos.flush();
+            }
             return file.getAbsolutePath();
         } catch (Exception e) {
             Log.e("ChatHistoryManager", "Failed to save bitmap", e);
