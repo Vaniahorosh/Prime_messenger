@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -41,7 +42,7 @@ public class BluetoothSocketHolder {
     public static synchronized void registerConnection(String address, String username, BluetoothSocket s, Object thread) {
         if (s != null && s.isConnected()) {
             if (address != null && !address.isEmpty()) {
-                String key = address.toUpperCase();
+                String key = address.toUpperCase(Locale.ROOT);
                 BluetoothSocket oldSock = socketMap.get(key);
                 if (oldSock != null && oldSock != s) {
                     try { oldSock.close(); } catch (Exception ignored) {}
@@ -50,7 +51,7 @@ public class BluetoothSocketHolder {
                 if (thread != null) threadMap.put(key, thread);
             }
             if (username != null && !username.isEmpty()) {
-                String key = username.toLowerCase();
+                String key = username.toLowerCase(Locale.ROOT);
                 BluetoothSocket oldSock = socketMap.get(key);
                 if (oldSock != null && oldSock != s) {
                     try { oldSock.close(); } catch (Exception ignored) {}
@@ -68,13 +69,13 @@ public class BluetoothSocketHolder {
 
     public static synchronized void removeConnection(String address, String username) {
         if (address != null && !address.isEmpty()) {
-            String key = address.toUpperCase();
+            String key = address.toUpperCase(Locale.ROOT);
             BluetoothSocket s = socketMap.remove(key);
             if (s != null) { try { s.close(); } catch (Exception ignored) {} }
             threadMap.remove(key);
         }
         if (username != null && !username.isEmpty()) {
-            String key = username.toLowerCase();
+            String key = username.toLowerCase(Locale.ROOT);
             BluetoothSocket s = socketMap.remove(key);
             if (s != null) { try { s.close(); } catch (Exception ignored) {} }
             threadMap.remove(key);
@@ -99,13 +100,13 @@ public class BluetoothSocketHolder {
                 if (s.getRemoteDevice() != null) {
                     String addr = s.getRemoteDevice().getAddress();
                     if (addr != null && !addr.isEmpty()) {
-                        socketMap.put(addr.toUpperCase(), s);
+                        socketMap.put(addr.toUpperCase(Locale.ROOT), s);
                         activeDeviceAddress = addr;
                     }
                     try {
                         String name = s.getRemoteDevice().getName();
                         if (name != null && !name.isEmpty()) {
-                            socketMap.put(name.toLowerCase(), s);
+                            socketMap.put(name.toLowerCase(Locale.ROOT), s);
                             activeTargetUsername = name;
                         }
                     } catch (SecurityException ignored) {}
@@ -128,12 +129,12 @@ public class BluetoothSocketHolder {
     }
 
     public static synchronized BluetoothSocket getSocketFor(String address, String name) {
-        if (address != null && !address.isEmpty() && socketMap.containsKey(address.toUpperCase())) {
-            BluetoothSocket s = socketMap.get(address.toUpperCase());
+        if (address != null && !address.isEmpty() && socketMap.containsKey(address.toUpperCase(Locale.ROOT))) {
+            BluetoothSocket s = socketMap.get(address.toUpperCase(Locale.ROOT));
             if (isSocketHealthy(s)) return s;
         }
-        if (name != null && !name.isEmpty() && socketMap.containsKey(name.toLowerCase())) {
-            BluetoothSocket s = socketMap.get(name.toLowerCase());
+        if (name != null && !name.isEmpty() && socketMap.containsKey(name.toLowerCase(Locale.ROOT))) {
+            BluetoothSocket s = socketMap.get(name.toLowerCase(Locale.ROOT));
             if (isSocketHealthy(s)) return s;
         }
         // Strict mapping: do NOT return wrong socket from another user
@@ -141,12 +142,12 @@ public class BluetoothSocketHolder {
     }
 
     public static synchronized Object getThreadFor(String address, String name) {
-        if (address != null && !address.isEmpty() && threadMap.containsKey(address.toUpperCase())) {
-            Object t = threadMap.get(address.toUpperCase());
+        if (address != null && !address.isEmpty() && threadMap.containsKey(address.toUpperCase(Locale.ROOT))) {
+            Object t = threadMap.get(address.toUpperCase(Locale.ROOT));
             if (t != null) return t;
         }
-        if (name != null && !name.isEmpty() && threadMap.containsKey(name.toLowerCase())) {
-            Object t = threadMap.get(name.toLowerCase());
+        if (name != null && !name.isEmpty() && threadMap.containsKey(name.toLowerCase(Locale.ROOT))) {
+            Object t = threadMap.get(name.toLowerCase(Locale.ROOT));
             if (t != null) return t;
         }
         // Strict mapping: do NOT return wrong thread from another user
@@ -231,10 +232,10 @@ public class BluetoothSocketHolder {
         if (name != null && activeTargetUsername != null && name.equalsIgnoreCase(activeTargetUsername)) {
             nameMatched = true;
         }
-        if (address != null && socketMap.containsKey(address.toUpperCase())) {
+        if (address != null && socketMap.containsKey(address.toUpperCase(Locale.ROOT))) {
             addressMatched = true;
         }
-        if (name != null && socketMap.containsKey(name.toLowerCase())) {
+        if (name != null && socketMap.containsKey(name.toLowerCase(Locale.ROOT))) {
             nameMatched = true;
         }
 

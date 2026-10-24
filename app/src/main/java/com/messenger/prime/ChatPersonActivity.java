@@ -2346,7 +2346,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 if (dev != null && !isConnectionActive()) {
                     String devAddr = dev.getAddress();
                     String devName = dev.getName();
-                    if (isValidMacAddress(devAddr) && devName != null && (devName.equalsIgnoreCase(targetUsername) || devName.toLowerCase().contains(targetUsername.toLowerCase()) || devName.contains("Prime"))) {
+                    if (isValidMacAddress(devAddr) && devName != null && (devName.equalsIgnoreCase(targetUsername) || devName.toLowerCase(Locale.ROOT).contains(targetUsername.toLowerCase(Locale.ROOT)) || devName.contains("Prime"))) {
                         Log.d(TAG, "Discovery found target device: " + devName + " [" + devAddr + "], initiating auto-connection...");
                         getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                                 .edit()
@@ -6024,7 +6024,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                         if (activeUiHandler != null) {
                             postToUi(MESSAGE_READ_FILE, payload.length, -1, payload);
-                            String lowerData = fileMetaStr.toLowerCase();
+                            String lowerData = fileMetaStr.toLowerCase(Locale.ROOT);
                             boolean isVideo = lowerData.contains(".mp4") || lowerData.contains(".mkv") || lowerData.contains(".3gp") || lowerData.contains(".webm") || lowerData.contains(":::duration:::");
                             saveActivityStateToChatList(targetUsername, isVideo ? "VIEWING_VIDEO" : "VIEWING_FILE");
                         } else {

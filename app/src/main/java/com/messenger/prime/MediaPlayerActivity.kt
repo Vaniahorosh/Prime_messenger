@@ -1,5 +1,6 @@
 package com.messenger.prime
 
+import android.annotation.SuppressLint
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.content.BroadcastReceiver
@@ -410,6 +411,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         tvSpeedIndicator = findViewById(R.id.tvSpeedIndicator)
     }
 
+    @SuppressLint("InternalInsetResource", "Discouraged")
     private fun getStatusBarHeight(): Int {
         val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else (36 * resources.displayMetrics.density).toInt()

@@ -9,6 +9,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -62,7 +63,7 @@ public class LinkPreviewManager {
     private LinkPreviewData parseOpenGraph(String urlString) {
         try {
             URL url = new URL(urlString);
-            String host = url.getHost().toLowerCase();
+            String host = url.getHost().toLowerCase(Locale.ROOT);
 
             // Специальная обработка для YouTube
             if (host.contains("youtube.com") || host.contains("youtu.be")) {

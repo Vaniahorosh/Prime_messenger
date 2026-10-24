@@ -1,6 +1,5 @@
 package com.messenger.prime
 
-import android.R
 import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
@@ -64,7 +63,7 @@ fun BlurView(
                         try {
                             val activity = findActivity(ctx)
                             val targetRootView = activity?.window?.decorView?.findViewById<ViewGroup>(
-                                R.id.content)
+                                android.R.id.content)
                                 ?: (activity?.window?.decorView as? ViewGroup)
                                 ?: (view.rootView as? ViewGroup)
 

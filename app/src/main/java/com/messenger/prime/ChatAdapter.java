@@ -923,14 +923,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public int findPositionByQuery(String query, int startFromIndex) {
         if (query == null || query.trim().isEmpty() || messages == null || messages.isEmpty()) return -1;
-        String lowerQuery = query.trim().toLowerCase();
+        String lowerQuery = query.trim().toLowerCase(Locale.getDefault());
         int size = messages.size();
         for (int i = Math.max(0, startFromIndex); i < size; i++) {
             ChatMessage msg = messages.get(i);
-            if (msg.getText() != null && msg.getText().toLowerCase().contains(lowerQuery)) {
+            if (msg.getText() != null && msg.getText().toLowerCase(Locale.getDefault()).contains(lowerQuery)) {
                 return i;
             }
-            if (msg.getFileName() != null && msg.getFileName().toLowerCase().contains(lowerQuery)) {
+            if (msg.getFileName() != null && msg.getFileName().toLowerCase(Locale.getDefault()).contains(lowerQuery)) {
                 return i;
             }
         }
@@ -3633,7 +3633,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         String fullText = tvMessageText.getText().toString();
                         int start = fullText.indexOf(quotedText);
                         if (start == -1) {
-                            start = fullText.toLowerCase().indexOf(quotedText.toLowerCase());
+                            start = fullText.toLowerCase(Locale.getDefault()).indexOf(quotedText.toLowerCase(Locale.getDefault()));
                         }
                         if (start >= 0) {
                             int end = start + quotedText.length();

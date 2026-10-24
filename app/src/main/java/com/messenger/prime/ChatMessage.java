@@ -114,7 +114,7 @@ public class ChatMessage {
         this.messageId = messageId != null && !messageId.isEmpty() ? messageId : (senderLogin + "_" + timestamp + "_" + UUID.randomUUID().toString().substring(0, 4));
         
         if (imagePath != null && !imagePath.isEmpty()) {
-            String lower = imagePath.toLowerCase();
+            String lower = imagePath.toLowerCase(Locale.ROOT);
             if (lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".3gp") || lower.endsWith(".webm") || lower.contains("video")) {
                 this.messageType = MessageType.VIDEO;
             } else if (lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac")) {
@@ -375,7 +375,7 @@ public class ChatMessage {
     public void setImagePath(String imagePath) {
         this.imagePath = imagePath;
         if (imagePath != null && !imagePath.isEmpty()) {
-            String lower = imagePath.toLowerCase();
+            String lower = imagePath.toLowerCase(Locale.ROOT);
             if (lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".3gp") || lower.endsWith(".webm") || lower.contains("video")) {
                 this.messageType = MessageType.VIDEO;
             } else if (lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac")) {

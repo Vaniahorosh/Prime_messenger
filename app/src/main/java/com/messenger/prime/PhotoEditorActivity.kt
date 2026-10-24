@@ -1,5 +1,6 @@
 package com.messenger.prime
 
+import android.annotation.SuppressLint
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
@@ -956,11 +957,13 @@ class PhotoEditorActivity : AppCompatActivity() {
         return cm
     }
 
+    @SuppressLint("InternalInsetResource", "Discouraged")
     private fun getStatusBarHeight(): Int {
         val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else (32 * resources.displayMetrics.density).toInt()
     }
 
+    @SuppressLint("InternalInsetResource", "Discouraged")
     private fun getNavigationBarHeight(): Int {
         val resourceId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else (48 * resources.displayMetrics.density).toInt()

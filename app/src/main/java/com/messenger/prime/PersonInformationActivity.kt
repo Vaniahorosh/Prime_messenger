@@ -472,6 +472,7 @@ class PersonInformationActivity : AppCompatActivity() {
         })
     }
 
+    @SuppressLint("InternalInsetResource", "Discouraged")
     private fun getStatusBarHeight(): Int {
         val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else (24 * resources.displayMetrics.density).toInt()
