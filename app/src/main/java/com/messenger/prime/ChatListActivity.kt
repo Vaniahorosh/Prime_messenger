@@ -482,7 +482,14 @@ class ChatListActivity : AppCompatActivity() {
             adapter.setSearchQuery(queryRaw.trim())
             adapter.setSearchActive(true)
             backCallback.isEnabled = true
-            val testContact = ChatModel("block_test_contact", "Тестирование активити блока", "Нажмите, чтобы протестировать", "сейчас", null, OnlineStatus.ONLINE)
+            val testContact = ChatModel(
+                id = "block_test_contact",
+                name = "Тестирование активити блока",
+                lastMessage = "Нажмите, чтобы протестировать",
+                time = "сейчас",
+                avatarUri = null,
+                onlineStatus = OnlineStatus.ONLINE
+            )
             adapter.updateList(listOf(testContact))
             updateEmptyState()
             return
@@ -779,9 +786,13 @@ class ChatListActivity : AppCompatActivity() {
             isIncomingConnectionDialogVisible.value = false
             isFoundDeviceDialogVisible.value = false
 
+            val matchingChat = allChats.find { it.id.equals(deviceAddress, ignoreCase = true) || it.name.equals(resolvedTargetName, ignoreCase = true) }
+            val isOnline = matchingChat?.onlineStatus == OnlineStatus.ONLINE
+
             val chatIntent = Intent(this@ChatListActivity, ChatPersonActivity::class.java).apply {
                 putExtra("EXTRA_CHAT_NAME", resolvedTargetName)
                 putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress)
+                putExtra("EXTRA_IS_ONLINE", isOnline)
                 putExtra("EXTRA_AUTO_CONNECT", true)
                 if (useExistingSocket) {
                     putExtra("EXTRA_USE_EXISTING_SOCKET", true)
@@ -4082,12 +4093,8 @@ class ChatListActivity : AppCompatActivity() {
                             val resolvedAvatar = AvatarManager.getContactAvatarUriOrFile(this@ChatListActivity, idStr, finalName, idStr)
                             val finalAvatar = if (!resolvedAvatar.isNullOrEmpty()) resolvedAvatar else (if (rawAvatar.isNullOrEmpty()) null else rawAvatar)
 
-                            val isConnectedInManager = BluetoothConnectionManager.getInstance().isConnected(idStr) ||
-                                BluetoothConnectionManager.getInstance().isConnected(finalName)
-                            val isSocketConnected = BluetoothSocketHolder.isConnectedWith(idStr, finalName) || isConnectedInManager
-
                             val savedStatusStr = item.optString("onlineStatus", "OFFLINE")
-                            val realOnlineStatus = if (isSocketConnected || "ONLINE".equals(savedStatusStr, ignoreCase = true)) {
+                            val realOnlineStatus = if ("ONLINE".equals(savedStatusStr, ignoreCase = true)) {
                                 OnlineStatus.ONLINE
                             } else {
                                 OnlineStatus.OFFLINE
@@ -4107,12 +4114,20 @@ class ChatListActivity : AppCompatActivity() {
 
                             val finalUnreadCount = item.optInt("unreadCount", 0)
 
+                            val rawMediaPreview = if (item.isNull("mediaPreviewPath")) null else item.optString("mediaPreviewPath")
+                            val resolvedMediaPreview = if (!rawMediaPreview.isNullOrEmpty() && File(rawMediaPreview).exists()) {
+                                rawMediaPreview
+                            } else {
+                                ChatHistoryManager.getLastMediaPreviewPath(this@ChatListActivity, finalName, idStr)
+                            }
+
                             val chat = ChatModel(
                                 idStr,
                                 finalName,
                                 finalLastMsg,
                                 finalTime,
                                 if (finalAvatar.isNullOrEmpty()) null else finalAvatar,
+                                if (resolvedMediaPreview.isNullOrEmpty()) null else resolvedMediaPreview,
                                 realOnlineStatus,
                                 finalMessageStatus,
                                 finalUnreadCount,
@@ -4136,10 +4151,18 @@ class ChatListActivity : AppCompatActivity() {
             val isMac = BluetoothAdapter.checkBluetoothAddress(chat.id.uppercase(Locale.US))
             val mappedMac = if (!isMac) DeviceBindingManager.getSecureDeviceMac(this, chat.id) else chat.id.uppercase(Locale.US)
             
-            val key = if (mappedMac != null && mappedMac.isNotEmpty()) {
+            val isGeneric = chat.id.isBlank() || 
+                            chat.id.equals("Собеседник", ignoreCase = true) || 
+                            chat.id.equals("Prime Собеседник", ignoreCase = true) || 
+                            chat.id.equals("Контакт", ignoreCase = true) || 
+                            chat.id.equals("1", ignoreCase = true)
+
+            val key = if (!mappedMac.isNullOrEmpty()) {
                 mappedMac.uppercase(Locale.US)
             } else if (isMac) {
                 chat.id.uppercase(Locale.US)
+            } else if (isGeneric) {
+                "GENERIC_${chat.id.lowercase(Locale.US)}_${chat.name.lowercase(Locale.US)}"
             } else {
                 chat.id.lowercase(Locale.US)
             }
@@ -4169,7 +4192,8 @@ class ChatListActivity : AppCompatActivity() {
                 val bestLastMsg = if (ts >= oldTs && chat.lastMessage.isNotEmpty()) chat.lastMessage else if (oldChat.lastMessage.isNotEmpty()) oldChat.lastMessage else chat.lastMessage
                 val bestTime = if (ts >= oldTs && chat.time.isNotEmpty()) chat.time else oldChat.time
                 val bestAvatar = oldChat.avatarUri ?: chat.avatarUri
-                val bestOnline = if (oldChat.onlineStatus == OnlineStatus.ONLINE || chat.onlineStatus == OnlineStatus.ONLINE) OnlineStatus.ONLINE else OnlineStatus.OFFLINE
+                val bestMediaPreview = if (ts >= oldTs) chat.mediaPreviewPath else oldChat.mediaPreviewPath
+                val bestOnline = if (ts >= oldTs) chat.onlineStatus else oldChat.onlineStatus
                 val bestMsgStatus = if (ts >= oldTs) chat.messageStatus else oldChat.messageStatus
                 val bestUnread = maxOf(oldChat.unreadCount, chat.unreadCount)
                 val bestMuted = oldChat.isMuted || chat.isMuted
@@ -4183,6 +4207,7 @@ class ChatListActivity : AppCompatActivity() {
                     bestLastMsg,
                     bestTime,
                     bestAvatar,
+                    bestMediaPreview,
                     bestOnline,
                     bestMsgStatus,
                     bestUnread,
@@ -4208,6 +4233,9 @@ class ChatListActivity : AppCompatActivity() {
                 put("lastMessage", chat.lastMessage)
                 put("time", chat.time)
                 put("avatarUri", chat.avatarUri)
+                if (!chat.mediaPreviewPath.isNullOrEmpty()) {
+                    put("mediaPreviewPath", chat.mediaPreviewPath)
+                }
                 put("onlineStatus", chat.onlineStatus.name)
                 put("messageStatus", chat.messageStatus.name)
                 put("unreadCount", chat.unreadCount)

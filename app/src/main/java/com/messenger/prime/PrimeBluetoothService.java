@@ -27,6 +27,8 @@ import androidx.core.app.Person;
 import androidx.core.app.RemoteInput;
 import androidx.core.graphics.drawable.IconCompat;
 
+import com.messenger.prime.events.ChatEvent;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -369,7 +371,11 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     }
 
     public static void showMessageNotification(Context context, String senderName, String messageText, String deviceAddress) {
-        PrimeNotification.postMessageNotification(context, senderName, messageText, deviceAddress);
+        showMessageNotification(context, senderName, messageText, deviceAddress, null);
+    }
+
+    public static void showMessageNotification(Context context, String senderName, String messageText, String deviceAddress, String mediaPath) {
+        PrimeNotification.postMessageNotification(context, senderName, messageText, deviceAddress, mediaPath);
     }
 
     @Override
@@ -587,8 +593,9 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 }
 
                 String summaryStr = ChatMessage.getSummaryDescription(msg);
+                String mediaPath = msg != null ? msg.getImagePath() : null;
                 saveBackgroundLastMessageToChatList(displayName, fromAddress, summaryStr);
-                showMessageNotification(this, displayName, summaryStr, fromAddress);
+                showMessageNotification(this, displayName, summaryStr, fromAddress, mediaPath);
             } else if (type == 0x0E) { // TYPE_FILE
                 long ts = System.currentTimeMillis();
                 String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(ts));
@@ -599,8 +606,9 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 }
 
                 String summaryStr = ChatMessage.getSummaryDescription(msg);
+                String mediaPath = msg != null ? msg.getImagePath() : null;
                 saveBackgroundLastMessageToChatList(displayName, fromAddress, summaryStr);
-                showMessageNotification(this, displayName, summaryStr, fromAddress);
+                showMessageNotification(this, displayName, summaryStr, fromAddress, mediaPath);
             } else if (type == 0x04) { // TYPE_TYPING
                 String textData = new String(payload, StandardCharsets.UTF_8);
                 saveBackgroundTypingStateToChatList(displayName, fromAddress, textData);
@@ -622,8 +630,28 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     saveBackgroundLastMessageToChatList(displayName, fromAddress, updatedText);
                 }
             } else if (type == 0x08) { // TYPE_CHAT_DELETED
+                String data = new String(payload, StandardCharsets.UTF_8);
+                String deletedByName = displayName;
+                if (data.startsWith("DELETE_CHAT:")) {
+                    String[] parts = data.substring(12).split(";");
+                    for (String p : parts) {
+                        if (p.startsWith("name=")) {
+                            deletedByName = p.substring(5);
+                        }
+                    }
+                }
+                ChatHistoryManager.deleteHistoryCompletely(this, deletedByName, fromAddress);
                 ChatHistoryManager.deleteHistoryCompletely(this, displayName, fromAddress);
+                DeviceBindingManager.unbindDeviceSecurely(this, deletedByName, fromAddress);
+                DeviceBindingManager.unbindDeviceSecurely(this, displayName, fromAddress);
+                BluetoothSocketHolder.removeConnection(fromAddress, displayName);
+                BluetoothConnectionManager.getInstance().disconnect(fromAddress);
+
+                PrimeNotification.cancelNotificationForUser(this, deletedByName, fromAddress);
+                PrimeNotification.cancelNotificationForUser(this, displayName, fromAddress);
+
                 ChatListNotifier.INSTANCE.notifyChanged();
+                ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
             } else if (type == 0x0A) { // TYPE_READ_RECEIPT
                 String readMsgId = new String(payload, StandardCharsets.UTF_8);
                 ChatHistoryManager.markOutgoingMessagesAsRead(this, displayName, readMsgId);
@@ -757,7 +785,8 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     obj.put("lastMessage", lastMsg);
                     obj.put("time", timeStr);
                     obj.put("timestamp", nowTs);
-                    obj.put("onlineStatus", "ONLINE");
+                    String currentOnline = obj.optString("onlineStatus", "OFFLINE");
+                    obj.put("onlineStatus", currentOnline);
                     
                     int currentUnread = obj.optInt("unreadCount", 0);
                     obj.put("unreadCount", currentUnread + 1);
@@ -782,7 +811,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 updatedObj.put("lastMessage", lastMsg);
                 updatedObj.put("time", timeStr);
                 updatedObj.put("timestamp", nowTs);
-                updatedObj.put("onlineStatus", "ONLINE");
+                updatedObj.put("onlineStatus", "OFFLINE");
                 updatedObj.put("messageStatus", "NONE");
                 updatedObj.put("unreadCount", 1);
             }

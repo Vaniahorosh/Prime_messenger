@@ -183,19 +183,50 @@ public class ChatHistoryManager {
 
     public static void deleteHistoryCompletely(Context context, String targetUsername, String deviceAddress) {
         if (context == null) return;
+        Context appContext = context.getApplicationContext();
+
+        List<String> keysToDelete = new ArrayList<>();
+        if (targetUsername != null && !targetUsername.trim().isEmpty()) {
+            String tu = targetUsername.trim();
+            keysToDelete.add(tu);
+            String sk = getStorageKey(appContext, tu);
+            if (sk != null && !sk.isEmpty() && !keysToDelete.contains(sk)) keysToDelete.add(sk);
+            String hk = getHistoryStorageKey(appContext, tu);
+            if (hk != null && !hk.isEmpty() && !keysToDelete.contains(hk)) keysToDelete.add(hk);
+        }
+        if (deviceAddress != null && !deviceAddress.trim().isEmpty()) {
+            String da = deviceAddress.trim();
+            if (!keysToDelete.contains(da)) keysToDelete.add(da);
+            String sk = getStorageKey(appContext, da);
+            if (sk != null && !sk.isEmpty() && !keysToDelete.contains(sk)) keysToDelete.add(sk);
+            String hk = getHistoryStorageKey(appContext, da);
+            if (hk != null && !hk.isEmpty() && !keysToDelete.contains(hk)) keysToDelete.add(hk);
+        }
+
+        // 0. Synchronously clear memoryCache for all keys
+        synchronized (memoryCache) {
+            for (String key : keysToDelete) {
+                memoryCache.remove(key);
+            }
+            Iterator<String> it = memoryCache.keySet().iterator();
+            while (it.hasNext()) {
+                String k = it.next();
+                for (String tKey : keysToDelete) {
+                    if (tKey != null && !tKey.isEmpty() && k.toLowerCase(Locale.US).contains(tKey.toLowerCase(Locale.US))) {
+                        it.remove();
+                        break;
+                    }
+                }
+            }
+        }
+
         executor.execute(() -> {
-            Context appContext = context.getApplicationContext();
-            
-            // 1. Удаление всей истории и прикрепленных файлов (фото/видео/документы)
+            // 1. Delete all history and attachments
             SharedPreferences historyPrefs = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
             SharedPreferences.Editor historyEdit = historyPrefs.edit();
 
-            List<String> keysToDelete = new ArrayList<>();
-            if (targetUsername != null && !targetUsername.isEmpty()) keysToDelete.add(targetUsername);
-            if (deviceAddress != null && !deviceAddress.isEmpty() && !deviceAddress.equalsIgnoreCase(targetUsername)) keysToDelete.add(deviceAddress);
-
             for (String key : keysToDelete) {
-                List<ChatMessage> history = loadMessages(appContext, key);
+                List<ChatMessage> history = loadMessagesFromDisk(appContext, key);
                 for (ChatMessage msg : history) {
                     if (msg.getImagePath() != null && !msg.getImagePath().isEmpty()) {
                         try {
@@ -210,28 +241,33 @@ public class ChatHistoryManager {
             Map<String, ?> allHistoryKeys = historyPrefs.getAll();
             for (String key : allHistoryKeys.keySet()) {
                 for (String tKey : keysToDelete) {
-                    if (key.equalsIgnoreCase("history_" + tKey) || key.toLowerCase().endsWith(tKey.toLowerCase())) {
-                        historyEdit.remove(key);
+                    if (tKey != null && !tKey.isEmpty()) {
+                        if (key.equalsIgnoreCase("history_" + tKey) || key.toLowerCase(Locale.US).endsWith(tKey.toLowerCase(Locale.US)) || key.toLowerCase(Locale.US).contains(tKey.toLowerCase(Locale.US))) {
+                            historyEdit.remove(key);
+                        }
                     }
                 }
             }
             historyEdit.apply();
-            
+
             for (String tKey : keysToDelete) {
-                File jsonFile = new File(appContext.getFilesDir(), "history_" + getStorageKey(appContext, tKey) + ".json");
+                if (tKey == null || tKey.isEmpty()) continue;
+                File jsonFile = new File(appContext.getFilesDir(), "history_" + tKey + ".json");
                 if (jsonFile.exists()) jsonFile.delete();
             }
 
-            // 2. Полное физическое удаление всех файлов аватарок, медиа и кэша, связанных с контактом
+            // 2. Physical deletion of avatar, media, and cache files associated with contact
             try {
                 File[] files = appContext.getFilesDir().listFiles();
                 if (files != null) {
                     for (File f : files) {
                         String name = f.getName().toLowerCase(Locale.US);
                         for (String tKey : keysToDelete) {
-                            String lowerKey = tKey.toLowerCase(Locale.US);
-                            if (name.contains(lowerKey)) {
-                                f.delete();
+                            if (tKey != null && !tKey.isEmpty()) {
+                                String lowerKey = tKey.toLowerCase(Locale.US);
+                                if (name.contains(lowerKey)) {
+                                    f.delete();
+                                }
                             }
                         }
                     }
@@ -244,19 +280,22 @@ public class ChatHistoryManager {
                     for (File f : cacheFiles) {
                         String name = f.getName().toLowerCase(Locale.US);
                         for (String tKey : keysToDelete) {
-                            String lowerKey = tKey.toLowerCase(Locale.US);
-                            if (name.contains(lowerKey)) {
-                                f.delete();
+                            if (tKey != null && !tKey.isEmpty()) {
+                                String lowerKey = tKey.toLowerCase(Locale.US);
+                                if (name.contains(lowerKey)) {
+                                    f.delete();
+                                }
                             }
                         }
                     }
                 }
             } catch (Exception ignored) {}
 
-            // 3. Полное удаление имен контактов, аватарок, истории аватарок, метрик последнего визита, статусов набора текста и записи из списка чатов
+            // 3. Complete deletion of names, avatars, last_seen, typing status, etc
             SharedPreferences localDb = appContext.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
             SharedPreferences.Editor dbEdit = localDb.edit();
             for (String tKey : keysToDelete) {
+                if (tKey == null || tKey.isEmpty()) continue;
                 dbEdit.remove("last_seen_" + tKey);
                 dbEdit.remove("typing_until_" + tKey);
                 dbEdit.remove("activity_state_" + tKey);
@@ -275,14 +314,20 @@ public class ChatHistoryManager {
                 JSONArray newArray = new JSONArray();
                 for (int i = 0; i < array.length(); i++) {
                     JSONObject obj = array.getJSONObject(i);
-                    String objName = obj.optString("name");
-                    String objId = obj.optString("id");
-                    boolean matchName = targetUsername != null && targetUsername.equalsIgnoreCase(objName);
-                    boolean matchId = deviceAddress != null && deviceAddress.equalsIgnoreCase(objId);
-                    boolean matchNameAsId = targetUsername != null && targetUsername.equalsIgnoreCase(objId);
-                    boolean matchIdAsName = deviceAddress != null && deviceAddress.equalsIgnoreCase(objName);
+                    String objName = obj.optString("name", "");
+                    String objId = obj.optString("id", "");
 
-                    if (!matchName && !matchId && !matchNameAsId && !matchIdAsName) {
+                    boolean matchesKey = false;
+                    for (String tKey : keysToDelete) {
+                        if (tKey != null && !tKey.isEmpty()) {
+                            if (tKey.equalsIgnoreCase(objName) || tKey.equalsIgnoreCase(objId)) {
+                                matchesKey = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!matchesKey) {
                         newArray.put(obj);
                     }
                 }
@@ -293,7 +338,15 @@ public class ChatHistoryManager {
 
             dbEdit.apply();
             DeviceBindingManager.unbindDeviceSecurely(appContext, targetUsername, deviceAddress);
+
+            synchronized (memoryCache) {
+                for (String key : keysToDelete) {
+                    memoryCache.remove(key);
+                }
+            }
+
             ChatListNotifier.INSTANCE.notifyChanged();
+            ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
         });
     }
 
@@ -884,5 +937,29 @@ public class ChatHistoryManager {
             Log.e("ChatHistoryManager", "Failed to save bitmap", e);
             return null;
         }
+    }
+
+    public static String getLastMediaPreviewPath(Context context, String targetUsername, String deviceAddress) {
+        if (context == null) return null;
+        String key = (targetUsername != null && !targetUsername.isEmpty()) ? targetUsername : deviceAddress;
+        if (key == null || key.isEmpty()) return null;
+        List<ChatMessage> history = loadMessages(context, key);
+        if (history == null || history.isEmpty()) return null;
+
+        // Inspect ONLY the VERY LAST message in history
+        ChatMessage lastMsg = history.get(history.size() - 1);
+        List<ChatMessage.MediaItem> items = lastMsg.getMediaItems();
+        if (items != null && !items.isEmpty()) {
+            for (ChatMessage.MediaItem item : items) {
+                if (item != null && item.path != null && !item.path.isEmpty() && new File(item.path).exists()) {
+                    return item.path;
+                }
+            }
+        }
+        if (lastMsg.getImagePath() != null && !lastMsg.getImagePath().isEmpty() && !lastMsg.getImagePath().startsWith("MULTI:") && new File(lastMsg.getImagePath()).exists()) {
+            return lastMsg.getImagePath();
+        }
+
+        return null;
     }
 }

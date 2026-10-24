@@ -134,19 +134,36 @@
             app:layout_constraintTop_toTopOf="@+id/tvContactName"
             tools:text="14:23" />
 
+        <!-- Мини-превью медиафайла / фото / видео / кружка (слева от сообщения) -->
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/ivMediaPreview"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_marginTop="3dp"
+            android:layout_marginEnd="8dp"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            app:shapeAppearanceOverlay="@style/Rounded15PercentImageView"
+            app:layout_constraintStart_toStartOf="@+id/tvContactName"
+            app:layout_constraintTop_toBottomOf="@+id/tvContactName"
+            tools:src="@drawable/ic_person"
+            tools:visibility="visible" />
+
         <!-- Текст последнего сообщения -->
         <TextView
             android:id="@+id/tvLastMessage"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
+            android:layout_marginStart="8dp"
             android:ellipsize="end"
             android:maxLines="2"
             android:textColor="@color/prime_text_secondary"
             android:textSize="14sp"
             android:lineSpacingExtra="2dp"
+            app:layout_goneMarginStart="0dp"
             app:layout_constraintEnd_toStartOf="@+id/layoutStatusContainer"
-            app:layout_constraintStart_toStartOf="@+id/tvContactName"
+            app:layout_constraintStart_toEndOf="@+id/ivMediaPreview"
             app:layout_constraintTop_toBottomOf="@+id/tvContactName"
             tools:text="Последнее написанное сообщение..." />
 

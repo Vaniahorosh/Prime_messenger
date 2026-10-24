@@ -7,6 +7,7 @@ data class ChatModel(
     val lastMessage: String, // Текст последнего сообщения
     val time: String, // Время (например, "14:23")
     val avatarUri: String?, // Ссылка на аватарку
+    val mediaPreviewPath: String? = null, // Путь к мини-превью медиафайла/фото/видео/кружка
 
     // Статус онлайна
     val onlineStatus: OnlineStatus = OnlineStatus.OFFLINE,

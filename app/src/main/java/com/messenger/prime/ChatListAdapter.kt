@@ -72,6 +72,9 @@ class ChatDiffCallback(
         if (oldItem.avatarUri != newItem.avatarUri) {
             diffBundle.putString("avatarUri", newItem.avatarUri ?: "")
         }
+        if (oldItem.mediaPreviewPath != newItem.mediaPreviewPath) {
+            diffBundle.putString("mediaPreviewPath", newItem.mediaPreviewPath ?: "")
+        }
         if (oldItem.name != newItem.name) {
             diffBundle.putString("name", newItem.name)
         }
@@ -348,9 +351,40 @@ class ChatListAdapter(
             binding.ivMuteStatus.visibility = if (chat.isMuted) View.VISIBLE else View.GONE
         }
 
+        if (diffBundle.containsKey("mediaPreviewPath")) {
+            bindMediaPreview(holder, chat)
+        }
+
         if (diffBundle.containsKey("avatarUri")) {
             super.onBindViewHolder(holder, position, payloads)
         }
+    }
+
+    private fun bindMediaPreview(holder: ChatViewHolder, chat: ChatModel) {
+        val binding = holder.binding
+        val context = holder.itemView.context
+        val path = chat.mediaPreviewPath
+
+        if (!path.isNullOrEmpty()) {
+            val file = File(path)
+            if (file.exists() && file.length() > 0) {
+                binding.ivMediaPreview.visibility = View.VISIBLE
+                val radiusPx = (8 * context.resources.displayMetrics.density).toInt()
+                try {
+                    Glide.with(context)
+                        .load(file)
+                        .transform(CenterCrop(), RoundedCorners(radiusPx))
+                        .into(binding.ivMediaPreview)
+                } catch (_: Exception) {}
+                return
+            }
+        }
+
+        binding.ivMediaPreview.visibility = View.GONE
+        try {
+            Glide.with(context).clear(binding.ivMediaPreview)
+        } catch (_: Exception) {}
+        binding.ivMediaPreview.setImageDrawable(null)
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
@@ -375,6 +409,7 @@ class ChatListAdapter(
                 val binding = holder.binding
 
                 holder.resetReveal()
+                bindMediaPreview(holder, chat)
 
                 binding.ivUserAvatar.setImageDrawable(null)
                 binding.tvUserInitials.visibility = View.GONE

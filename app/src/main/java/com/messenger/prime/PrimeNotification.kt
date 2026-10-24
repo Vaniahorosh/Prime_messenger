@@ -20,6 +20,7 @@ import android.media.RingtoneManager
 import android.os.Build
 import android.support.v4.media.session.MediaSessionCompat
 import android.util.Log
+import java.util.Locale
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
@@ -313,7 +314,8 @@ object PrimeNotification {
         context: Context?,
         senderName: String?,
         messageText: String?,
-        deviceAddress: String? = null
+        deviceAddress: String? = null,
+        mediaPath: String? = null
     ) {
         if (context == null || senderName.isNullOrEmpty()) return
 
@@ -487,7 +489,21 @@ object PrimeNotification {
                 .setAutoCancel(true)
                 .setDefaults(NotificationCompat.DEFAULT_ALL)
 
-            if (avatarFile != null && avatarFile.exists()) {
+            // Отображение фото/видео превью в шторке системных уведомлений
+            val resolvedMediaPath = if (!mediaPath.isNullOrEmpty()) mediaPath else ChatHistoryManager.getLastMediaPreviewPath(context, senderName, deviceAddress)
+            if (!resolvedMediaPath.isNullOrEmpty() && File(resolvedMediaPath).exists()) {
+                try {
+                    val mediaBmp = BitmapFactory.decodeFile(resolvedMediaPath)
+                    if (mediaBmp != null) {
+                        val bigPictureStyle = NotificationCompat.BigPictureStyle()
+                            .bigPicture(mediaBmp)
+                            .bigLargeIcon(null as android.graphics.Bitmap?)
+                            .setSummaryText(if (!messageText.isNullOrEmpty()) messageText else "Фотография")
+                        builder.setStyle(bigPictureStyle)
+                        builder.setLargeIcon(mediaBmp)
+                    }
+                } catch (_: Throwable) {}
+            } else if (avatarFile != null && avatarFile.exists()) {
                 try {
                     val bmp = BitmapFactory.decodeFile(avatarFile.absolutePath)
                     if (bmp != null) {
@@ -610,5 +626,84 @@ object PrimeNotification {
         }
 
         return builder.build()
+    }
+
+    private const val UPLOAD_CHANNEL_ID = "prime_upload_progress_channel"
+
+    fun showSendingProgressNotification(
+        context: Context,
+        chatName: String?,
+        deviceAddress: String?,
+        progress: Int,
+        messageType: String? = null
+    ) {
+        try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+
+            if (progress < 0 || progress >= 100) {
+                nm.cancel(PrimeBluetoothService.PROGRESS_NOTIFICATION_ID)
+                return
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    UPLOAD_CHANNEL_ID,
+                    "Прогресс отправки файлов",
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = "Уведомление о передаче файлов и сообщений"
+                    setSound(null, null)
+                    enableVibration(false)
+                    setShowBadge(false)
+                }
+                nm.createNotificationChannel(channel)
+            }
+
+            val cancelIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+                action = NotificationActionReceiver.ACTION_CANCEL_UPLOAD
+                if (!chatName.isNullOrEmpty()) putExtra("EXTRA_CHAT_NAME", chatName)
+                if (!deviceAddress.isNullOrEmpty()) putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress)
+                putExtra("EXTRA_NOTIFICATION_ID", PrimeBluetoothService.PROGRESS_NOTIFICATION_ID)
+            }
+
+            val cancelPendingIntent = PendingIntent.getBroadcast(
+                context,
+                1002,
+                cancelIntent,
+                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            val displayPeerName = if (!chatName.isNullOrEmpty()) chatName else "Собеседнику"
+            val titleText = when (messageType?.lowercase(Locale.ROOT)) {
+                "видеокружок", "video_note" -> "Отправка видеосообщения..."
+                "фотография", "photo", "image" -> "Отправка фотографии..."
+                "видео", "video" -> "Отправка видео..."
+                else -> "Отправка файла..."
+            }
+
+            val builder = NotificationCompat.Builder(context, UPLOAD_CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_sys_upload)
+                .setContentTitle(titleText)
+                .setContentText("$progress% ($displayPeerName)")
+                .setProgress(100, progress, false)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setDefaults(0)
+                .setSound(null)
+                .setVibrate(null)
+                .addAction(R.drawable.ic_cancel, "Отменить", cancelPendingIntent)
+
+            nm.notify(PrimeBluetoothService.PROGRESS_NOTIFICATION_ID, builder.build())
+        } catch (e: Throwable) {
+            Log.e("PrimeNotification", "Failed to show sending progress notification", e)
+        }
+    }
+
+    fun cancelSendingProgressNotification(context: Context) {
+        try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            nm?.cancel(PrimeBluetoothService.PROGRESS_NOTIFICATION_ID)
+        } catch (_: Throwable) {}
     }
 }

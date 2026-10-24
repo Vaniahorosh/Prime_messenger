@@ -481,7 +481,10 @@ class PrimeVideoMessageRecorder(
 
         btnSend.setOnClickListener {
             triggerHaptic(HapticFeedbackConstants.KEYBOARD_TAP)
-            currentVideoFile?.let { file ->
+            btnSend.isEnabled = false
+            val file = currentVideoFile
+            currentVideoFile = null
+            if (file != null) {
                 if (trimStartMs > 0 || (trimEndMs > 0 && trimEndMs < (videoPlaybackView?.duration ?: Int.MAX_VALUE) - 500)) {
                     val trimmedFile = File(activity.externalCacheDir, "trimmed_" + file.name)
                     VideoTrimmer.trimVideo(file, trimmedFile, trimStartMs.toLong(), trimEndMs.toLong())
@@ -491,6 +494,7 @@ class PrimeVideoMessageRecorder(
                 }
             }
             resetUI()
+            btnSend.isEnabled = true
         }
 
         btnSettings.setOnClickListener {

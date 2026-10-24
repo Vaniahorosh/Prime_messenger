@@ -108,33 +108,58 @@ object DeviceBindingManager {
     @SuppressLint("MissingPermission")
     fun unbindDeviceSecurely(context: Context, username: String?, explicitMac: String?) {
         try {
-            val mac = explicitMac ?: getSecureDeviceMac(context, username)
-            if (!mac.isNullOrEmpty() && BluetoothAdapter.checkBluetoothAddress(mac)) {
-                val adapter = BluetoothAdapter.getDefaultAdapter()
-                if (adapter != null) {
+            val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val currentUser = sp.getString("current_user", "") ?: ""
+
+            val mac = explicitMac
+                ?: getSecureDeviceMac(context, username)
+                ?: (if (!username.isNullOrEmpty() && BluetoothAdapter.checkBluetoothAddress(username)) username else null)
+
+            val bManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager
+            val adapter = bManager?.adapter ?: BluetoothAdapter.getDefaultAdapter()
+
+            if (adapter != null) {
+                try {
+                    val bonded = adapter.bondedDevices
+                    if (bonded != null) {
+                        for (dev in bonded) {
+                            val addr = dev.address
+                            val name = dev.name
+                            val matchMac = !mac.isNullOrEmpty() && addr.equals(mac, ignoreCase = true)
+                            val matchName = !username.isNullOrEmpty() && name != null && name.equals(username, ignoreCase = true)
+                            if (matchMac || matchName) {
+                                unbindDevice(dev)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed unbonding from bondedDevices list: ${e.message}")
+                }
+
+                if (!mac.isNullOrEmpty() && BluetoothAdapter.checkBluetoothAddress(mac)) {
                     try {
-                        val device = adapter.getRemoteDevice(mac)
-                        unbindDevice(device)
+                        val device = adapter.getRemoteDevice(mac.uppercase(java.util.Locale.US))
+                        if (device != null) {
+                            unbindDevice(device)
+                        }
+                    } catch (_: Exception) {}
+
+                    try {
+                        BluetoothConnectionManager.getInstance().unblockMacAddress(mac)
+                        BluetoothConnectionManager.getInstance().disconnect(mac)
+                        PrimeBluetoothService.cancelReconnect(context, mac)
                     } catch (_: Exception) {}
                 }
-                
-                try {
-                    BluetoothConnectionManager.getInstance().unblockMacAddress(mac)
-                    BluetoothConnectionManager.getInstance().disconnect(mac)
-                    PrimeBluetoothService.cancelReconnect(context, mac)
-                } catch (_: Exception) {}
             }
-            
-            removeSecureDeviceMac(context, username)
-            
-            // Если есть комбинированные ключи с текущим юзером, их тоже надо чистить, 
-            // но обычно используется формат name_mac
-            val currentUser = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).getString("current_user", "") ?: ""
-            if (currentUser.isNotEmpty() && !username.isNullOrEmpty()) {
-                 removeSecureDeviceMac(context, "${currentUser}_${username}")
+
+            if (!username.isNullOrEmpty()) {
+                removeSecureDeviceMac(context, username)
+                if (currentUser.isNotEmpty()) {
+                    removeSecureDeviceMac(context, "${currentUser}_${username}")
+                }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to unbind device securely")
+            Log.e(TAG, "Failed to unbind device securely", e)
         }
     }
 }
