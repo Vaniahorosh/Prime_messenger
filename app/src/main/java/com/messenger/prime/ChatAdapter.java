@@ -3282,11 +3282,188 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (btnSad != null) btnSad.setOnClickListener(reactionClick);
         if (btnPray != null) btnPray.setOnClickListener(reactionClick);
 
+        View layoutExpandedReactionsContainer = menuView.findViewById(R.id.layoutExpandedReactionsContainer);
+        GridLayout gridExpandedReactions = menuView.findViewById(R.id.gridExpandedReactions);
+
         if (btnExpand != null) {
+            btnExpand.setRotation(0f); // При открытии меню иконка всегда "+" (0°)
+
             btnExpand.setOnClickListener(v -> {
-                popupWindow.dismiss();
-                if (actionListener != null) {
-                    actionListener.onExpandReactions(message, anchorView, position);
+                v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+
+                boolean isEmojisOpen = layoutExpandedReactionsContainer != null
+                        && layoutExpandedReactionsContainer.getVisibility() == View.VISIBLE;
+
+                if (isEmojisOpen) {
+                    // --- Возврат от эмоций к действиям (Крестик 'x' -> Плюсик '+') ---
+
+                    // 1. Поворот кнопки 'x' (135°) назад к плюсику '+' (0°)
+                    btnExpand.animate()
+                            .rotation(0f)
+                            .scaleX(1.25f)
+                            .scaleY(1.25f)
+                            .setDuration(240L)
+                            .setInterpolator(new OvershootInterpolator(1.4f))
+                            .withEndAction(() -> btnExpand.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100L).start())
+                            .start();
+
+                    // 2. Анимация затухания сетки эмодзи
+                    gridExpandedReactions.animate()
+                            .alpha(0f)
+                            .setDuration(140L)
+                            .start();
+
+                    // 3. Плавная анимация уменьшения высоты меню
+                    android.transition.TransitionManager.beginDelayedTransition(
+                            blurContextMenu != null ? blurContextMenu : (ViewGroup) menuView,
+                            new android.transition.AutoTransition()
+                                    .setDuration(280L)
+                                    .setInterpolator(new DecelerateInterpolator())
+                    );
+
+                    layoutExpandedReactionsContainer.setVisibility(View.GONE);
+
+                    // 4. Возвращаем отображение пунктов действий меню
+                    View[] allButtons = new View[]{
+                            btnMenuReply, btnMenuCopy, btnMenuForward,
+                            btnMenuEdit, btnMenuDelete, btnMenuSelect
+                    };
+
+                    for (View btn : allButtons) {
+                        if (btn == null) continue;
+                        boolean shouldShow = false;
+                        if (!isConnectionActive) {
+                            shouldShow = (btn == btnMenuCopy);
+                        } else {
+                            if (btn == btnMenuReply || btn == btnMenuCopy || btn == btnMenuForward || btn == btnMenuSelect) {
+                                shouldShow = true;
+                            } else if (btn == btnMenuEdit) {
+                                boolean isMyMessage = message.isOutgoing();
+                                boolean isTextMessage = message.getText() != null && !message.getText().isEmpty()
+                                        && !"Фото".equals(message.getText()) && !"Файл".equals(message.getText())
+                                        && !message.getText().startsWith("VIDEO_NOTE:");
+                                shouldShow = isMyMessage && isTextMessage;
+                            } else if (btn == btnMenuDelete) {
+                                shouldShow = message.isOutgoing();
+                            }
+                        }
+                        if (shouldShow) {
+                            btn.setVisibility(View.VISIBLE);
+                            btn.setAlpha(0f);
+                            btn.animate().alpha(1.0f).setDuration(200L).setStartDelay(40L).start();
+                        } else {
+                            btn.setVisibility(View.GONE);
+                        }
+                    }
+
+                } else {
+                    // --- Раскрытие реакций из действий (Плюсик '+' -> Крестик 'x') ---
+
+                    // 1. Поворот кнопки плюсик '+' (0°) в крестик 'x' (135°)
+                    btnExpand.animate()
+                            .rotation(135f)
+                            .scaleX(1.25f)
+                            .scaleY(1.25f)
+                            .setDuration(240L)
+                            .setInterpolator(new OvershootInterpolator(1.4f))
+                            .withEndAction(() -> btnExpand.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100L).start())
+                            .start();
+
+                    if (layoutExpandedReactionsContainer != null && gridExpandedReactions != null) {
+                        // 2. Скрываем пункты действий меню
+                        View[] menuButtons = new View[]{
+                                btnMenuReply, btnMenuCopy, btnMenuForward,
+                                btnMenuEdit, btnMenuDelete, btnMenuSelect
+                        };
+
+                        for (View btn : menuButtons) {
+                            if (btn != null && btn.getVisibility() == View.VISIBLE) {
+                                btn.animate()
+                                        .alpha(0f)
+                                        .setDuration(140L)
+                                        .withEndAction(() -> btn.setVisibility(View.GONE))
+                                        .start();
+                            }
+                        }
+
+                        // 3. Наполняем расширенную сетку эмодзи
+                        gridExpandedReactions.setAlpha(1.0f);
+                        gridExpandedReactions.removeAllViews();
+                        float density = context.getResources().getDisplayMetrics().density;
+                        int sizePx = (int) (36 * density);
+
+                        String[] emojiList = new String[]{
+                                "❤️", "🔥", "👍", "👎", "😂", "😮", "😢", "🙏", "👏", "🎉",
+                                "💯", "🥰", "🤩", "🥳", "🤡", "💩", "😡", "🤯", "😱", "🥺",
+                                "⚡", "🌟", "😴", "🤮", "🤝", "🤖", "🎃", "👑", "🎯", "🚀",
+                                "💔", "👀", "🙈", "😜", "😎", "🤔", "🤫", "🙄", "🫠", "💀"
+                        };
+
+                        for (int i = 0; i < emojiList.length; i++) {
+                            String emoji = emojiList[i];
+                            TextView tv = new TextView(context);
+                            tv.setText(emoji);
+                            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+                            tv.setGravity(Gravity.CENTER);
+                            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(sizePx, sizePx);
+                            tv.setLayoutParams(lp);
+                            tv.setBackgroundResource(R.drawable.bg_emoji_chip);
+                            tv.setFocusable(true);
+                            tv.setClickable(true);
+
+                            tv.setAlpha(0f);
+                            tv.setScaleX(0.2f);
+                            tv.setScaleY(0.2f);
+
+                            tv.setOnClickListener(emojiView -> {
+                                emojiView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                                emojiView.animate()
+                                        .scaleX(1.4f)
+                                        .scaleY(1.4f)
+                                        .setDuration(120L)
+                                        .start();
+
+                                menuView.animate()
+                                        .scaleX(0.88f)
+                                        .scaleY(0.88f)
+                                        .alpha(0f)
+                                        .setDuration(160L)
+                                        .withEndAction(popupWindow::dismiss)
+                                        .start();
+
+                                if (actionListener != null) {
+                                    actionListener.onQuickReaction(message, emoji, position);
+                                }
+                            });
+
+                            gridExpandedReactions.addView(tv);
+
+                            long delay = 60L + (i / 6) * 30L + (i % 6) * 12L;
+                            tv.animate()
+                                    .alpha(1.0f)
+                                    .scaleX(1.0f)
+                                    .scaleY(1.0f)
+                                    .setStartDelay(delay)
+                                    .setDuration(220L)
+                                    .setInterpolator(new OvershootInterpolator(1.3f))
+                                    .start();
+                        }
+
+                        // 4. Плавное расширение высоты меню
+                        android.transition.TransitionManager.beginDelayedTransition(
+                                blurContextMenu != null ? blurContextMenu : (ViewGroup) menuView,
+                                new android.transition.AutoTransition()
+                                        .setDuration(280L)
+                                        .setInterpolator(new DecelerateInterpolator())
+                        );
+
+                        layoutExpandedReactionsContainer.setVisibility(View.VISIBLE);
+                    } else {
+                        popupWindow.dismiss();
+                        if (actionListener != null) {
+                            actionListener.onExpandReactions(message, anchorView, position);
+                        }
+                    }
                 }
             });
         }
@@ -3723,6 +3900,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         View popupView = LayoutInflater.from(context).inflate(R.layout.layout_reactions_popup, null);
 
+        BlurView blurReactionsPopup = popupView.findViewById(R.id.blurReactionsPopup);
+        if (blurReactionsPopup != null) {
+            Activity act = getActivityFromContext(context);
+            if (act != null) {
+                ViewGroup rootView = act.findViewById(android.R.id.content);
+                if (rootView == null) rootView = (ViewGroup) act.getWindow().getDecorView();
+                boolean isDark = (act.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+                int overlayColor = isDark ? Color.parseColor("#450F172A") : Color.parseColor("#45154B87");
+                com.messenger.prime.BlurViewKt.setupBlur(blurReactionsPopup, rootView, 18f, overlayColor, act.getWindow().getDecorView().getBackground());
+            }
+        }
+
         PopupWindow popupWindow = new PopupWindow(
                 popupView,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -3742,21 +3931,39 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         };
 
         float density = context.getResources().getDisplayMetrics().density;
-        for (String emoji : emojiList) {
+        int sizePx = (int) (38 * density);
+
+        if (flexGrid != null) {
+            flexGrid.removeAllViews();
+        }
+
+        for (int i = 0; i < emojiList.length; i++) {
+            String emoji = emojiList[i];
             TextView tv = new TextView(context);
             tv.setText(emoji);
             tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
             tv.setGravity(Gravity.CENTER);
-            int sizePx = (int) (38 * density);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(sizePx, sizePx);
             tv.setLayoutParams(lp);
             tv.setBackgroundResource(R.drawable.bg_emoji_chip);
             tv.setFocusable(true);
             tv.setClickable(true);
 
+            tv.setAlpha(0f);
+            tv.setScaleX(0.2f);
+            tv.setScaleY(0.2f);
+
             tv.setOnClickListener(v -> {
                 v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-                popupWindow.dismiss();
+                v.animate().scaleX(1.4f).scaleY(1.4f).setDuration(120L).start();
+                popupView.animate()
+                        .scaleX(0.85f)
+                        .scaleY(0.85f)
+                        .alpha(0f)
+                        .setDuration(160L)
+                        .withEndAction(popupWindow::dismiss)
+                        .start();
+
                 if (actionListener != null) {
                     actionListener.onQuickReaction(message, emoji, position);
                 }
@@ -3765,6 +3972,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (flexGrid != null) {
                 flexGrid.addView(tv);
             }
+
+            long delay = 40L + (i / 6) * 30L + (i % 6) * 12L;
+            tv.animate()
+                    .alpha(1.0f)
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setStartDelay(delay)
+                    .setDuration(220L)
+                    .setInterpolator(new OvershootInterpolator(1.3f))
+                    .start();
         }
 
         popupView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
@@ -3780,7 +3997,21 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             y = location[1] + anchorView.getHeight() + (int) (8 * density);
         }
 
+        popupView.setPivotX(popupWidth / 2f);
+        popupView.setPivotY(y < location[1] ? (float) popupHeight : 0f);
+        popupView.setAlpha(0f);
+        popupView.setScaleX(0.35f);
+        popupView.setScaleY(0.35f);
+
         popupWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY, x, y);
+
+        popupView.animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .alpha(1.0f)
+                .setDuration(280L)
+                .setInterpolator(new OvershootInterpolator(1.2f))
+                .start();
     }
 
     private void bindReactions(LinearLayout layoutMessageReaction, ChatMessage message, int position) {

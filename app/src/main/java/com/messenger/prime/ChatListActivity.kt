@@ -2960,6 +2960,7 @@ class ChatListActivity : AppCompatActivity() {
                                 .clickable { 
                                     isIncomingConnectionDialogVisible.value = false
                                     try { incomingSocket?.close() } catch (e: Exception) {}
+                                    incomingSocket = null
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -3003,6 +3004,7 @@ class ChatListActivity : AppCompatActivity() {
                                             onClick = {
                                                 isIncomingConnectionDialogVisible.value = false
                                                 try { incomingSocket?.close() } catch (e: Exception) {}
+                                                incomingSocket = null
                                             },
                                             modifier = Modifier.weight(1f).height(48.dp),
                                             shape = RoundedCornerShape(16.dp),
@@ -3016,6 +3018,7 @@ class ChatListActivity : AppCompatActivity() {
                                             onClick = {
                                                 isIncomingConnectionDialogVisible.value = false
                                                 val socket = incomingSocket
+                                                incomingSocket = null
                                                 if (socket != null && socket.isConnected) {
                                                     val remoteDevice = try { socket.remoteDevice } catch (e: Exception) { null }
                                                     if (remoteDevice != null) {
@@ -3406,6 +3409,12 @@ class ChatListActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         stopBluetoothScan()
+        stopAcceptThread()
+        isIncomingConnectionDialogVisible.value = false
+        isFoundDeviceDialogVisible.value = false
+        isContactDialogVisible.value = false
+        try { incomingSocket?.close() } catch (e: Exception) {}
+        incomingSocket = null
     }
 
     override fun onStop() {
@@ -3415,6 +3424,11 @@ class ChatListActivity : AppCompatActivity() {
         } catch (_: Exception) {}
         stopBluetoothScan()
         stopAcceptThread()
+        isIncomingConnectionDialogVisible.value = false
+        isFoundDeviceDialogVisible.value = false
+        isContactDialogVisible.value = false
+        try { incomingSocket?.close() } catch (e: Exception) {}
+        incomingSocket = null
         typingExpireHandler.removeCallbacks(typingExpireRunnable)
         ChatListNotifier.unsubscribe(onChatListChanged)
     }
@@ -4469,7 +4483,7 @@ class ChatListActivity : AppCompatActivity() {
                             }
                             ChatListNotifier.notifyChanged()
                         } else {
-                            if (!isIncomingConnectionDialogVisible.value) {
+                            if (!isIncomingConnectionDialogVisible.value && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
                                 triggerPrimeFoundVibration()
                                 incomingSocket = socket
                                 incomingDeviceName = devName
