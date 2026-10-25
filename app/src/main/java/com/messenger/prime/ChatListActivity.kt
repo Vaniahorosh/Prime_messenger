@@ -231,7 +231,7 @@ fun AnimatedSwipeableBottomSheet(
         val offsetY = remember { Animatable(1000f) }
         var isClosing by remember { mutableStateOf(false) }
 
-        val triggerDismiss: (onComplete: (() -> Unit)?) -> Unit = remember {
+        val triggerDismiss: (onComplete: (() -> Unit)?) -> Unit = remember(onDismissRequest) {
             { onComplete ->
                 if (!isClosing) {
                     isClosing = true
@@ -247,14 +247,21 @@ fun AnimatedSwipeableBottomSheet(
             }
         }
 
+        val context = LocalContext.current
+        val areAnimDisabled = remember(context) { PrimeTransitions.areAnimationsDisabled(context) }
+
         LaunchedEffect(Unit) {
-            offsetY.animateTo(
-                targetValue = 0f,
-                animationSpec = spring(
-                    dampingRatio = 0.82f,
-                    stiffness = Spring.StiffnessMediumLow
+            if (areAnimDisabled) {
+                offsetY.snapTo(0f)
+            } else {
+                offsetY.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        dampingRatio = 0.82f,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
                 )
-            )
+            }
         }
 
         val progress = (1f - (offsetY.value / 600f)).coerceIn(0f, 1f)
@@ -336,6 +343,28 @@ fun AnimatedSwipeableBottomSheet(
 
 @Composable
 fun RadarAnimation() {
+    val context = LocalContext.current
+    val areAnimDisabled = remember(context) { PrimeTransitions.areAnimationsDisabled(context) }
+
+    if (areAnimDisabled) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(100.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .scale(1.2f)
+                    .alpha(0.6f)
+                    .border(2.dp, Color(0xFF00E676), CircleShape)
+            )
+            Icon(
+                painter = painterResource(id = R.drawable.ic_prime_statusbar),
+                contentDescription = null,
+                tint = Color(0xFF00E676),
+                modifier = Modifier.size(36.dp)
+            )
+        }
+        return
+    }
+
     val infiniteTransition = rememberInfiniteTransition()
     val scale by infiniteTransition.animateFloat(
         initialValue = 0.5f,
@@ -451,6 +480,8 @@ class ChatListActivity : AppCompatActivity() {
     private val pairedDevices = mutableStateListOf<BluetoothDevice>()
     private val isScanningState = mutableStateOf(false)
     private val deviceRssiMap = mutableStateMapOf<String, Short>()
+    private val searchTimeoutHandler = Handler(Looper.getMainLooper())
+    private val searchTimeoutRunnable = Runnable { stopBluetoothScan() }
 
     private var topInsetPx: Int = 0
     private var bottomInsetPx: Int = 0
@@ -781,7 +812,6 @@ class ChatListActivity : AppCompatActivity() {
         // 4. Open ChatPersonActivity immediately
         runOnUiThread {
             stopBluetoothScan()
-            stopAcceptThread()
             isContactDialogVisible.value = false
             isIncomingConnectionDialogVisible.value = false
             isFoundDeviceDialogVisible.value = false
@@ -1134,11 +1164,13 @@ class ChatListActivity : AppCompatActivity() {
                     val totalItems = chatAdapter?.itemCount ?: 0
 
                     if (totalItems - lastVisible > 4) {
-                        if (b.fabScrollToBottom.visibility != View.VISIBLE) {
+                        b.fabScrollToBottom.animate().cancel()
+                        if (b.fabScrollToBottom.visibility != View.VISIBLE || b.fabScrollToBottom.alpha < 0.9f) {
                             b.fabScrollToBottom.visibility = View.VISIBLE
                             b.fabScrollToBottom.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(200).start()
                         }
                     } else {
+                        b.fabScrollToBottom.animate().cancel()
                         if (b.fabScrollToBottom.visibility == View.VISIBLE) {
                             b.fabScrollToBottom.animate().alpha(0f).scaleX(0.5f).scaleY(0.5f).setDuration(200)
                                 .withEndAction { b.fabScrollToBottom.visibility = View.GONE }.start()
@@ -1395,14 +1427,16 @@ class ChatListActivity : AppCompatActivity() {
                     val bytes = if (isGif) {
                         activity.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                     } else {
-                        val isStream = activity.contentResolver.openInputStream(uri)
-                        val bitmap = BitmapFactory.decodeStream(isStream)
-                        isStream?.close()
-                        if (bitmap != null) {
-                            val baos = ByteArrayOutputStream()
-                            bitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos)
-                            baos.toByteArray()
-                        } else null
+                        activity.contentResolver.openInputStream(uri)?.use { isStream ->
+                            val bitmap = BitmapFactory.decodeStream(isStream)
+                            if (bitmap != null) {
+                                val baos = ByteArrayOutputStream()
+                                bitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos)
+                                val result = baos.toByteArray()
+                                bitmap.recycle()
+                                result
+                            } else null
+                        }
                     }
 
                     if (bytes != null && bytes.isNotEmpty()) {
@@ -1523,6 +1557,14 @@ class ChatListActivity : AppCompatActivity() {
             activity.binding.vRightPaneWallpaper.visibility = View.VISIBLE
             activity.binding.vRightPaneWallpaper.updateThemeColors()
             activity.binding.vRightPaneWallpaper.startEntranceAnimation()
+        }
+
+        fun onDestroy() {
+            PrimeMusicManager.removeListener(this)
+            autoRetryHandler.removeCallbacksAndMessages(null)
+            BluetoothConnectionManager.getInstance().unregisterCallback(connectionCallback)
+            binding = null
+            chatAdapter = null
         }
 
         private var attachmentDialog: BottomSheetDialog? = null
@@ -2351,6 +2393,7 @@ class ChatListActivity : AppCompatActivity() {
                 }
                 BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
                     isScanningState.value = false
+                    searchTimeoutHandler.removeCallbacks(searchTimeoutRunnable)
                 }
             }
         }
@@ -2650,13 +2693,6 @@ class ChatListActivity : AppCompatActivity() {
                                                   hasPrimeUuid || isSavedInChats
                             if (isExplicitPrime) return@filter true
 
-                            val isUnknownName = name.isNullOrBlank() || 
-                                                name.equals("Неизвестное", ignoreCase = true) || 
-                                                name.equals("Unknown", ignoreCase = true) || 
-                                                name.equals("null", ignoreCase = true) ||
-                                                name.equals("1", ignoreCase = true)
-                            if (isUnknownName) return@filter false
-
                             val bluetoothClass = try { @Suppress("MissingPermission") device.bluetoothClass } catch (e: Exception) { null }
                             val majorClass = bluetoothClass?.majorDeviceClass
                             val lowerName = name?.lowercase() ?: ""
@@ -2707,14 +2743,29 @@ class ChatListActivity : AppCompatActivity() {
                     }.sortedByDescending { deviceRssiMap[it.first.address]?.toInt() ?: -100 }
 
                     if (isScanningState.value) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().height(90.dp)) {
-                            RadarAnimation()
-                            Text(
-                                text = if (primeOnlyDevices.isEmpty()) "Поиск Prime-пользователей..." else "Найдено Prime: ${primeOnlyDevices.size}",
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 12.sp,
-                                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp)
-                            )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().height(90.dp)) {
+                                RadarAnimation()
+                                Text(
+                                    text = if (primeOnlyDevices.isEmpty()) "Идет разовый поиск собеседников..." else "Найдено Prime: ${primeOnlyDevices.size}",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = { stopBluetoothScan() },
+                                modifier = Modifier.fillMaxWidth().height(38.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252)),
+                                border = BorderStroke(1.dp, Color(0xFFFF5252).copy(alpha = 0.5f))
+                            ) {
+                                Text("🛑 Остановить поиск", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
                         }
                     } else {
                         Button(
@@ -2723,7 +2774,7 @@ class ChatListActivity : AppCompatActivity() {
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676), contentColor = Color.Black)
                         ) {
-                            Text("⚡ Повторить поиск и авто-видимость", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                            Text("⚡ Начать поиск собеседников", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
                         }
                     }
                     
@@ -2854,8 +2905,10 @@ class ChatListActivity : AppCompatActivity() {
                             }
 
                             items(otherDevices, key = { "other_dev_" + it.first.address }) { (device, isPaired) ->
-                                var devName = try { @Suppress("MissingPermission") device.name ?: "Устройство" } catch (_: Exception) { "Устройство" }
-                                if (BluetoothAdapter.checkBluetoothAddress(devName)) devName = "Устройство"
+                                var devName = try { @Suppress("MissingPermission") device.name ?: "" } catch (_: Exception) { "" }
+                                if (devName.isBlank() || devName == "null" || devName == "Unknown" || devName == "Неизвестное" || devName == "1" || BluetoothAdapter.checkBluetoothAddress(devName)) {
+                                    devName = "Устройство " + device.address.takeLast(5)
+                                }
                                 val devMac = device.address
                                 val rssi = deviceRssiMap[devMac]
 
@@ -3368,6 +3421,19 @@ class ChatListActivity : AppCompatActivity() {
     private val avatarChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
+                "com.messenger.prime.STOP_ALL_SEARCH", "com.messenger.prime.DISCONNECT_REQUESTED" -> {
+                    runOnUiThread {
+                        stopBluetoothScan()
+                        isScanningState.value = false
+                        isContactDialogVisible.value = false
+                        isIncomingConnectionDialogVisible.value = false
+                        isFoundDeviceDialogVisible.value = false
+                        reloadChatsFromDb()
+                        if (::adapter.isInitialized) {
+                            adapter.notifyDataSetChanged()
+                        }
+                    }
+                }
                 "com.messenger.prime.CHAT_DELETED" -> {
                     reloadChatsFromDb()
                     ChatListNotifier.notifyChanged()
@@ -3387,11 +3453,23 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
+    private val globalBtCallback = object : BluetoothConnectionManager.ConnectionCallback {
+        override fun onStateChanged(deviceAddress: String?, state: BluetoothConnectionManager.ConnectionState?, deviceName: String?) {
+            runOnUiThread { reloadChatsFromDb() }
+        }
+        override fun onError(deviceAddress: String?, errorMessage: String?) {}
+        override fun onSendProgress(deviceAddress: String?, progress: Int) {}
+        override fun onPacketReceived(deviceAddress: String?, type: Byte, payload: ByteArray?) {}
+    }
+
     override fun onStart() {
         super.onStart()
         ChatListNotifier.subscribe(onChatListChanged)
+        BluetoothConnectionManager.getInstance().registerCallback(globalBtCallback)
         try {
             val filter = IntentFilter().apply {
+                addAction("com.messenger.prime.STOP_ALL_SEARCH")
+                addAction("com.messenger.prime.DISCONNECT_REQUESTED")
                 addAction("com.messenger.prime.CHAT_DELETED")
                 addAction("com.messenger.prime.AVATAR_CHANGED")
                 addAction("com.messenger.prime.NAV_STYLE_CHANGED")
@@ -3409,7 +3487,6 @@ class ChatListActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         stopBluetoothScan()
-        stopAcceptThread()
         isIncomingConnectionDialogVisible.value = false
         isFoundDeviceDialogVisible.value = false
         isContactDialogVisible.value = false
@@ -3419,11 +3496,11 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        BluetoothConnectionManager.getInstance().unregisterCallback(globalBtCallback)
         try {
             unregisterReceiver(avatarChangedReceiver)
         } catch (_: Exception) {}
         stopBluetoothScan()
-        stopAcceptThread()
         isIncomingConnectionDialogVisible.value = false
         isFoundDeviceDialogVisible.value = false
         isContactDialogVisible.value = false
@@ -3454,9 +3531,7 @@ class ChatListActivity : AppCompatActivity() {
         }
         isPulling = false; isThresholdCrossed = false
         if (bluetoothAdapter != null && bluetoothAdapter!!.isEnabled) {
-            if (acceptThread == null || !acceptThread!!.isAlive) {
-                startAcceptThread()
-            }
+            BluetoothConnectionManager.getInstance().startServer(bluetoothAdapter, primeUuid)
         }
     }
 
@@ -4031,18 +4106,23 @@ class ChatListActivity : AppCompatActivity() {
                     binding.layoutEmptyState.visibility = View.VISIBLE
                     
                     binding.layoutIslandHeader.vStartChatHighlightRing.visibility = View.VISIBLE
-                    val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.4f)
-                    val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.4f)
-                    val alpha = PropertyValuesHolder.ofFloat(View.ALPHA, 1f, 0f)
-                    
-                    val pulse = ObjectAnimator.ofPropertyValuesHolder(binding.layoutIslandHeader.vStartChatHighlightRing, scaleX, scaleY, alpha)
-                    pulse.duration = 1500
-                    pulse.repeatCount = ObjectAnimator.INFINITE
-                    pulse.start()
+                    if (highlightPulseAnimator == null || !highlightPulseAnimator!!.isRunning) {
+                        val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.4f)
+                        val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.4f)
+                        val alpha = PropertyValuesHolder.ofFloat(View.ALPHA, 1f, 0f)
+                        
+                        val pulse = ObjectAnimator.ofPropertyValuesHolder(binding.layoutIslandHeader.vStartChatHighlightRing, scaleX, scaleY, alpha)
+                        pulse.duration = 1500
+                        pulse.repeatCount = ObjectAnimator.INFINITE
+                        highlightPulseAnimator = pulse
+                        pulse.start()
+                    }
                 } else {
                     binding.layoutEmptyState.visibility = View.GONE
                     binding.layoutIslandHeader.vStartChatHighlightRing.visibility = View.GONE
                     binding.layoutIslandHeader.vStartChatHighlightRing.clearAnimation()
+                    highlightPulseAnimator?.cancel()
+                    highlightPulseAnimator = null
                 }
             }
         }
@@ -4149,7 +4229,11 @@ class ChatListActivity : AppCompatActivity() {
                             val finalAvatar = if (!resolvedAvatar.isNullOrEmpty()) resolvedAvatar else (if (rawAvatar.isNullOrEmpty()) null else rawAvatar)
 
                             val savedStatusStr = item.optString("onlineStatus", "OFFLINE")
-                            val realOnlineStatus = if ("ONLINE".equals(savedStatusStr, ignoreCase = true)) {
+                            val isBtConnected = (idStr.isNotEmpty() && BluetoothConnectionManager.getInstance().isConnected(idStr)) ||
+                                                (finalName.isNotEmpty() && BluetoothConnectionManager.getInstance().isConnected(finalName)) ||
+                                                BluetoothSocketHolder.isConnectedWith(idStr, finalName)
+
+                            val realOnlineStatus = if ("ONLINE".equals(savedStatusStr, ignoreCase = true) || isBtConnected) {
                                 OnlineStatus.ONLINE
                             } else {
                                 OnlineStatus.OFFLINE
@@ -4343,13 +4427,16 @@ class ChatListActivity : AppCompatActivity() {
 
         performDiscovery()
 
-        try {
-            val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-                putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120)
+        // Only prompt for discoverability if not already discoverable to avoid loop of system prompts
+        if (bluetoothAdapter?.scanMode != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
+            try {
+                val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120)
+                }
+                enableDiscoverableLauncher.launch(discoverableIntent)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-            enableDiscoverableLauncher.launch(discoverableIntent)
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 
@@ -4388,6 +4475,9 @@ class ChatListActivity : AppCompatActivity() {
         deviceRssiMap.clear()
         isScanningState.value = true
 
+        searchTimeoutHandler.removeCallbacks(searchTimeoutRunnable)
+        searchTimeoutHandler.postDelayed(searchTimeoutRunnable, 30000L)
+
         if (!isReceiverRegistered) {
             val filter = IntentFilter().apply {
                 addAction(BluetoothDevice.ACTION_FOUND)
@@ -4410,107 +4500,12 @@ class ChatListActivity : AppCompatActivity() {
             e.printStackTrace()
         }
 
-        startAcceptThread()
-    }
-
-    private var acceptThread: AcceptThread? = null
-
-    @SuppressLint("MissingPermission")
-    private fun startAcceptThread() {
-        stopAcceptThread()
-        acceptThread = AcceptThread().apply { start() }
-    }
-
-    private fun stopAcceptThread() {
-        try {
-            acceptThread?.cancel()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        acceptThread = null
-    }
-
-    private val primeUuidForServer = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66")
-
-    @SuppressLint("MissingPermission")
-    private inner class AcceptThread : Thread() {
-        private var mmServerSocket: BluetoothServerSocket? = null
-        @Volatile private var isRunning = true
-
-        init {
-            try {
-                mmServerSocket = bluetoothAdapter?.listenUsingInsecureRfcommWithServiceRecord("PrimeChat", primeUuidForServer)
-            } catch (e: Exception) {
-                Log.e("ChatListActivity", "AcceptThread listen failed", e)
-            }
-        }
-
-        override fun run() {
-            val serverSocket = mmServerSocket ?: return
-            while (isRunning && !isInterrupted) {
-                val socket: BluetoothSocket = try {
-                    serverSocket.accept()
-                } catch (e: Exception) {
-                    break
-                }
-
-                if (socket.isConnected) {
-                    val device = try { socket.remoteDevice } catch (e: Exception) { null }
-                    val devMac = device?.address ?: ""
-                    val devName = try { device?.name ?: "Prime Собеседник" } catch (e: Exception) { "Prime Собеседник" }
-
-                    runOnUiThread {
-                        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                            if (device != null) {
-                                BluetoothConnectionManager.getInstance().onSocketConnected(socket, device)
-                            } else {
-                                BluetoothSocketHolder.registerConnection(devMac, devName, socket, null)
-                            }
-                            ChatListNotifier.notifyChanged()
-                            return@runOnUiThread
-                        }
-
-                        val isKnown = chatListState.any {
-                            it.id.equals(devMac, ignoreCase = true) ||
-                            (!devName.isNullOrBlank() && it.name.equals(devName, ignoreCase = true))
-                        } || (device != null && device.bondState == BluetoothDevice.BOND_BONDED)
-
-                        if (isKnown || !isContactDialogVisible.value) {
-                            if (device != null) {
-                                BluetoothConnectionManager.getInstance().onSocketConnected(socket, device)
-                            } else {
-                                BluetoothSocketHolder.registerConnection(devMac, devName, socket, null)
-                            }
-                            ChatListNotifier.notifyChanged()
-                        } else {
-                            if (!isIncomingConnectionDialogVisible.value && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                                triggerPrimeFoundVibration()
-                                incomingSocket = socket
-                                incomingDeviceName = devName
-                                incomingDeviceMac = devMac
-                                isIncomingConnectionDialogVisible.value = true
-                            } else {
-                                if (device != null) {
-                                    BluetoothConnectionManager.getInstance().onSocketConnected(socket, device)
-                                } else {
-                                    BluetoothSocketHolder.registerConnection(devMac, devName, socket, null)
-                                }
-                                ChatListNotifier.notifyChanged()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        fun cancel() {
-            isRunning = false
-            try { mmServerSocket?.close() } catch (e: Exception) {}
-        }
+        BluetoothConnectionManager.getInstance().startServer(btAdapter, primeUuid)
     }
 
     @SuppressLint("MissingPermission")
     private fun stopBluetoothScan() {
+        searchTimeoutHandler.removeCallbacks(searchTimeoutRunnable)
         isScanningState.value = false
         try { bluetoothAdapter?.cancelDiscovery() } catch (e: Exception) {}
 
@@ -4523,10 +4518,18 @@ class ChatListActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         stopBluetoothScan()
-        stopAcceptThread()
+        highlightPulseAnimator?.cancel()
+        highlightPulseAnimator = null
+        embeddedChatController?.onDestroy()
+        embeddedChatController = null
+        activeEmbeddedChatViewController = null
         typingExpireHandler.removeCallbacksAndMessages(null)
-        connectivityManager.unregisterNetworkCallback(networkCallback)
-        getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(prefListener)
+        try {
+            connectivityManager.unregisterNetworkCallback(networkCallback)
+        } catch (_: Exception) {}
+        try {
+            getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(prefListener)
+        } catch (_: Exception) {}
     }
     override fun finish() {
         super.finish()

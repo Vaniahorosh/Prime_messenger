@@ -3,8 +3,10 @@
     <!-- Prime Brand (Dark Theme Accent) -->
     <color name="prime_brand">#4D9FFF</color>
     <color name="prime_accent">#4D9FFF</color>
+    <color name="prime_brand_alpha_15">#264D9FFF</color>
     <color name="prime_brand_alpha_80">#CC4D9FFF</color>
     <color name="prime_brand_alpha_85">#D94D9FFF</color>
+    <color name="prime_blur_overlay">#D90F172A</color>
 
     <!-- Semantic Colors (Dark Theme) -->
     <color name="login_background">#0F172A</color>

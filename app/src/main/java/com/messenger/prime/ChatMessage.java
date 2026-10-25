@@ -301,7 +301,22 @@ public class ChatMessage {
     }
 
     public boolean isVideoNote() {
-        return text != null && text.startsWith("VIDEO_NOTE:");
+        if (text != null && (text.startsWith("VIDEO_NOTE:") || text.startsWith("vn_") || text.equals("📹 Видеосообщение"))) {
+            return true;
+        }
+        if (fileName != null) {
+            String lowerFn = fileName.toLowerCase(Locale.US);
+            if (lowerFn.contains("video_note") || lowerFn.contains("video_notes") || lowerFn.contains("vn_")) {
+                return true;
+            }
+        }
+        if (imagePath != null) {
+            String lowerPath = imagePath.toLowerCase(Locale.US);
+            if (lowerPath.contains("video_note") || lowerPath.contains("video_notes") || lowerPath.contains("/vn_") || lowerPath.contains("_vn_")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean isVideo() {

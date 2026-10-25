@@ -12,6 +12,8 @@
         <item name="colorOnSecondaryContainer">@color/prime_text_primary</item>
         <item name="android:windowBackground">@color/prime_base</item>
         <item name="android:colorBackground">@color/prime_base</item>
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
         <item name="colorSurface">@color/prime_surface</item>
         <item name="colorOnSurface">@color/prime_text_primary</item>
         <item name="colorSurfaceVariant">@color/prime_search_bg</item>

@@ -519,6 +519,17 @@ class SettingsActivity : AppCompatActivity() {
                             currentAvatarIndex = if (currentAvatarIndex - 1 < 0) history.size - 1 else currentAvatarIndex - 1
                         }
                         animateAvatarCardSlide(b.ivPhotoCard, isRightToLeft) {
+                            val h = AvatarHistoryManager.getMyAvatarHistory(this@SettingsActivity)
+                            if (currentAvatarIndex in h.indices) {
+                                val selectedUri = h[currentAvatarIndex]
+                                AvatarHistoryManager.addMyAvatar(this@SettingsActivity, selectedUri)
+                                currentAvatarIndex = 0
+                                currentAvatarUri = selectedUri
+                                avatarUriState.value = selectedUri
+                                applyAvatarState(selectedUri)
+                                java.util.concurrent.Executors.newSingleThreadExecutor().execute { sendProfileUpdateOverBluetooth() }
+                                sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
+                            }
                             updatePhotoCardImage(b)
                         }
                         return true
@@ -645,7 +656,7 @@ class SettingsActivity : AppCompatActivity() {
                     updatePhotoCardImage(b)
                 }
                 applyAvatarState(uri)
-                Executors.newSingleThreadExecutor().execute { sendProfileUpdateOverBluetooth() }
+                java.util.concurrent.Executors.newSingleThreadExecutor().execute { sendProfileUpdateOverBluetooth() }
                 sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
                 PrimeNotification.show(this@SettingsActivity, "Аватарка обновлена")
             }
@@ -796,7 +807,7 @@ class SettingsActivity : AppCompatActivity() {
 
         fun updateActiveTabUI(activeTab: TextView?, sectionName: String) {
             val accentColor = ColorAccentManager.getCurrentAccentColor(this)
-            val tabs = listOfNotNull(b.tabStickyProfile, b.tabStickyTheme, b.tabStickyChat, b.tabStickyData, b.tabStickyInfo)
+            val tabs = listOfNotNull(b.tabStickyProfile, b.tabStickyTheme, b.tabStickyChat, b.tabStickyBrowser, b.tabStickyData, b.tabStickyInfo)
             tabs.forEach { tab ->
                 if (tab == activeTab) {
                     tab.setTextColor(accentColor)
@@ -831,6 +842,10 @@ class SettingsActivity : AppCompatActivity() {
 
         b.tabStickyChat?.setOnClickListener {
             b.layoutChatHeader?.let { smoothScrollToView(b.nestedScrollView, it) }
+        }
+
+        b.tabStickyBrowser?.setOnClickListener {
+            b.layoutBrowserHeader?.let { smoothScrollToView(b.nestedScrollView, it) }
         }
 
         b.tabStickyData.setOnClickListener {
@@ -896,6 +911,21 @@ class SettingsActivity : AppCompatActivity() {
             true
         }
 
+        b.tabStickyBrowser?.setOnLongClickListener { v ->
+            PrimePopupMenu.create(this, v)
+                .addItem(1, "Встроенный браузер", R.drawable.ic_globe) {
+                    b.layoutBrowserHeader?.let { smoothScrollToView(b.nestedScrollView, it) }
+                }
+                .addItem(2, "Поисковая система", R.drawable.ic_search) {
+                    smoothScrollToView(b.nestedScrollView, b.cardBrowserSettings)
+                }
+                .addItem(3, "Очистить кэш", R.drawable.ic_trash) {
+                    smoothScrollToView(b.nestedScrollView, b.layoutClearBrowserCache)
+                }
+                .show()
+            true
+        }
+
         b.tabStickyData.setOnLongClickListener { v ->
             PrimePopupMenu.create(this, v)
                 .addItem(1, "Память Прайма", R.drawable.ic_file) {
@@ -934,7 +964,8 @@ class SettingsActivity : AppCompatActivity() {
             val profileStart = 0
             val themeStart = (getViewTopInContent(b.layoutSettingsHeader, contentView) - offset).coerceAtLeast(1)
             val chatStart = b.layoutChatHeader?.let { (getViewTopInContent(it, contentView) - offset).coerceAtLeast(themeStart + 1) } ?: (themeStart + 1)
-            val dataStart = (getViewTopInContent(b.layoutDataHeader, contentView) - offset).coerceAtLeast(chatStart + 1)
+            val browserStart = b.layoutBrowserHeader?.let { (getViewTopInContent(it, contentView) - offset).coerceAtLeast(chatStart + 1) } ?: (chatStart + 1)
+            val dataStart = (getViewTopInContent(b.layoutDataHeader, contentView) - offset).coerceAtLeast(browserStart + 1)
             val infoStart = (getViewTopInContent(b.layoutInfoHeader, contentView) - offset).coerceAtLeast(dataStart + 1)
 
             val sectionStart: Int
@@ -952,11 +983,16 @@ class SettingsActivity : AppCompatActivity() {
                 sectionEnd = chatStart
                 activeTab = b.tabStickyTheme
                 sectionName = "Оформление"
-            } else if (scrollY < dataStart) {
+            } else if (scrollY < browserStart) {
                 sectionStart = chatStart
-                sectionEnd = dataStart
+                sectionEnd = browserStart
                 activeTab = b.tabStickyChat
                 sectionName = "В чате"
+            } else if (scrollY < dataStart) {
+                sectionStart = browserStart
+                sectionEnd = dataStart
+                activeTab = b.tabStickyBrowser
+                sectionName = "Браузер"
             } else if (scrollY < infoStart) {
                 sectionStart = dataStart
                 sectionEnd = infoStart
@@ -1140,16 +1176,12 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         b.cardGithub.setOnClickListener {
-            try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Vaniahorosh/Prime_messenger"))
-                startActivity(intent)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            com.messenger.prime.browser.AppBrowserManager.openUrl(this, "https://github.com/Vaniahorosh/Prime_messenger")
         }
 
         setupThanksCard(b)
         setupStorageSection(b)
+        setupBrowserSection(b)
         setupWallpaperSection(b)
         setupNavStyleSection(b)
         setupBubbleRadiusSection(b)
@@ -1157,6 +1189,70 @@ class SettingsActivity : AppCompatActivity() {
         setupBottomBarRadiusSection(b)
         setupVideoMessageSection(b)
         setupDisableAnimationsSection(b)
+    }
+
+    private fun setupBrowserSection(b: ActivitySettingsContentBinding) {
+        val context = this
+
+        // 1. Switch Use Internal Browser
+        b.switchUseInternalBrowser.isChecked = com.messenger.prime.browser.BrowserPreferences.isInternalBrowserEnabled(context)
+        b.switchUseInternalBrowser.setOnCheckedChangeListener { _, isChecked ->
+            com.messenger.prime.browser.BrowserPreferences.setInternalBrowserEnabled(context, isChecked)
+        }
+
+        // 2. Search Engine Spinner
+        val searchEngines = arrayOf("Google", "Яндекс", "DuckDuckGo", "Bing")
+        val searchEngineAdapter = android.widget.ArrayAdapter(context, android.R.layout.simple_spinner_item, searchEngines)
+        searchEngineAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        b.spinnerSearchEngine.adapter = searchEngineAdapter
+
+        val currentEngine = com.messenger.prime.browser.BrowserPreferences.getSearchEngine(context)
+        val selectedIndex = searchEngines.indexOf(currentEngine).coerceAtLeast(0)
+        b.spinnerSearchEngine.setSelection(selectedIndex)
+
+        b.spinnerSearchEngine.setOnTouchListener { v, event ->
+            if (event.action == android.view.MotionEvent.ACTION_UP) {
+                val current = searchEngines.indexOf(com.messenger.prime.browser.BrowserPreferences.getSearchEngine(context)).coerceAtLeast(0)
+                val menu = PrimePopupMenu.create(context, v)
+                searchEngines.forEachIndexed { index, title ->
+                    menu.addItem(title, isSelected = (index == current)) {
+                        b.spinnerSearchEngine.setSelection(index)
+                        com.messenger.prime.browser.BrowserPreferences.setSearchEngine(context, title)
+                    }
+                }
+                menu.show()
+            }
+            true
+        }
+
+        // 3. Switch JS
+        b.switchBrowserJs.isChecked = com.messenger.prime.browser.BrowserPreferences.isJavaScriptEnabled(context)
+        b.switchBrowserJs.setOnCheckedChangeListener { _, isChecked ->
+            com.messenger.prime.browser.BrowserPreferences.setJavaScriptEnabled(context, isChecked)
+        }
+
+        // 4. Switch Cookies & Cache
+        b.switchBrowserCookies.isChecked = com.messenger.prime.browser.BrowserPreferences.areCookiesEnabled(context)
+        b.switchBrowserCookies.setOnCheckedChangeListener { _, isChecked ->
+            com.messenger.prime.browser.BrowserPreferences.setCookiesEnabled(context, isChecked)
+        }
+
+        // 5. Switch Desktop Mode default
+        b.switchBrowserDesktopMode.isChecked = com.messenger.prime.browser.BrowserPreferences.isDesktopModeEnabled(context)
+        b.switchBrowserDesktopMode.setOnCheckedChangeListener { _, isChecked ->
+            com.messenger.prime.browser.BrowserPreferences.setDesktopModeEnabled(context, isChecked)
+        }
+
+        // 6. Clear Browser Cache
+        b.layoutClearBrowserCache.setOnClickListener {
+            try {
+                android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                android.webkit.WebStorage.getInstance().deleteAllData()
+                android.widget.Toast.makeText(context, "Кэш и данные браузера очищены", android.widget.Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "Ошибка при очистке кэша", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun setupBottomBarRadiusSection(b: ActivitySettingsContentBinding) {
@@ -1867,14 +1963,16 @@ class SettingsActivity : AppCompatActivity() {
     private fun calculateStorageAsync(b: ActivitySettingsContentBinding) {
         lifecycleScope.launch(Dispatchers.IO) {
             val bd = StorageBreakdown()
-            val files = filesDir.listFiles() ?: emptyArray()
+            val allFiles = filesDir.walkTopDown().filter { it.isFile }.toList()
 
-            for (f in files) {
-                if (!f.isFile) continue
+            for (f in allFiles) {
                 val len = f.length()
                 val name = f.name.lowercase(Locale.US)
 
-                if (name.startsWith("my_profile_avatar")) continue
+                // Protect user profile assets, custom wallpapers, and database/json files
+                if (name.startsWith("my_profile_avatar") || name.startsWith("my_avatar") || name.startsWith("wallpaper_img_") || name.endsWith(".json") || name.endsWith(".xml")) {
+                    continue
+                }
 
                 if (name.startsWith("avatar_") || name.startsWith("rec_avatar_") || name.startsWith("tmp_contact_avatar_")) {
                     bd.avatarsSize += len
@@ -1882,19 +1980,19 @@ class SettingsActivity : AppCompatActivity() {
                 } else if (name.endsWith(".gif") || name.startsWith("tenor_")) {
                     bd.gifsSize += len
                     bd.gifsCount++
-                } else if (name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".3gp") || name.endsWith(".webm") || name.endsWith(".mov") || name.endsWith(".avi") || name.startsWith("rec_video_")) {
+                } else if (name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".3gp") || name.endsWith(".webm") || name.endsWith(".mov") || name.endsWith(".avi") || name.startsWith("rec_video_") || name.startsWith("rec_circle_") || name.startsWith("rec_videonote_") || f.parentFile?.name == "video_notes") {
                     bd.videosSize += len
                     bd.videosCount++
                 } else if (name.endsWith(".aac") || name.endsWith(".m4a") || name.endsWith(".opus") || name.endsWith(".mp3") || name.endsWith(".ogg") || name.endsWith(".wav") || name.startsWith("rec_voice_") || name.startsWith("audio_")) {
                     bd.audioSize += len
                     bd.audioCount++
-                } else if (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".webp") || name.startsWith("rec_photo_") || name.startsWith("cache_img_")) {
+                } else if (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".webp") || name.startsWith("rec_photo_") || name.startsWith("cache_img_") || name.startsWith("cam_photo_")) {
                     bd.photosSize += len
                     bd.photosCount++
-                } else if (name.startsWith("tmp_") || name.endsWith(".tmp") || name.endsWith(".dat") || name.endsWith(".log")) {
+                } else if (name.startsWith("tmp_") || name.endsWith(".tmp") || name.endsWith(".dat") || name.endsWith(".log") || name.startsWith("cam_video_")) {
                     bd.cacheSize += len
                     bd.cacheCount++
-                } else if (!name.endsWith(".json") && !name.endsWith(".xml")) {
+                } else {
                     bd.filesSize += len
                     bd.filesCount++
                 }
@@ -2026,21 +2124,23 @@ class SettingsActivity : AppCompatActivity() {
             val deleteAvatars = b.cbStorageAvatars.isChecked
             val deleteCache = b.cbStorageCache.isChecked
 
-            val files = filesDir.listFiles() ?: emptyArray()
+            val allFiles = filesDir.walkTopDown().filter { it.isFile }.toList()
 
-            for (f in files) {
-                if (!f.isFile) continue
+            for (f in allFiles) {
                 val name = f.name.lowercase(Locale.US)
                 val len = f.length()
 
-                if (name.startsWith("my_profile_avatar")) continue
+                // Protect user profile assets, custom wallpapers, and database/json files
+                if (name.startsWith("my_profile_avatar") || name.startsWith("my_avatar") || name.startsWith("wallpaper_img_") || name.endsWith(".json") || name.endsWith(".xml")) {
+                    continue
+                }
 
                 val isAvatar = name.startsWith("avatar_") || name.startsWith("rec_avatar_") || name.startsWith("tmp_contact_avatar_")
                 val isGif = name.endsWith(".gif") || name.startsWith("tenor_")
-                val isVid = name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".3gp") || name.endsWith(".webm") || name.endsWith(".mov") || name.endsWith(".avi") || name.startsWith("rec_video_")
+                val isVid = name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".3gp") || name.endsWith(".webm") || name.endsWith(".mov") || name.endsWith(".avi") || name.startsWith("rec_video_") || name.startsWith("rec_circle_") || name.startsWith("rec_videonote_") || f.parentFile?.name == "video_notes"
                 val isAud = name.endsWith(".aac") || name.endsWith(".m4a") || name.endsWith(".opus") || name.endsWith(".mp3") || name.endsWith(".ogg") || name.endsWith(".wav") || name.startsWith("rec_voice_") || name.startsWith("audio_")
-                val isPhoto = name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".webp") || name.startsWith("rec_photo_") || name.startsWith("cache_img_")
-                val isTmp = name.startsWith("tmp_") || name.endsWith(".tmp") || name.endsWith(".dat") || name.endsWith(".log")
+                val isPhoto = name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".webp") || name.startsWith("rec_photo_") || name.startsWith("cache_img_") || name.startsWith("cam_photo_")
+                val isTmp = name.startsWith("tmp_") || name.endsWith(".tmp") || name.endsWith(".dat") || name.endsWith(".log") || name.startsWith("cam_video_")
 
                 var delete = false
                 if (isAvatar && deleteAvatars) delete = true
@@ -2049,7 +2149,7 @@ class SettingsActivity : AppCompatActivity() {
                 else if (isAud && deleteAudio) delete = true
                 else if (isPhoto && deletePhotos) delete = true
                 else if (isTmp && deleteCache) delete = true
-                else if (!isAvatar && !isGif && !isVid && !isAud && !isPhoto && !isTmp && !name.endsWith(".json") && !name.endsWith(".xml") && deleteFiles) delete = true
+                else if (!isAvatar && !isGif && !isVid && !isAud && !isPhoto && !isTmp && deleteFiles) delete = true
 
                 if (delete) {
                     try {
@@ -2090,6 +2190,11 @@ class SettingsActivity : AppCompatActivity() {
                         }
                     }
                     Glide.get(applicationContext).clearDiskCache()
+                    withContext(Dispatchers.Main) {
+                        try {
+                            android.webkit.WebStorage.getInstance().deleteAllData()
+                        } catch (_: Exception) {}
+                    }
                 } catch (_: Exception) {}
             }
 
@@ -2210,13 +2315,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun openGithubDev() {
-        try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Vaniahorosh"))
-            startActivity(intent)
-            PrimeTransitions.applyOpenTransition(this)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        com.messenger.prime.browser.AppBrowserManager.openUrl(this, "https://github.com/Vaniahorosh")
     }
 
     private fun spawnFloatingHeart(b: ActivitySettingsContentBinding, x: Float, y: Float) {
@@ -3004,20 +3103,20 @@ class SettingsActivity : AppCompatActivity() {
 
             if (!localAvatarUri.isNullOrEmpty()) {
                 try {
-                    val uri = if (localAvatarUri.startsWith("content://") || localAvatarUri.startsWith("file://") || localAvatarUri.startsWith("http")) {
+                    val uri = if (localAvatarUri.startsWith("content://") || localAvatarUri.startsWith("file://") || localAvatarUri.startsWith("android.resource://") || localAvatarUri.startsWith("http")) {
                         Uri.parse(localAvatarUri)
                     } else {
                         Uri.fromFile(File(localAvatarUri))
                     }
-                    val isStream = contentResolver.openInputStream(uri)
-                    if (isStream != null) {
+                    contentResolver.openInputStream(uri)?.use { isStream ->
                         val bitmap = BitmapFactory.decodeStream(isStream)
-                        isStream.close()
                         if (bitmap != null) {
                             val scaled = Bitmap.createScaledBitmap(bitmap, 96, 96, false)
                             val baos = ByteArrayOutputStream()
                             scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos)
                             BluetoothConnectionManager.getInstance().broadcastPacket(0x07.toByte(), baos.toByteArray())
+                            if (scaled != bitmap) scaled.recycle()
+                            bitmap.recycle()
                         }
                     }
                 } catch (e: Exception) {

@@ -219,6 +219,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         try {
             reconnectHandler.removeCallbacksAndMessages(null);
             pendingReconnects.clear();
+            reconnectAttempts.clear();
         } catch (Throwable ignored) {}
 
         try {
@@ -235,6 +236,11 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         try {
             Intent stopSearchIntent = new Intent("com.messenger.prime.STOP_ALL_SEARCH").setPackage(getPackageName());
             sendBroadcast(stopSearchIntent);
+        } catch (Throwable ignored) {}
+
+        try {
+            Intent disconnectIntent = new Intent("com.messenger.prime.DISCONNECT_REQUESTED").setPackage(getPackageName());
+            sendBroadcast(disconnectIntent);
         } catch (Throwable ignored) {}
 
         try {

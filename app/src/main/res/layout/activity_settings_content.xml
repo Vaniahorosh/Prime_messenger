@@ -2479,6 +2479,275 @@
 
                 </LinearLayout>
 
+                <!-- Разделитель "БРАУЗЕР" с линиями -->
+                <LinearLayout
+                    android:id="@+id/layoutBrowserHeader"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:layout_marginHorizontal="24dp"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1"
+                        android:background="@color/prime_brand_dark" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="16dp"
+                        android:text="БРАУЗЕР"
+                        android:textColor="@color/prime_brand"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="true"
+                        android:letterSpacing="0.1" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1"
+                        android:background="@color/prime_brand_dark" />
+                </LinearLayout>
+
+                <!-- Единый блок настроек встроенного браузера -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardBrowserSettings"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginHorizontal="24dp"
+                    app:cardBackgroundColor="@color/prime_surface"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Встроенный веб-браузер"
+                            android:textColor="@color/prime_text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <!-- Использовать встроенный браузер -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="16dp"
+                            android:gravity="center_vertical">
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Использовать встроенный браузер"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="15sp"/>
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Открывать ссылки в выезжающей шторке приложения"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp"/>
+                            </LinearLayout>
+                            <com.google.android.material.materialswitch.MaterialSwitch
+                                android:id="@+id/switchUseInternalBrowser"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:checked="true"/>
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/prime_divider"
+                            android:layout_marginVertical="16dp" />
+
+                        <!-- Поисковая система -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Поисковая система"
+                                android:textColor="@color/prime_text_primary"
+                                android:textSize="15sp"/>
+                            <Spinner
+                                android:id="@+id/spinnerSearchEngine"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/prime_divider"
+                            android:layout_marginVertical="16dp" />
+
+                        <!-- JavaScript -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Включить JavaScript"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="15sp"/>
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Необходимо для интерактивных сайтов"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp"/>
+                            </LinearLayout>
+                            <com.google.android.material.materialswitch.MaterialSwitch
+                                android:id="@+id/switchBrowserJs"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:checked="true"/>
+                        </LinearLayout>
+
+                        <!-- Сохранять куки и кэш -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="16dp"
+                            android:gravity="center_vertical">
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Сохранять кэш и данные сайтов"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="15sp"/>
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Сохраняет авторизацию и ускоряет загрузку"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp"/>
+                            </LinearLayout>
+                            <com.google.android.material.materialswitch.MaterialSwitch
+                                android:id="@+id/switchBrowserCookies"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:checked="true"/>
+                        </LinearLayout>
+
+                        <!-- Версия для ПК по умолчанию -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="16dp"
+                            android:gravity="center_vertical">
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Запрашивать версию для ПК"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="15sp"/>
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Открывать десктопные версии сайтов"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp"/>
+                            </LinearLayout>
+                            <com.google.android.material.materialswitch.MaterialSwitch
+                                android:id="@+id/switchBrowserDesktopMode"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:checked="false"/>
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/prime_divider"
+                            android:layout_marginVertical="16dp" />
+
+                        <!-- Очистить данные и кэш браузера -->
+                        <LinearLayout
+                            android:id="@+id/layoutClearBrowserCache"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingVertical="8dp">
+
+                            <ImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:src="@drawable/ic_trash"
+                                app:tint="@color/prime_danger" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginStart="12dp"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Очистить кэш браузера"
+                                    android:textColor="@color/prime_danger"
+                                    android:textSize="15sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Удалить сохраненные файлы, куки и историю"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
                 <!-- Разделитель "Данные" с линиями -->
                 <LinearLayout
                     android:id="@+id/layoutDataHeader"
@@ -3401,7 +3670,7 @@
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:text="Прочие благодарности:"
-                                    android:textColor="@color/prime_text_secondary"
+                                    android:textColor="#949CC5"
                                     android:textSize="12sp"
                                     android:textStyle="bold"
                                     android:layout_marginBottom="4dp" />
@@ -3410,7 +3679,7 @@
                                     android:id="@+id/tvThanksOthersList"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="• Григорий Хрюнов\n• Креветки с акулами и круто\n• Бочке регенератор\n• Финский снайпер\n• Тупейший сынище\n• Умнейший сынище\n• Леха Тайлер\n• Сургута не существует\n• Сырники\n• Игра на виолончели\n• Разгон ксеон"
+                                    android:text="• Григорий Хрюнов\n• Креветки с акулами и круто\n• Бочка регенератор\n• Финский снайпер\n• Тупейший сынище\n• Умнейший сынище\n• Леха Тайлер\n• Сургута не существует\n• Сырники\n• Игра на виолончели\n• Разгон ксеон\n• Мужик Иволга\n• Моя прайм эра\n• Ждун"
                                     android:textColor="@color/prime_text_primary"
                                     android:textSize="12sp"
                                     android:lineSpacingExtra="3dp" />
@@ -3573,6 +3842,20 @@
                         android:paddingHorizontal="10dp"
                         android:paddingVertical="6dp"
                         android:text="• В чате"
+                        android:textColor="@color/prime_text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    <TextView
+                        android:id="@+id/tabStickyBrowser"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="6dp"
+                        android:text="• Браузер"
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="13sp"
                         android:textStyle="bold"

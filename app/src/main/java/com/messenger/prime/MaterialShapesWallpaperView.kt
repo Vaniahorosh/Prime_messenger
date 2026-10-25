@@ -241,6 +241,11 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         paint.color = baseColor
         strokePaint.color = baseColor
 
+        val isLoopingPattern = wp.type == "PATTERN" && wp.isAnimated && wp.animationEffect in listOf("float", "pulse", "rotate")
+        if (isLoopingPattern && (animator == null || !animator!!.isRunning)) {
+            startEntranceAnimation()
+        }
+
         invalidate()
     }
 
@@ -320,11 +325,25 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     }
 
     fun startEntranceAnimation() {
-        if (animator?.isStarted == true) return
         animator?.cancel()
+        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        if (sp.getBoolean("disable_animations", false)) {
+            animProgress = 1f
+            invalidate()
+            return
+        }
+
         animProgress = 0f
+        val wp = activeWallpaper ?: WallpaperManager.getActiveWallpaper(context, contactKey)
+        val isLoopingPatternAnim = wp.type == "PATTERN" && wp.isAnimated && wp.animationEffect in listOf("float", "pulse", "rotate")
+
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 900
+            duration = if (isLoopingPatternAnim) 3000L else 900L
+            repeatCount = if (isLoopingPatternAnim) ValueAnimator.INFINITE else 0
+            repeatMode = ValueAnimator.RESTART
+            if (isLoopingPatternAnim) {
+                interpolator = android.view.animation.LinearInterpolator()
+            }
             addUpdateListener { va ->
                 animProgress = va.animatedValue as Float
                 invalidate()

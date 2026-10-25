@@ -33,6 +33,12 @@ class PrimeWaterLoadingView @JvmOverloads constructor(
     var isBorderProgressMode: Boolean = false
         set(value) {
             field = value
+            if (value && !isIndeterminate) {
+                animator?.cancel()
+                animator = null
+            } else if (visibility == VISIBLE) {
+                startAnimation()
+            }
             invalidate()
         }
 
@@ -129,6 +135,11 @@ class PrimeWaterLoadingView @JvmOverloads constructor(
     }
 
     private fun startAnimation() {
+        if (isBorderProgressMode && !isIndeterminate) {
+            animator?.cancel()
+            animator = null
+            return
+        }
         if (animator?.isStarted == true) return
         animator?.cancel()
         animator = ValueAnimator.ofFloat(0f, 1f).apply {

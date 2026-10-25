@@ -82,16 +82,16 @@ object AvatarHistoryManager {
 
         val editor = sharedPrefs.edit()
             .putString(historyKey, array.toString())
+            .putString("my_avatar_history", array.toString())
 
         if (history.isNotEmpty()) {
             val active = history.first()
+            editor.putString("my_avatar", active)
+                .putString("my_local_avatar", active)
+                .putString("my_avatar_uri", active)
             if (currentUser.isNotEmpty()) {
                 editor.putString("${currentUser}_avatar", active)
                     .putString("${currentUser}_avatarUri", active)
-            } else {
-                editor.putString("my_avatar", active)
-                    .putString("my_local_avatar", active)
-                    .putString("my_avatar_uri", active)
             }
             editor.apply()
         } else {

@@ -144,18 +144,33 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
                          activity is MediaPlayerActivity
         
         if (!isExcluded) {
-            if (activity is androidx.activity.ComponentActivity) {
+            val isBottomSheet = PrimePredictiveBack.isBottomSheetOrDialog(activity)
+            val isRootActivity = activity.isTaskRoot || getPreviousActivity() == null
+            
+            if (activity is androidx.activity.ComponentActivity && !isBottomSheet && !isRootActivity) {
                 // Attach predictive back & touch swiper, and play Enter transition for new instances
                 PrimePredictiveBack.attach(activity, playEnterTransition = savedInstanceState == null)
             }
             
-            // Globally disable standard window transitions to prevent them from overriding the custom Enter/Exit animations
+            // Globally disable standard window transitions ONLY for child activities so custom Enter/Exit swiper works.
+            // For root activities exiting to Home, do NOT override transitions so System Predictive Back to Home gesture works.
+            if (!isBottomSheet && !isRootActivity) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN, 0, 0)
+                    activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
+                } else {
+                    @Suppress("DEPRECATION")
+                    activity.overridePendingTransition(0, 0)
+                }
+            }
+        } else if (PrimePredictiveBack.isBottomSheetOrDialog(activity)) {
+            // Apply bottom slide up explicitly for excluded modal activities (e.g. MediaPlayerActivity)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN, 0, 0)
-                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
+                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN, R.anim.slide_in_bottom, R.anim.fade_out_hold)
+                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, R.anim.fade_out_hold, R.anim.slide_out_bottom)
             } else {
                 @Suppress("DEPRECATION")
-                activity.overridePendingTransition(0, 0)
+                activity.overridePendingTransition(R.anim.slide_in_bottom, R.anim.fade_out_hold)
             }
         }
     }

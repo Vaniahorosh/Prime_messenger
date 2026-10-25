@@ -48,6 +48,8 @@ class HiActivity : AppCompatActivity() {
 
     private data class DynamicContent(val slogan: String, val button: String)
 
+    private var hasIntroRun = false
+
     private val contents = listOf(
         DynamicContent("Всегда будь в", "Прайме!"),
         DynamicContent("Всегда сообщение", "Быстрее!"),
@@ -490,9 +492,13 @@ class HiActivity : AppCompatActivity() {
             val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
             binding.ivLogo.setColorFilter(if (isDark) ColorAccentManager.getCurrentAccentColor(this) else Color.WHITE)
             
-            allViews.forEach { view ->
-                view.animate().cancel()
-                view.alpha = 1f
+            if (hasIntroRun) {
+                allViews.forEach { view ->
+                    view.animate().cancel()
+                    view.alpha = 1f
+                }
+            } else {
+                hasIntroRun = true
             }
             binding.btnPrime.isEnabled = true
             binding.btnExit.isEnabled = true

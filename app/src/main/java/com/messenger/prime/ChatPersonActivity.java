@@ -1413,11 +1413,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                     if (fabScrollToBottom != null) {
                         if (!isNearBottom && totalCount > 5) {
-                            if (fabScrollToBottom.getVisibility() != View.VISIBLE) {
+                            fabScrollToBottom.animate().cancel();
+                            if (fabScrollToBottom.getVisibility() != View.VISIBLE || fabScrollToBottom.getAlpha() < 0.9f) {
                                 fabScrollToBottom.setVisibility(View.VISIBLE);
                                 fabScrollToBottom.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(200).start();
                             }
                         } else {
+                            fabScrollToBottom.animate().cancel();
                             if (fabScrollToBottom.getVisibility() == View.VISIBLE) {
                                 fabScrollToBottom.animate().alpha(0f).scaleX(0.5f).scaleY(0.5f).setDuration(200)
                                         .withEndAction(() -> fabScrollToBottom.setVisibility(View.GONE)).start();
@@ -3513,7 +3515,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void setOnlineStatusIndicator(boolean connected) {
         View viewStatus = findViewById(R.id.viewOnlineStatus);
         if (viewStatus != null) {
-            viewStatus.setVisibility(View.GONE);
+            viewStatus.setVisibility(connected ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -3532,7 +3534,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 sb.append(".");
             }
             setStatusTextDirect(sb.toString(), currentStatusColor);
-            statusAnimHandler.postDelayed(this, 300);
+            statusAnimHandler.postDelayed(this, 500);
         }
     };
 
@@ -3552,8 +3554,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         currentBaseStatus = baseStatus;
         currentStatusColor = color;
         statusDotCount = 0;
-        setStatusWithAnimation(baseStatus, currentStatusColor, false);
-        statusAnimHandler.postDelayed(statusAnimRunnable, 300);
+
+        SharedPreferences sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
+        boolean disableAnim = sp.getBoolean("disable_animations", false);
+        if (disableAnim) {
+            setStatusTextDirect(baseStatus, currentStatusColor);
+        } else {
+            setStatusWithAnimation(baseStatus, currentStatusColor, false);
+        }
+        statusAnimHandler.postDelayed(statusAnimRunnable, 500);
     }
 
     private void stopAnimatingStatus() {
@@ -4692,7 +4701,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     byte[] avatarBytes = null;
 
                     Uri uri;
-                    if (localAvatarUri.startsWith("content://") || localAvatarUri.startsWith("file://") || localAvatarUri.startsWith("http")) {
+                    if (localAvatarUri.startsWith("content://") || localAvatarUri.startsWith("file://") || localAvatarUri.startsWith("android.resource://") || localAvatarUri.startsWith("http")) {
                         uri = Uri.parse(localAvatarUri);
                     } else {
                         uri = Uri.fromFile(new File(localAvatarUri));
@@ -4934,6 +4943,22 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             return true;
         }
 
+        boolean isGeneric = "Собеседник".equalsIgnoreCase(targetUsername) ||
+                            "Prime Собеседник".equalsIgnoreCase(targetUsername) ||
+                            "Устройство".equalsIgnoreCase(targetUsername) ||
+                            targetUsername == null || targetUsername.trim().isEmpty() ||
+                            this.deviceAddress == null || !isValidMacAddress(this.deviceAddress);
+
+        if (isGeneric) {
+            if (isValidMacAddress(addrOrName)) {
+                this.deviceAddress = addrOrName;
+                if (targetUsername != null && !targetUsername.trim().isEmpty()) {
+                    sp.edit().putString(targetUsername + "_mac", addrOrName).apply();
+                }
+            }
+            return true;
+        }
+
         // Check if the connection belongs to our target username
         if (BluetoothConnectionManager.getInstance().isConnected(addrOrName)) {
             String remoteName = BluetoothConnectionManager.getInstance().getThreadRemoteUsername(addrOrName);
@@ -4947,9 +4972,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 return true;
             }
         }
-        
-        // As a fallback for older connections, if we don't have a MAC and the packet arrived,
-        // we can't blindly adopt it anymore. We rely on the handshake.
 
         return false;
     }
@@ -5698,6 +5720,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     .unregisterOnSharedPreferenceChangeListener(profileChangeListener);
         } catch (Exception ignored) {}
 
+        if (handler != null) handler.removeCallbacksAndMessages(null);
+        if (connectionCheckHandler != null) connectionCheckHandler.removeCallbacksAndMessages(null);
+        if (islandProgressHandler != null) islandProgressHandler.removeCallbacksAndMessages(null);
         if (senderTypingHandler != null) senderTypingHandler.removeCallbacksAndMessages(null);
         if (lastSeenHandler != null) lastSeenHandler.removeCallbacksAndMessages(null);
         if (typingResetHandler != null) typingResetHandler.removeCallbacksAndMessages(null);
@@ -6592,16 +6617,17 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 is = getContentResolver().openInputStream(pending.uri);
             }
             if (is != null) {
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                byte[] buf = new byte[16384];
-                int len;
-                long totalRead = 0;
-                while ((len = is.read(buf)) != -1 && totalRead < 100 * 1024 * 1024L) {
-                    baos.write(buf, 0, len);
-                    totalRead += len;
+                try (InputStream stream = is) {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    byte[] buf = new byte[16384];
+                    int len;
+                    long totalRead = 0;
+                    while ((len = stream.read(buf)) != -1 && totalRead < 100 * 1024 * 1024L) {
+                        baos.write(buf, 0, len);
+                        totalRead += len;
+                    }
+                    return baos.toByteArray();
                 }
-                is.close();
-                return baos.toByteArray();
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to read pending file bytes", e);
@@ -6797,8 +6823,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                 boolean isVideo = (type == ChatMessage.MessageType.VIDEO);
                 boolean isMusic = (type == ChatMessage.MessageType.MUSIC);
+                boolean isVidNote = (text != null && text.startsWith("VIDEO_NOTE:"));
 
-                String fileName = pending.name != null ? pending.name : (isMusic ? "audio.mp3" : (isVideo ? "video.mp4" : "file.bin"));
+                String fileName = pending.name != null ? pending.name : (isMusic ? "audio.mp3" : (isVideo ? (isVidNote ? "video_note.mp4" : "video.mp4") : "file.bin"));
                 if (isVideo && !fileName.toLowerCase(Locale.US).matches(".*\\.(mp4|mkv|3gp|webm|mov|avi)$")) {
                     fileName = fileName + ".mp4";
                 }
@@ -7944,31 +7971,36 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (attachmentDialog == null) {
-            initAttachmentPanel();
-        }
-        if (attachmentDialog != null && !attachmentDialog.isShowing()) {
-            isAttachmentPanelOpen = true;
-            sendActivityState("SELECTING_MEDIA");
-            hideSoftKeyboard();
-            if (btnAttach != null) {
-                btnAttach.setImageResource(R.drawable.ic_arrow_up);
+        hideSoftKeyboard();
+        
+        // Delay opening to allow keyboard to hide and window to resize
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            if (isDestroyed() || isFinishing()) return;
+            if (attachmentDialog == null) {
+                initAttachmentPanel();
             }
-            if (layoutAttachmentPanel != null) {
-                layoutAttachmentPanel.setVisibility(View.VISIBLE);
-            }
-            if (galleryAdapter != null) galleryAdapter.clearSelection();
-            if (filesAdapter != null) filesAdapter.clearSelection();
-            if (musicAdapter != null) musicAdapter.clearSelection();
-            updateConfirmAttachmentButton();
+            if (attachmentDialog != null && !attachmentDialog.isShowing()) {
+                isAttachmentPanelOpen = true;
+                sendActivityState("SELECTING_MEDIA");
+                if (btnAttach != null) {
+                    btnAttach.setImageResource(R.drawable.ic_arrow_up);
+                }
+                if (layoutAttachmentPanel != null) {
+                    layoutAttachmentPanel.setVisibility(View.VISIBLE);
+                }
+                if (galleryAdapter != null) galleryAdapter.clearSelection();
+                if (filesAdapter != null) filesAdapter.clearSelection();
+                if (musicAdapter != null) musicAdapter.clearSelection();
+                updateConfirmAttachmentButton();
 
-            switchAttachmentMode(currentAttachmentMode);
-            try {
-                attachmentDialog.show();
-            } catch (Exception e) {
-                e.printStackTrace();
+                switchAttachmentMode(currentAttachmentMode);
+                try {
+                    attachmentDialog.show();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
-        }
+        }, 100);
     }
 
     private void closeAttachmentPanel() {

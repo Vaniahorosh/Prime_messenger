@@ -28,6 +28,27 @@ import kotlin.math.abs
  */
 object PrimePredictiveBack {
 
+    @JvmStatic
+    fun isBottomSheetOrDialog(activity: android.app.Activity): Boolean {
+        val name = activity.javaClass.simpleName
+        if (name == "MediaPicker" || name == "AttachmentPicker" || 
+            name == "AudioPlayerBottomSheet" || name == "MediaPlayerActivity" ||
+            name.contains("Sheet") || name.contains("Dialog") || 
+            name.contains("Scan") || name.contains("Discovery")) {
+            return true
+        }
+        
+        val typedArray = activity.theme.obtainStyledAttributes(
+            intArrayOf(android.R.attr.windowIsFloating, android.R.attr.windowIsTranslucent)
+        )
+        val isFloating = typedArray.getBoolean(0, false)
+        typedArray.recycle()
+
+        if (activity.intent.getBooleanExtra("IS_BOTTOM_SHEET", false)) return true
+        
+        return isFloating
+    }
+
     @Volatile
     @JvmStatic
     var isGestureLocked: Boolean = false
@@ -49,16 +70,177 @@ object PrimePredictiveBack {
             // Do not attach custom gesture, allow system to handle "Back to Home".
             return
         }
-        GestureController(activity, playEnterTransition, targetView, onBackCompleted)
+        if (playEnterTransition) {
+            playEnterTransition(activity, targetView)
+        }
+        GestureController(activity, targetView, onBackCompleted)
+    }
+
+    @JvmStatic
+    fun playEnterTransition(activity: ComponentActivity, targetView: View? = null) {
+        if (activity.isTaskRoot || PrimeApplication.getPreviousActivity() == null) return
+
+        val isTablet = activity.resources.configuration.smallestScreenWidthDp >= 600
+        val isEmbedded = try {
+            ActivityEmbeddingController.getInstance(activity).isActivityEmbedded(activity)
+        } catch (_: Exception) {
+            false
+        }
+        val isMultiPane = isEmbedded || (isTablet && activity.javaClass.simpleName !in listOf("ChatPersonActivity", "SettingsActivity", "PersonInformationActivity"))
+
+        val rootContent = targetView ?: (activity.findViewById<ViewGroup>(android.R.id.content)?.getChildAt(0)) ?: activity.findViewById<View>(android.R.id.content) ?: activity.window.decorView
+        val density = activity.resources.displayMetrics.density
+        val screenWidth = activity.resources.displayMetrics.widthPixels.toFloat()
+
+        rootContent.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        val originalOutlineProvider = rootContent.outlineProvider
+        val originalClipToOutline = rootContent.clipToOutline
+
+        var previousRootContent: View? = null
+        var dimOverlayView: View? = null
+        val prevActivity = PrimeApplication.getPreviousActivity()
+
+        if (isMultiPane) {
+            rootContent.alpha = 0f
+            rootContent.translationY = 8f * density
+        } else {
+            val cornerRadiusPx = 24f * density
+            val maxElevationPx = 16f * density
+
+            rootContent.outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, view.width, view.height, cornerRadiusPx)
+                }
+            }
+            rootContent.clipToOutline = true
+            rootContent.scaleX = 0.92f
+            rootContent.scaleY = 0.92f
+            rootContent.alpha = 1.0f
+            rootContent.translationX = screenWidth
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                rootContent.outlineAmbientShadowColor = 0x40000000
+                rootContent.outlineSpotShadowColor = 0x60000000
+            }
+            rootContent.translationZ = maxElevationPx
+
+            if (prevActivity != null && !prevActivity.isDestroyed) {
+                val prevRoot = prevActivity.findViewById<ViewGroup>(android.R.id.content)
+                if (prevRoot != null) {
+                    previousRootContent = prevRoot
+                    prevRoot.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+
+                    dimOverlayView = View(prevActivity).apply {
+                        setBackgroundColor(Color.BLACK)
+                        alpha = 0f
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    }
+                    if (dimOverlayView?.parent == null) {
+                        prevRoot.addView(dimOverlayView)
+                    }
+                }
+            }
+        }
+
+        rootContent.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                if (rootContent.viewTreeObserver.isAlive) {
+                    rootContent.viewTreeObserver.removeOnPreDrawListener(this)
+                }
+                
+                val animator = ValueAnimator.ofFloat(0f, 1f)
+                animator.duration = 320
+                animator.interpolator = PathInterpolator(0.05f, 0.7f, 0.1f, 1.0f)
+
+                if (isMultiPane) {
+                    val startY = 8f * density
+                    animator.addUpdateListener { anim ->
+                        val frac = anim.animatedFraction
+                        rootContent.alpha = (frac / 0.5f).coerceIn(0f, 1f)
+                        rootContent.translationY = startY * (1f - frac)
+                    }
+                } else {
+                    val startScale = 0.92f
+                    val startZ = 16f * density
+                    val startX = screenWidth
+
+                    animator.addUpdateListener { anim ->
+                        val frac = anim.animatedFraction
+                        
+                        val newScale = startScale + ((1f - startScale) * frac)
+                        rootContent.scaleX = newScale
+                        rootContent.scaleY = newScale
+
+                        rootContent.translationZ = startZ * (1f - frac)
+                        rootContent.translationX = startX * (1f - frac)
+
+                        previousRootContent?.let { prev ->
+                            val pScale = 1.0f - (0.06f * frac)
+                            prev.scaleX = pScale
+                            prev.scaleY = pScale
+                        }
+                        dimOverlayView?.alpha = 0.3f * frac
+                    }
+                }
+
+                val observer = object : androidx.lifecycle.LifecycleEventObserver {
+                    override fun onStateChanged(source: androidx.lifecycle.LifecycleOwner, event: androidx.lifecycle.Lifecycle.Event) {
+                        if (event == androidx.lifecycle.Lifecycle.Event.ON_DESTROY) {
+                            animator.cancel()
+                            source.lifecycle.removeObserver(this)
+                        }
+                    }
+                }
+                activity.lifecycle.addObserver(observer)
+
+                animator.addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        activity.lifecycle.removeObserver(observer)
+                        
+                        rootContent.scaleX = 1.0f
+                        rootContent.scaleY = 1.0f
+                        rootContent.translationX = 0f
+                        rootContent.translationY = 0f
+                        rootContent.translationZ = 0f
+                        rootContent.alpha = 1.0f
+                        rootContent.outlineProvider = originalOutlineProvider
+                        rootContent.clipToOutline = originalClipToOutline
+                        rootContent.setLayerType(View.LAYER_TYPE_NONE, null)
+
+                        previousRootContent?.let { prev ->
+                            prev.scaleX = 1.0f
+                            prev.scaleY = 1.0f
+                            prev.alpha = 1.0f
+                            prev.setLayerType(View.LAYER_TYPE_NONE, null)
+                            dimOverlayView?.let { dim ->
+                                (prev as? ViewGroup)?.removeView(dim)
+                            }
+                        }
+                        previousRootContent = null
+                        dimOverlayView = null
+                    }
+                    
+                    override fun onAnimationCancel(animation: Animator) {
+                        onAnimationEnd(animation)
+                    }
+                })
+
+                animator.start()
+                return true
+            }
+        })
     }
 
     private class GestureController(
         val activity: ComponentActivity,
-        playEnterTransition: Boolean,
         targetView: View?,
         val onBackCompleted: (() -> Unit)?
     ) {
         val rootContent: View = targetView
+            ?: (activity.findViewById<ViewGroup>(android.R.id.content)?.getChildAt(0))
             ?: activity.findViewById(android.R.id.content)
             ?: activity.window.decorView
 
@@ -67,7 +249,6 @@ object PrimePredictiveBack {
         val maxCornerRadiusPx = 32f * density
         val maxShiftPx = 24f * density
         val maxElevationPx = 16f * density
-        val isTablet = activity.resources.configuration.smallestScreenWidthDp >= 600
 
         var isExecutingBack = false
         var currentCornerRadiusPx: Float = 0f
@@ -85,19 +266,8 @@ object PrimePredictiveBack {
         var startY = 0f
         var velocityTracker: VelocityTracker? = null
         val touchSlop = ViewConfiguration.get(activity).scaledTouchSlop
-        
-        var isEnterAnimationRunning = false
 
         init {
-            if (playEnterTransition) {
-                // Prepare initial state for Enter Transition immediately
-                setupEnterTransitionInitialState()
-                
-                rootContent.post {
-                    executeEnterAnimation()
-                }
-            }
-
             // 1. Native Predictive Back Callback
             val backCallback = object : OnBackPressedCallback(true) {
                 override fun handleOnBackStarted(backEvent: BackEventCompat) {
@@ -107,27 +277,21 @@ object PrimePredictiveBack {
                         isEnabled = true
                         return
                     }
-                    if (isEnterAnimationRunning) return
                     startBackGesture(backEvent.swipeEdge)
                 }
 
                 override fun handleOnBackProgressed(backEvent: BackEventCompat) {
-                    if (!isEnabled || isExecutingBack || isMultiPaneLayout() || isEnterAnimationRunning) return
+                    if (!isEnabled || isExecutingBack || isMultiPaneLayout() || hasActiveBottomSheet(rootContent)) return
                     applyProgress(backEvent.progress, currentSwipeEdge == BackEventCompat.EDGE_LEFT, backEvent.touchY)
                 }
 
                 override fun handleOnBackPressed() {
                     if (!isEnabled) return
-                    if (isEnterAnimationRunning) {
-                        onBackCompleted?.invoke() ?: PrimeTransitions.finishWithTransition(activity)
-                        return
-                    }
                     executeFinishAnimation()
                 }
 
                 override fun handleOnBackCancelled() {
                     if (!isEnabled) return
-                    if (isEnterAnimationRunning) return
                     executeCancelAnimation()
                 }
             }
@@ -148,7 +312,7 @@ object PrimePredictiveBack {
                         return originalWindowCallback.dispatchTouchEvent(event)
                     }
                     
-                    if (isExecutingBack || isMultiPaneLayout() || isEnterAnimationRunning) {
+                    if (isExecutingBack || isMultiPaneLayout() || hasActiveBottomSheet(rootContent)) {
                         return originalWindowCallback.dispatchTouchEvent(event)
                     }
 
@@ -248,106 +412,6 @@ object PrimePredictiveBack {
             }
         }
 
-        private fun setupEnterTransitionInitialState() {
-            if (isMultiPaneLayout()) return
-            
-            rootContent.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-            originalOutlineProvider = rootContent.outlineProvider
-            originalClipToOutline = rootContent.clipToOutline
-            
-            currentCornerRadiusPx = maxCornerRadiusPx
-            rootContent.outlineProvider = object : ViewOutlineProvider() {
-                override fun getOutline(view: View, outline: Outline) {
-                    outline.setRoundRect(0, 0, view.width, view.height, currentCornerRadiusPx)
-                }
-            }
-            rootContent.clipToOutline = true
-            
-            rootContent.scaleX = 0.86f
-            rootContent.scaleY = 0.86f
-            rootContent.alpha = 0f
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                rootContent.outlineAmbientShadowColor = 0x40000000
-                rootContent.outlineSpotShadowColor = 0x60000000
-            }
-            rootContent.translationZ = maxElevationPx
-            
-            val prevActivity = PrimeApplication.getPreviousActivity()
-            if (prevActivity != null && !prevActivity.isDestroyed) {
-                val prevRoot = prevActivity.findViewById<ViewGroup>(android.R.id.content)
-                if (prevRoot != null) {
-                    previousRootContent = prevRoot
-                    prevRoot.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-                    
-                    if (dimOverlayView == null) {
-                        dimOverlayView = View(prevActivity).apply {
-                            setBackgroundColor(Color.BLACK)
-                            alpha = 0f
-                            layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
-                        }
-                    }
-                    if (dimOverlayView?.parent == null) {
-                        prevRoot.addView(dimOverlayView)
-                    }
-                    
-                    prevRoot.scaleX = 1.0f
-                    prevRoot.scaleY = 1.0f
-                    prevRoot.pivotX = prevRoot.width / 2f
-                    prevRoot.pivotY = prevRoot.height / 2f
-                }
-            }
-        }
-
-        private fun executeEnterAnimation() {
-            if (isMultiPaneLayout()) return
-            isEnterAnimationRunning = true
-            
-            val animator = ValueAnimator.ofFloat(0f, 1f)
-            animator.duration = 280
-            animator.interpolator = enterInterpolator
-            
-            val startScale = 0.86f
-            val startCorners = maxCornerRadiusPx
-            val startZ = maxElevationPx
-            
-            animator.addUpdateListener { anim ->
-                val frac = anim.animatedFraction
-                
-                // Top screen zoom in and fade in
-                val newScale = startScale + ((1f - startScale) * frac)
-                rootContent.scaleX = newScale
-                rootContent.scaleY = newScale
-                
-                // Alpha fades in quicker (first 100ms approx -> frac ~ 0.35)
-                val alphaFrac = (frac / 0.35f).coerceIn(0f, 1f)
-                rootContent.alpha = alphaFrac
-                
-                currentCornerRadiusPx = startCorners * (1f - frac)
-                rootContent.invalidateOutline()
-                rootContent.translationZ = startZ * (1f - frac)
-                
-                // Background screen zooms out to 0.94 and dims
-                previousRootContent?.let { prev ->
-                    val pScale = 1.0f - (0.06f * frac)
-                    prev.scaleX = pScale
-                    prev.scaleY = pScale
-                }
-                dimOverlayView?.alpha = 0.3f * frac
-            }
-            
-            animator.addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    resetViewProperties()
-                    resetPreviousViewProperties()
-                    isEnterAnimationRunning = false
-                }
-            })
-            animator.start()
-        }
-
         /**
          * Recursively hit-tests the View hierarchy to check if a conflicting horizontally scrollable
          * or interactive element is present under the finger.
@@ -422,17 +486,42 @@ object PrimePredictiveBack {
             return false
         }
 
+        private fun hasActiveBottomSheet(root: View): Boolean {
+            if (root is ViewGroup) {
+                for (i in 0 until root.childCount) {
+                    val child = root.getChildAt(i)
+                    if (child.visibility == View.VISIBLE) {
+                        val lp = child.layoutParams
+                        if (lp is androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams) {
+                            if (lp.behavior is com.google.android.material.bottomsheet.BottomSheetBehavior<*>) {
+                                val behavior = lp.behavior as com.google.android.material.bottomsheet.BottomSheetBehavior<*>
+                                if (behavior.state != com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_HIDDEN && 
+                                    behavior.state != com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_COLLAPSED) {
+                                    return true
+                                }
+                            }
+                        }
+                        val className = child.javaClass.simpleName
+                        if (className.contains("BottomSheet") || className.contains("PopupLayout")) return true
+                        if (hasActiveBottomSheet(child)) return true
+                    }
+                }
+            }
+            return false
+        }
+
         private fun isMultiPaneLayout(): Boolean {
             val isEmbedded = try {
                 ActivityEmbeddingController.getInstance(activity).isActivityEmbedded(activity)
             } catch (_: Exception) {
                 false
             }
-            return isEmbedded || (isTablet && activity !is ChatPersonActivity && activity !is SettingsActivity && activity !is PersonInformationActivity)
+            val isTablet = activity.resources.configuration.smallestScreenWidthDp >= 600
+            return isEmbedded || (isTablet && activity.javaClass.simpleName !in listOf("ChatPersonActivity", "SettingsActivity", "PersonInformationActivity"))
         }
 
         private fun startBackGesture(edge: Int) {
-            if (isExecutingBack || isMultiPaneLayout()) return
+            if (isExecutingBack || isMultiPaneLayout() || hasActiveBottomSheet(rootContent)) return
             currentSwipeEdge = edge
 
             rootContent.setLayerType(View.LAYER_TYPE_HARDWARE, null)
@@ -510,7 +599,7 @@ object PrimePredictiveBack {
         }
 
         private fun executeFinishAnimation() {
-            if (isExecutingBack || isMultiPaneLayout()) {
+            if (isExecutingBack || isMultiPaneLayout() || hasActiveBottomSheet(rootContent)) {
                 if (!isExecutingBack) {
                     onBackCompleted?.invoke() ?: PrimeTransitions.finishWithTransition(activity)
                 }
@@ -560,11 +649,13 @@ object PrimePredictiveBack {
                         onBackCompleted.invoke()
                     } else {
                         activity.finish()
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                            activity.overrideActivityTransition(android.app.Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
-                        } else {
-                            @Suppress("DEPRECATION")
-                            activity.overridePendingTransition(0, 0)
+                        if (!isBottomSheetOrDialog(activity)) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                                activity.overrideActivityTransition(android.app.Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
+                            } else {
+                                @Suppress("DEPRECATION")
+                                activity.overridePendingTransition(0, 0)
+                            }
                         }
                     }
                     rootContent.postDelayed({ isExecutingBack = false }, 100)
@@ -574,7 +665,7 @@ object PrimePredictiveBack {
         }
 
         private fun executeCancelAnimation() {
-            if (isExecutingBack || isMultiPaneLayout()) return
+            if (isExecutingBack || isMultiPaneLayout() || hasActiveBottomSheet(rootContent)) return
 
             val animator = ValueAnimator.ofFloat(0f, 1f)
             animator.duration = 350

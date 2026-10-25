@@ -33,6 +33,10 @@ object PrimeTransitions {
      */
     @JvmStatic
     fun setupActivityTransitions(activity: Activity) {
+        if (activity.isTaskRoot || PrimeApplication.getPreviousActivity() == null) {
+            // Do not override transition for root activity so system Predictive Back to Home gesture works
+            return
+        }
         if (areAnimationsDisabled(activity)) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN, 0, 0)
@@ -72,6 +76,18 @@ object PrimeTransitions {
             }
             return
         }
+
+        if (PrimePredictiveBack.isBottomSheetOrDialog(activity)) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN, R.anim.slide_in_bottom, R.anim.fade_out_hold)
+                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, R.anim.fade_out_hold, R.anim.slide_out_bottom)
+            } else {
+                @Suppress("DEPRECATION")
+                activity.overridePendingTransition(R.anim.slide_in_bottom, R.anim.fade_out_hold)
+            }
+            return
+        }
+
         val isTablet = activity.resources.getBoolean(R.bool.isTablet)
         // Disable XML transitions for phones (custom PrimePredictiveBack handles Enter transition)
         val enterAnim = if (!isTablet) 0 else R.anim.prime_open_enter
@@ -105,6 +121,10 @@ object PrimeTransitions {
      */
     @JvmStatic
     fun applyCloseTransition(activity: Activity) {
+        if (activity.isTaskRoot || PrimeApplication.getPreviousActivity() == null) {
+            // Root activity exiting to Home: allow system Predictive Back to handle transition
+            return
+        }
         if (isSlidrDismissing) {
             // Skip playing close transition animation if activity was already swiped off screen by Slidr
             return
@@ -118,6 +138,17 @@ object PrimeTransitions {
             }
             return
         }
+
+        if (PrimePredictiveBack.isBottomSheetOrDialog(activity)) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                activity.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, R.anim.fade_out_hold, R.anim.slide_out_bottom)
+            } else {
+                @Suppress("DEPRECATION")
+                activity.overridePendingTransition(R.anim.fade_out_hold, R.anim.slide_out_bottom)
+            }
+            return
+        }
+
         val isTablet = activity.resources.getBoolean(R.bool.isTablet)
         // Disable XML transitions for phones (custom PrimePredictiveBack handles Exit transition)
         val enterAnim = if (!isTablet) 0 else R.anim.prime_close_enter
@@ -201,6 +232,9 @@ object PrimeTransitions {
     @JvmStatic
     @JvmOverloads
     fun attachSlidr(activity: Activity, customListener: SlidrListener? = null): SlidrInterface? {
+        if (activity.isTaskRoot || PrimeApplication.getPreviousActivity() == null) {
+            return null
+        }
         val config = activity.resources.configuration
         // Material Design 3 window size classes: 600dp+ is Medium/Expanded (multi-pane possible)
         val isMultiPane = config.screenWidthDp >= 600 || config.smallestScreenWidthDp >= 600

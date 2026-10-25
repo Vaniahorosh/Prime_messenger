@@ -78,6 +78,11 @@ class PrimeSplashView @JvmOverloads constructor(
 
     fun setOnAnimationFinishedListener(listener: () -> Unit) {
         this.onAnimationFinished = listener
+        if (PrimeTransitions.areAnimationsDisabled(context)) {
+            post {
+                this.onAnimationFinished?.invoke()
+            }
+        }
     }
 
     init {
@@ -93,6 +98,19 @@ class PrimeSplashView @JvmOverloads constructor(
     }
 
     private fun startSmoothMasterAnimation() {
+        if (PrimeTransitions.areAnimationsDisabled(context)) {
+            iconScale = 1f
+            iconAlpha = 1f
+            dot1Scale = 1f
+            dot2Scale = 1f
+            dot3Scale = 1f
+            invalidate()
+            if (onAnimationFinished != null) {
+                post { onAnimationFinished?.invoke() }
+            }
+            return
+        }
+
         val totalDurationMs = 380L
 
         masterAnimator?.cancel()
@@ -116,11 +134,18 @@ class PrimeSplashView @JvmOverloads constructor(
             }
         }
 
+        var isCancelled = false
         masterAnimator?.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationCancel(animation: Animator) {
+                isCancelled = true
+            }
+
             override fun onAnimationEnd(animation: Animator) {
-                postDelayed({
-                    onAnimationFinished?.invoke()
-                }, 20)
+                if (!isCancelled) {
+                    postDelayed({
+                        onAnimationFinished?.invoke()
+                    }, 20)
+                }
             }
         })
 

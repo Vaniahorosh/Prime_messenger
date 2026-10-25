@@ -1085,6 +1085,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     private void setAnimation(View viewToAnimate) {
+        if (PrimeTransitions.areAnimationsDisabled(viewToAnimate.getContext())) {
+            viewToAnimate.setAlpha(1f);
+            viewToAnimate.setTranslationY(0f);
+            return;
+        }
         viewToAnimate.setAlpha(0f);
         viewToAnimate.setTranslationY(20f);
         viewToAnimate.animate()
@@ -1197,7 +1202,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             Rect rect = new Rect(location[0], location[1], location[0] + view.getWidth(), location[1] + view.getHeight());
             intent.putExtra("EXTRA_RECT", rect);
         }
-        context.startActivity(intent);
+        if (context instanceof android.app.Activity) {
+            PrimeTransitions.startActivityWithTransition((android.app.Activity) context, intent);
+        } else {
+            context.startActivity(intent);
+        }
     }
 
     public static void showFullScreenPhoto(Context context, View view, Bitmap bitmap, String path) {
@@ -1275,13 +1284,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         return;
                     }
                     try {
-                        String targetUrl = url;
-                        if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
-                            targetUrl = "https://" + targetUrl;
-                        }
-                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl));
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        v.getContext().startActivity(intent);
+                        com.messenger.prime.browser.AppBrowserManager.openUrl(v.getContext(), url);
                     } catch (Exception e) {
                         Log.e("ChatAdapter", "Failed to open link", e);
                     }
@@ -2799,7 +2802,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             );
 
             String text = message.getText();
-            boolean isVideoNote = text != null && text.startsWith("VIDEO_NOTE:");
+            boolean isVideoNote = message != null && message.isVideoNote();
             if (isVideoNote) {
                 bindVideoNoteMessage(itemView, message, false, position);
             } else {
@@ -2809,7 +2812,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (!isVideoNote && message.getMessageType() != ChatMessage.MessageType.VOICE && text != null && !text.isEmpty() && !"Голосовое сообщение".equals(text) && !"Фото".equals(text) && !"Фото отправлено".equals(text) && !"Фотография".equals(text) && !"Файл".equals(text)) {
                 tvMessageText.setVisibility(View.VISIBLE);
                 tvMessageText.setText(text);
-                tvMessageText.setMovementMethod(LinkMovementMethod.getInstance());
+                tvMessageText.setMovementMethod(com.messenger.prime.browser.AppBrowserMovementMethod.getInstance());
                 tvMessageText.setTextIsSelectable(true);
                 setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
                 bindLinkPreview(itemView, text, message);
@@ -3036,7 +3039,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             );
 
             String text = message.getText();
-            boolean isVideoNoteOutgoing = text != null && text.startsWith("VIDEO_NOTE:");
+            boolean isVideoNoteOutgoing = message != null && message.isVideoNote();
             if (isVideoNoteOutgoing) {
                 bindVideoNoteMessage(itemView, message, true, position);
             } else {
@@ -3046,7 +3049,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (!isVideoNoteOutgoing && message.getMessageType() != ChatMessage.MessageType.VOICE && text != null && !text.isEmpty() && !"Голосовое сообщение".equals(text) && !"Фото".equals(text) && !"Фото отправлено".equals(text) && !"Фотография".equals(text) && !"Файл".equals(text)) {
                 tvMessageText.setVisibility(View.VISIBLE);
                 tvMessageText.setText(text);
-                tvMessageText.setMovementMethod(LinkMovementMethod.getInstance());
+                tvMessageText.setMovementMethod(com.messenger.prime.browser.AppBrowserMovementMethod.getInstance());
                 tvMessageText.setTextIsSelectable(true);
                 setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
                 bindLinkPreview(itemView, text, message);

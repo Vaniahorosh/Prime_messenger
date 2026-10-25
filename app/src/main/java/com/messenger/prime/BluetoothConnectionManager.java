@@ -329,11 +329,15 @@ public class BluetoothConnectionManager {
                     ct.start();
                     setState(dev.getAddress(), ConnectionState.CONNECTING, dev.getName());
                 }
-            }, 250L);
+            }, 3500L);
             return;
         }
 
         ConnectThread currentCT = connectingThreads.get(device.getAddress());
+        if (currentCT != null && currentCT.isRecentAndAlive()) {
+            Log.d(TAG, "Connection attempt already active for " + device.getAddress() + ", reusing existing ConnectThread.");
+            return;
+        }
         if (currentCT != null && currentCT.isAlive()) {
             currentCT.cancel();
         }
@@ -389,7 +393,7 @@ public class BluetoothConnectionManager {
 
     public synchronized ConnectedThread getThreadFor(String addressOrName) {
         if (addressOrName == null || addressOrName.isEmpty()) {
-            if (!connectionPool.isEmpty()) {
+            if (connectionPool.size() == 1) {
                 for (ConnectedThread t : connectionPool.values()) {
                     if (t != null && t.isAlive()) return t;
                 }
@@ -413,7 +417,11 @@ public class BluetoothConnectionManager {
             }
         }
 
-        if (connectionPool.size() == 1) {
+        boolean isGeneric = "Собеседник".equalsIgnoreCase(addressOrName) ||
+                            "Prime Собеседник".equalsIgnoreCase(addressOrName) ||
+                            "Устройство".equalsIgnoreCase(addressOrName);
+
+        if (isGeneric && connectionPool.size() == 1) {
             for (ConnectedThread thread : connectionPool.values()) {
                 if (thread != null && thread.isAlive()) {
                     return thread;
@@ -597,6 +605,7 @@ public class BluetoothConnectionManager {
         private final BluetoothAdapter mmAdapter;
         private final BluetoothDevice mmDevice;
         private final UUID mmUuid;
+        private final long creationTime;
         private BluetoothSocket mmSocket;
         private volatile boolean isHandedOff = false;
         private volatile boolean isCancelled = false;
@@ -605,98 +614,108 @@ public class BluetoothConnectionManager {
             mmAdapter = adapter;
             mmDevice = device;
             mmUuid = uuid;
+            creationTime = System.currentTimeMillis();
+        }
+
+        public boolean isRecentAndAlive() {
+            return isAlive() && !isCancelled && (System.currentTimeMillis() - creationTime < 8000L);
         }
 
         public void run() {
-            if (isCancelled) return;
-            if (mmAdapter != null) {
-                try {
-                    mmAdapter.cancelDiscovery();
-                } catch (Exception ignored) {}
-            }
-
-            BluetoothSocket socket = null;
-
-            // Stage 1: Fast Direct RFCOMM Channel 1 (Bypasses slow SDP discovery query)
-            if (socket == null && !isCancelled) {
-                try {
-                    socket = (BluetoothSocket) mmDevice.getClass()
-                            .getMethod("createRfcommSocket", int.class)
-                            .invoke(mmDevice, 1);
-                    if (socket != null) {
-                        this.mmSocket = socket;
-                        socket.connect();
-                    }
-                } catch (Exception eFallback) {
-                    Log.w(TAG, "Stage 1 (Direct Channel 1 RFCOMM) failed: " + eFallback.getMessage());
-                    closeSocketQuietly(socket);
-                    socket = null;
-                }
-            }
-
-            // Stage 2: Insecure RFCOMM (SDP Search) - No system pairing popup
-            if (socket == null && !isCancelled) {
-                try {
-                    socket = mmDevice.createInsecureRfcommSocketToServiceRecord(mmUuid);
-                    if (socket != null) {
-                        this.mmSocket = socket;
-                        socket.connect();
-                    }
-                } catch (Exception e1) {
-                    Log.w(TAG, "Stage 2 (Insecure RFCOMM SDP) failed: " + e1.getMessage());
-                    closeSocketQuietly(socket);
-                    socket = null;
-                }
-            }
-
-            // Stage 2: Reflection Insecure RFCOMM
-            if (socket == null && !isCancelled) {
-                try {
-                    socket = (BluetoothSocket) mmDevice.getClass()
-                            .getMethod("createInsecureRfcommSocketToServiceRecord", UUID.class)
-                            .invoke(mmDevice, mmUuid);
-                    if (socket != null) {
-                        this.mmSocket = socket;
-                        socket.connect();
-                    }
-                } catch (Exception e3) {
-                    Log.w(TAG, "Stage 2 (Reflection Insecure RFCOMM) failed: " + e3.getMessage());
-                    closeSocketQuietly(socket);
-                    socket = null;
-                }
-            }
-
-            // Stage 3: Secure RFCOMM (Only if explicitly Bonded)
-            boolean isBonded = false;
             try {
-                isBonded = mmDevice.getBondState() == BluetoothDevice.BOND_BONDED;
-            } catch (SecurityException ignored) {}
-
-            if (socket == null && !isCancelled && isBonded) {
-                try {
-                    socket = mmDevice.createRfcommSocketToServiceRecord(mmUuid);
-                    if (socket != null) {
-                        this.mmSocket = socket;
-                        socket.connect();
-                    }
-                } catch (Exception e2) {
-                    Log.w(TAG, "Stage 3 (Secure RFCOMM) failed: " + e2.getMessage());
-                    closeSocketQuietly(socket);
-                    socket = null;
+                if (isCancelled) return;
+                if (mmAdapter != null && mmAdapter.isDiscovering()) {
+                    try {
+                        mmAdapter.cancelDiscovery();
+                        Thread.sleep(80);
+                    } catch (Exception ignored) {}
                 }
-            }
 
-            if (isCancelled) {
-                closeSocketQuietly(socket);
-                return;
-            }
+                BluetoothSocket socket = null;
 
-            if (socket != null && socket.isConnected()) {
-                this.isHandedOff = true;
-                onSocketConnected(socket, mmDevice);
-            } else {
-                notifyError(mmDevice.getAddress(), "Не удалось установить прямое соединение с устройством");
-                setState(mmDevice.getAddress(), ConnectionState.DISCONNECTED, null);
+                // Stage 1: Fast Direct RFCOMM Channel 1 (Bypasses slow SDP discovery query)
+                if (socket == null && !isCancelled) {
+                    try {
+                        socket = (BluetoothSocket) mmDevice.getClass()
+                                .getMethod("createRfcommSocket", int.class)
+                                .invoke(mmDevice, 1);
+                        if (socket != null) {
+                            this.mmSocket = socket;
+                            socket.connect();
+                        }
+                    } catch (Exception eFallback) {
+                        Log.w(TAG, "Stage 1 (Direct Channel 1 RFCOMM) failed: " + eFallback.getMessage());
+                        closeSocketQuietly(socket);
+                        socket = null;
+                    }
+                }
+
+                // Stage 2: Insecure RFCOMM (SDP Search) - No system pairing popup
+                if (socket == null && !isCancelled) {
+                    try {
+                        socket = mmDevice.createInsecureRfcommSocketToServiceRecord(mmUuid);
+                        if (socket != null) {
+                            this.mmSocket = socket;
+                            socket.connect();
+                        }
+                    } catch (Exception e1) {
+                        Log.w(TAG, "Stage 2 (Insecure RFCOMM SDP) failed: " + e1.getMessage());
+                        closeSocketQuietly(socket);
+                        socket = null;
+                    }
+                }
+
+                // Stage 2: Reflection Insecure RFCOMM
+                if (socket == null && !isCancelled) {
+                    try {
+                        socket = (BluetoothSocket) mmDevice.getClass()
+                                .getMethod("createInsecureRfcommSocketToServiceRecord", UUID.class)
+                                .invoke(mmDevice, mmUuid);
+                        if (socket != null) {
+                            this.mmSocket = socket;
+                            socket.connect();
+                        }
+                    } catch (Exception e3) {
+                        Log.w(TAG, "Stage 2 (Reflection Insecure RFCOMM) failed: " + e3.getMessage());
+                        closeSocketQuietly(socket);
+                        socket = null;
+                    }
+                }
+
+                // Stage 3: Secure RFCOMM (Only if explicitly Bonded)
+                boolean isBonded = false;
+                try {
+                    isBonded = mmDevice.getBondState() == BluetoothDevice.BOND_BONDED;
+                } catch (SecurityException ignored) {}
+
+                if (socket == null && !isCancelled && isBonded) {
+                    try {
+                        socket = mmDevice.createRfcommSocketToServiceRecord(mmUuid);
+                        if (socket != null) {
+                            this.mmSocket = socket;
+                            socket.connect();
+                        }
+                    } catch (Exception e2) {
+                        Log.w(TAG, "Stage 3 (Secure RFCOMM) failed: " + e2.getMessage());
+                        closeSocketQuietly(socket);
+                        socket = null;
+                    }
+                }
+
+                if (isCancelled) {
+                    closeSocketQuietly(socket);
+                    return;
+                }
+
+                if (socket != null && socket.isConnected()) {
+                    this.isHandedOff = true;
+                    onSocketConnected(socket, mmDevice);
+                } else {
+                    notifyError(mmDevice.getAddress(), "Не удалось установить прямое соединение с устройством");
+                    setState(mmDevice.getAddress(), ConnectionState.DISCONNECTED, null);
+                }
+            } finally {
+                connectingThreads.remove(mmDevice.getAddress());
             }
         }
 

@@ -199,5 +199,12 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
         onUndoAvailableListener?.invoke(false)
     }
 
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        canvasBitmap?.recycle()
+        canvasBitmap = null
+        drawCanvas = null
+    }
+
     fun hasHistory(): Boolean = paths.isNotEmpty()
 }
