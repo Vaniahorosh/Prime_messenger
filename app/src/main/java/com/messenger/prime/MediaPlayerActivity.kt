@@ -32,6 +32,7 @@ import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -107,6 +108,23 @@ class MediaPlayerActivity : AppCompatActivity() {
 
     private var currentPlayer: ExoPlayer? = null
     private var isCurrentVideo = false
+
+    private val photoEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK && result.data != null) {
+            val editedUriStr = result.data?.getStringExtra("EDITED_IMAGE_URI") ?: result.data?.getStringExtra("EXTRA_IMAGE_URI")
+            if (!editedUriStr.isNullOrEmpty()) {
+                val list = sharedMediaList?.toMutableList()
+                val currentPos = viewPager.currentItem
+                if (list != null && currentPos in list.indices) {
+                    val msg = list[currentPos]
+                    msg.imagePath = editedUriStr
+                    sharedMediaList = list
+                    adapter?.notifyItemChanged(currentPos)
+                    showIslandBadge("Фотография отредактирована")
+                }
+            }
+        }
+    }
 
     private var isScrubbing = false
     private var scrubTargetMs: Long = -1L
@@ -625,10 +643,13 @@ class MediaPlayerActivity : AppCompatActivity() {
                 } else {
                     val path = item.imagePath
                     if (!path.isNullOrEmpty() && !item.isVideo) {
+                        val uri = Uri.parse(path)
                         val intent = Intent(this, PhotoEditorActivity::class.java).apply {
+                            setDataAndType(uri, "image/*")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             putExtra("EXTRA_IMAGE_URI", path)
                         }
-                        startActivity(intent)
+                        photoEditorLauncher.launch(intent)
                     } else {
                         showIslandBadge("Редактирование недоступно")
                     }

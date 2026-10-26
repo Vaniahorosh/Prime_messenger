@@ -62,8 +62,12 @@ class LoginActivity : AppCompatActivity() {
                 binding?.tvSelectPhoto?.visibility = View.GONE
                 PrimeNotification.show(this, "GIF-аватарка выбрана")
             } else {
-                val intent = Intent(this, PhotoEditorActivity::class.java)
-                intent.putExtra("EXTRA_IMAGE_URI", uri.toString())
+                val intent = Intent(this, PhotoEditorActivity::class.java).apply {
+                    setDataAndType(uri, mime ?: "image/*")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    putExtra("EXTRA_IMAGE_URI", uri.toString())
+                    putExtra("IS_PROFILE_PHOTO", true)
+                }
                 photoEditorLauncher.launch(intent)
                 PrimeTransitions.applyOpenTransition(this)
             }

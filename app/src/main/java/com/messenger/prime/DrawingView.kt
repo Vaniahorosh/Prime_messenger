@@ -26,6 +26,9 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
     private var onDrawingStateListener: ((Boolean) -> Unit)? = null
     private var onUndoAvailableListener: ((Boolean) -> Unit)? = null
 
+    private var lastWidth = 0
+    private var lastHeight = 0
+
     // История для Undo
     private val paths = mutableListOf<Path>()
     private val paints = mutableListOf<Paint>()
@@ -63,6 +66,8 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         if (w > 0 && h > 0) {
+            lastWidth = w
+            lastHeight = h
             canvasBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             drawCanvas = Canvas(canvasBitmap!!)
             redrawOnBitmap()
@@ -179,9 +184,9 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
     }
 
     fun getResultBitmap(): Bitmap? {
-        val w = width
-        val h = height
-        if (w <= 0 || h <= 0) return null
+        val w = if (width > 0) width else (canvasBitmap?.width ?: lastWidth)
+        val h = if (height > 0) height else (canvasBitmap?.height ?: lastHeight)
+        if (w <= 0 || h <= 0 || paths.isEmpty()) return null
         val result = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(result)
         for (i in paths.indices) {

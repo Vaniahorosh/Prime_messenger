@@ -606,8 +606,27 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 isOpeningSubActivity = false;
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     String editedUriStr = result.getData().getStringExtra("EDITED_IMAGE_URI");
+                    if (editedUriStr == null || editedUriStr.isEmpty()) {
+                        editedUriStr = result.getData().getStringExtra("EXTRA_IMAGE_URI");
+                    }
                     if (editedUriStr != null && !editedUriStr.isEmpty()) {
-                        sendPhoto(Uri.parse(editedUriStr));
+                        Uri editedUri = Uri.parse(editedUriStr);
+                        if (currentPendingAttachment != null && currentPendingAttachment.items != null && !currentPendingAttachment.items.isEmpty()) {
+                            for (PendingAttachmentItem item : currentPendingAttachment.items) {
+                                if (item.messageType == ChatMessage.MessageType.IMAGE) {
+                                    item.uri = editedUri;
+                                    item.path = getPathFromUri(editedUri);
+                                    if (item.path == null || item.path.isEmpty()) item.path = editedUriStr;
+                                    item.thumbnail = getPhotoThumbnail(editedUri, item.path);
+                                    break;
+                                }
+                            }
+                            if (pendingCardsAdapter != null) {
+                                pendingCardsAdapter.setItems(currentPendingAttachment.items);
+                            }
+                        } else {
+                            sendPhoto(editedUri);
+                        }
                     }
                 }
             });
@@ -7099,6 +7118,23 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     holder.ivThumbnail.setImageResource(R.drawable.ic_photo);
                 }
             }
+
+            holder.itemView.setOnClickListener(v -> {
+                int pos = holder.getBindingAdapterPosition();
+                if (pos != RecyclerView.NO_POSITION && pos < items.size()) {
+                    PendingAttachmentItem clickedItem = items.get(pos);
+                    if (clickedItem.messageType == ChatMessage.MessageType.IMAGE) {
+                        Intent intent = new Intent(ChatPersonActivity.this, PhotoEditorActivity.class);
+                        String uriStr = clickedItem.uri != null ? clickedItem.uri.toString() : clickedItem.path;
+                        Uri itemUri = Uri.parse(uriStr);
+                        intent.setDataAndType(itemUri, "image/*");
+                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        intent.putExtra("EXTRA_IMAGE_URI", uriStr);
+                        isOpeningSubActivity = true;
+                        editPhotoLauncher.launch(intent);
+                    }
+                }
+            });
 
             holder.btnRemove.setOnClickListener(v -> {
                 int pos = holder.getBindingAdapterPosition();

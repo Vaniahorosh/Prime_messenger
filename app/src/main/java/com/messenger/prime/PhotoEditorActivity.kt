@@ -251,15 +251,36 @@ class PhotoEditorActivity : AppCompatActivity() {
                                     .load(uri)
                                     .into(b.ivEditorPreview)
                             } else {
+                                val density = resources.displayMetrics.density
                                 if (isProfilePhoto) {
                                     b.btnSetOriginal.text = "Поставить фото без редактирования"
+                                    b.cropFrame.radius = 140 * density
                                 } else {
                                     b.btnSetOriginal.text = "Отправить без редактирования"
                                 }
+                                b.cropFrame.visibility = View.VISIBLE
+                                b.maskTop.visibility = View.VISIBLE
+                                b.maskBottom.visibility = View.VISIBLE
+                                b.maskLeft.visibility = View.VISIBLE
+                                b.maskRight.visibility = View.VISIBLE
+
                                 try {
                                     originalBitmap = loadOptimizedBitmap(uri)
-                                    b.ivEditorPreview.setImageBitmap(originalBitmap)
-                                    b.ivEditorPreview.post { centerImage(b) }
+                                    if (originalBitmap != null) {
+                                        b.ivEditorPreview.setImageBitmap(originalBitmap)
+                                        b.ivEditorPreview.post {
+                                            if (b.ivEditorPreview.width > 0 && b.ivEditorPreview.height > 0) {
+                                                centerImage(b)
+                                            } else {
+                                                b.ivEditorPreview.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+                                                    override fun onGlobalLayout() {
+                                                        b.ivEditorPreview.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                                                        centerImage(b)
+                                                    }
+                                                })
+                                            }
+                                        }
+                                    }
                                 } catch (e: Exception) {
                                     e.printStackTrace()
                                 }
@@ -421,7 +442,9 @@ class PhotoEditorActivity : AppCompatActivity() {
         val viewWidth = b.ivEditorPreview.width.toFloat()
         val viewHeight = b.ivEditorPreview.height.toFloat()
         if (viewWidth == 0f || viewHeight == 0f) return
-        val scale = Math.max(viewWidth / bitmap.width, viewHeight / bitmap.height)
+        val cropWidth = b.cropFrame.width.toFloat().takeIf { it > 0 } ?: (300 * resources.displayMetrics.density)
+        val cropHeight = b.cropFrame.height.toFloat().takeIf { it > 0 } ?: (300 * resources.displayMetrics.density)
+        val scale = Math.max(cropWidth / bitmap.width, cropHeight / bitmap.height)
         mainMatrix.setScale(scale, scale)
         mainMatrix.postTranslate((viewWidth - bitmap.width * scale) / 2, (viewHeight - bitmap.height * scale) / 2)
         updatePreview(b)
@@ -745,22 +768,40 @@ class PhotoEditorActivity : AppCompatActivity() {
                 return
             }
         }
-        val bitmap = originalBitmap ?: return
-        val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
-        try {
-            FileOutputStream(file).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-                out.flush()
-            }
-            val uriStr = Uri.fromFile(file).toString()
+        val bitmap = originalBitmap
+        if (bitmap != null) {
+            val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
+            try {
+                FileOutputStream(file).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                    out.flush()
+                }
+                val uriStr = Uri.fromFile(file).toString()
+                val resultIntent = Intent().apply {
+                    putExtra("EDITED_IMAGE_URI", uriStr)
+                    putExtra("EXTRA_IMAGE_URI", uriStr)
+                    setData(Uri.parse(uriStr))
+                }
+                setResult(RESULT_OK, resultIntent)
+                finish()
+                PrimeTransitions.applyCloseTransition(this)
+                return
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+
+        val fallbackUriStr = originalUri?.toString() ?: intent.getStringExtra("EXTRA_IMAGE_URI")
+        if (!fallbackUriStr.isNullOrEmpty()) {
             val resultIntent = Intent().apply {
-                putExtra("EDITED_IMAGE_URI", uriStr)
-                putExtra("EXTRA_IMAGE_URI", uriStr)
+                putExtra("EDITED_IMAGE_URI", fallbackUriStr)
+                putExtra("EXTRA_IMAGE_URI", fallbackUriStr)
+                setData(Uri.parse(fallbackUriStr))
             }
             setResult(RESULT_OK, resultIntent)
             finish()
             PrimeTransitions.applyCloseTransition(this)
-        } catch (e: Exception) { finish() }
+            return
+        }
+        finish()
     }
 
     private fun showColorPicker(b: ActivityPhotoEditorContentBinding) {
@@ -974,47 +1015,69 @@ class PhotoEditorActivity : AppCompatActivity() {
             saveGifAndFinish(originalUri!!)
             return
         }
-        val bitmap = originalBitmap ?: return
-        val resultBitmap = Bitmap.createBitmap(b.ivEditorPreview.width, b.ivEditorPreview.height, Bitmap.Config.ARGB_8888)
+        val bitmap = originalBitmap
+        if (bitmap == null) {
+            setOriginalAndFinish()
+            return
+        }
+        val viewWidth = b.ivEditorPreview.width
+        val viewHeight = b.ivEditorPreview.height
+        if (viewWidth <= 0 || viewHeight <= 0) {
+            setOriginalAndFinish()
+            return
+        }
+
+        val resultBitmap = Bitmap.createBitmap(viewWidth, viewHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(resultBitmap)
         val finalMatrix = Matrix(mainMatrix)
-        finalMatrix.postRotate(rotationAngle, b.ivEditorPreview.width / 2f, b.ivEditorPreview.height / 2f)
-        if (isMirrored) finalMatrix.postScale(-1f, 1f, b.ivEditorPreview.width / 2f, b.ivEditorPreview.height / 2f)
-        finalMatrix.postSkew(perspectiveFactor, 0f, b.ivEditorPreview.width / 2f, b.ivEditorPreview.height / 2f)
+        finalMatrix.postRotate(rotationAngle, viewWidth / 2f, viewHeight / 2f)
+        if (isMirrored) finalMatrix.postScale(-1f, 1f, viewWidth / 2f, viewHeight / 2f)
+        finalMatrix.postSkew(perspectiveFactor, 0f, viewWidth / 2f, viewHeight / 2f)
         val paint = Paint()
         paint.colorFilter = ColorMatrixColorFilter(getCurrentColorMatrix())
         canvas.drawBitmap(bitmap, finalMatrix, paint)
-        b.drawingView.getResultBitmap()?.let { drawingBitmap -> canvas.drawBitmap(drawingBitmap, 0f, 0f, null) }
-        val rect = Rect(); b.cropFrame.getGlobalVisibleRect(rect)
-        val viewRect = Rect(); b.ivEditorPreview.getGlobalVisibleRect(viewRect)
+
+        b.drawingView.getResultBitmap()?.let { drawingBitmap ->
+            canvas.drawBitmap(drawingBitmap, 0f, 0f, null)
+        }
+
+        val rect = Rect()
+        b.cropFrame.getGlobalVisibleRect(rect)
+        val viewRect = Rect()
+        b.ivEditorPreview.getGlobalVisibleRect(viewRect)
         val left = (rect.left - viewRect.left).coerceIn(0, resultBitmap.width - 1)
         val top = (rect.top - viewRect.top).coerceIn(0, resultBitmap.height - 1)
         val width = rect.width().coerceAtMost(resultBitmap.width - left)
         val height = rect.height().coerceAtMost(resultBitmap.height - top)
-        try {
-            val croppedBitmap = Bitmap.createBitmap(resultBitmap, left, top, width, height)
-            val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
-            java.util.concurrent.Executors.newSingleThreadExecutor().execute {
-                try {
-                    FileOutputStream(file).use { out ->
-                        croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-                        out.flush()
-                    }
-                    val uriStr = Uri.fromFile(file).toString()
-                    val resultIntent = Intent().apply {
-                        putExtra("EDITED_IMAGE_URI", uriStr)
-                        putExtra("EXTRA_IMAGE_URI", uriStr)
-                    }
-                    runOnUiThread {
-                        setResult(RESULT_OK, resultIntent)
-                        finish()
-                        PrimeTransitions.applyCloseTransition(this@PhotoEditorActivity)
-                    }
-                } catch (e: Exception) {
-                    runOnUiThread { finish() }
+        val outputBitmap = if (width > 0 && height > 0) {
+            Bitmap.createBitmap(resultBitmap, left, top, width, height)
+        } else {
+            resultBitmap
+        }
+
+        val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
+        java.util.concurrent.Executors.newSingleThreadExecutor().execute {
+            try {
+                FileOutputStream(file).use { out ->
+                    outputBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                    out.flush()
                 }
+                val uriStr = Uri.fromFile(file).toString()
+                val resultIntent = Intent().apply {
+                    putExtra("EDITED_IMAGE_URI", uriStr)
+                    putExtra("EXTRA_IMAGE_URI", uriStr)
+                    setData(Uri.parse(uriStr))
+                }
+                runOnUiThread {
+                    setResult(RESULT_OK, resultIntent)
+                    finish()
+                    PrimeTransitions.applyCloseTransition(this@PhotoEditorActivity)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                runOnUiThread { setOriginalAndFinish() }
             }
-        } catch (e: Exception) { finish() }
+        }
     }
 
     private fun spacing(event: MotionEvent): Float {
@@ -1070,12 +1133,41 @@ class PhotoEditorActivity : AppCompatActivity() {
             .start()
     }
 
+    private fun getExifRotation(uri: Uri): Int {
+        try {
+            val inputStream = contentResolver.openInputStream(uri) ?: return 0
+            val exif = android.media.ExifInterface(inputStream)
+            val orientation = exif.getAttributeInt(
+                android.media.ExifInterface.TAG_ORIENTATION,
+                android.media.ExifInterface.ORIENTATION_NORMAL
+            )
+            inputStream.close()
+            return when (orientation) {
+                android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90
+                android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180
+                android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270
+                else -> 0
+            }
+        } catch (_: Throwable) {
+            return 0
+        }
+    }
+
     private fun loadOptimizedBitmap(uri: Uri): Bitmap? {
         return try {
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             contentResolver.openInputStream(uri)?.use { stream ->
                 BitmapFactory.decodeStream(stream, null, options)
-            } ?: return null
+            }
+
+            if (options.outWidth <= 0 || options.outHeight <= 0) {
+                if (uri.scheme == "file" || uri.path != null) {
+                    val filePath = uri.path ?: uri.toString().removePrefix("file://")
+                    BitmapFactory.decodeFile(filePath, options)
+                }
+            }
+
+            if (options.outWidth <= 0 || options.outHeight <= 0) return null
 
             val screenWidth = resources.displayMetrics.widthPixels
             val screenHeight = resources.displayMetrics.heightPixels
@@ -1084,7 +1176,7 @@ class PhotoEditorActivity : AppCompatActivity() {
             if (options.outHeight > screenHeight || options.outWidth > screenWidth) {
                 val halfHeight = options.outHeight / 2
                 val halfWidth = options.outWidth / 2
-                while (halfHeight / inSampleSize >= screenHeight && halfWidth / inSampleSize >= screenWidth) {
+                while (halfHeight / inSampleSize > screenHeight || halfWidth / inSampleSize > screenWidth) {
                     inSampleSize *= 2
                 }
             }
@@ -1094,8 +1186,23 @@ class PhotoEditorActivity : AppCompatActivity() {
                 inMutable = true
             }
             
-            contentResolver.openInputStream(uri)?.use { stream ->
+            var decodedBitmap = contentResolver.openInputStream(uri)?.use { stream ->
                 BitmapFactory.decodeStream(stream, null, finalOptions)
+            }
+
+            if (decodedBitmap == null && (uri.scheme == "file" || uri.path != null)) {
+                val filePath = uri.path ?: uri.toString().removePrefix("file://")
+                decodedBitmap = BitmapFactory.decodeFile(filePath, finalOptions)
+            }
+
+            if (decodedBitmap == null) return null
+
+            val rotation = getExifRotation(uri)
+            if (rotation != 0) {
+                val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
+                Bitmap.createBitmap(decodedBitmap, 0, 0, decodedBitmap.width, decodedBitmap.height, matrix, true)
+            } else {
+                decodedBitmap
             }
         } catch (t: Throwable) {
             t.printStackTrace()

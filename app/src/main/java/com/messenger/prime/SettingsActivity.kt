@@ -226,6 +226,8 @@ class SettingsActivity : AppCompatActivity() {
                 setGifAvatarDirectly(it)
             } else {
                 val intent = Intent(this, PhotoEditorActivity::class.java).apply {
+                    setDataAndType(it, mime ?: "image/*")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     putExtra("EXTRA_IMAGE_URI", it.toString())
                     putExtra("IS_PROFILE_PHOTO", true)
                 }
