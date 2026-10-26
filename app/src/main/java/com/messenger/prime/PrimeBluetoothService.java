@@ -63,10 +63,16 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         initWakeLock();
         promoteToForeground();
         BluetoothConnectionManager.getInstance().registerCallback(this);
+        PrimeCompanionServer.INSTANCE.start(this);
+        PrimeCompanionServer.INSTANCE.setOnPacketReceived((type, payload) -> {
+            onPacketReceived("PrimeDesktop", type, payload);
+            return kotlin.Unit.INSTANCE;
+        });
     }
 
     @Override
     public void onDestroy() {
+        PrimeCompanionServer.INSTANCE.stop();
         BluetoothConnectionManager.getInstance().unregisterCallback(this);
         reconnectHandler.removeCallbacksAndMessages(null);
         pendingReconnects.clear();
@@ -558,6 +564,9 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         
         resetReconnectAttempts(fromAddress);
         manageWakeLock();
+        if (!"PrimeDesktop".equals(fromAddress)) {
+            PrimeCompanionServer.INSTANCE.broadcastPacket(type, payload);
+        }
 
         if (type == 0x01) { // TYPE_TEXT
             String textData = new String(payload, StandardCharsets.UTF_8);
