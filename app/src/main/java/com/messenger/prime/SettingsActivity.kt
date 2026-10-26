@@ -680,7 +680,7 @@ class SettingsActivity : AppCompatActivity() {
                 handlePhotoDeletionWithUndo(currentAvatarUri)
                 togglePhotoMenuMode(false)
             } else {
-                b.nestedScrollView.smoothScrollTo(0, 1000)
+                b.layoutSettingsHeader?.let { smoothScrollToView(b.nestedScrollView, it) }
             }
         }
         b.photoCard.setOnClickListener {
@@ -696,7 +696,9 @@ class SettingsActivity : AppCompatActivity() {
         b.btnBackNP.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         b.btnChangePhotoNP.setOnClickListener { showAvatarChoiceDialog() }
         b.btnLogoutNP.setOnClickListener { showLogoutDialog() }
-        b.btnExtraSettingsNP.setOnClickListener { b.nestedScrollView.smoothScrollTo(0, 1000) }
+        b.btnExtraSettingsNP.setOnClickListener { 
+            b.layoutSettingsHeader?.let { smoothScrollToView(b.nestedScrollView, it) }
+        }
 
         b.btnCheckUpdate.setOnClickListener {
             UpdateChecker.checkForUpdates(this, manualCheck = true)
@@ -1310,6 +1312,7 @@ class SettingsActivity : AppCompatActivity() {
 
         b.switchDisableAnimations?.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("disable_animations", isChecked).apply()
+            PrimeTransitions.applyGlobalAnimationScale(this)
             sendBroadcast(Intent("com.messenger.prime.ANIMATIONS_TOGGLED").setPackage(packageName))
         }
     }

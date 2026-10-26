@@ -235,19 +235,19 @@
             android:orientation="vertical"
             android:visibility="gone">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Яркость" android:textColor="@color/white" android:textSize="12sp" />
-            <com.google.android.material.slider.Slider android:id="@+id/sliderBrightness" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="-100" android:valueTo="100" android:value="0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderBrightness" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="-100" android:valueTo="100" android:value="0" app:labelBehavior="withinBounds" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Контраст" android:textColor="@color/white" android:textSize="12sp" />
-            <com.google.android.material.slider.Slider android:id="@+id/sliderContrast" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0.5" android:valueTo="2.0" android:value="1.0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderContrast" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0.5" android:valueTo="2.0" android:value="1.0" app:labelBehavior="withinBounds" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Насыщенность" android:textColor="@color/white" android:textSize="12sp" />
-            <com.google.android.material.slider.Slider android:id="@+id/sliderSaturation" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0" android:valueTo="2.0" android:value="1.0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderSaturation" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0" android:valueTo="2.0" android:value="1.0" app:labelBehavior="withinBounds" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Температура" android:textColor="@color/white" android:textSize="12sp" />
-            <com.google.android.material.slider.Slider android:id="@+id/sliderTemperature" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="-50" android:valueTo="50" android:value="0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderTemperature" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="-50" android:valueTo="50" android:value="0" app:labelBehavior="withinBounds" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Оттенок" android:textColor="@color/white" android:textSize="12sp" />
-            <com.google.android.material.slider.Slider android:id="@+id/sliderTint" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="-50" android:valueTo="50" android:value="0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderTint" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="-50" android:valueTo="50" android:value="0" app:labelBehavior="withinBounds" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
         </LinearLayout>
 
         <!-- Группа 2: Геометрия -->
@@ -259,13 +259,13 @@
             android:visibility="gone">
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Масштаб" android:textColor="@color/white" android:textSize="12sp" />
-            <com.google.android.material.slider.Slider android:id="@+id/sliderScale" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0.5" android:valueTo="5.0" android:value="1.0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderScale" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0.5" android:valueTo="5.0" android:value="1.0" app:labelBehavior="withinBounds" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Поворот" android:textColor="@color/white" android:textSize="12sp" />
-            <com.google.android.material.slider.Slider android:id="@+id/sliderRotate" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0" android:valueTo="360" android:value="0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderRotate" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0" android:valueTo="360" android:value="0" app:labelBehavior="withinBounds" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Перспектива" android:textColor="@color/white" android:textSize="12sp" />
-            <com.google.android.material.slider.Slider android:id="@+id/sliderPerspective" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="-0.5" android:valueTo="0.5" android:value="0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderPerspective" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="-0.5" android:valueTo="0.5" android:value="0" app:labelBehavior="withinBounds" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Пропорции" android:textColor="@color/white" android:textSize="12sp" />
 
@@ -315,9 +315,9 @@
             android:orientation="vertical"
             android:visibility="gone">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Размер" android:textColor="@color/white" android:textSize="12sp" />
-            <com.google.android.material.slider.Slider android:id="@+id/sliderBrushSize" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="5" android:valueTo="100" android:value="20" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderBrushSize" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="5" android:valueTo="100" android:value="20" app:labelBehavior="withinBounds" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Жесткость" android:textColor="@color/white" android:textSize="12sp" />
-            <com.google.android.material.slider.Slider android:id="@+id/sliderBrushHardness" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0.1" android:valueTo="1.0" android:value="1.0" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
+            <com.google.android.material.slider.Slider android:id="@+id/sliderBrushHardness" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="0.1" android:valueTo="1.0" android:value="1.0" app:labelBehavior="withinBounds" app:thumbColor="@color/white" app:trackColorActive="@color/white" />
 
             <TextView
                 android:id="@+id/tvColorPickerLink"

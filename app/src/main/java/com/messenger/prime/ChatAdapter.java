@@ -2126,7 +2126,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         SharedPreferences sharedPrefs = container.getContext().getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
         int sizeDp = sharedPrefs.getInt("video_message_size_dp", 180);
 
-        int radiusPercent = 50;
+        int radiusPercent = sharedPrefs.getInt("video_message_corner_radius", 50);
         if (shape != null && !shape.isEmpty()) {
             try {
                 radiusPercent = Integer.parseInt(shape.trim());
@@ -2137,8 +2137,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     radiusPercent = 35;
                 } else if ("prime".equalsIgnoreCase(shape)) {
                     radiusPercent = 25;
-                } else {
-                    radiusPercent = 50;
                 }
             }
         }

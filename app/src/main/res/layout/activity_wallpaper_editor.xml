@@ -499,6 +499,7 @@
                     android:valueTo="3.0"
                     android:stepSize="0.05"
                     android:value="1.0"
+                    app:labelBehavior="withinBounds"
                     app:thumbColor="@color/prime_brand"
                     app:trackColorActive="@color/prime_brand" />
 
@@ -522,6 +523,7 @@
                     android:valueTo="360"
                     android:stepSize="5"
                     android:value="0"
+                    app:labelBehavior="withinBounds"
                     app:thumbColor="@color/prime_brand"
                     app:trackColorActive="@color/prime_brand" />
 
@@ -545,6 +547,7 @@
                     android:valueTo="0.85"
                     android:stepSize="0.05"
                     android:value="0.2"
+                    app:labelBehavior="withinBounds"
                     app:thumbColor="@color/prime_brand"
                     app:trackColorActive="@color/prime_brand" />
             </LinearLayout>

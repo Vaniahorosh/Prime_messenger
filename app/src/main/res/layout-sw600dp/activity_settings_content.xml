@@ -1895,6 +1895,7 @@
                                     android:valueTo="100"
                                     android:stepSize="1"
                                     android:value="50"
+                                    app:labelBehavior="withinBounds"
                                     app:thumbColor="@color/prime_brand"
                                     app:trackColorActive="@color/prime_brand" />
                             </LinearLayout>
@@ -2048,6 +2049,7 @@
                                 android:valueTo="100"
                                 android:stepSize="1"
                                 android:value="50"
+                                app:labelBehavior="withinBounds"
                                 app:thumbColor="@color/prime_brand"
                                 app:trackColorActive="@color/prime_brand" />
 
@@ -2151,6 +2153,7 @@
                                 android:valueTo="36"
                                 android:stepSize="1"
                                 android:value="24"
+                                app:labelBehavior="withinBounds"
                                 app:thumbColor="@color/prime_brand"
                                 app:trackColorActive="@color/prime_brand" />
 
@@ -2580,10 +2583,9 @@
                         android:id="@+id/cardStorage"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        app:cardCornerRadius="20dp"
-                        app:cardElevation="2dp"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="0dp"
                         app:cardBackgroundColor="@color/prime_surface"
-                        app:strokeColor="@color/prime_divider"
                         app:strokeWidth="0dp">
 
                         <LinearLayout

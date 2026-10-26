@@ -27,6 +27,21 @@ object PrimeTransitions {
     }
 
     /**
+     * Overrides system animation scales for the app process to instantly disable ALL 
+     * ValueAnimators, ObjectAnimators and ViewPropertyAnimators if requested.
+     */
+    @JvmStatic
+    fun applyGlobalAnimationScale(context: android.content.Context) {
+        try {
+            val scale = if (areAnimationsDisabled(context)) 0.0f else 1.0f
+            val method = android.animation.ValueAnimator::class.java.getMethod("setDurationScale", Float::class.javaPrimitiveType)
+            method.invoke(null, scale)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
      * Registers both OPEN and CLOSE activity transitions upfront on Android 14+ (API 34+).
      * Registering CLOSE transition upfront in `onCreate` guarantees the system
      * predictive gesture engine can seek and animate the closing transition interactively.

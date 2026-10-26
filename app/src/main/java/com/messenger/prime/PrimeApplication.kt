@@ -18,6 +18,7 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
     override fun onCreate() {
         super.onCreate()
         appContext = this.applicationContext
+        PrimeTransitions.applyGlobalAnimationScale(this)
         registerActivityLifecycleCallbacks(this)
         sanitizeLocalUserProfile(this)
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
