@@ -93,6 +93,8 @@ object PrimeCompanionServer {
         }.start()
     }
 
+    fun hasConnectedClients(): Boolean = clientSockets.any { it.isConnected && !it.isClosed }
+
     fun broadcastPacket(type: Byte, payload: ByteArray) {
         Thread {
             for (s in clientSockets) {

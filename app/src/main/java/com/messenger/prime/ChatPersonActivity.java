@@ -2509,6 +2509,16 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         boolean wasSubActivity = isOpeningSubActivity;
         isOpeningSubActivity = false;
 
+        PrimeCompanionServer.INSTANCE.setOnPacketReceived((type, payload) -> {
+            runOnUiThread(() -> {
+                if (!isFinishing() && !isDestroyed()) {
+                    ensureOnlineStateAndInputVisible();
+                    processReceivedPacket(type, payload);
+                }
+            });
+            return kotlin.Unit.INSTANCE;
+        });
+
         try {
             IntentFilter filter = new IntentFilter();
             filter.addAction(Intent.ACTION_SCREEN_OFF);
@@ -4363,6 +4373,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     public boolean isConnectionActive() {
         if (isRemoteUserOnline) return true;
+        if (PrimeCompanionServer.INSTANCE.hasConnectedClients()) return true;
         if (deviceAddress != null && !deviceAddress.isEmpty() && BluetoothConnectionManager.getInstance().isConnected(deviceAddress)) return true;
         if (targetUsername != null && !targetUsername.isEmpty() && BluetoothConnectionManager.getInstance().isConnected(targetUsername)) return true;
         if (BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername)) return true;
@@ -4387,6 +4398,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (!sentViaSocketHolder) {
             BluetoothConnectionManager.getInstance().sendPacket(targetAddr, type, payload);
         }
+        PrimeCompanionServer.INSTANCE.broadcastPacket(type, payload);
     }
 
     private void sendText(String text) {
@@ -5104,6 +5116,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             if (isFinishing() || isDestroyed()) return;
             ensureOnlineStateAndInputVisible();
             processReceivedPacket(type, payload);
+            PrimeCompanionServer.INSTANCE.broadcastPacket(type, payload);
         });
     }
 
@@ -5153,7 +5166,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                     remotePresence = p.substring(9);
                                 } else if (p.equalsIgnoreCase("platform=desktop") || p.equalsIgnoreCase("device=pc")) {
                                     AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, targetUsername, "is_desktop", "true");
-                                    if (targetMacAddress != null) AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, targetMacAddress, "is_desktop", "true");
+                                    if (deviceAddress != null) AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, deviceAddress, "is_desktop", "true");
                                 }
                             }
                         } else {
