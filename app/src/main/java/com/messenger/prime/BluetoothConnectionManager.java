@@ -633,8 +633,13 @@ public class BluetoothConnectionManager {
 
                 BluetoothSocket socket = null;
 
-                // Stage 1: Fast Direct RFCOMM Channel 1 (Bypasses slow SDP discovery query)
-                if (socket == null && !isCancelled) {
+                // Stage 1: Fast Direct RFCOMM Channel 1 (Bypasses slow SDP discovery query for phone-to-phone)
+                boolean isComputer = false;
+                try {
+                    if (mmDevice.getBluetoothClass() != null && mmDevice.getBluetoothClass().getMajorDeviceClass() == android.bluetooth.BluetoothClass.Device.Major.COMPUTER) { isComputer = true; }
+                } catch (Exception ignored) {}
+
+                if (socket == null && !isCancelled && !isComputer) {
                     try {
                         socket = (BluetoothSocket) mmDevice.getClass()
                                 .getMethod("createRfcommSocket", int.class)
