@@ -413,6 +413,18 @@ object AvatarManager {
         editor.apply()
         invalidateAvatarFileCache()
     }
+
+    @JvmStatic
+    fun getContactPreferenceSafely(context: Context, contactKey: String?, prefKeySuffix: String): String? {
+        if (contactKey.isNullOrBlank()) return null
+        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        if (currentUser.isNotEmpty()) {
+            val userSpecific = sharedPrefs.getString("${prefKeySuffix}_${currentUser}_$contactKey", null)
+            if (userSpecific != null) return userSpecific
+        }
+        return sharedPrefs.getString("${prefKeySuffix}_$contactKey", null)
+    }
 }
 
 fun getAvatarCornerRadiusPx(context: Context, viewSizePx: Int = (48 * context.resources.displayMetrics.density).toInt()): Int {
