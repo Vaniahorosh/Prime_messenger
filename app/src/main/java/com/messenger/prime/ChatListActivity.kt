@@ -2292,8 +2292,13 @@ class ChatListActivity : AppCompatActivity() {
                         }
                         val devName = try { device.name } catch (_: Exception) { null }
                         val isSavedInChats = chatListState.any { it.id.equals(device.address, ignoreCase = true) }
+                        val isDesktopPeer = devName?.contains("Prime", ignoreCase = true) == true ||
+                                            devName?.contains("VANIAHOROSH", ignoreCase = true) == true ||
+                                            devName?.contains("PC", ignoreCase = true) == true ||
+                                            devName?.contains("Desktop", ignoreCase = true) == true ||
+                                            device.bondState == BluetoothDevice.BOND_BONDED
                         
-                        if (isSavedInChats || devName?.contains("Prime", ignoreCase = true) == true) {
+                        if (isSavedInChats || isDesktopPeer) {
                             handlePrimeDeviceFound(device, devName)
                         } else {
                             val cachedUuids = try { device.uuids } catch (_: Exception) { null }
@@ -2319,6 +2324,10 @@ class ChatListActivity : AppCompatActivity() {
                             val updatedUuids = try { device.uuids } catch (_: Exception) { null }
                             val isSaved = chatListState.any { it.id.equals(device.address, ignoreCase = true) }
                             val isPrime = (updatedName?.contains("Prime", ignoreCase = true) == true) ||
+                                          (updatedName?.contains("VANIAHOROSH", ignoreCase = true) == true) ||
+                                          (updatedName?.contains("PC", ignoreCase = true) == true) ||
+                                          (updatedName?.contains("Desktop", ignoreCase = true) == true) ||
+                                          (device.bondState == BluetoothDevice.BOND_BONDED) ||
                                           (updatedUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true) ||
                                           isSaved
                             if (isPrime) {
