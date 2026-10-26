@@ -725,11 +725,13 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             String remoteName = null;
             String remoteLogin = null;
 
-            if (data.contains("login=") || data.contains("name=")) {
+            boolean isDesktop = false;
+            if (data.contains("login=") || data.contains("name=") || data.contains("platform=") || data.contains("device=")) {
                 String[] parts = data.split(";");
                 for (String p : parts) {
                     if (p.startsWith("login=")) remoteLogin = p.substring(6);
                     else if (p.startsWith("name=")) remoteName = p.substring(5);
+                    else if (p.equalsIgnoreCase("platform=desktop") || p.equalsIgnoreCase("device=pc")) isDesktop = true;
                 }
             } else {
                 remoteName = data;
@@ -739,9 +741,16 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 if (fromAddress != null && !fromAddress.isEmpty()) {
                     AvatarManager.saveContactPreferenceSafely(this, fromAddress, "contact_name", remoteName);
                     AvatarManager.saveContactPreferenceSafely(this, remoteName, "mac", fromAddress);
+                    if (isDesktop) {
+                        AvatarManager.saveContactPreferenceSafely(this, fromAddress, "is_desktop", "true");
+                        AvatarManager.saveContactPreferenceSafely(this, remoteName, "is_desktop", "true");
+                    }
                 }
                 if (remoteLogin != null && !remoteLogin.isEmpty()) {
                     AvatarManager.saveContactPreferenceSafely(this, remoteLogin, "contact_name", remoteName);
+                    if (isDesktop) {
+                        AvatarManager.saveContactPreferenceSafely(this, remoteLogin, "is_desktop", "true");
+                    }
                 }
 
                 BluetoothConnectionManager.getInstance().setRemoteUsername(fromAddress, remoteName);

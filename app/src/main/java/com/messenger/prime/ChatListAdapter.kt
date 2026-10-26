@@ -224,11 +224,14 @@ class ChatListAdapter(
 
         if (diffBundle.containsKey("name")) {
             val rawName = if (isBluetoothAddress(chat.name)) "Собеседник" else chat.name
+            val isDesktop = "true".equals(AvatarManager.getContactPreferenceSafely(context, chat.id, "is_desktop"), ignoreCase = true)
+                    || "true".equals(AvatarManager.getContactPreferenceSafely(context, chat.name, "is_desktop"), ignoreCase = true)
+            val finalName = if (isDesktop && !rawName.contains("💻")) "$rawName 💻" else rawName
             val accentColor = ColorAccentManager.getCurrentAccentColor(context)
             if (isSearchActive && currentSearchQuery.isNotEmpty()) {
-                binding.tvContactName.text = highlightSearchText(rawName, currentSearchQuery, accentColor)
+                binding.tvContactName.text = highlightSearchText(finalName, currentSearchQuery, accentColor)
             } else {
-                binding.tvContactName.text = rawName
+                binding.tvContactName.text = finalName
             }
         }
 
@@ -420,12 +423,15 @@ class ChatListAdapter(
                 val isCurrentlyTyping = isOnline && (chat.isTyping || "TYPING".equals(chat.activityState, ignoreCase = true) || (chat.typingUntil > 0 && chat.typingUntil > now))
 
                 val rawName = if (isBluetoothAddress(chat.name)) "Собеседник" else chat.name
+                val isDesktop = "true".equals(AvatarManager.getContactPreferenceSafely(context, chat.id, "is_desktop"), ignoreCase = true)
+                        || "true".equals(AvatarManager.getContactPreferenceSafely(context, chat.name, "is_desktop"), ignoreCase = true)
+                val finalName = if (isDesktop && !rawName.contains("💻")) "$rawName 💻" else rawName
                 val accentColor = ColorAccentManager.getCurrentAccentColor(context)
 
                 if (isSearchActive && currentSearchQuery.isNotEmpty()) {
-                    binding.tvContactName.text = highlightSearchText(rawName, currentSearchQuery, accentColor)
+                    binding.tvContactName.text = highlightSearchText(finalName, currentSearchQuery, accentColor)
                 } else {
-                    binding.tvContactName.text = rawName
+                    binding.tvContactName.text = finalName
                 }
 
                 if (!isOnline) {

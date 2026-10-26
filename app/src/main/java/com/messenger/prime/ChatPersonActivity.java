@@ -4769,7 +4769,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private String formatDisplayName(String name) {
         if (name == null || name.isEmpty() || isValidMacAddress(name)) {
-            return "Собеседник";
+            name = "Собеседник";
+        }
+        boolean isDesktop = false;
+        try {
+            isDesktop = "true".equalsIgnoreCase(AvatarManager.getContactPreferenceSafely(this, name, "is_desktop"))
+                     || (deviceAddress != null && "true".equalsIgnoreCase(AvatarManager.getContactPreferenceSafely(this, deviceAddress, "is_desktop")));
+        } catch (Exception ignored) {}
+        if (isDesktop && !name.contains("💻")) {
+            return name + " 💻";
         }
         return name;
     }
@@ -5132,7 +5140,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         String remoteLogin = "";
                         String remotePresence = null;
 
-                        if (data.contains("login=") || data.contains("name=") || data.contains("presence=")) {
+                        if (data.contains("login=") || data.contains("name=") || data.contains("presence=") || data.contains("platform=") || data.contains("device=")) {
                             String[] parts = data.split(";");
                             for (String p : parts) {
                                 if (p.startsWith("login=")) remoteLogin = p.substring(6);
@@ -5143,6 +5151,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                     remoteHasVideoNotesSupport = p.contains("vn");
                                 } else if (p.startsWith("presence=")) {
                                     remotePresence = p.substring(9);
+                                } else if (p.equalsIgnoreCase("platform=desktop") || p.equalsIgnoreCase("device=pc")) {
+                                    AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, targetUsername, "is_desktop", "true");
+                                    if (targetMacAddress != null) AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, targetMacAddress, "is_desktop", "true");
                                 }
                             }
                         } else {
