@@ -251,10 +251,8 @@ class PhotoEditorActivity : AppCompatActivity() {
                                     .load(uri)
                                     .into(b.ivEditorPreview)
                             } else {
-                                val density = resources.displayMetrics.density
                                 if (isProfilePhoto) {
                                     b.btnSetOriginal.text = "Поставить фото без редактирования"
-                                    b.cropFrame.radius = 140 * density
                                 } else {
                                     b.btnSetOriginal.text = "Отправить без редактирования"
                                 }
