@@ -809,6 +809,7 @@ class PersonInformationActivity : AppCompatActivity() {
             val currentUser = sp.getString("current_user", "") ?: ""
             val deletionPayload = "DELETE_CHAT:login=$currentUser;name=$currentUser"
             BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 8.toByte(), deletionPayload.toByteArray(Charsets.UTF_8))
+            PrimeCompanionServer.broadcastPacket(8.toByte(), deletionPayload.toByteArray(Charsets.UTF_8))
             
             Handler(Looper.getMainLooper()).postDelayed({
                 finalizeChatDeletion()

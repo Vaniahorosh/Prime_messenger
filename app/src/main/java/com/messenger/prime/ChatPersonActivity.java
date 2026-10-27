@@ -217,6 +217,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private static final byte TYPE_PRESENCE = 0x0C;
     private static final byte TYPE_REACTION = 0x0D;
     private static final byte TYPE_FILE = 0x0E;
+    private kotlin.jvm.functions.Function2<Byte, byte[], kotlin.Unit> companionPacketListener;
     private static final byte TYPE_PROFILE_UPDATE = 0x0F;
 
     private static class PendingMessage {
@@ -2528,15 +2529,18 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         boolean wasSubActivity = isOpeningSubActivity;
         isOpeningSubActivity = false;
 
-        PrimeCompanionServer.INSTANCE.setOnPacketReceived((type, payload) -> {
-            runOnUiThread(() -> {
-                if (!isFinishing() && !isDestroyed()) {
-                    ensureOnlineStateAndInputVisible();
-                    processReceivedPacket(type, payload);
-                }
-            });
-            return kotlin.Unit.INSTANCE;
-        });
+        if (companionPacketListener == null) {
+            companionPacketListener = (type, payload) -> {
+                runOnUiThread(() -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        ensureOnlineStateAndInputVisible();
+                        processReceivedPacket(type, payload);
+                    }
+                });
+                return kotlin.Unit.INSTANCE;
+            };
+        }
+        PrimeCompanionServer.addPacketListener(companionPacketListener);
 
         try {
             IntentFilter filter = new IntentFilter();
@@ -5752,6 +5756,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         PrimeNotification.INSTANCE.cancelSendingProgressNotification(this);
         stopAllVideoNotePlayback();
         PrimeMusicManager.INSTANCE.removeListener(this);
+        if (companionPacketListener != null) {
+            PrimeCompanionServer.removePacketListener(companionPacketListener);
+        }
         super.onDestroy();
         if (!isChangingConfigurations() && isFinishing()) {
             try {

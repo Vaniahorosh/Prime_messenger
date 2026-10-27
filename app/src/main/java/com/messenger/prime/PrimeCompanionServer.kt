@@ -24,7 +24,27 @@ object PrimeCompanionServer {
     private var discoverySocket: DatagramSocket? = null
     private val clientSockets = CopyOnWriteArrayList<Socket>()
     private val mainHandler = Handler(Looper.getMainLooper())
-    var onPacketReceived: ((type: Byte, payload: ByteArray) -> Unit)? = null
+    private val packetListeners = CopyOnWriteArrayList<(type: Byte, payload: ByteArray) -> Unit>()
+
+    @JvmStatic
+    fun addPacketListener(listener: (type: Byte, payload: ByteArray) -> Unit) {
+        if (!packetListeners.contains(listener)) {
+            packetListeners.add(listener)
+        }
+    }
+
+    @JvmStatic
+    fun removePacketListener(listener: (type: Byte, payload: ByteArray) -> Unit) {
+        packetListeners.remove(listener)
+    }
+
+    var onPacketReceived: ((type: Byte, payload: ByteArray) -> Unit)?
+        get() = packetListeners.firstOrNull()
+        set(value) {
+            if (value != null) {
+                addPacketListener(value)
+            }
+        }
 
     @Volatile var isRunning = false
 
@@ -81,7 +101,13 @@ object PrimeCompanionServer {
                     input.readFully(payload)
 
                     mainHandler.post {
-                        onPacketReceived?.invoke(type, payload)
+                        for (listener in packetListeners) {
+                            try {
+                                listener.invoke(type, payload)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error in companion packet listener", e)
+                            }
+                        }
                     }
                 }
             } catch (e: Exception) {

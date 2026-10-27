@@ -3996,7 +3996,8 @@ class ChatListActivity : AppCompatActivity() {
             Thread {
                 try {
                     BluetoothConnectionManager.getInstance().sendPacket(targetId, 8.toByte(), payload)
-                    Thread.sleep(80)
+                    PrimeCompanionServer.broadcastPacket(8.toByte(), payload)
+                    Thread.sleep(100)
                 } catch (e: Exception) {
                     Log.e("ChatListActivity", "Error sending deletion packet", e)
                 } finally {

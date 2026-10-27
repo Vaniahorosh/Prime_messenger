@@ -650,13 +650,21 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             } else if (type == 0x08) { // TYPE_CHAT_DELETED
                 String data = new String(payload, StandardCharsets.UTF_8);
                 String deletedByName = displayName;
+                String deletedByLogin = null;
                 if (data.startsWith("DELETE_CHAT:")) {
                     String[] parts = data.substring(12).split(";");
                     for (String p : parts) {
                         if (p.startsWith("name=")) {
                             deletedByName = p.substring(5);
+                        } else if (p.startsWith("login=")) {
+                            deletedByLogin = p.substring(6);
                         }
                     }
+                }
+                if (deletedByLogin != null && !deletedByLogin.isEmpty()) {
+                    ChatHistoryManager.deleteHistoryCompletely(this, deletedByLogin, fromAddress);
+                    DeviceBindingManager.unbindDeviceSecurely(this, deletedByLogin, fromAddress);
+                    PrimeNotification.cancelNotificationForUser(this, deletedByLogin, fromAddress);
                 }
                 ChatHistoryManager.deleteHistoryCompletely(this, deletedByName, fromAddress);
                 ChatHistoryManager.deleteHistoryCompletely(this, displayName, fromAddress);
@@ -664,6 +672,16 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 DeviceBindingManager.unbindDeviceSecurely(this, displayName, fromAddress);
                 BluetoothSocketHolder.removeConnection(fromAddress, displayName);
                 BluetoothConnectionManager.getInstance().disconnect(fromAddress);
+
+                try {
+                    android.bluetooth.BluetoothManager bManager = (android.bluetooth.BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+                    android.bluetooth.BluetoothAdapter bAdapter = bManager != null ? bManager.getAdapter() : null;
+                    if (bAdapter != null && bAdapter.isEnabled() && fromAddress != null && android.bluetooth.BluetoothAdapter.checkBluetoothAddress(fromAddress)) {
+                        android.bluetooth.BluetoothDevice device = bAdapter.getRemoteDevice(fromAddress);
+                        java.lang.reflect.Method removeBondMethod = device.getClass().getMethod("removeBond");
+                        removeBondMethod.invoke(device);
+                    }
+                } catch (Throwable ignored) {}
 
                 PrimeNotification.cancelNotificationForUser(this, deletedByName, fromAddress);
                 PrimeNotification.cancelNotificationForUser(this, displayName, fromAddress);
