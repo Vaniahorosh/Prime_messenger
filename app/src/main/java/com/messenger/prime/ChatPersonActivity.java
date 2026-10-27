@@ -232,7 +232,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private final Queue<PendingMessage> pendingMessageQueue = new ConcurrentLinkedQueue<>();
     private volatile String pendingReadReceiptMsgId = null;
-    private ExecutorService ioExecutor = Executors.newCachedThreadPool();
+    private static final ExecutorService ioExecutor = Executors.newCachedThreadPool();
+    public static volatile String activeSendingMessageId = null;
+    public static volatile String activeSendingTargetUsername = null;
 
     private void runOnIoThread(Runnable runnable) {
         if (ioExecutor != null && !ioExecutor.isShutdown()) {
@@ -4568,6 +4570,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
 
             currentSendingMessageId = messageId;
+                activeSendingMessageId = messageId;
+                activeSendingTargetUsername = targetUsername;
             if (isConnectionActive()) {
                 sendPacket(TYPE_PHOTO, fullPayload);
             } else {
@@ -4692,6 +4696,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     } catch (InterruptedException ignored) {}
 
                     currentSendingMessageId = messageId;
+                activeSendingMessageId = messageId;
+                activeSendingTargetUsername = targetUsername;
 
                     if (isConnectionActive()) {
                         sendPacket(TYPE_PHOTO, fullPayload);
@@ -5068,6 +5074,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     chatAdapter.updateMessageStatusById(msgIdFinished, MessageStatus.SENT);
                     ChatHistoryManager.updateMessageStatus(ChatPersonActivity.this, targetUsername, msgIdFinished, MessageStatus.SENT);
                     currentSendingMessageId = null;
+                    activeSendingMessageId = null;
+                    activeSendingTargetUsername = null;
                     hideSendingProgressUi();
                     saveActivityStateToChatList(targetUsername, "IDLE");
                     sendActivityState("IDLE");
@@ -5783,23 +5791,16 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     @SuppressLint("MissingPermission")
     @Override
     protected void onDestroy() {
-        if (!isChangingConfigurations() && isFinishing()) {
-            if (currentSendingMessageId != null) {
-                cancelCurrentFileSending();
-            }
+        if (currentSendingMessageId == null && activeSendingMessageId == null) {
+            PrimeNotification.INSTANCE.cancelSendingProgressNotification(this);
         }
-        PrimeNotification.INSTANCE.cancelSendingProgressNotification(this);
         stopAllVideoNotePlayback();
         PrimeMusicManager.INSTANCE.removeListener(this);
         if (companionPacketListener != null) {
             PrimeCompanionServer.removePacketListener(companionPacketListener);
         }
         super.onDestroy();
-        if (!isChangingConfigurations() && isFinishing()) {
-            try {
-                if (ioExecutor != null) ioExecutor.shutdownNow();
-            } catch (Exception ignored) {}
-        }
+        // ioExecutor is shared static; let ongoing transfers finish in background
         try {
             getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                     .unregisterOnSharedPreferenceChangeListener(profileChangeListener);
@@ -7016,6 +7017,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 } catch (InterruptedException ignored) {}
 
                 currentSendingMessageId = messageId;
+                activeSendingMessageId = messageId;
+                activeSendingTargetUsername = targetUsername;
 
                 if (isConnectionActive()) {
                     if (localSavedPath != null && new File(localSavedPath).exists()) {
@@ -8546,6 +8549,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             BluetoothConnectionManager.getInstance().cancelCurrentMediaSend(targetAddr);
         }
 
+        activeSendingMessageId = null;
+        activeSendingTargetUsername = null;
         if (currentSendingMessageId != null) {
             final String msgIdToDelete = currentSendingMessageId;
             currentSendingMessageId = null;
@@ -9736,12 +9741,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         runOnUiThread(this::stopAllVideoNotePlayback);
 
         SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-        String shape = sharedPrefs.getString("video_message_shape", "circle");
-        if (shape == null || shape.trim().isEmpty()) {
-            int radiusPercent = sharedPrefs.getInt("video_message_corner_radius", 50);
-            shape = String.valueOf(radiusPercent);
-        }
-        final String finalShapeTag = shape.trim();
+        int radiusPercent = sharedPrefs.getInt("video_message_corner_radius", 50);
+        final String finalShapeTag = String.valueOf(radiusPercent);
 
         File storageDir = new File(getFilesDir(), "video_notes");
         if (!storageDir.exists()) storageDir.mkdirs();

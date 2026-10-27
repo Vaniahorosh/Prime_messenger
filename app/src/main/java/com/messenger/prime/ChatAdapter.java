@@ -1924,6 +1924,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         String shape = "circle";
         if (text != null && text.startsWith("VIDEO_NOTE:")) {
             shape = text.substring("VIDEO_NOTE:".length()).trim();
+        } else if (message.getFileName() != null && message.getFileName().startsWith("vn_")) {
+            String[] parts = message.getFileName().replace(".mp4", "").split("_");
+            if (parts.length >= 3) {
+                shape = parts[2].trim();
+            }
         }
 
         if (pbFrame != null) {

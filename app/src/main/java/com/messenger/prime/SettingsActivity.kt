@@ -3499,7 +3499,7 @@ class SettingsActivity : AppCompatActivity() {
             if (fromUser) {
                 val radius = value.toInt()
                 val currentSize = b.sliderVideoSize?.value?.toInt() ?: 180
-                sharedPrefs.edit().putInt("video_message_corner_radius", radius).apply()
+                sharedPrefs.edit().putInt("video_message_corner_radius", radius).putString("video_message_shape", radius.toString()).apply()
                 updatePreviewAndLabels(radius, currentSize)
             }
         }

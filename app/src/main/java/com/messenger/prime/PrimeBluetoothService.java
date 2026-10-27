@@ -515,6 +515,16 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
     @Override
     public void onSendProgress(String deviceAddress, int progress) {
+        if (progress >= 100) {
+            if (ChatPersonActivity.activeSendingMessageId != null && ChatPersonActivity.activeSendingTargetUsername != null) {
+                ChatHistoryManager.updateMessageStatus(this, ChatPersonActivity.activeSendingTargetUsername, ChatPersonActivity.activeSendingMessageId, MessageStatus.SENT);
+                ChatPersonActivity.activeSendingMessageId = null;
+                ChatPersonActivity.activeSendingTargetUsername = null;
+            }
+        } else if (progress < 0) {
+            ChatPersonActivity.activeSendingMessageId = null;
+            ChatPersonActivity.activeSendingTargetUsername = null;
+        }
         updateSendProgressNotification(deviceAddress, progress);
     }
 
