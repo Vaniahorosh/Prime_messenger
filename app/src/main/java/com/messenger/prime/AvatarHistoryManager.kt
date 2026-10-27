@@ -13,7 +13,14 @@ object AvatarHistoryManager {
         val (_, f1) = parseAvatarModelAndFile(path1)
         val (_, f2) = parseAvatarModelAndFile(path2)
         if (f1 != null && f2 != null) {
-            return f1.absolutePath == f2.absolutePath
+            if (f1.absolutePath == f2.absolutePath) return true
+            if (f1.exists() && f2.exists() && f1.length() == f2.length() && f1.length() > 0) {
+                if (f1.length() < 1024 * 1024 * 10) {
+                    try {
+                        return f1.readBytes().contentEquals(f2.readBytes())
+                    } catch (_: Exception) {}
+                }
+            }
         }
         return false
     }
