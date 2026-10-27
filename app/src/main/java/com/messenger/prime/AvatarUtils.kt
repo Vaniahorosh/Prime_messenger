@@ -5,7 +5,12 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.text.Spannable
+import android.text.SpannableStringBuilder
+import android.text.style.ImageSpan
 import android.widget.ImageView
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.DrawableCompat
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import com.bumptech.glide.load.resource.bitmap.CircleCrop
@@ -424,6 +429,49 @@ object AvatarManager {
             if (userSpecific != null) return userSpecific
         }
         return sharedPrefs.getString("${prefKeySuffix}_$contactKey", null)
+    }
+
+    @JvmStatic
+    fun isDesktopContact(context: Context, contactId: String?, deviceAddress: String? = null): Boolean {
+        if (!contactId.isNullOrBlank()) {
+            val pref = getContactPreferenceSafely(context, contactId, "is_desktop")
+            if ("true".equals(pref, ignoreCase = true)) return true
+        }
+        if (!deviceAddress.isNullOrBlank()) {
+            val pref = getContactPreferenceSafely(context, deviceAddress, "is_desktop")
+            if ("true".equals(pref, ignoreCase = true)) return true
+        }
+        return false
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun formatNameWithDesktopIcon(
+        context: Context,
+        rawName: String?,
+        isDesktop: Boolean,
+        tintColor: Int = ColorAccentManager.getCurrentAccentColor(context)
+    ): CharSequence {
+        val nameToUse = if (rawName.isNullOrBlank()) "Собеседник" else rawName
+        val cleanName = nameToUse.replace("💻", "").trim()
+        if (!isDesktop) return cleanName
+
+        val ssb = SpannableStringBuilder(cleanName)
+        ssb.append("  ") // space for vector icon
+        val drawable = ContextCompat.getDrawable(context, R.drawable.ic_pc_monitor)?.mutate()
+        if (drawable != null) {
+            val size = (16 * context.resources.displayMetrics.density).toInt()
+            drawable.setBounds(0, 0, size, size)
+            DrawableCompat.setTint(drawable, tintColor)
+            val align = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                ImageSpan.ALIGN_CENTER
+            } else {
+                ImageSpan.ALIGN_BASELINE
+            }
+            val imageSpan = ImageSpan(drawable, align)
+            ssb.setSpan(imageSpan, ssb.length - 1, ssb.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        return ssb
     }
 }
 

@@ -39,6 +39,12 @@ object UpdateChecker {
 
                     val json = JSONObject(response)
                     val tagName = json.optString("tag_name", "")
+                    
+                    // Игнорируем релизы ПК версии (пометка Desk), чтобы не запрашивать мобильное обновление
+                    if (tagName.contains("Desk", ignoreCase = true)) {
+                        return@thread
+                    }
+
                     val releaseUrl = json.optString("html_url", "https://github.com/Vaniahorosh/Prime_messenger/releases/")
                     val releaseNotes = json.optString("body", "Доступна новая версия!")
 

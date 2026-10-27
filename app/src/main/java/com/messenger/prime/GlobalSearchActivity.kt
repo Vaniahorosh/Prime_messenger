@@ -477,10 +477,13 @@ class GlobalSearchActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = items[position]
-            holder.tvTitle.text = item.title
-            holder.tvTime.text = item.time
+            val context = holder.itemView.context
+            val isDesktop = AvatarManager.isDesktopContact(context, item.targetUsername, item.deviceAddress)
+            val cleanTitle = item.title.replace("💻", "").trim()
+            val accentColor = ColorAccentManager.getCurrentAccentColor(context)
 
-            val accentColor = ColorAccentManager.getCurrentAccentColor(holder.itemView.context)
+            holder.tvTitle.text = AvatarManager.formatNameWithDesktopIcon(context, cleanTitle, isDesktop, accentColor)
+            holder.tvTime.text = item.time
 
             // Highlight search query snippet
             if (currentQuery.isNotEmpty() && item.snippet.contains(currentQuery, ignoreCase = true)) {

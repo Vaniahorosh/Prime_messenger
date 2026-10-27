@@ -409,6 +409,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private String currentActivityState = "IDLE";
     private String myLocalActivityState = "IDLE";
     private int remoteVersionCode = -1;
+    private boolean isRemoteDesktop = false;
     private boolean remoteHasVideoNotesSupport = true;
 
     public void setOpeningSubActivity(boolean openingSubActivity) {
@@ -642,7 +643,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 if (isConnectionActive()) {
                     long now = System.currentTimeMillis();
                     String myPresence = isActivityForeground ? "ONLINE" : ("OFFLINE:" + now);
-                    String handshake = "HANDSHAKE:login=" + currentUser + ";name=" + localUsername + ";version=" + getAppVersionCode(getApplicationContext()) + ";features=vn;presence=" + myPresence;
+                    String handshake = "HANDSHAKE:login=" + currentUser + ";name=" + localUsername + ";version=" + getAppVersionCode(getApplicationContext()) + ";platform=android;features=vn;presence=" + myPresence;
                     sendPacket(TYPE_TEXT, handshake.getBytes(StandardCharsets.UTF_8));
                     sendLocalAvatar(true);
                 }
@@ -3714,6 +3715,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private boolean isRecipientVersionBelow64() {
+        boolean isDesktop = isRemoteDesktop 
+                || AvatarManager.isDesktopContact(this, targetUsername, deviceAddress);
+        if (isDesktop) return false;
         if (remoteVersionCode == -1) return true;
         return remoteVersionCode < 64;
     }
@@ -4843,19 +4847,19 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
     }
 
-    private String formatDisplayName(String name) {
+    private CharSequence formatDisplayName(String name) {
         if (name == null || name.isEmpty() || isValidMacAddress(name)) {
             name = "Собеседник";
         }
-        boolean isDesktop = false;
+        String cleanName = name.replace("💻", "").trim();
+        boolean isDesktop = isRemoteDesktop;
         try {
-            isDesktop = "true".equalsIgnoreCase(AvatarManager.getContactPreferenceSafely(this, name, "is_desktop"))
-                     || (deviceAddress != null && "true".equalsIgnoreCase(AvatarManager.getContactPreferenceSafely(this, deviceAddress, "is_desktop")));
+            if (!isDesktop) {
+                isDesktop = AvatarManager.isDesktopContact(this, cleanName, deviceAddress);
+            }
         } catch (Exception ignored) {}
-        if (isDesktop && !name.contains("💻")) {
-            return name + " 💻";
-        }
-        return name;
+        int accentColor = ColorAccentManager.getCurrentAccentColor(this);
+        return AvatarManager.formatNameWithDesktopIcon(this, cleanName, isDesktop, accentColor);
     }
 
     private String findMacForTargetUsername(String targetName) {
@@ -5197,7 +5201,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             if (myName == null || myName.isEmpty()) myName = localUsername;
             long now = System.currentTimeMillis();
             String myPresence = isActivityForeground ? "ONLINE" : ("OFFLINE:" + now);
-            String handshake = "HANDSHAKE:name=" + myName + ";login=" + currentUser + ";version=" + getAppVersionCode(getApplicationContext()) + ";features=vn;presence=" + myPresence;
+            String handshake = "HANDSHAKE:name=" + myName + ";login=" + currentUser + ";version=" + getAppVersionCode(getApplicationContext()) + ";platform=android;features=vn;presence=" + myPresence;
             sendPacket(TYPE_TEXT, handshake.getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
             Log.e(TAG, "Failed to send handshake", e);
@@ -5225,12 +5229,20 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                 if (p.startsWith("login=")) remoteLogin = p.substring(6);
                                 else if (p.startsWith("name=")) remoteName = p.substring(5);
                                 else if (p.startsWith("version=")) {
-                                    try { remoteVersionCode = Integer.parseInt(p.substring(8)); } catch (Exception ignored) {}
+                                    String verVal = p.substring(8).trim();
+                                    if (verVal.toLowerCase(Locale.ROOT).contains("desk")) {
+                                        isRemoteDesktop = true;
+                                        AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, targetUsername, "is_desktop", "true");
+                                        if (deviceAddress != null) AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, deviceAddress, "is_desktop", "true");
+                                    } else {
+                                        try { remoteVersionCode = Integer.parseInt(verVal); } catch (Exception ignored) {}
+                                    }
                                 } else if (p.startsWith("features=")) {
                                     remoteHasVideoNotesSupport = p.contains("vn");
                                 } else if (p.startsWith("presence=")) {
                                     remotePresence = p.substring(9);
-                                } else if (p.equalsIgnoreCase("platform=desktop") || p.equalsIgnoreCase("device=pc")) {
+                                } else if (p.equalsIgnoreCase("platform=desktop") || p.equalsIgnoreCase("device=pc") || p.equalsIgnoreCase("platform=desk") || p.startsWith("client=desk") || p.toLowerCase(Locale.ROOT).contains("desk")) {
+                                    isRemoteDesktop = true;
                                     AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, targetUsername, "is_desktop", "true");
                                     if (deviceAddress != null) AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, deviceAddress, "is_desktop", "true");
                                 }
@@ -5926,7 +5938,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 if (myName == null || myName.isEmpty()) myName = localUsername;
                 long now = System.currentTimeMillis();
                 String myPresence = isActivityForeground ? "ONLINE" : ("OFFLINE:" + now);
-                String handshake = "HANDSHAKE:name=" + myName + ";login=" + currentUser + ";version=" + getAppVersionCode(getApplicationContext()) + ";features=vn;presence=" + myPresence;
+                String handshake = "HANDSHAKE:name=" + myName + ";login=" + currentUser + ";version=" + getAppVersionCode(getApplicationContext()) + ";platform=android;features=vn;presence=" + myPresence;
                 sendPacket(TYPE_TEXT, handshake.getBytes(StandardCharsets.UTF_8));
                 sendLocalAvatar();
             } catch (Exception e) {
@@ -6008,17 +6020,26 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             String data = receivedData.substring(10).trim();
                             String remoteLogin = targetUsername;
                             String remoteName = targetUsername;
-                            if (data.contains("login=") || data.contains("name=")) {
+                            if (data.contains("login=") || data.contains("name=") || data.contains("platform=") || data.contains("device=")) {
                                 String[] parts = data.split(";");
                                 for (String p : parts) {
                                     if (p.startsWith("login=")) remoteLogin = p.substring(6);
                                     else if (p.startsWith("name=")) remoteName = p.substring(5);
                                     else if (p.startsWith("version=")) {
-                                        try {
-                                            remoteVersionCode = Integer.parseInt(p.substring(8));
-                                        } catch (Exception ignored) {}
+                                        String verVal = p.substring(8).trim();
+                                        if (verVal.toLowerCase(Locale.ROOT).contains("desk")) {
+                                            isRemoteDesktop = true;
+                                            AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, targetUsername, "is_desktop", "true");
+                                            if (deviceAddress != null) AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, deviceAddress, "is_desktop", "true");
+                                        } else {
+                                            try { remoteVersionCode = Integer.parseInt(verVal); } catch (Exception ignored) {}
+                                        }
                                     } else if (p.startsWith("features=")) {
                                         remoteHasVideoNotesSupport = p.contains("vn");
+                                    } else if (p.equalsIgnoreCase("platform=desktop") || p.equalsIgnoreCase("device=pc") || p.equalsIgnoreCase("platform=desk") || p.startsWith("client=desk") || p.toLowerCase(Locale.ROOT).contains("desk")) {
+                                        isRemoteDesktop = true;
+                                        AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, targetUsername, "is_desktop", "true");
+                                        if (deviceAddress != null) AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, deviceAddress, "is_desktop", "true");
                                     }
                                 }
                             } else {
@@ -7881,6 +7902,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void checkAndUpdateVersionInfoIsland() {
         if (isVersionInfoDismissed) {
+            if (layoutVersionInfo != null) layoutVersionInfo.setVisibility(View.GONE);
+            updateIslandVisibility();
+            return;
+        }
+
+        boolean isDesktop = isRemoteDesktop
+                || AvatarManager.isDesktopContact(this, targetUsername, deviceAddress);
+
+        if (isDesktop) {
             if (layoutVersionInfo != null) layoutVersionInfo.setVisibility(View.GONE);
             updateIslandVisibility();
             return;
@@ -9899,10 +9929,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     hideMusicIslandWithAnimation();
 
                     if (videoNoteIslandManager != null) {
-                        videoNoteIslandManager.showIsland(formatDisplayName(message.getSenderLogin()), mp != null ? mp.getDuration() : 0);
+                        videoNoteIslandManager.showIsland(formatDisplayName(message.getSenderLogin()).toString(), mp != null ? mp.getDuration() : 0);
                     }
                     if (videoNoteMediaSessionManager != null) {
-                        videoNoteMediaSessionManager.startMediaSession(formatDisplayName(message.getSenderLogin()), message.getImagePath(), mp != null ? mp.getDuration() : 0, true);
+                        videoNoteMediaSessionManager.startMediaSession(formatDisplayName(message.getSenderLogin()).toString(), message.getImagePath(), mp != null ? mp.getDuration() : 0, true);
                     }
                     startIslandProgressLoop();
                 }

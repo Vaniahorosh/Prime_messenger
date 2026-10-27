@@ -263,7 +263,7 @@ public class BluetoothSocketHolder {
             }
             String localUsername = (myDisplayName != null && !myDisplayName.isEmpty()) ? myDisplayName : "Prime User";
 
-            String handshake = "HANDSHAKE:name=" + localUsername + ";login=" + currentUser + ";version=" + ChatPersonActivity.getAppVersionCode(context);
+            String handshake = "HANDSHAKE:name=" + localUsername + ";login=" + currentUser + ";version=" + ChatPersonActivity.getAppVersionCode(context) + ";platform=android;features=vn";
             byte[] handshakeBytes = handshake.getBytes(StandardCharsets.UTF_8);
 
             String localAvatarUri = sharedPrefs.getString("my_avatar", null);

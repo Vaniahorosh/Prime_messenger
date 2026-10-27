@@ -555,7 +555,10 @@ class PersonInformationActivity : AppCompatActivity() {
             if (!nameFromAddr.isNullOrBlank()) displayContactName = nameFromAddr
             else if (!nameFromUser.isNullOrBlank()) displayContactName = nameFromUser
         }
-        binding.tvUserNameWP.text = displayContactName
+        val cleanName = displayContactName.replace("💻", "").trim()
+        val isDesktop = AvatarManager.isDesktopContact(this, targetUsername, deviceAddress)
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        binding.tvUserNameWP.text = AvatarManager.formatNameWithDesktopIcon(this, cleanName, isDesktop, accentColor)
 
         setupAvatarCardSwipe()
         updateHeaderPhoto()

@@ -224,15 +224,20 @@ class ChatListAdapter(
 
         if (diffBundle.containsKey("name")) {
             val rawName = if (isBluetoothAddress(chat.name)) "Собеседник" else chat.name
-            val isDesktop = "true".equals(AvatarManager.getContactPreferenceSafely(context, chat.id, "is_desktop"), ignoreCase = true)
-                    || "true".equals(AvatarManager.getContactPreferenceSafely(context, chat.name, "is_desktop"), ignoreCase = true)
-            val finalName = if (isDesktop && !rawName.contains("💻")) "$rawName 💻" else rawName
+            val cleanName = rawName.replace("💻", "").trim()
+            val isDesktop = AvatarManager.isDesktopContact(context, chat.id, chat.name)
             val accentColor = ColorAccentManager.getCurrentAccentColor(context)
-            if (isSearchActive && currentSearchQuery.isNotEmpty()) {
-                binding.tvContactName.text = highlightSearchText(finalName, currentSearchQuery, accentColor)
+            val displayName: CharSequence = if (isSearchActive && currentSearchQuery.isNotEmpty()) {
+                val highlighted = highlightSearchText(cleanName, currentSearchQuery, accentColor)
+                if (isDesktop) {
+                    AvatarManager.formatNameWithDesktopIcon(context, highlighted.toString(), true, accentColor)
+                } else {
+                    highlighted
+                }
             } else {
-                binding.tvContactName.text = finalName
+                AvatarManager.formatNameWithDesktopIcon(context, cleanName, isDesktop, accentColor)
             }
+            binding.tvContactName.text = displayName
         }
 
         if (diffBundle.containsKey("lastMessage") || diffBundle.containsKey("activityState") || diffBundle.containsKey("isTyping") || diffBundle.containsKey("onlineStatus")) {
@@ -450,16 +455,21 @@ class ChatListAdapter(
                 val isCurrentlyTyping = isOnline && (chat.isTyping || "TYPING".equals(chat.activityState, ignoreCase = true) || (chat.typingUntil > 0 && chat.typingUntil > now))
 
                 val rawName = if (isBluetoothAddress(chat.name)) "Собеседник" else chat.name
-                val isDesktop = "true".equals(AvatarManager.getContactPreferenceSafely(context, chat.id, "is_desktop"), ignoreCase = true)
-                        || "true".equals(AvatarManager.getContactPreferenceSafely(context, chat.name, "is_desktop"), ignoreCase = true)
-                val finalName = if (isDesktop && !rawName.contains("💻")) "$rawName 💻" else rawName
+                val cleanName = rawName.replace("💻", "").trim()
+                val isDesktop = AvatarManager.isDesktopContact(context, chat.id, chat.name)
                 val accentColor = ColorAccentManager.getCurrentAccentColor(context)
 
-                if (isSearchActive && currentSearchQuery.isNotEmpty()) {
-                    binding.tvContactName.text = highlightSearchText(finalName, currentSearchQuery, accentColor)
+                val displayName: CharSequence = if (isSearchActive && currentSearchQuery.isNotEmpty()) {
+                    val highlighted = highlightSearchText(cleanName, currentSearchQuery, accentColor)
+                    if (isDesktop) {
+                        AvatarManager.formatNameWithDesktopIcon(context, highlighted.toString(), true, accentColor)
+                    } else {
+                        highlighted
+                    }
                 } else {
-                    binding.tvContactName.text = finalName
+                    AvatarManager.formatNameWithDesktopIcon(context, cleanName, isDesktop, accentColor)
                 }
+                binding.tvContactName.text = displayName
 
                 if (!isOnline) {
                     holder.stopTypingAnimation()
