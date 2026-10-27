@@ -942,7 +942,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     }
 
                     @Override
-                    public void onRecordingStateChanged(boolean isRecording) {}
+                    public void onRecordingStateChanged(boolean isRecording) {
+                        if (isRecording) {
+                            sendActivityState("RECORDING_VOICE");
+                        } else {
+                            sendActivityState("IDLE");
+                        }
+                    }
                 }
             );
 
@@ -1966,12 +1972,41 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                 typingResetHandler.removeCallbacks(resetTypingRunnable);
                                 typingResetHandler.postDelayed(resetTypingRunnable, 10000);
                                 saveActivityStateToChatList(targetUsername, "SENDING_VIDEO_NOTE");
-                            } else if ("VIEWING_PHOTO".equalsIgnoreCase(action) || "VIEWING_VIDEO".equalsIgnoreCase(action) || "VIEWING_FILE".equalsIgnoreCase(action)) {
-                                stopAnimatingStatus();
-                                setStatusWithAnimation("В сети", R.color.prime_success);
-                                checkAndUpdateVersionInfoIsland();
+                            } else if ("RECORDING_VOICE".equalsIgnoreCase(action) || "RECORDING_AUDIO".equalsIgnoreCase(action)) {
+                                startAnimatingStatus("Записывает голосовое...", R.color.prime_brand);
                                 typingResetHandler.removeCallbacks(resetTypingRunnable);
+                                typingResetHandler.postDelayed(resetTypingRunnable, 10000);
+                                saveActivityStateToChatList(targetUsername, "RECORDING_VOICE");
+                            } else if ("VIEWING_PHOTO".equalsIgnoreCase(action)) {
+                                stopAnimatingStatus();
+                                setStatusWithAnimation("Смотрит фото", R.color.prime_brand);
+                                typingResetHandler.removeCallbacks(resetTypingRunnable);
+                                typingResetHandler.postDelayed(resetTypingRunnable, 6000);
                                 saveActivityStateToChatList(targetUsername, action);
+                            } else if ("VIEWING_VIDEO".equalsIgnoreCase(action)) {
+                                stopAnimatingStatus();
+                                setStatusWithAnimation("Смотрит видео", R.color.prime_brand);
+                                typingResetHandler.removeCallbacks(resetTypingRunnable);
+                                typingResetHandler.postDelayed(resetTypingRunnable, 6000);
+                                saveActivityStateToChatList(targetUsername, action);
+                            } else if ("VIEWING_FILE".equalsIgnoreCase(action)) {
+                                stopAnimatingStatus();
+                                setStatusWithAnimation("Смотрит файл", R.color.prime_brand);
+                                typingResetHandler.removeCallbacks(resetTypingRunnable);
+                                typingResetHandler.postDelayed(resetTypingRunnable, 6000);
+                                saveActivityStateToChatList(targetUsername, action);
+                            } else if ("READING_MODE".equalsIgnoreCase(action)) {
+                                stopAnimatingStatus();
+                                setStatusWithAnimation("В режиме чтения", R.color.prime_brand);
+                                typingResetHandler.removeCallbacks(resetTypingRunnable);
+                                typingResetHandler.postDelayed(resetTypingRunnable, 6000);
+                                saveActivityStateToChatList(targetUsername, action);
+                            } else if ("LISTENING_MUSIC".equalsIgnoreCase(action) || "LISTENING_AUDIO".equalsIgnoreCase(action) || action.toUpperCase(java.util.Locale.US).startsWith("LISTENING_TRACK")) {
+                                stopAnimatingStatus();
+                                setStatusWithAnimation("Слушает аудио...", R.color.prime_brand);
+                                typingResetHandler.removeCallbacks(resetTypingRunnable);
+                                typingResetHandler.postDelayed(resetTypingRunnable, 6000);
+                                saveActivityStateToChatList(targetUsername, "LISTENING_AUDIO");
                             } else if ("IDLE".equalsIgnoreCase(action)) {
                                 currentActivityState = "IDLE";
                                 stopAnimatingStatus();

@@ -738,10 +738,16 @@ class PersonInformationActivity : AppCompatActivity() {
                 }
             }
             isTyping -> "печатает..."
+            "RECORDING_VOICE".equals(activeState, ignoreCase = true) || "RECORDING_AUDIO".equals(activeState, ignoreCase = true) -> "записывает голосовое..."
+            "RECORDING_VIDEO_NOTE".equals(activeState, ignoreCase = true) -> "записывает видеокружок..."
+            "SENDING_VIDEO_NOTE".equals(activeState, ignoreCase = true) -> "отправка видеокружка..."
+            "SELECTING_MEDIA".equals(activeState, ignoreCase = true) || "SELECTING_FILE".equals(activeState, ignoreCase = true) -> "выбирает файл или медиа..."
             "VIEWING_PHOTO".equals(activeState, ignoreCase = true) -> "смотрит фото"
             "VIEWING_VIDEO".equals(activeState, ignoreCase = true) -> "смотрит видео"
             "VIEWING_FILE".equals(activeState, ignoreCase = true) -> "смотрит файл"
             "SENDING_PHOTO".equals(activeState, ignoreCase = true) || "SENDING_VIDEO".equals(activeState, ignoreCase = true) || "SENDING_FILE".equals(activeState, ignoreCase = true) || "SENDING_MEDIA".equals(activeState, ignoreCase = true) -> "Отправка медиа..."
+            "READING_MODE".equals(activeState, ignoreCase = true) -> "в режиме чтения"
+            "LISTENING_MUSIC".equals(activeState, ignoreCase = true) || "LISTENING_AUDIO".equals(activeState, ignoreCase = true) || activeState.startsWith("LISTENING_TRACK", ignoreCase = true) -> "слушает аудио..."
             else -> "в сети"
         }
 

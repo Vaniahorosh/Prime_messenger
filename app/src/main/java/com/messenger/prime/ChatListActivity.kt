@@ -1298,6 +1298,12 @@ class ChatListActivity : AppCompatActivity() {
 
                 val statusText = if (!isConnected) {
                     "не в сети"
+                } else if ("RECORDING_VOICE".equals(activityState, ignoreCase = true) || "RECORDING_AUDIO".equals(activityState, ignoreCase = true)) {
+                    "записывает голосовое..."
+                } else if ("RECORDING_VIDEO_NOTE".equals(activityState, ignoreCase = true)) {
+                    "записывает видеокружок..."
+                } else if ("SENDING_VIDEO_NOTE".equals(activityState, ignoreCase = true)) {
+                    "отправка видеокружка..."
                 } else if ("SELECTING_MEDIA".equals(activityState, ignoreCase = true) || "SELECTING_FILE".equals(activityState, ignoreCase = true)) {
                     "выбирает файл или медиа..."
                 } else if ("SENDING_MEDIA".equals(activityState, ignoreCase = true) || "SENDING_PHOTO".equals(activityState, ignoreCase = true) || "SENDING_VIDEO".equals(activityState, ignoreCase = true)) {
@@ -1310,6 +1316,10 @@ class ChatListActivity : AppCompatActivity() {
                     "смотрит видео"
                 } else if ("VIEWING_FILE".equals(activityState, ignoreCase = true)) {
                     "смотрит файл"
+                } else if ("READING_MODE".equals(activityState, ignoreCase = true)) {
+                    "в режиме чтения"
+                } else if ("LISTENING_MUSIC".equals(activityState, ignoreCase = true) || "LISTENING_AUDIO".equals(activityState, ignoreCase = true) || activityState.startsWith("LISTENING_TRACK", ignoreCase = true)) {
+                    "слушает аудио..."
                 } else if (isCurrentlyTyping) {
                     "печатает..."
                 } else {
