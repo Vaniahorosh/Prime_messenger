@@ -141,15 +141,52 @@ fun Activity.setDynamicStatusBar(colorResId: Int, isDarkIcons: Boolean) {
     WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = isDarkIcons
 }
 
+fun TextView.animateSlideDownText(newText: CharSequence?, duration: Long = 180L, onComplete: (() -> Unit)? = null) {
+    val target = newText?.toString() ?: ""
+    if (this.text?.toString() == target) return
+    if (this.visibility != View.VISIBLE || this.text.isNullOrEmpty()) {
+        this.text = target
+        onComplete?.invoke()
+        return
+    }
+
+    this.animate().cancel()
+    this.animate()
+        .translationY(24f)
+        .alpha(0f)
+        .setDuration(duration)
+        .setInterpolator(DecelerateInterpolator())
+        .withEndAction {
+            this.text = target
+            this.translationY = -24f
+            this.alpha = 0f
+            this.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(duration)
+                .setInterpolator(DecelerateInterpolator())
+                .withEndAction {
+                    onComplete?.invoke()
+                }
+                .start()
+        }
+        .start()
+}
+
 fun animateAvatarCounterBadge(counterView: TextView?, currentIdx: Int, totalCount: Int) {
     if (counterView == null) return
     if (totalCount <= 1) {
         if (counterView.visibility == View.VISIBLE) {
+            counterView.animate().cancel()
             counterView.animate()
                 .alpha(0f)
-                .translationY(-30f)
-                .setDuration(200)
-                .withEndAction { counterView.visibility = View.GONE }
+                .translationY(24f)
+                .setDuration(180)
+                .setInterpolator(DecelerateInterpolator())
+                .withEndAction {
+                    counterView.visibility = View.GONE
+                    counterView.translationY = 0f
+                }
                 .start()
         } else {
             counterView.visibility = View.GONE
@@ -157,31 +194,21 @@ fun animateAvatarCounterBadge(counterView: TextView?, currentIdx: Int, totalCoun
         return
     }
 
-    counterView.text = "${currentIdx + 1} из $totalCount"
+    val targetText = "${currentIdx + 1} из $totalCount"
 
-    if (counterView.visibility != View.VISIBLE || counterView.alpha < 0.5f) {
+    if (counterView.visibility != View.VISIBLE || counterView.alpha < 0.1f) {
+        counterView.text = targetText
         counterView.visibility = View.VISIBLE
-        counterView.translationY = -40f
+        counterView.translationY = -24f
         counterView.alpha = 0f
+        counterView.animate().cancel()
         counterView.animate()
             .translationY(0f)
             .alpha(1f)
-            .setDuration(320)
-            .setInterpolator(OvershootInterpolator(1.4f))
+            .setDuration(220)
+            .setInterpolator(DecelerateInterpolator())
             .start()
     } else {
-        counterView.animate().cancel()
-        counterView.animate()
-            .translationY(14f)
-            .setDuration(120)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                counterView.animate()
-                    .translationY(0f)
-                    .setDuration(200)
-                    .setInterpolator(OvershootInterpolator(1.8f))
-                    .start()
-            }
-            .start()
+        counterView.animateSlideDownText(targetText)
     }
 }

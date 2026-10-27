@@ -481,7 +481,7 @@ class PersonInformationActivity : AppCompatActivity() {
     private fun updateStickyHeaderData() {
         if (!::binding.isInitialized) return
         binding.tvStickyName.text = binding.tvUserNameWP.text
-        binding.tvStickyStatus.text = binding.tvStatusWP.text
+        binding.tvStickyStatus.animateSlideDownText(binding.tvStatusWP.text)
         binding.tvStickyStatus.setTextColor(binding.tvStatusWP.currentTextColor)
     }
 
@@ -751,7 +751,7 @@ class PersonInformationActivity : AppCompatActivity() {
             else -> "в сети"
         }
 
-        binding.tvStatusWP.text = statusText
+        binding.tvStatusWP.animateSlideDownText(statusText)
         binding.tvStatusWP.setTextColor(
             if (isConnected) ContextCompat.getColor(this, R.color.prime_success)
             else ContextCompat.getColor(this, R.color.white)
