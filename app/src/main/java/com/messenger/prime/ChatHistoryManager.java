@@ -177,6 +177,32 @@ public class ChatHistoryManager {
         }
     }
 
+    public static void markDeviceForgotten(Context context, String addressOrName) {
+        if (context == null || addressOrName == null || addressOrName.trim().isEmpty()) return;
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        Set<String> set = new HashSet<>(sp.getStringSet("forgotten_devices", new HashSet<>()));
+        set.add(addressOrName.trim().toLowerCase(Locale.US));
+        sp.edit().putStringSet("forgotten_devices", set).apply();
+    }
+
+    public static void unmarkDeviceForgotten(Context context, String addressOrName) {
+        if (context == null || addressOrName == null || addressOrName.trim().isEmpty()) return;
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        Set<String> set = sp.getStringSet("forgotten_devices", null);
+        if (set != null && set.contains(addressOrName.trim().toLowerCase(Locale.US))) {
+            Set<String> newSet = new HashSet<>(set);
+            newSet.remove(addressOrName.trim().toLowerCase(Locale.US));
+            sp.edit().putStringSet("forgotten_devices", newSet).apply();
+        }
+    }
+
+    public static boolean isDeviceForgotten(Context context, String addressOrName) {
+        if (context == null || addressOrName == null || addressOrName.trim().isEmpty()) return false;
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        Set<String> set = sp.getStringSet("forgotten_devices", null);
+        return set != null && set.contains(addressOrName.trim().toLowerCase(Locale.US));
+    }
+
     public static void deleteHistory(Context context, String targetUsername) {
         deleteHistoryCompletely(context, targetUsername, null);
     }
@@ -184,6 +210,8 @@ public class ChatHistoryManager {
     public static void deleteHistoryCompletely(Context context, String targetUsername, String deviceAddress) {
         if (context == null) return;
         Context appContext = context.getApplicationContext();
+        markDeviceForgotten(appContext, targetUsername);
+        markDeviceForgotten(appContext, deviceAddress);
 
         List<String> keysToDelete = new ArrayList<>();
         if (targetUsername != null && !targetUsername.trim().isEmpty()) {
@@ -352,6 +380,36 @@ public class ChatHistoryManager {
 
     public static void unpairBluetoothDevice(Context context, String targetUsername, String deviceAddress) {
         DeviceBindingManager.unbindDeviceSecurely(context, targetUsername, deviceAddress);
+    }
+
+    public static void updatePersistedChatAvatar(Context context, String username, String deviceAddress, String avatarUri) {
+        if (context == null) return;
+        if ((username == null || username.isEmpty()) && (deviceAddress == null || deviceAddress.isEmpty())) return;
+        try {
+            String json = getPersistedChatsJson(context);
+            org.json.JSONArray array = new org.json.JSONArray(json);
+            boolean updated = false;
+            for (int i = 0; i < array.length(); i++) {
+                org.json.JSONObject obj = array.getJSONObject(i);
+                String objName = obj.optString("name", "");
+                String objId = obj.optString("id", "");
+                if ((username != null && !username.isEmpty() && (username.equalsIgnoreCase(objName) || username.equalsIgnoreCase(objId))) ||
+                    (deviceAddress != null && !deviceAddress.isEmpty() && (deviceAddress.equalsIgnoreCase(objId) || deviceAddress.equalsIgnoreCase(objName)))) {
+                    if (avatarUri != null) {
+                        obj.put("avatarUri", avatarUri);
+                    } else {
+                        obj.remove("avatarUri");
+                    }
+                    updated = true;
+                }
+            }
+            if (updated) {
+                savePersistedChatsJson(context, array.toString());
+                ChatListNotifier.INSTANCE.notifyChanged();
+            }
+        } catch (Exception e) {
+            Log.e("ChatHistoryManager", "Failed to update persisted_chats avatar", e);
+        }
     }
 
     public static void deleteSingleMessage(Context context, String targetUsername, String messageId) {

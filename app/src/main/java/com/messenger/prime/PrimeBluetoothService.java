@@ -561,6 +561,9 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     @Override
     public void onPacketReceived(String fromAddress, byte type, byte[] payload) {
         if (payload == null || payload.length == 0) return;
+        if (type != 0x08 && (ChatHistoryManager.isDeviceForgotten(this, fromAddress) || ChatHistoryManager.isDeviceForgotten(this, resolveBackgroundDisplayName(fromAddress)))) {
+            return;
+        }
         
         resetReconnectAttempts(fromAddress);
         manageWakeLock();
@@ -698,6 +701,34 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             } else if (type == 0x0C) { // TYPE_PRESENCE
                 String pData = new String(payload, StandardCharsets.UTF_8);
                 saveBackgroundPresenceToChatList(displayName, fromAddress, pData.startsWith("ONLINE"));
+            } else if (type == 0x07) { // TYPE_AVATAR
+                if (payload != null && payload.length > 0) {
+                    try {
+                        boolean isGif = payload.length > 3 && payload[0] == (byte)"G" && payload[1] == (byte)"I" && payload[2] == (byte)"F";
+                        String ext = isGif ? ".gif" : ".jpg";
+                        File avatarFile = ChatHistoryManager.saveBytesToAtomicFile(this, "rec_avatar_" + displayName + ext, payload);
+                        if (avatarFile != null) {
+                            String newUri = Uri.fromFile(avatarFile).toString();
+                            AvatarManager.saveContactPreferenceSafely(this, displayName, "contact_avatar", newUri);
+                            if (fromAddress != null && !fromAddress.isEmpty()) {
+                                AvatarManager.saveContactPreferenceSafely(this, fromAddress, "contact_avatar", newUri);
+                                AvatarHistoryManager.INSTANCE.addContactAvatar(this, fromAddress, newUri);
+                            }
+                            AvatarHistoryManager.INSTANCE.addContactAvatar(this, displayName, newUri);
+                            ChatHistoryManager.updatePersistedChatAvatar(this, displayName, fromAddress, newUri);
+                            sendBroadcast(new Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(getPackageName()));
+                            ChatListNotifier.INSTANCE.notifyChanged();
+                            ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error saving background avatar", e);
+                    }
+                }
+            } else if (type == 0x11) { // TYPE_SYNC_CHATS
+                String req = new String(payload, StandardCharsets.UTF_8);
+                if ("REQUEST_SYNC".equals(req.trim())) {
+                    sendFullChatsSyncToPeer(fromAddress);
+                }
             } else if (type == 0x0D) { // TYPE_REACTION
                 String rxData = new String(payload, StandardCharsets.UTF_8);
                 String[] rxParts = rxData.split(":::");
@@ -765,6 +796,10 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             }
 
             if (remoteName != null && !remoteName.trim().isEmpty() && !remoteName.equals("1")) {
+                if (ChatHistoryManager.isDeviceForgotten(this, fromAddress) || ChatHistoryManager.isDeviceForgotten(this, remoteName) || (remoteLogin != null && ChatHistoryManager.isDeviceForgotten(this, remoteLogin))) {
+                    Log.d(TAG, "Skipping background handshake for forgotten device: " + fromAddress);
+                    return;
+                }
                 if (fromAddress != null && !fromAddress.isEmpty()) {
                     AvatarManager.saveContactPreferenceSafely(this, fromAddress, "contact_name", remoteName);
                     AvatarManager.saveContactPreferenceSafely(this, remoteName, "mac", fromAddress);
@@ -793,6 +828,15 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
                     String ackStr = "HANDSHAKE_ACK:name=" + myName;
                     BluetoothConnectionManager.getInstance().sendPacket(fromAddress, (byte) 0x01, ackStr.getBytes(StandardCharsets.UTF_8));
+                    PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x01, ackStr.getBytes(StandardCharsets.UTF_8));
+                }
+
+                BluetoothConnectionManager.getInstance().sendPacket(fromAddress, (byte) 0x0C, "ONLINE".getBytes(StandardCharsets.UTF_8));
+                PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x0C, "ONLINE".getBytes(StandardCharsets.UTF_8));
+
+                sendBackgroundAvatar(fromAddress);
+                if (isDesktop) {
+                    sendFullChatsSyncToPeer(fromAddress);
                 }
 
                 saveBackgroundPresenceToChatList(remoteName, fromAddress, true);
@@ -803,8 +847,94 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         }
     }
 
+    private void sendBackgroundAvatar(String targetAddress) {
+        if (targetAddress == null || targetAddress.isEmpty()) return;
+        new Thread(() -> {
+            try {
+                SharedPreferences sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
+                String currentUser = sp.getString("current_user", "");
+                String avatarUriStr = sp.getString("user_avatar_" + currentUser, null);
+                if (avatarUriStr == null || avatarUriStr.isEmpty()) {
+                    avatarUriStr = sp.getString("my_avatar", null);
+                }
+                if (avatarUriStr != null && !avatarUriStr.isEmpty()) {
+                    byte[] bytes = null;
+                    if (avatarUriStr.startsWith("file://")) {
+                        File f = new File(android.net.Uri.parse(avatarUriStr).getPath());
+                        if (f.exists()) {
+                            bytes = ChatHistoryManager.readFileToBytes(f);
+                        }
+                    } else if (avatarUriStr.startsWith("/")) {
+                        File f = new File(avatarUriStr);
+                        if (f.exists()) {
+                            bytes = ChatHistoryManager.readFileToBytes(f);
+                        }
+                    }
+                    if (bytes != null && bytes.length > 0) {
+                        BluetoothConnectionManager.getInstance().sendPacket(targetAddress, (byte) 0x07, bytes);
+                        PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x07, bytes);
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error sending background avatar", e);
+            }
+        }).start();
+    }
+
+    private void sendFullChatsSyncToPeer(String targetAddress) {
+        if (targetAddress == null || targetAddress.isEmpty()) return;
+        new Thread(() -> {
+            try {
+                String json = ChatHistoryManager.getPersistedChatsJson(this);
+                if (json == null || json.isEmpty()) return;
+                JSONArray inArray = new JSONArray(json);
+                JSONArray outArray = new JSONArray();
+                for (int i = 0; i < inArray.length(); i++) {
+                    JSONObject obj = inArray.getJSONObject(i);
+                    String name = obj.optString("name", "");
+                    String id = obj.optString("id", "");
+                    if (name.isEmpty() && id.isEmpty()) continue;
+                    if (ChatHistoryManager.isDeviceForgotten(this, id) || ChatHistoryManager.isDeviceForgotten(this, name)) continue;
+                    JSONObject outChat = new JSONObject();
+                    outChat.put("DisplayName", name);
+                    outChat.put("DeviceAddress", id);
+                    outChat.put("PeerId", id);
+                    outChat.put("LastMessage", obj.optString("lastMessage", ""));
+                    outChat.put("LastMessageTime", obj.optString("time", ""));
+                    outChat.put("IsBluetoothDevice", true);
+                    outChat.put("IsOnline", "ONLINE".equalsIgnoreCase(obj.optString("onlineStatus", "")));
+                    List<ChatMessage> msgs = ChatHistoryManager.loadMessages(this, name);
+                    if (msgs == null || msgs.isEmpty()) msgs = ChatHistoryManager.loadMessages(this, id);
+                    JSONArray msgsArray = new JSONArray();
+                    if (msgs != null) {
+                        for (ChatMessage m : msgs) {
+                            JSONObject mObj = new JSONObject();
+                            mObj.put("Id", m.getMessageId() != null ? m.getMessageId() : UUID.randomUUID().toString());
+                            mObj.put("Text", m.getText() != null ? m.getText() : "");
+                            mObj.put("Sender", m.isOutgoing() ? "Me" : name);
+                            mObj.put("IsOutgoing", m.isOutgoing());
+                            mObj.put("Timestamp", m.getTimestamp());
+                            mObj.put("FormattedTime", m.getTime() != null ? m.getTime() : "");
+                            mObj.put("Type", 0);
+                            msgsArray.put(mObj);
+                        }
+                    }
+                    outChat.put("Messages", msgsArray);
+                    outArray.put(outChat);
+                }
+                byte[] syncData = outArray.toString().getBytes(StandardCharsets.UTF_8);
+                BluetoothConnectionManager.getInstance().sendPacket(targetAddress, (byte) 0x11, syncData);
+                PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x11, syncData);
+                Log.d(TAG, "Sent full chats sync (" + outArray.length() + " chats) to " + targetAddress);
+            } catch (Exception e) {
+                Log.e(TAG, "Error sending full chats sync", e);
+            }
+        }).start();
+    }
+
     private void saveBackgroundLastMessageToChatList(String targetName, String deviceAddr, String lastMsg) {
         if (targetName == null || targetName.isEmpty()) return;
+        if (ChatHistoryManager.isDeviceForgotten(this, deviceAddr) || ChatHistoryManager.isDeviceForgotten(this, targetName)) return;
         try {
             String json = ChatHistoryManager.getPersistedChatsJson(this);
             JSONArray array = new JSONArray(json);

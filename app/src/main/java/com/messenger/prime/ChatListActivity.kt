@@ -819,6 +819,8 @@ class ChatListActivity : AppCompatActivity() {
             val matchingChat = allChats.find { it.id.equals(deviceAddress, ignoreCase = true) || it.name.equals(resolvedTargetName, ignoreCase = true) }
             val isOnline = matchingChat?.onlineStatus == OnlineStatus.ONLINE
 
+            ChatHistoryManager.unmarkDeviceForgotten(this@ChatListActivity, resolvedTargetName)
+            if (deviceAddress != null) ChatHistoryManager.unmarkDeviceForgotten(this@ChatListActivity, deviceAddress)
             val chatIntent = Intent(this@ChatListActivity, ChatPersonActivity::class.java).apply {
                 putExtra("EXTRA_CHAT_NAME", resolvedTargetName)
                 putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress)
