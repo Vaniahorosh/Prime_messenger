@@ -19,6 +19,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -33,6 +34,15 @@ public class ChatHistoryManager {
     private static final String PREF_NAME = "PrimeChatHistory";
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
     private static final Map<String, List<ChatMessage>> memoryCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static byte[] readFileToBytes(File file) {
+        if (file == null || !file.exists()) return null;
+        try {
+            return java.nio.file.Files.readAllBytes(file.toPath());
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
     public static void clearMemoryCache() {
         memoryCache.clear();

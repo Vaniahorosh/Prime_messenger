@@ -10,6 +10,7 @@ import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.content.pm.ServiceInfo;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -714,7 +715,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             } else if (type == 0x07) { // TYPE_AVATAR
                 if (payload != null && payload.length > 0) {
                     try {
-                        boolean isGif = payload.length > 3 && payload[0] == (byte)"G" && payload[1] == (byte)"I" && payload[2] == (byte)"F";
+                        boolean isGif = payload.length > 3 && payload[0] == (byte)'G' && payload[1] == (byte)'I' && payload[2] == (byte)'F';
                         String ext = isGif ? ".gif" : ".jpg";
                         File avatarFile = ChatHistoryManager.saveBytesToAtomicFile(this, "rec_avatar_" + displayName + ext, payload);
                         if (avatarFile != null) {
