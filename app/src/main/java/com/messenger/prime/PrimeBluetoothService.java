@@ -735,11 +735,6 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                         Log.e(TAG, "Error saving background avatar", e);
                     }
                 }
-            } else if (type == 0x11) { // TYPE_SYNC_CHATS
-                String req = new String(payload, StandardCharsets.UTF_8);
-                if ("REQUEST_SYNC".equals(req.trim())) {
-                    sendFullChatsSyncToPeer(fromAddress);
-                }
             } else if (type == 0x0D) { // TYPE_REACTION
                 String rxData = new String(payload, StandardCharsets.UTF_8);
                 String[] rxParts = rxData.split(":::");
@@ -846,9 +841,6 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x0C, "ONLINE".getBytes(StandardCharsets.UTF_8));
 
                 sendBackgroundAvatar(fromAddress);
-                if (isDesktop) {
-                    sendFullChatsSyncToPeer(fromAddress);
-                }
 
                 saveBackgroundPresenceToChatList(remoteName, fromAddress, true);
                 ChatListNotifier.INSTANCE.notifyChanged();
@@ -892,56 +884,6 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         }).start();
     }
 
-    private void sendFullChatsSyncToPeer(String targetAddress) {
-        if (targetAddress == null || targetAddress.isEmpty()) return;
-        new Thread(() -> {
-            try {
-                String json = ChatHistoryManager.getPersistedChatsJson(this);
-                if (json == null || json.isEmpty()) return;
-                JSONArray inArray = new JSONArray(json);
-                JSONArray outArray = new JSONArray();
-                for (int i = 0; i < inArray.length(); i++) {
-                    JSONObject obj = inArray.getJSONObject(i);
-                    String name = obj.optString("name", "");
-                    String id = obj.optString("id", "");
-                    if (name.isEmpty() && id.isEmpty()) continue;
-                    if (ChatHistoryManager.isDeviceForgotten(this, id) || ChatHistoryManager.isDeviceForgotten(this, name)) continue;
-                    JSONObject outChat = new JSONObject();
-                    outChat.put("DisplayName", name);
-                    outChat.put("DeviceAddress", id);
-                    outChat.put("PeerId", id);
-                    outChat.put("LastMessage", obj.optString("lastMessage", ""));
-                    outChat.put("LastMessageTime", obj.optString("time", ""));
-                    outChat.put("IsBluetoothDevice", true);
-                    outChat.put("IsOnline", "ONLINE".equalsIgnoreCase(obj.optString("onlineStatus", "")));
-                    List<ChatMessage> msgs = ChatHistoryManager.loadMessages(this, name);
-                    if (msgs == null || msgs.isEmpty()) msgs = ChatHistoryManager.loadMessages(this, id);
-                    JSONArray msgsArray = new JSONArray();
-                    if (msgs != null) {
-                        for (ChatMessage m : msgs) {
-                            JSONObject mObj = new JSONObject();
-                            mObj.put("Id", m.getMessageId() != null ? m.getMessageId() : UUID.randomUUID().toString());
-                            mObj.put("Text", m.getText() != null ? m.getText() : "");
-                            mObj.put("Sender", m.isOutgoing() ? "Me" : name);
-                            mObj.put("IsOutgoing", m.isOutgoing());
-                            mObj.put("Timestamp", m.getTimestamp());
-                            mObj.put("FormattedTime", m.getTime() != null ? m.getTime() : "");
-                            mObj.put("Type", 0);
-                            msgsArray.put(mObj);
-                        }
-                    }
-                    outChat.put("Messages", msgsArray);
-                    outArray.put(outChat);
-                }
-                byte[] syncData = outArray.toString().getBytes(StandardCharsets.UTF_8);
-                BluetoothConnectionManager.getInstance().sendPacket(targetAddress, (byte) 0x11, syncData);
-                PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x11, syncData);
-                Log.d(TAG, "Sent full chats sync (" + outArray.length() + " chats) to " + targetAddress);
-            } catch (Exception e) {
-                Log.e(TAG, "Error sending full chats sync", e);
-            }
-        }).start();
-    }
 
     private void saveBackgroundLastMessageToChatList(String targetName, String deviceAddr, String lastMsg) {
         if (targetName == null || targetName.isEmpty()) return;
