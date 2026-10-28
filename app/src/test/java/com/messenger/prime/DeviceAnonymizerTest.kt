@@ -13,6 +13,7 @@ class DeviceAnonymizerTest {
         assertTrue(DeviceAnonymizer.isMacAddress("AA:BB:CC:DD:EE:FF"))
         assertTrue(DeviceAnonymizer.isMacAddress("00-11-22-33-44-55"))
         assertTrue(DeviceAnonymizer.isMacAddress("a1:b2:c3:d4:e5:f6"))
+        assertTrue(DeviceAnonymizer.isMacAddress("001122334455"))
     }
 
     @Test
@@ -22,6 +23,7 @@ class DeviceAnonymizerTest {
         assertFalse(DeviceAnonymizer.isMacAddress("00:11:22"))
         assertFalse(DeviceAnonymizer.isMacAddress("Device_123"))
         assertFalse(DeviceAnonymizer.isMacAddress("ZZ:11:22:33:44:55"))
+        assertFalse(DeviceAnonymizer.isMacAddress("Galaxy S21"))
     }
 
     @Test
@@ -33,8 +35,21 @@ class DeviceAnonymizerTest {
     @Test
     fun testGetAnonymizedName_macOrGeneric() {
         // When raw name is a MAC address itself or generic "Собеседник"
-        assertEquals("Устройство #4455", DeviceAnonymizer.getAnonymizedName("00:11:22:33:44:55", "00:11:22:33:44:55"))
-        assertEquals("Устройство #EEFF", DeviceAnonymizer.getAnonymizedName("Собеседник", "AA:BB:CC:DD:EE:FF"))
-        assertEquals("Устройство #0000", DeviceAnonymizer.getAnonymizedName(null, null))
+        val name1 = DeviceAnonymizer.getAnonymizedName("00:11:22:33:44:55", "00:11:22:33:44:55")
+        assertTrue(name1.startsWith("Собеседник #"))
+        assertFalse("Must not expose MAC suffix", name1.contains("4455"))
+
+        val name2 = DeviceAnonymizer.getAnonymizedName("Собеседник", "AA:BB:CC:DD:EE:FF")
+        assertTrue(name2.startsWith("Собеседник #"))
+        assertFalse("Must not expose MAC suffix", name2.contains("EEFF"))
+
+        val name3 = DeviceAnonymizer.getAnonymizedName(null, null)
+        assertTrue(name3.startsWith("Собеседник #"))
+    }
+
+    @Test
+    fun testSanitizeDisplayName_stripsEmbeddedMac() {
+        val sanitized = DeviceAnonymizer.sanitizeDisplayName("Galaxy S21 (00:11:22:33:44:55)")
+        assertEquals("Galaxy S21", sanitized)
     }
 }

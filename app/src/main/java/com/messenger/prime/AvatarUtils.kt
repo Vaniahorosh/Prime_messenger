@@ -174,8 +174,10 @@ object AvatarManager {
         for (key in keys) {
             val saved = sharedPrefs.getString(key, null)
             if (!saved.isNullOrBlank() && saved != "1" && saved != "null") {
-                val isBt = try { BluetoothAdapter.checkBluetoothAddress(saved) } catch (_: Exception) { false }
-                return if (isBt) "Собеседник" else saved
+                if (DeviceAnonymizer.isMacAddress(saved)) {
+                    return DeviceAnonymizer.getAnonymizedName(null, deviceAddress ?: contactId)
+                }
+                return DeviceAnonymizer.sanitizeDisplayName(saved, deviceAddress ?: contactId)
             }
         }
 
@@ -184,8 +186,10 @@ object AvatarManager {
             !contactId.isNullOrBlank() -> contactId
             else -> "Собеседник"
         }
-        val isBt = try { BluetoothAdapter.checkBluetoothAddress(nameCandidate) } catch (_: Exception) { false }
-        return if (isBt) "Собеседник" else nameCandidate
+        if (DeviceAnonymizer.isMacAddress(nameCandidate)) {
+            return DeviceAnonymizer.getAnonymizedName(null, deviceAddress ?: contactId)
+        }
+        return DeviceAnonymizer.sanitizeDisplayName(nameCandidate, deviceAddress ?: contactId)
     }
 
     @JvmStatic
