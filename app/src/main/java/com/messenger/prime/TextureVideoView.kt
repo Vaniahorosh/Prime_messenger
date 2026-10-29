@@ -58,22 +58,25 @@ class TextureVideoView @JvmOverloads constructor(
     @JvmField
     var autoPlayOnPrepared: Boolean = true
 
+    private var isSeeking = false
     private val loopHandler = Handler(Looper.getMainLooper())
     private val loopRunnable = object : Runnable {
         override fun run() {
             val mp = mediaPlayer
-            if (mp != null && isPrepared && isPlaying) {
-                val cur = currentPosition
-                val dur = loopDurationMs
-                onProgressUpdateListener?.onProgress(cur, duration)
-                if (dur > 0 && cur >= dur) {
-                    seekTo(0)
-                    try {
-                        mp.start()
-                    } catch (_: Exception) {}
-                }
+            if (mp != null && isPrepared) {
+                try {
+                    val cur = mp.currentPosition
+                    val dur = loopDurationMs
+                    val total = mp.duration
+                    onProgressUpdateListener?.onProgress(cur, total)
+                    if (dur > 0 && cur >= dur && !isSeeking) {
+                        isSeeking = true
+                        mp.seekTo(0)
+                    }
+                } catch (_: Exception) {}
             }
-            if (loopDurationMs > 0 && isPlaying) {
+            if (loopDurationMs > 0 && mediaPlayer != null && isPrepared) {
+                loopHandler.removeCallbacks(this)
                 loopHandler.postDelayed(this, 100)
             }
         }
@@ -124,7 +127,7 @@ class TextureVideoView @JvmOverloads constructor(
         try {
             val surface = Surface(surfaceTexture)
             mediaPlayer = MediaPlayer().apply {
-                if (path.startsWith("content://")) {
+                if (path.startsWith("content://") || path.startsWith("file://") || path.startsWith("http://") || path.startsWith("https://")) {
                     setDataSource(context, Uri.parse(path))
                 } else {
                     setDataSource(path)
@@ -165,11 +168,22 @@ class TextureVideoView @JvmOverloads constructor(
                     }
                     onPreparedListener?.onPrepared(mp)
                 }
-                setOnCompletionListener { mp ->
-                    if (loopVideo || loopDurationMs > 0) {
-                        seekTo(0)
-                        try {
+                setOnSeekCompleteListener { mp ->
+                    isSeeking = false
+                    try {
+                        if (autoPlayOnPrepared && !mp.isPlaying) {
                             mp.start()
+                        }
+                    } catch (_: Exception) {}
+                }
+                setOnCompletionListener { mp ->
+                    isSeeking = false
+                    if (loopVideo || loopDurationMs > 0) {
+                        try {
+                            mp.seekTo(0)
+                            if (autoPlayOnPrepared && !mp.isPlaying) {
+                                mp.start()
+                            }
                         } catch (_: Exception) {}
                     } else {
                         onCompletionListener?.onCompletion(mp)
@@ -190,7 +204,7 @@ class TextureVideoView @JvmOverloads constructor(
             mediaPlayer?.start()
             if (loopDurationMs > 0) {
                 loopHandler.removeCallbacks(loopRunnable)
-                loopHandler.postDelayed(loopRunnable, 100)
+                loopHandler.post(loopRunnable)
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -208,6 +222,7 @@ class TextureVideoView @JvmOverloads constructor(
 
     fun stopPlayback() {
         loopHandler.removeCallbacks(loopRunnable)
+        isSeeking = false
         try {
             mediaPlayer?.stop()
             mediaPlayer?.release()
@@ -256,7 +271,7 @@ class TextureVideoView @JvmOverloads constructor(
         var retriever: MediaMetadataRetriever? = null
         return try {
             retriever = MediaMetadataRetriever()
-            if (path.startsWith("content://")) {
+            if (path.startsWith("content://") || path.startsWith("file://") || path.startsWith("http://") || path.startsWith("https://")) {
                 retriever.setDataSource(context, Uri.parse(path))
             } else {
                 retriever.setDataSource(path)
