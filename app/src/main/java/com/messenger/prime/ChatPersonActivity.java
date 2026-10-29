@@ -5546,8 +5546,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                 case TYPE_PROFILE_UPDATE:
                     String profileData = new String(payload, StandardCharsets.UTF_8);
-                    if (profileData.startsWith("HANDSHAKE:")) {
-                        String data = profileData.substring(10).trim();
+                    if (!profileData.isEmpty()) {
+                        String data = profileData.startsWith("HANDSHAKE:") ? profileData.substring(10).trim() : profileData.trim();
                         String remoteName = targetUsername;
                         String remoteLogin = "";
                         if (data.contains("login=") || data.contains("name=")) {
@@ -6164,8 +6164,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         }
                     } else if (type == TYPE_PROFILE_UPDATE && payload != null) {
                         String receivedData = new String(payload, StandardCharsets.UTF_8);
-                        if (receivedData.startsWith("HANDSHAKE:")) {
-                            String data = receivedData.substring(10).trim();
+                        if (!receivedData.isEmpty()) {
+                            String data = receivedData.startsWith("HANDSHAKE:") ? receivedData.substring(10).trim() : receivedData.trim();
                             String remoteName = targetUsername;
                             String remoteLogin = "";
                             if (data.contains("login=") || data.contains("name=")) {
@@ -6295,10 +6295,17 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             String deletedByName = targetUsername;
                             if (data.startsWith("DELETE_CHAT:")) {
                                 String[] parts = data.substring(12).split(";");
+                                String deletedByLogin = null;
                                 for (String p : parts) {
                                     if (p.startsWith("name=")) {
                                         deletedByName = p.substring(5);
+                                    } else if (p.startsWith("login=")) {
+                                        deletedByLogin = p.substring(6);
                                     }
+                                }
+                                if (deletedByLogin != null && !deletedByLogin.isEmpty()) {
+                                    ChatHistoryManager.deleteHistoryCompletely(getApplicationContext(), deletedByLogin, deviceAddress);
+                                    deleteChatFromChatList(deletedByLogin);
                                 }
                             }
                             ChatHistoryManager.deleteHistoryCompletely(getApplicationContext(), deletedByName, deviceAddress);

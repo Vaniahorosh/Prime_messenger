@@ -752,6 +752,41 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                         }
                     }
                 }
+            } else if (type == 0x0F) { // TYPE_PROFILE_UPDATE
+                String profileData = new String(payload, StandardCharsets.UTF_8);
+                String data = profileData.startsWith("HANDSHAKE:") ? profileData.substring(10).trim() : profileData.trim();
+                String remoteName = displayName;
+                String remoteLogin = "";
+                if (data.contains("login=") || data.contains("name=")) {
+                    for (String p : data.split(";")) {
+                        if (p.startsWith("name=")) remoteName = p.substring(5).trim();
+                        else if (p.startsWith("login=")) remoteLogin = p.substring(6).trim();
+                    }
+                } else {
+                    remoteName = data;
+                }
+
+                if (remoteName != null && !remoteName.isEmpty() && !remoteName.equals("1")) {
+                    SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                    SharedPreferences.Editor ed = sp.edit();
+                    if (fromAddress != null && !fromAddress.isEmpty()) {
+                        ed.putString("contact_name_" + fromAddress, remoteName);
+                        ed.putString(fromAddress + "_name", remoteName);
+                    }
+                    if (displayName != null && !displayName.isEmpty()) {
+                        ed.putString("contact_name_" + displayName, remoteName);
+                        ed.putString(displayName + "_name", remoteName);
+                    }
+                    if (!remoteLogin.isEmpty()) {
+                        ed.putString("contact_name_" + remoteLogin, remoteName);
+                        ed.putString(remoteLogin + "_name", remoteName);
+                    }
+                    ed.apply();
+
+                    BluetoothSocketHolder.registerConnection(fromAddress, remoteName, null, null);
+                    ChatListNotifier.INSTANCE.notifyChanged();
+                    ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
+                }
             }
         } catch (Throwable e) {
             Log.e(TAG, "Error handling background packet in PrimeBluetoothService", e);
