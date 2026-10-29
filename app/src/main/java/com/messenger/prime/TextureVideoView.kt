@@ -32,12 +32,19 @@ class TextureVideoView @JvmOverloads constructor(
         fun onCompletion(mp: MediaPlayer)
     }
 
+    fun interface OnProgressUpdateListener {
+        fun onProgress(currentPositionMs: Int, totalDurationMs: Int)
+    }
+
     private var mediaPlayer: MediaPlayer? = null
     private var videoPath: String? = null
     private var isPrepared = false
     private var playbackSpeed: Float = 1.0f
     private var onPreparedListener: OnPreparedListener? = null
     private var onCompletionListener: OnCompletionListener? = null
+
+    @JvmField
+    var onProgressUpdateListener: OnProgressUpdateListener? = null
 
     @JvmField
     var isMuted: Boolean = false
@@ -48,13 +55,18 @@ class TextureVideoView @JvmOverloads constructor(
     @JvmField
     var loopVideo: Boolean = false
 
+    @JvmField
+    var autoPlayOnPrepared: Boolean = true
+
     private val loopHandler = Handler(Looper.getMainLooper())
     private val loopRunnable = object : Runnable {
         override fun run() {
             val mp = mediaPlayer
             if (mp != null && isPrepared && isPlaying) {
+                val cur = currentPosition
                 val dur = loopDurationMs
-                if (dur > 0 && currentPosition >= dur) {
+                onProgressUpdateListener?.onProgress(cur, duration)
+                if (dur > 0 && cur >= dur) {
                     seekTo(0)
                     try {
                         mp.start()
@@ -62,7 +74,7 @@ class TextureVideoView @JvmOverloads constructor(
                 }
             }
             if (loopDurationMs > 0 && isPlaying) {
-                loopHandler.postDelayed(this, 150)
+                loopHandler.postDelayed(this, 100)
             }
         }
     }
@@ -99,6 +111,10 @@ class TextureVideoView @JvmOverloads constructor(
         this.onCompletionListener = listener
     }
 
+    fun setOnProgressUpdateListener(listener: OnProgressUpdateListener) {
+        this.onProgressUpdateListener = listener
+    }
+
     private fun openVideo() {
         val path = videoPath ?: return
         val surfaceTexture = surfaceTexture ?: return
@@ -116,7 +132,7 @@ class TextureVideoView @JvmOverloads constructor(
                 setSurface(surface)
                 isLooping = false
                 if (isMuted) {
-                    setVolume(0f, 0f)
+                    try { setVolume(0f, 0f) } catch (_: Exception) {}
                 }
                 setOnVideoSizeChangedListener { _, w, h ->
                     updateCenterCropMatrix(w, h)
@@ -135,6 +151,17 @@ class TextureVideoView @JvmOverloads constructor(
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
+                    }
+                    if (loopDurationMs == -1) {
+                        val totalDur = mp.duration
+                        loopDurationMs = when {
+                            totalDur <= 3000 -> totalDur
+                            totalDur <= 7000 -> 2000
+                            else -> 2800
+                        }
+                    }
+                    if (autoPlayOnPrepared) {
+                        start()
                     }
                     onPreparedListener?.onPrepared(mp)
                 }
@@ -163,7 +190,7 @@ class TextureVideoView @JvmOverloads constructor(
             mediaPlayer?.start()
             if (loopDurationMs > 0) {
                 loopHandler.removeCallbacks(loopRunnable)
-                loopHandler.postDelayed(loopRunnable, 150)
+                loopHandler.postDelayed(loopRunnable, 100)
             }
         } catch (e: Exception) {
             e.printStackTrace()

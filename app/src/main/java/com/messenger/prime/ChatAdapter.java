@@ -2183,11 +2183,147 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
+    private static final android.util.LruCache<String, int[]> mediaSizeCache = new android.util.LruCache<>(200);
+
+    public static int[] getMediaDimensions(Context context, String pathOrUri, boolean isVideo) {
+        if (pathOrUri == null || pathOrUri.isEmpty()) return new int[]{16, 9};
+        int[] cached = mediaSizeCache.get(pathOrUri);
+        if (cached != null) return cached;
+
+        if (isVideo) {
+            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+            try {
+                if (pathOrUri.startsWith("content://")) {
+                    retriever.setDataSource(context, Uri.parse(pathOrUri));
+                } else {
+                    retriever.setDataSource(pathOrUri);
+                }
+                String wStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
+                String hStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
+                String rStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
+                if (wStr != null && hStr != null) {
+                    int w = Integer.parseInt(wStr);
+                    int h = Integer.parseInt(hStr);
+                    int rot = rStr != null ? Integer.parseInt(rStr) : 0;
+                    int[] dims = (rot == 90 || rot == 270) ? new int[]{h, w} : new int[]{w, h};
+                    if (dims[0] > 0 && dims[1] > 0) {
+                        mediaSizeCache.put(pathOrUri, dims);
+                        return dims;
+                    }
+                }
+            } catch (Exception ignored) {
+            } finally {
+                try { retriever.release(); } catch (Exception ignored) {}
+            }
+        } else {
+            try {
+                BitmapFactory.Options options = new BitmapFactory.Options();
+                options.inJustDecodeBounds = true;
+                if (pathOrUri.startsWith("content://")) {
+                    try (InputStream is = context.getContentResolver().openInputStream(Uri.parse(pathOrUri))) {
+                        if (is != null) BitmapFactory.decodeStream(is, null, options);
+                    }
+                } else if (new File(pathOrUri).exists()) {
+                    BitmapFactory.decodeFile(pathOrUri, options);
+                }
+                if (options.outWidth > 0 && options.outHeight > 0) {
+                    int[] dims = new int[]{options.outWidth, options.outHeight};
+                    mediaSizeCache.put(pathOrUri, dims);
+                    return dims;
+                }
+            } catch (Exception ignored) {}
+        }
+        return new int[]{16, 9};
+    }
+
     private void bindSingleMediaItem(ChatMessage.MediaItem item, View container, ChatMessage message, ImageView ivImage, com.messenger.prime.TextureVideoView vvPreview, ImageView ivPlay, TextView tvDur) {
         if (container == null) return;
 
         ImageView img = ivImage != null ? ivImage : container.findViewById(R.id.ivMessageImage);
         com.messenger.prime.TextureVideoView vv = vvPreview != null ? vvPreview : container.findViewById(R.id.videoMessagePreview);
+
+        float density = container.getContext().getResources().getDisplayMetrics().density;
+
+        // Dynamic aspect ratio calculation so bubble adapts to vertical or horizontal format
+        int[] dims = getMediaDimensions(container.getContext(), item.path, item.isVideo);
+        int mw = dims[0];
+        int mh = dims[1];
+        float aspect = (mw > 0 && mh > 0) ? ((float) mw / (float) mh) : (16f / 9f);
+        int targetWidthDp;
+        int targetHeightDp;
+
+        if (aspect >= 1.2f) {
+            // Horizontal / Landscape (e.g. 16:9, 4:3)
+            targetWidthDp = 270;
+            targetHeightDp = Math.round(targetWidthDp / aspect);
+            if (targetHeightDp < 140) targetHeightDp = 140;
+            if (targetHeightDp > 210) targetHeightDp = 210;
+        } else if (aspect <= 0.85f) {
+            // Vertical / Portrait (e.g. 9:16, 3:4)
+            targetHeightDp = 280;
+            targetWidthDp = Math.round(targetHeightDp * aspect);
+            if (targetWidthDp < 160) targetWidthDp = 160;
+            if (targetWidthDp > 215) targetWidthDp = 215;
+        } else {
+            // Square / Near square
+            targetWidthDp = 230;
+            targetHeightDp = Math.round(targetWidthDp / aspect);
+            if (targetHeightDp < 180) targetHeightDp = 180;
+            if (targetHeightDp > 240) targetHeightDp = 240;
+        }
+
+        int targetW = (int) (targetWidthDp * density);
+        int targetH = (int) (targetHeightDp * density);
+
+        View layoutMediaContainer = container.getParent() instanceof View ? (View) container.getParent() : null;
+        if (layoutMediaContainer != null && layoutMediaContainer.getId() == R.id.layoutMediaContainer) {
+            ViewGroup.LayoutParams lpMedia = layoutMediaContainer.getLayoutParams();
+            if (lpMedia != null) {
+                lpMedia.width = targetW;
+                lpMedia.height = targetH;
+                layoutMediaContainer.setLayoutParams(lpMedia);
+            }
+        }
+
+        ViewGroup.LayoutParams lpSingle = container.getLayoutParams();
+        if (lpSingle != null) {
+            lpSingle.width = targetW;
+            lpSingle.height = targetH;
+            container.setLayoutParams(lpSingle);
+        }
+
+        if (img != null) {
+            ViewGroup.LayoutParams lpImg = img.getLayoutParams();
+            if (lpImg != null) {
+                lpImg.width = targetW;
+                lpImg.height = targetH;
+                img.setLayoutParams(lpImg);
+            }
+        }
+
+        if (vv != null) {
+            ViewGroup.LayoutParams lpVv = vv.getLayoutParams();
+            if (lpVv != null) {
+                lpVv.width = targetW;
+                lpVv.height = targetH;
+                vv.setLayoutParams(lpVv);
+            }
+        }
+
+        // Apply very narrow margins between bubble and media (Telegram style)
+        View bubble = null;
+        View walk = container;
+        while (walk != null && walk.getParent() instanceof View) {
+            walk = (View) walk.getParent();
+            if (walk.getId() == R.id.layoutIncomingBubble || walk.getId() == R.id.layoutOutgoingBubble) {
+                bubble = walk;
+                break;
+            }
+        }
+        if (bubble != null) {
+            int narrowPad = (int) (3.5f * density);
+            bubble.setPadding(narrowPad, narrowPad, narrowPad, narrowPad);
+        }
 
         if (message != null && message.getText() != null && message.getText().startsWith("VIDEO_NOTE:")) {
             String shape = message.getText().substring("VIDEO_NOTE:".length()).trim();
@@ -2200,15 +2336,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         if (item.isVideo && !isSending) {
             if (play != null) play.setVisibility(View.VISIBLE);
+            String totalDurationStr = item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "00:00";
             if (dur != null) {
                 dur.setVisibility(View.VISIBLE);
-                dur.setText(item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "00:00");
+                dur.setText(String.format(Locale.getDefault(), "0:00 / %s", totalDurationStr));
             }
             loadVideoThumbnailIntoView(container.getContext(), item.path, img, null, isScrolling);
 
             if (vv != null) {
                 if (!isScrolling && item.path != null && !item.path.isEmpty() && (item.path.startsWith("content://") || new File(item.path).exists())) {
-                    float cornerRadiusPx = 16 * vv.getResources().getDisplayMetrics().density;
+                    float cornerRadiusPx = 14 * density;
                     vv.setOutlineProvider(new android.view.ViewOutlineProvider() {
                         @Override
                         public void getOutline(View view, android.graphics.Outline outline) {
@@ -2217,18 +2354,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     });
                     vv.setClipToOutline(true);
                     vv.isMuted = true;
-                    vv.setOnPreparedListener(mp -> {
-                        int totalDur = mp.getDuration();
-                        int loopMs = 2500;
-                        if (totalDur > 0) {
-                            if (totalDur <= 3000) loopMs = totalDur;
-                            else if (totalDur <= 7000) loopMs = 2000;
-                            else loopMs = 2800;
+                    vv.loopDurationMs = -1;
+                    vv.autoPlayOnPrepared = true;
+                    vv.setOnProgressUpdateListener((curMs, totalMs) -> {
+                        if (dur != null) {
+                            int curSec = curMs / 1000;
+                            String tStr = item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : totalDurationStr;
+                            dur.setText(String.format(Locale.getDefault(), "%d:%02d / %s", curSec / 60, curSec % 60, tStr));
                         }
-                        vv.loopDurationMs = loopMs;
-                        vv.start();
-                        vv.setVisibility(View.VISIBLE);
                     });
+                    vv.setVisibility(View.VISIBLE);
                     vv.setVideoPath(item.path);
                 } else {
                     vv.removeCallbacks(null);
@@ -2237,14 +2372,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 }
             }
         } else if (item.isVideo) {
-            // Во время отправки (SENDING) демонстрируем статический снимок без создания VideoView,
-            // чтобы не создавать файловые блокировки и нагрузку на диск во время передачи по Bluetooth!
             if (vv != null) {
                 vv.removeCallbacks(null);
                 try { vv.stopPlayback(); } catch (Exception ignored) {}
                 vv.setVisibility(View.GONE);
             }
-            if (play != null) play.setVisibility(View.GONE);
+            if (play != null) play.setVisibility(View.VISIBLE);
             if (dur != null) {
                 dur.setVisibility(View.VISIBLE);
                 dur.setText(item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "00:00");
@@ -2266,7 +2399,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 loadMediaImageIntoView(container.getContext(), item.path, img);
             }
         }
-
         if (vv != null) {
             vv.setOnTouchListener(new View.OnTouchListener() {
                 private float startX, startY;
