@@ -127,7 +127,26 @@ class TextureVideoView @JvmOverloads constructor(
         try {
             val surface = Surface(surfaceTexture)
             mediaPlayer = MediaPlayer().apply {
-                if (path.startsWith("content://") || path.startsWith("file://") || path.startsWith("http://") || path.startsWith("https://")) {
+                if (path.startsWith("content://")) {
+                    val uri = Uri.parse(path)
+                    var opened = false
+                    try {
+                        val afd = context.contentResolver.openAssetFileDescriptor(uri, "r")
+                        if (afd != null) {
+                            setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                            afd.close()
+                            opened = true
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("TextureVideoView", "AFD open error: ${e.message}")
+                    }
+                    if (!opened) {
+                        setDataSource(context, uri)
+                    }
+                } else if (path.startsWith("file://")) {
+                    val cleanPath = Uri.parse(path).path ?: path.removePrefix("file://")
+                    setDataSource(cleanPath)
+                } else if (path.startsWith("http://") || path.startsWith("https://")) {
                     setDataSource(context, Uri.parse(path))
                 } else {
                     setDataSource(path)
@@ -189,8 +208,10 @@ class TextureVideoView @JvmOverloads constructor(
                         onCompletionListener?.onCompletion(mp)
                     }
                 }
-                setOnErrorListener { _, _, _ ->
-                    true // Silently handle preview decode errors
+                setOnErrorListener { _, what, extra ->
+                    android.util.Log.e("TextureVideoView", "MediaPlayer error: what=$what extra=$extra path=$videoPath")
+                    stopPlayback()
+                    true
                 }
                 prepareAsync()
             }

@@ -1,4 +1,4 @@
-package com.messenger.prime
+﻿package com.messenger.prime
 
 import android.annotation.SuppressLint
 import android.animation.Animator

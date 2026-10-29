@@ -2357,9 +2357,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         ImageView play = ivPlay != null ? ivPlay : container.findViewById(R.id.ivVideoPlayBadge);
         TextView dur = tvDur != null ? tvDur : container.findViewById(R.id.tvVideoDuration);
 
-        boolean isSending = message != null && message.getMessageStatus() == MessageStatus.SENDING;
-
-        if (item.isVideo && !isSending) {
+        if (item.isVideo) {
             if (play != null) play.setVisibility(View.VISIBLE);
             if (dur != null) {
                 dur.setVisibility(View.VISIBLE);
@@ -2396,6 +2394,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         }
                     });
                     vv.setVisibility(View.VISIBLE);
+                    vv.bringToFront();
+                    if (play != null) play.bringToFront();
+                    if (dur != null) dur.bringToFront();
                     vv.setVideoPath(p);
                 } else {
                     vv.removeCallbacks(null);
@@ -2404,22 +2405,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     if (img != null) {
                         img.setVisibility(View.VISIBLE);
                     }
+                    if (dur != null) {
+                        dur.setText(item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "0:00");
+                    }
                 }
-            }
-        } else if (item.isVideo) {
-            if (vv != null) {
-                vv.removeCallbacks(null);
-                try { vv.stopPlayback(); } catch (Exception ignored) {}
-                vv.setVisibility(View.GONE);
-            }
-            if (play != null) play.setVisibility(View.VISIBLE);
-            if (dur != null) {
-                dur.setVisibility(View.VISIBLE);
-                dur.setText(item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "0:00");
-            }
-            if (img != null) {
-                img.setVisibility(View.VISIBLE);
-                loadMediaImageIntoView(container.getContext(), item.path, img);
             }
         } else {
             if (vv != null) {
