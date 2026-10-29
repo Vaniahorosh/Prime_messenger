@@ -2571,8 +2571,14 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             companionPacketListener = (type, payload) -> {
                 runOnUiThread(() -> {
                     if (!isFinishing() && !isDestroyed()) {
-                        ensureOnlineStateAndInputVisible();
-                        processReceivedPacket(type, payload);
+                        boolean isDesktop = isRemoteDesktop
+                                || "PrimeDesktop".equalsIgnoreCase(deviceAddress)
+                                || "PrimeDesktop".equalsIgnoreCase(targetUsername)
+                                || AvatarManager.isDesktopContact(ChatPersonActivity.this, targetUsername, deviceAddress);
+                        if (isDesktop) {
+                            ensureOnlineStateAndInputVisible();
+                            processReceivedPacket(type, payload);
+                        }
                     }
                 });
                 return kotlin.Unit.INSTANCE;
@@ -4462,7 +4468,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (!sentViaSocketHolder) {
             BluetoothConnectionManager.getInstance().sendPacket(targetAddr, type, payload);
         }
-        PrimeCompanionServer.INSTANCE.broadcastPacket(type, payload);
+        boolean isDesktop = isRemoteDesktop
+                || "PrimeDesktop".equalsIgnoreCase(deviceAddress)
+                || "PrimeDesktop".equalsIgnoreCase(targetUsername)
+                || AvatarManager.isDesktopContact(this, targetUsername, deviceAddress);
+        if (isDesktop) {
+            PrimeCompanionServer.INSTANCE.broadcastPacket(type, payload);
+        }
     }
 
     private void sendText(String text) {
@@ -5186,7 +5198,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             if (isFinishing() || isDestroyed()) return;
             ensureOnlineStateAndInputVisible();
             processReceivedPacket(type, payload);
-            PrimeCompanionServer.INSTANCE.broadcastPacket(type, payload);
+            boolean isDesktop = isRemoteDesktop
+                    || "PrimeDesktop".equalsIgnoreCase(deviceAddress)
+                    || "PrimeDesktop".equalsIgnoreCase(targetUsername)
+                    || AvatarManager.isDesktopContact(this, targetUsername, deviceAddress);
+            if (isDesktop) {
+                PrimeCompanionServer.INSTANCE.broadcastPacket(type, payload);
+            }
         });
     }
 
@@ -5565,13 +5583,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                             SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
                             SharedPreferences.Editor ed = sp.edit();
-                            if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                            if (deviceAddress != null && !deviceAddress.isEmpty() && !"PrimeDesktop".equalsIgnoreCase(deviceAddress)) {
                                 ed.putString("contact_name_" + deviceAddress, remoteName);
                                 ed.putString(deviceAddress + "_name", remoteName);
-                            }
-                            if (oldName != null && !oldName.isEmpty()) {
-                                ed.putString("contact_name_" + oldName, remoteName);
-                                ed.putString(oldName + "_name", remoteName);
                             }
                             if (remoteLogin != null && !remoteLogin.isEmpty()) {
                                 ed.putString("contact_name_" + remoteLogin, remoteName);
@@ -5579,7 +5593,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             }
                             ed.apply();
 
-                            if (oldName != null && !oldName.equalsIgnoreCase(remoteName) && !isValidMacAddress(oldName)) {
+                            boolean isPlaceholder = oldName == null ||
+                                                    oldName.equalsIgnoreCase("Собеседник") ||
+                                                    oldName.equalsIgnoreCase("Prime User") ||
+                                                    isValidMacAddress(oldName) ||
+                                                    oldName.equalsIgnoreCase(deviceAddress);
+                            if (isPlaceholder && oldName != null && !oldName.equalsIgnoreCase(remoteName)) {
                                 migrateHistoryIfNeeded(oldName, remoteName);
                             }
 
@@ -6188,23 +6207,25 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                 BluetoothSocketHolder.setActiveTargetUsername(remoteName);
                                 BluetoothSocketHolder.registerConnection(this.threadRemoteAddress, remoteName, mmSocket, this);
 
-                                if (this.threadRemoteAddress != null && !this.threadRemoteAddress.isEmpty()) {
+                                if (this.threadRemoteAddress != null && !this.threadRemoteAddress.isEmpty() && !"PrimeDesktop".equalsIgnoreCase(this.threadRemoteAddress)) {
                                     AvatarManager.saveContactPreferenceSafely(getApplicationContext(), this.threadRemoteAddress, "contact_name", remoteName);
-                                }
-                                if (oldTarget != null && !oldTarget.isEmpty() && !isLocalUserKey(oldTarget)) {
-                                    AvatarManager.saveContactPreferenceSafely(getApplicationContext(), oldTarget, "contact_name", remoteName);
                                 }
                                 if (remoteLogin != null && !remoteLogin.isEmpty() && !isLocalUserKey(remoteLogin)) {
                                     AvatarManager.saveContactPreferenceSafely(getApplicationContext(), remoteLogin, "contact_name", remoteName);
                                 }
-                                
-                                if (oldTarget != null && !oldTarget.equalsIgnoreCase(remoteName) && !isValidMacAddress(oldTarget)) {
+
+                                boolean isPlaceholder = oldTarget == null ||
+                                                        oldTarget.equalsIgnoreCase("Собеседник") ||
+                                                        oldTarget.equalsIgnoreCase("Prime User") ||
+                                                        isValidMacAddress(oldTarget) ||
+                                                        oldTarget.equalsIgnoreCase(deviceAddress);
+                                if (isPlaceholder && oldTarget != null && !oldTarget.equalsIgnoreCase(remoteName)) {
                                     migrateHistoryIfNeeded(oldTarget, remoteName);
                                 }
-                                if (deviceAddress != null) {
+                                if (deviceAddress != null && isValidMacAddress(deviceAddress)) {
                                     migrateHistoryIfNeeded(deviceAddress, remoteName);
                                 }
-                                
+
                                 updatePersistedChatUser(deviceAddress, oldTarget, remoteName, remoteLogin);
 
                                 final String finalName = remoteName;

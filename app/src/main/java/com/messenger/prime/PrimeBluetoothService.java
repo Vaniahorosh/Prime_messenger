@@ -578,7 +578,8 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         
         resetReconnectAttempts(fromAddress);
         manageWakeLock();
-        if (!"PrimeDesktop".equals(fromAddress)) {
+        boolean isDesktopPeer = "PrimeDesktop".equalsIgnoreCase(fromAddress) || AvatarManager.isDesktopContact(this, fromAddress, fromAddress);
+        if (isDesktopPeer) {
             PrimeCompanionServer.INSTANCE.broadcastPacket(type, payload);
         }
 
@@ -766,16 +767,12 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     remoteName = data;
                 }
 
-                if (remoteName != null && !remoteName.isEmpty() && !remoteName.equals("1")) {
+                if (remoteName != null && !remoteName.isEmpty() && !remoteName.equals("1") && !"Собеседник".equalsIgnoreCase(remoteName) && !"Prime User".equalsIgnoreCase(remoteName)) {
                     SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
                     SharedPreferences.Editor ed = sp.edit();
-                    if (fromAddress != null && !fromAddress.isEmpty()) {
+                    if (fromAddress != null && !fromAddress.isEmpty() && !"PrimeDesktop".equalsIgnoreCase(fromAddress)) {
                         ed.putString("contact_name_" + fromAddress, remoteName);
                         ed.putString(fromAddress + "_name", remoteName);
-                    }
-                    if (displayName != null && !displayName.isEmpty()) {
-                        ed.putString("contact_name_" + displayName, remoteName);
-                        ed.putString(displayName + "_name", remoteName);
                     }
                     if (!remoteLogin.isEmpty()) {
                         ed.putString("contact_name_" + remoteLogin, remoteName);
@@ -869,11 +866,15 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
                     String ackStr = "HANDSHAKE_ACK:name=" + myName;
                     BluetoothConnectionManager.getInstance().sendPacket(fromAddress, (byte) 0x01, ackStr.getBytes(StandardCharsets.UTF_8));
-                    PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x01, ackStr.getBytes(StandardCharsets.UTF_8));
+                    if (isDesktop) {
+                        PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x01, ackStr.getBytes(StandardCharsets.UTF_8));
+                    }
                 }
 
                 BluetoothConnectionManager.getInstance().sendPacket(fromAddress, (byte) 0x0C, "ONLINE".getBytes(StandardCharsets.UTF_8));
-                PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x0C, "ONLINE".getBytes(StandardCharsets.UTF_8));
+                if (isDesktop) {
+                    PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x0C, "ONLINE".getBytes(StandardCharsets.UTF_8));
+                }
 
                 sendBackgroundAvatar(fromAddress);
 
@@ -910,7 +911,9 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     }
                     if (bytes != null && bytes.length > 0) {
                         BluetoothConnectionManager.getInstance().sendPacket(targetAddress, (byte) 0x07, bytes);
-                        PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x07, bytes);
+                        if ("PrimeDesktop".equalsIgnoreCase(targetAddress) || AvatarManager.isDesktopContact(PrimeBluetoothService.this, targetAddress, targetAddress)) {
+                            PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x07, bytes);
+                        }
                     }
                 }
             } catch (Exception e) {

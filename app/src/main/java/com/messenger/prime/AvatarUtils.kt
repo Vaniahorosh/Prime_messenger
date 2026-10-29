@@ -621,7 +621,17 @@ fun sanitizeLocalUserProfile(context: Context) {
             "contact_avatar_history_$myDisplayName",
             "contact_avatar_Собеседник",
             "contact_name_Собеседник",
-            "contact_avatar_history_Собеседник"
+            "contact_avatar_history_Собеседник",
+            "Собеседник_name",
+            "contact_name_PrimeDesktop",
+            "contact_avatar_PrimeDesktop",
+            "PrimeDesktop_name",
+            "contact_name_Prime User",
+            "Prime User_name",
+            "contact_name_null",
+            "null_name",
+            "contact_name_1",
+            "1_name"
         )
 
         keysToRemove.forEach { key ->
