@@ -5826,6 +5826,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             PrimeNotification.INSTANCE.cancelSendingProgressNotification(this);
         }
         stopAllVideoNotePlayback();
+        if (chatAdapter != null) {
+            chatAdapter.cleanup();
+        }
         PrimeMusicManager.INSTANCE.removeListener(this);
         if (companionPacketListener != null) {
             PrimeCompanionServer.removePacketListener(companionPacketListener);

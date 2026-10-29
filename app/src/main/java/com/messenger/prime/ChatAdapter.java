@@ -239,12 +239,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private boolean isScrolling = false;
 
     public void setScrolling(boolean scrolling) {
-        if (this.isScrolling != scrolling) {
-            this.isScrolling = scrolling;
-            if (!scrolling) {
-                notifyDataSetChanged();
-            }
-        }
+        this.isScrolling = scrolling;
     }
 
     public boolean isScrolling() {
@@ -1002,6 +997,23 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 }
                 vvNote.setVisibility(View.GONE);
             } catch (Exception ignored) {}
+        }
+
+        try {
+            ImageView iv = holder.itemView.findViewById(R.id.ivMessageImage);
+            if (iv != null) {
+                Glide.with(holder.itemView.getContext()).clear(iv);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    public void cleanup() {
+        if (mRecyclerView != null) {
+            for (int i = 0; i < mRecyclerView.getChildCount(); i++) {
+                View child = mRecyclerView.getChildAt(i);
+                RecyclerView.ViewHolder vh = mRecyclerView.getChildViewHolder(child);
+                stopVideoPreviewInViewHolder(vh);
+            }
         }
     }
 
@@ -2185,6 +2197,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private static final android.util.LruCache<String, int[]> mediaSizeCache = new android.util.LruCache<>(200);
 
+    public static void cacheVideoDimensions(String path, int width, int height) {
+        if (path != null && width > 0 && height > 0) {
+            mediaSizeCache.put(path, new int[]{width, height});
+        }
+    }
+
     public static int[] getMediaDimensions(Context context, String pathOrUri, boolean isVideo) {
         if (pathOrUri == null || pathOrUri.isEmpty()) return new int[]{16, 9};
         int[] cached = mediaSizeCache.get(pathOrUri);
@@ -2358,7 +2376,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         TextView dur = tvDur != null ? tvDur : container.findViewById(R.id.tvVideoDuration);
 
         if (item.isVideo) {
-            if (play != null) play.setVisibility(View.VISIBLE);
+            if (play != null) play.setVisibility(View.GONE);
             if (dur != null) {
                 dur.setVisibility(View.VISIBLE);
                 dur.setText("0:00");
@@ -2382,7 +2400,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     vv.isMuted = true;
                     vv.loopDurationMs = -1;
                     vv.autoPlayOnPrepared = true;
-                    vv.setOnPreparedListener(mp -> {
+                    vv.setOnFirstFrameRenderedListener(() -> {
                         if (img != null) {
                             img.setVisibility(View.INVISIBLE);
                         }

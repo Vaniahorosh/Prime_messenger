@@ -36,12 +36,20 @@ class TextureVideoView @JvmOverloads constructor(
         fun onProgress(currentPositionMs: Int, totalDurationMs: Int)
     }
 
+    fun interface OnFirstFrameRenderedListener {
+        fun onFirstFrameRendered()
+    }
+
     private var mediaPlayer: MediaPlayer? = null
     private var videoPath: String? = null
     private var isPrepared = false
     private var playbackSpeed: Float = 1.0f
     private var onPreparedListener: OnPreparedListener? = null
     private var onCompletionListener: OnCompletionListener? = null
+
+    private var onFirstFrameRenderedListener: OnFirstFrameRenderedListener? = null
+    private var hasRenderedFirstFrame = false
+    private var nativeSurface: Surface? = null
 
     @JvmField
     var onProgressUpdateListener: OnProgressUpdateListener? = null
@@ -118,14 +126,20 @@ class TextureVideoView @JvmOverloads constructor(
         this.onProgressUpdateListener = listener
     }
 
+    fun setOnFirstFrameRenderedListener(listener: OnFirstFrameRenderedListener?) {
+        this.onFirstFrameRenderedListener = listener
+    }
+
     private fun openVideo() {
         val path = videoPath ?: return
         val surfaceTexture = surfaceTexture ?: return
 
         stopPlayback()
+        hasRenderedFirstFrame = false
 
         try {
-            val surface = Surface(surfaceTexture)
+            val surf = Surface(surfaceTexture)
+            nativeSurface = surf
             mediaPlayer = MediaPlayer().apply {
                 if (path.startsWith("content://")) {
                     val uri = Uri.parse(path)
@@ -151,17 +165,25 @@ class TextureVideoView @JvmOverloads constructor(
                 } else {
                     setDataSource(path)
                 }
-                setSurface(surface)
+                setSurface(surf)
                 isLooping = false
                 if (isMuted) {
                     try { setVolume(0f, 0f) } catch (_: Exception) {}
                 }
                 setOnVideoSizeChangedListener { _, w, h ->
                     updateCenterCropMatrix(w, h)
+                    if (path != null && w > 0 && h > 0) {
+                        ChatAdapter.cacheVideoDimensions(path, w, h)
+                    }
                 }
                 setOnPreparedListener { mp ->
                     isPrepared = true
-                    updateCenterCropMatrix(mp.videoWidth, mp.videoHeight)
+                    val vw = mp.videoWidth
+                    val vh = mp.videoHeight
+                    updateCenterCropMatrix(vw, vh)
+                    if (path != null && vw > 0 && vh > 0) {
+                        ChatAdapter.cacheVideoDimensions(path, vw, vh)
+                    }
                     if (isMuted) {
                         try { mp.setVolume(0f, 0f) } catch (_: Exception) {}
                     }
@@ -242,16 +264,28 @@ class TextureVideoView @JvmOverloads constructor(
     }
 
     fun stopPlayback() {
-        loopHandler.removeCallbacks(loopRunnable)
+        loopHandler.removeCallbacksAndMessages(null)
         isSeeking = false
-        try {
-            mediaPlayer?.stop()
-            mediaPlayer?.release()
-        } catch (e: Exception) {
-            e.printStackTrace()
+        hasRenderedFirstFrame = false
+        mediaPlayer?.let { mp ->
+            try {
+                mp.setOnPreparedListener(null)
+                mp.setOnCompletionListener(null)
+                mp.setOnSeekCompleteListener(null)
+                mp.setOnErrorListener(null)
+                mp.setOnVideoSizeChangedListener(null)
+                mp.stop()
+                mp.release()
+            } catch (e: Exception) {
+                // ignored
+            }
         }
         mediaPlayer = null
         isPrepared = false
+        try {
+            nativeSurface?.release()
+        } catch (_: Exception) {}
+        nativeSurface = null
     }
 
     val isPlaying: Boolean
@@ -361,5 +395,12 @@ class TextureVideoView @JvmOverloads constructor(
         return true
     }
 
-    override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+    override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
+        if (!hasRenderedFirstFrame) {
+            hasRenderedFirstFrame = true
+            post {
+                onFirstFrameRenderedListener?.onFirstFrameRendered()
+            }
+        }
+    }
 }
