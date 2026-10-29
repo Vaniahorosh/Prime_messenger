@@ -6,6 +6,8 @@ import android.graphics.SurfaceTexture
 import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.util.AttributeSet
 import android.view.Surface
 import android.view.TextureView
@@ -14,6 +16,7 @@ import android.view.TextureView
  * Custom TextureView for video playback that supports 100% reliable hardware clipping
  * (ViewOutlineProvider / setClipToOutline) and internal Matrix CENTER_CROP scaling.
  * Correctly respects video orientation rotation metadata (90° / 270°) to prevent any sideways rotation.
+ * Supports silent looping previews with custom loop window duration for chat message bubbles.
  */
 class TextureVideoView @JvmOverloads constructor(
     context: Context,
@@ -36,8 +39,49 @@ class TextureVideoView @JvmOverloads constructor(
     private var onPreparedListener: OnPreparedListener? = null
     private var onCompletionListener: OnCompletionListener? = null
 
+    @JvmField
+    var isMuted: Boolean = false
+
+    @JvmField
+    var loopDurationMs: Int = 0
+
+    @JvmField
+    var loopVideo: Boolean = false
+
+    private val loopHandler = Handler(Looper.getMainLooper())
+    private val loopRunnable = object : Runnable {
+        override fun run() {
+            val mp = mediaPlayer
+            if (mp != null && isPrepared && isPlaying) {
+                val dur = loopDurationMs
+                if (dur > 0 && currentPosition >= dur) {
+                    seekTo(0)
+                    try {
+                        mp.start()
+                    } catch (_: Exception) {}
+                }
+            }
+            if (loopDurationMs > 0 && isPlaying) {
+                loopHandler.postDelayed(this, 150)
+            }
+        }
+    }
+
     init {
         surfaceTextureListener = this
+    }
+
+    fun setMuted(muted: Boolean) {
+        this.isMuted = muted
+        mediaPlayer?.let { mp ->
+            try {
+                if (muted) {
+                    mp.setVolume(0f, 0f)
+                } else {
+                    mp.setVolume(1f, 1f)
+                }
+            } catch (_: Exception) {}
+        }
     }
 
     fun setVideoPath(path: String) {
@@ -64,15 +108,25 @@ class TextureVideoView @JvmOverloads constructor(
         try {
             val surface = Surface(surfaceTexture)
             mediaPlayer = MediaPlayer().apply {
-                setDataSource(path)
+                if (path.startsWith("content://")) {
+                    setDataSource(context, Uri.parse(path))
+                } else {
+                    setDataSource(path)
+                }
                 setSurface(surface)
                 isLooping = false
+                if (isMuted) {
+                    setVolume(0f, 0f)
+                }
                 setOnVideoSizeChangedListener { _, w, h ->
                     updateCenterCropMatrix(w, h)
                 }
                 setOnPreparedListener { mp ->
                     isPrepared = true
                     updateCenterCropMatrix(mp.videoWidth, mp.videoHeight)
+                    if (isMuted) {
+                        try { mp.setVolume(0f, 0f) } catch (_: Exception) {}
+                    }
                     if (playbackSpeed != 1.0f && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                         try {
                             val params = mp.playbackParams
@@ -85,7 +139,17 @@ class TextureVideoView @JvmOverloads constructor(
                     onPreparedListener?.onPrepared(mp)
                 }
                 setOnCompletionListener { mp ->
-                    onCompletionListener?.onCompletion(mp)
+                    if (loopVideo || loopDurationMs > 0) {
+                        seekTo(0)
+                        try {
+                            mp.start()
+                        } catch (_: Exception) {}
+                    } else {
+                        onCompletionListener?.onCompletion(mp)
+                    }
+                }
+                setOnErrorListener { _, _, _ ->
+                    true // Silently handle preview decode errors
                 }
                 prepareAsync()
             }
@@ -97,12 +161,17 @@ class TextureVideoView @JvmOverloads constructor(
     fun start() {
         try {
             mediaPlayer?.start()
+            if (loopDurationMs > 0) {
+                loopHandler.removeCallbacks(loopRunnable)
+                loopHandler.postDelayed(loopRunnable, 150)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
     fun pause() {
+        loopHandler.removeCallbacks(loopRunnable)
         try {
             mediaPlayer?.pause()
         } catch (e: Exception) {
@@ -111,6 +180,7 @@ class TextureVideoView @JvmOverloads constructor(
     }
 
     fun stopPlayback() {
+        loopHandler.removeCallbacks(loopRunnable)
         try {
             mediaPlayer?.stop()
             mediaPlayer?.release()

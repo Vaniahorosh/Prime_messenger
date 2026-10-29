@@ -979,7 +979,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private void stopVideoPreviewInViewHolder(RecyclerView.ViewHolder holder) {
         if (holder == null) return;
 
-        VideoView vv = null;
+        com.messenger.prime.TextureVideoView vv = null;
         if (holder instanceof IncomingViewHolder) {
             vv = ((IncomingViewHolder) holder).videoMessagePreview;
         } else if (holder instanceof OutgoingViewHolder) {
@@ -989,6 +989,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             vv.removeCallbacks(null);
             try {
                 vv.stopPlayback();
+                vv.setVisibility(View.GONE);
             } catch (Exception ignored) {}
         }
 
@@ -1309,7 +1310,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             int position,
             View layoutMediaContainer,
             ImageView ivMessageImage,
-            VideoView videoMessagePreview,
+            com.messenger.prime.TextureVideoView videoMessagePreview,
             ImageView ivVideoPlayBadge,
             TextView tvVideoDuration,
             View layoutFileContainer,
@@ -1838,7 +1839,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             img.setScaleType(ImageView.ScaleType.CENTER_CROP);
         }
 
-        VideoView vv = itemView.findViewById(R.id.videoMessagePreview);
+        com.messenger.prime.TextureVideoView vv = itemView.findViewById(R.id.videoMessagePreview);
         if (vv != null) {
             vv.setOutlineProvider(null);
             vv.setClipToOutline(false);
@@ -2182,11 +2183,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
-    private void bindSingleMediaItem(ChatMessage.MediaItem item, View container, ChatMessage message, ImageView ivImage, VideoView vvPreview, ImageView ivPlay, TextView tvDur) {
+    private void bindSingleMediaItem(ChatMessage.MediaItem item, View container, ChatMessage message, ImageView ivImage, com.messenger.prime.TextureVideoView vvPreview, ImageView ivPlay, TextView tvDur) {
         if (container == null) return;
 
         ImageView img = ivImage != null ? ivImage : container.findViewById(R.id.ivMessageImage);
-        VideoView vv = vvPreview != null ? vvPreview : container.findViewById(R.id.videoMessagePreview);
+        com.messenger.prime.TextureVideoView vv = vvPreview != null ? vvPreview : container.findViewById(R.id.videoMessagePreview);
 
         if (message != null && message.getText() != null && message.getText().startsWith("VIDEO_NOTE:")) {
             String shape = message.getText().substring("VIDEO_NOTE:".length()).trim();
@@ -2198,12 +2199,43 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         boolean isSending = message != null && message.getMessageStatus() == MessageStatus.SENDING;
 
         if (item.isVideo && !isSending) {
-            if (play != null) play.setVisibility(View.GONE);
+            if (play != null) play.setVisibility(View.VISIBLE);
             if (dur != null) {
                 dur.setVisibility(View.VISIBLE);
                 dur.setText(item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "00:00");
             }
-            loadVideoThumbnailIntoView(container.getContext(), item.path, img, vv, isScrolling);
+            loadVideoThumbnailIntoView(container.getContext(), item.path, img, null, isScrolling);
+
+            if (vv != null) {
+                if (!isScrolling && item.path != null && !item.path.isEmpty() && (item.path.startsWith("content://") || new File(item.path).exists())) {
+                    float cornerRadiusPx = 16 * vv.getResources().getDisplayMetrics().density;
+                    vv.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                        @Override
+                        public void getOutline(View view, android.graphics.Outline outline) {
+                            outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), cornerRadiusPx);
+                        }
+                    });
+                    vv.setClipToOutline(true);
+                    vv.isMuted = true;
+                    vv.setOnPreparedListener(mp -> {
+                        int totalDur = mp.getDuration();
+                        int loopMs = 2500;
+                        if (totalDur > 0) {
+                            if (totalDur <= 3000) loopMs = totalDur;
+                            else if (totalDur <= 7000) loopMs = 2000;
+                            else loopMs = 2800;
+                        }
+                        vv.loopDurationMs = loopMs;
+                        vv.start();
+                        vv.setVisibility(View.VISIBLE);
+                    });
+                    vv.setVideoPath(item.path);
+                } else {
+                    vv.removeCallbacks(null);
+                    try { vv.stopPlayback(); } catch (Exception ignored) {}
+                    vv.setVisibility(View.GONE);
+                }
+            }
         } else if (item.isVideo) {
             // Во время отправки (SENDING) демонстрируем статический снимок без создания VideoView,
             // чтобы не создавать файловые блокировки и нагрузку на диск во время передачи по Bluetooth!
@@ -2462,12 +2494,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
-    public static void loadVideoThumbnailIntoView(Context context, String pathOrUri, ImageView imageView, VideoView videoView, boolean isScrolling) {
+    public static void loadVideoThumbnailIntoView(Context context, String pathOrUri, ImageView imageView, View videoView, boolean isScrolling) {
         if (context == null || pathOrUri == null || pathOrUri.isEmpty()) return;
 
         if (videoView != null) {
             videoView.removeCallbacks(null);
-            try { videoView.stopPlayback(); } catch (Exception ignored) {}
+            if (videoView instanceof com.messenger.prime.TextureVideoView) {
+                try { ((com.messenger.prime.TextureVideoView) videoView).stopPlayback(); } catch (Exception ignored) {}
+            } else if (videoView instanceof VideoView) {
+                try { ((VideoView) videoView).stopPlayback(); } catch (Exception ignored) {}
+            }
             videoView.setVisibility(View.GONE);
         }
 
@@ -2487,7 +2523,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
-    public static void loadVideoThumbnailIntoView(Context context, String pathOrUri, ImageView imageView, VideoView videoView) {
+    public static void loadVideoThumbnailIntoView(Context context, String pathOrUri, ImageView imageView, View videoView) {
         loadVideoThumbnailIntoView(context, pathOrUri, imageView, videoView, false);
     }
 
@@ -2684,7 +2720,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         View layoutMediaContainer;
         ImageView ivVideoPlayBadge;
         TextView tvVideoDuration;
-        VideoView videoMessagePreview;
+        com.messenger.prime.TextureVideoView videoMessagePreview;
         View layoutFileContainer;
         ImageView ivFileIcon;
         TextView tvFileName;
@@ -2923,7 +2959,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         View layoutMediaContainer;
         ImageView ivVideoPlayBadge;
         TextView tvVideoDuration;
-        VideoView videoMessagePreview;
+        com.messenger.prime.TextureVideoView videoMessagePreview;
         View layoutFileContainer;
         ImageView ivFileIcon;
         TextView tvFileName;

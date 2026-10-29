@@ -175,10 +175,10 @@
                     android:scaleType="centerCrop"
                     app:shapeAppearanceOverlay="@style/Rounded16dpImageView" />
 
-                <VideoView
+                <com.messenger.prime.TextureVideoView
                     android:id="@+id/videoMessagePreview"
                     android:layout_width="match_parent"
-                    android:layout_height="160dp"
+                    android:layout_height="200dp"
                     android:layout_gravity="center"
                     android:clickable="false"
                     android:focusable="false"
