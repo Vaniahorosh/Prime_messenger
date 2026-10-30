@@ -5,206 +5,205 @@
     android:id="@+id/layoutRichRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/prime_base"
-    android:transitionName="transition_input_to_rich">
+    android:background="@color/prime_base">
 
-    <!-- Rich Text Editing WebView (Underneath Floating Elements) -->
+    <!-- Rich Text Editing WebView (Full Screen Edge-to-Edge) -->
     <WebView
         android:id="@+id/webViewRich"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@id/headerRich"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Top Navigation Header with BlurView -->
+    <!-- Bottom Floating Island Container with BlurView -->
     <eightbitlab.com.blurview.BlurView
-        android:id="@+id/headerRich"
-        android:layout_width="0dp"
-        android:layout_height="56dp"
-        android:background="@drawable/bg_floating_island"
-        android:elevation="6dp"
-        android:outlineProvider="background"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:paddingHorizontal="12dp">
-
-            <ImageButton
-                android:id="@+id/btnCancel"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Отмена"
-                android:src="@drawable/ic_arrow_back"
-                app:tint="@color/prime_text_primary"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent" />
-
-            <TextView
-                android:id="@+id/tvHeaderTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Форматирование"
-                android:textColor="@color/prime_text_primary"
-                android:textSize="17sp"
-                android:textStyle="bold"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent" />
-
-            <!-- Floating Collapse/Expand Toolbar Toggle Button -->
-            <ImageButton
-                android:id="@+id/btnToggleToolbar"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_marginEnd="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Переключить панель"
-                android:src="@drawable/ic_format_extended"
-                app:tint="@color/prime_brand"
-                app:layout_constraintEnd_toStartOf="@id/btnDone"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent" />
-
-            <FrameLayout
-                android:id="@+id/btnDone"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent">
-
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_gravity="center"
-                    android:contentDescription="Готово"
-                    android:src="@drawable/ic_send"
-                    app:tint="@color/prime_brand" />
-            </FrameLayout>
-        </androidx.constraintlayout.widget.ConstraintLayout>
-    </eightbitlab.com.blurview.BlurView>
-
-    <!-- Bottom Floating Island Toolbar Container -->
-    <eightbitlab.com.blurview.BlurView
-        android:id="@+id/layoutFloatingToolbar"
+        android:id="@+id/layoutFloatingBottomIsland"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="12dp"
         android:background="@drawable/bg_floating_island"
-        android:elevation="8dp"
+        android:elevation="10dp"
         android:outlineProvider="background"
+        android:transitionName="transition_input_to_rich"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <HorizontalScrollView
-            android:id="@+id/toolbarRich"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:scrollbars="none"
-            android:paddingHorizontal="6dp">
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="4dp">
 
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <ImageButton
-                    android:id="@+id/btnHeading"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginEnd="2dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Заголовок"
-                    android:src="@drawable/ic_format_heading"
-                    app:tint="@color/prime_brand" />
+            <!-- Row 1: Header Controls (Back, Title, Toggle, Send) -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/headerRich"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:paddingHorizontal="6dp">
 
                 <ImageButton
-                    android:id="@+id/btnBold"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginEnd="2dp"
+                    android:id="@+id/btnCancel"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Стили"
-                    android:src="@drawable/ic_format_bold"
-                    app:tint="@color/prime_brand" />
+                    android:contentDescription="Отмена"
+                    android:src="@drawable/ic_arrow_back"
+                    app:tint="@color/prime_text_primary"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
 
+                <TextView
+                    android:id="@+id/tvHeaderTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Форматирование"
+                    android:textColor="@color/prime_text_primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
+
+                <!-- Floating Collapse/Expand Toolbar Toggle Button -->
                 <ImageButton
-                    android:id="@+id/btnList"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginEnd="2dp"
+                    android:id="@+id/btnToggleToolbar"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="4dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Списки"
-                    android:src="@drawable/ic_format_list_bulleted"
-                    app:tint="@color/prime_brand" />
+                    android:contentDescription="Переключить панель"
+                    android:src="@drawable/ic_format_extended"
+                    app:tint="@color/prime_brand"
+                    app:layout_constraintEnd_toStartOf="@id/btnDone"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
 
-                <ImageButton
-                    android:id="@+id/btnAlign"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginEnd="2dp"
+                <FrameLayout
+                    android:id="@+id/btnDone"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Выравнивание"
-                    android:src="@drawable/ic_format_align_left"
-                    app:tint="@color/prime_brand" />
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent">
 
-                <ImageButton
-                    android:id="@+id/btnTable"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginEnd="2dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Таблица"
-                    android:src="@drawable/ic_format_table"
-                    app:tint="@color/prime_brand" />
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="Готово"
+                        android:src="@drawable/ic_send"
+                        app:tint="@color/prime_brand" />
+                </FrameLayout>
+            </androidx.constraintlayout.widget.ConstraintLayout>
 
-                <ImageButton
-                    android:id="@+id/btnQuote"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginEnd="2dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Цитата"
-                    android:src="@drawable/ic_format_quote"
-                    app:tint="@color/prime_brand" />
+            <!-- Row 2: Formatting Tools Toolbar -->
+            <HorizontalScrollView
+                android:id="@+id/toolbarRich"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:scrollbars="none"
+                android:paddingHorizontal="2dp">
 
-                <ImageButton
-                    android:id="@+id/btnColor"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_marginEnd="2dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Цвет текста"
-                    android:src="@drawable/ic_format_color"
-                    app:tint="@color/prime_brand" />
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                <ImageButton
-                    android:id="@+id/btnInsertImage"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Медиафайл"
-                    android:src="@drawable/ic_format_image"
-                    app:tint="@color/prime_brand" />
+                    <ImageButton
+                        android:id="@+id/btnHeading"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_marginEnd="2dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Заголовок"
+                        android:src="@drawable/ic_format_heading"
+                        app:tint="@color/prime_brand" />
 
-            </LinearLayout>
-        </HorizontalScrollView>
+                    <ImageButton
+                        android:id="@+id/btnBold"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_marginEnd="2dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Стили"
+                        android:src="@drawable/ic_format_bold"
+                        app:tint="@color/prime_brand" />
+
+                    <ImageButton
+                        android:id="@+id/btnList"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_marginEnd="2dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Списки"
+                        android:src="@drawable/ic_format_list_bulleted"
+                        app:tint="@color/prime_brand" />
+
+                    <ImageButton
+                        android:id="@+id/btnAlign"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_marginEnd="2dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Выравнивание"
+                        android:src="@drawable/ic_format_align_left"
+                        app:tint="@color/prime_brand" />
+
+                    <ImageButton
+                        android:id="@+id/btnTable"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_marginEnd="2dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Таблица"
+                        android:src="@drawable/ic_format_table"
+                        app:tint="@color/prime_brand" />
+
+                    <ImageButton
+                        android:id="@+id/btnQuote"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_marginEnd="2dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Цитата"
+                        android:src="@drawable/ic_format_quote"
+                        app:tint="@color/prime_brand" />
+
+                    <ImageButton
+                        android:id="@+id/btnColor"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_marginEnd="2dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Цвет текста"
+                        android:src="@drawable/ic_format_color"
+                        app:tint="@color/prime_brand" />
+
+                    <ImageButton
+                        android:id="@+id/btnInsertImage"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Медиафайл"
+                        android:src="@drawable/ic_format_image"
+                        app:tint="@color/prime_brand" />
+
+                </LinearLayout>
+            </HorizontalScrollView>
+
+        </LinearLayout>
     </eightbitlab.com.blurview.BlurView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

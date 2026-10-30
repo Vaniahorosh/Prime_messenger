@@ -45,9 +45,13 @@ public class RichEditorActivity extends AppCompatActivity {
         getWindow().requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS);
         
         MaterialContainerTransform transform = new MaterialContainerTransform();
-        transform.addTarget(R.id.layoutRichRoot);
-        transform.setDuration(350);
-        transform.setAllContainerColors(ContextCompat.getColor(this, R.color.prime_base));
+        transform.addTarget(R.id.layoutFloatingBottomIsland);
+        transform.setDuration(280);
+        transform.setInterpolator(new androidx.interpolator.view.animation.FastOutSlowInInterpolator());
+        transform.setAllContainerColors(android.graphics.Color.TRANSPARENT);
+        transform.setScrimColor(android.graphics.Color.TRANSPARENT);
+        transform.setFadeMode(MaterialContainerTransform.FADE_MODE_THROUGH);
+        
         getWindow().setSharedElementEnterTransition(transform);
         getWindow().setSharedElementReturnTransition(transform);
 
@@ -55,13 +59,23 @@ public class RichEditorActivity extends AppCompatActivity {
         setContentView(R.layout.fragment_rich_editor);
         setupBlurViews();
 
+        boolean isDark = isDarkTheme(this);
+        UIExtensionsKt.setupEdgeToEdge(this, !isDark);
+
         View root = findViewById(R.id.layoutRichRoot);
+        View bottomIsland = findViewById(R.id.layoutFloatingBottomIsland);
         if (root != null) {
             ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
                 Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
                 Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
-                int bottom = Math.max(systemBars.bottom, ime.bottom);
-                v.setPadding(systemBars.left, systemBars.top, systemBars.right, bottom);
+                v.setPadding(0, systemBars.top, 0, 0);
+                
+                int bottomMargin = Math.max(systemBars.bottom, ime.bottom) + (int)(12 * getResources().getDisplayMetrics().density);
+                if (bottomIsland != null) {
+                    androidx.constraintlayout.widget.ConstraintLayout.LayoutParams lp = (androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) bottomIsland.getLayoutParams();
+                    lp.bottomMargin = bottomMargin;
+                    bottomIsland.setLayoutParams(lp);
+                }
                 return insets;
             });
         }
@@ -98,25 +112,25 @@ public class RichEditorActivity extends AppCompatActivity {
             findViewById(R.id.btnInsertImage).setOnClickListener(v -> mediaPickerLauncher.launch("image/*"));
         }
 
-        View layoutFloatingToolbar = findViewById(R.id.layoutFloatingToolbar);
+        View toolbarRich = findViewById(R.id.toolbarRich);
         View btnToggleToolbar = findViewById(R.id.btnToggleToolbar);
-        if (btnToggleToolbar != null && layoutFloatingToolbar != null) {
+        if (btnToggleToolbar != null && toolbarRich != null) {
             btnToggleToolbar.setOnClickListener(v -> {
                 v.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);
-                if (layoutFloatingToolbar.getVisibility() == View.VISIBLE) {
-                    layoutFloatingToolbar.animate().cancel();
-                    layoutFloatingToolbar.animate()
+                if (toolbarRich.getVisibility() == View.VISIBLE) {
+                    toolbarRich.animate().cancel();
+                    toolbarRich.animate()
                             .alpha(0f)
                             .scaleY(0f)
                             .setDuration(180)
-                            .withEndAction(() -> layoutFloatingToolbar.setVisibility(View.GONE))
+                            .withEndAction(() -> toolbarRich.setVisibility(View.GONE))
                             .start();
                 } else {
-                    layoutFloatingToolbar.setVisibility(View.VISIBLE);
-                    layoutFloatingToolbar.setAlpha(0f);
-                    layoutFloatingToolbar.setScaleY(0f);
-                    layoutFloatingToolbar.animate().cancel();
-                    layoutFloatingToolbar.animate()
+                    toolbarRich.setVisibility(View.VISIBLE);
+                    toolbarRich.setAlpha(0f);
+                    toolbarRich.setScaleY(0f);
+                    toolbarRich.animate().cancel();
+                    toolbarRich.animate()
                             .alpha(1f)
                             .scaleY(1f)
                             .setDuration(200)
@@ -134,32 +148,13 @@ public class RichEditorActivity extends AppCompatActivity {
 
         // Navigation actions
         if (findViewById(R.id.btnCancel) != null) {
-            findViewById(R.id.btnCancel).setOnClickListener(v -> attemptExit());
+            findViewById(R.id.btnCancel).setOnClickListener(v -> exitDirectly());
         }
-
-        // Attach Slidr for left-to-right swipe dismiss only
-        com.r0adkll.slidr.Slidr.attach(this, new com.r0adkll.slidr.model.SlidrConfig.Builder()
-                .position(com.r0adkll.slidr.model.SlidrPosition.LEFT)
-                .edge(false)
-                .listener(new com.r0adkll.slidr.model.SlidrListener() {
-                    @Override
-                    public void onSlideStateChanged(int state) {}
-                    @Override
-                    public void onSlideChange(float percent) {}
-                    @Override
-                    public void onSlideOpened() {}
-                    @Override
-                    public boolean onSlideClosed() {
-                        attemptExit();
-                        return true;
-                    }
-                })
-                .build());
 
         getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                attemptExit();
+                exitDirectly();
             }
         });
 
@@ -176,47 +171,69 @@ public class RichEditorActivity extends AppCompatActivity {
                 data.putExtra(RESULT_CONTENT, html);
                 data.putExtra("EXTRA_SEND_IMMEDIATELY", true);
                 setResult(RESULT_OK, data);
-                supportFinishAfterTransition();
+                finish();
             }));
+        }
+    }
+
+    private boolean isFinishingAfterTransition = false;
+
+    @Override
+    public void finish() {
+        if (!isFinishingAfterTransition) {
+            isFinishingAfterTransition = true;
+            supportFinishAfterTransition();
+        } else {
+            super.finish();
         }
     }
 
     @Override
     protected void onDestroy() {
         if (webViewRich != null) {
-            webViewRich.loadUrl("about:blank");
-            webViewRich.stopLoading();
-            webViewRich.setWebChromeClient(null);
-            webViewRich.destroy();
+            try {
+                webViewRich.loadUrl("about:blank");
+                webViewRich.stopLoading();
+                webViewRich.setWebChromeClient(null);
+                webViewRich.destroy();
+            } catch (Exception ignored) {}
             webViewRich = null;
         }
         super.onDestroy();
+    }
+
+    public static boolean isDarkTheme(android.content.Context context) {
+        if (context == null) return true;
+        android.content.SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", android.content.Context.MODE_PRIVATE);
+        String themePref = sp.getString("app_theme", "system");
+        if ("dark".equalsIgnoreCase(themePref)) {
+            return true;
+        } else if ("light".equalsIgnoreCase(themePref)) {
+            return false;
+        }
+        return (context.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
     }
 
     private void setupBlurViews() {
         ViewGroup rootView = getWindow().getDecorView().findViewById(android.R.id.content);
         if (rootView == null) rootView = (ViewGroup) getWindow().getDecorView();
 
-        boolean isDark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        boolean isDark = isDarkTheme(this);
         Drawable windowBg = getWindow().getDecorView().getBackground();
         int overlayColor = isDark ? Color.parseColor("#400F172A") : Color.parseColor("#40154B87");
 
-        eightbitlab.com.blurview.BlurView blurHeader = findViewById(R.id.headerRich);
-        eightbitlab.com.blurview.BlurView blurToolbar = findViewById(R.id.layoutFloatingToolbar);
+        eightbitlab.com.blurview.BlurView blurBottomIsland = findViewById(R.id.layoutFloatingBottomIsland);
 
-        eightbitlab.com.blurview.BlurView[] blurViews = new eightbitlab.com.blurview.BlurView[]{ blurHeader, blurToolbar };
-
-        for (eightbitlab.com.blurview.BlurView bv : blurViews) {
-            if (bv != null) {
-                bv.setClipToOutline(true);
-                BlurViewKt.setupBlur(bv, rootView, 16f, overlayColor, windowBg);
-            }
+        if (blurBottomIsland != null) {
+            blurBottomIsland.setClipToOutline(true);
+            BlurViewKt.setupBlur(blurBottomIsland, rootView, 16f, overlayColor, windowBg);
         }
     }
 
     @android.annotation.SuppressLint("SetJavaScriptEnabled")
     private void setupWebView() {
         if (webViewRich == null) return;
+        webViewRich.setBackgroundColor(0);
         webViewRich.getSettings().setJavaScriptEnabled(true);
         webViewRich.getSettings().setDomStorageEnabled(true);
         webViewRich.setWebChromeClient(new android.webkit.WebChromeClient());
@@ -230,59 +247,50 @@ public class RichEditorActivity extends AppCompatActivity {
             }
         });
 
-        boolean isDark = (getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES;
-        String textColor = isDark ? "#E0E0E0" : "#121212";
+        boolean isDark = isDarkTheme(this);
+        String textColor = isDark ? "#FFFFFF" : "#0F172A";
         String bgColor = "transparent";
-        String tableBg = isDark ? "#262626" : "#F5F5F5";
-        String thBg = isDark ? "#333333" : "#E0E0E0";
-        String borderColor = isDark ? "#444444" : "#CCCCCC";
-        String blockquoteColor = isDark ? "#00E676" : "#00C853";
+        String tableBg = isDark ? "#1E293B" : "#F1F5F9";
+        String thBg = isDark ? "#334155" : "#E2E8F0";
+        String borderColor = isDark ? "#475569" : "#CBD5E1";
+        String blockquoteColor = isDark ? "#00E676" : "#154B87";
 
         String htmlTemplate = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no\">" +
                 "<style>" +
-                "body { margin: 0; padding: 16px; font-family: sans-serif; font-size: 16px; color: " + textColor + "; background-color: " + bgColor + "; }" +
+                "body { margin: 0; padding: 24px 16px 120px 16px; font-family: sans-serif; font-size: 16px; color: " + textColor + "; background-color: " + bgColor + "; }" +
                 "#editor { min-height: 100vh; outline: none; line-height: 1.4; }" +
                 "img { max-width: 100%; height: auto; display: block; border-radius: 8px; margin: 8px 0; border: 1px solid " + borderColor + "; }" +
                 "table { width: 100%; border-collapse: collapse; margin: 10px 0; background-color: " + tableBg + "; border-radius: 6px; overflow: hidden; }" +
-                "th, td { border: 1px solid " + borderColor + "; padding: 8px; text-align: left; }" +
+                "th, td { border: 1px solid " + borderColor + "; padding: 8px; text-align: left; color: " + textColor + "; }" +
                 "th { background-color: " + thBg + "; font-weight: bold; }" +
-                "blockquote { border-left: 4px solid " + blockquoteColor + "; margin: 0; padding-left: 10px; color: #BBB; font-style: italic; }" +
-                "pre { background-color: " + tableBg + "; padding: 10px; border-radius: 6px; overflow-x: auto; }" +
-                "code { font-family: monospace; background-color: " + tableBg + "; padding: 2px 4px; border-radius: 4px; }" +
-                "[placeholder]:empty:before { content: attr(placeholder); color: #888; pointer-events: none; display: block; }" +
+                "blockquote { border-left: 4px solid " + blockquoteColor + "; margin: 0; padding-left: 10px; color: " + (isDark ? "#94A3B8" : "#475569") + "; font-style: italic; }" +
+                "pre { background-color: " + tableBg + "; padding: 10px; border-radius: 6px; overflow-x: auto; color: " + textColor + "; }" +
+                "code { font-family: monospace; background-color: " + tableBg + "; padding: 2px 4px; border-radius: 4px; color: " + textColor + "; }" +
+                "[placeholder]:empty:before { content: attr(placeholder); color: " + (isDark ? "#64748B" : "#94A3B8") + "; pointer-events: none; display: block; }" +
                 "</style></head>" +
                 "<body><div id=\"editor\" contenteditable=\"true\" placeholder=\"Напишите текст с форматированием...\"></div>" +
                 "<script>" +
                 "document.execCommand('defaultParagraphSeparator', false, 'br');" +
                 "</script>" +
                 "</body></html>";
+
         webViewRich.loadDataWithBaseURL("file:///android_asset/", htmlTemplate, "text/html", "UTF-8", null);
     }
 
-    private void attemptExit() {
-        if (webViewRich == null) {
+    private void exitDirectly() {
+        if (webViewRich != null) {
+            webViewRich.evaluateJavascript("document.getElementById('editor').innerText", value -> {
+                String plainText = value != null ? value.replaceAll("^\"|\"$", "").replace("\\n", "\n").replace("\\\"", "\"").trim() : "";
+                Intent data = new Intent();
+                data.putExtra(RESULT_CONTENT, plainText.equals("null") ? "" : plainText);
+                data.putExtra("EXTRA_SEND_IMMEDIATELY", false);
+                setResult(RESULT_OK, data);
+                finish();
+            });
+        } else {
             setResult(RESULT_CANCELED);
-            supportFinishAfterTransition();
-            return;
+            finish();
         }
-
-        webViewRich.evaluateJavascript("document.getElementById('editor').innerText", value -> {
-            String text = value != null ? value.replaceAll("^\"|\"$", "").replace("\\n", "").trim() : "";
-            if (!text.isEmpty() && !text.equals("null")) {
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(RichEditorActivity.this)
-                        .setTitle("Выйти без сохранения?")
-                        .setMessage("Введенный текст и форматирование будут утеряны.")
-                        .setPositiveButton("Выйти", (dialog, which) -> {
-                            setResult(RESULT_CANCELED);
-                            supportFinishAfterTransition();
-                        })
-                        .setNegativeButton("Отмена", null)
-                        .show();
-            } else {
-                setResult(RESULT_CANCELED);
-                supportFinishAfterTransition();
-            }
-        });
     }
 
     private void showColorMenu() {

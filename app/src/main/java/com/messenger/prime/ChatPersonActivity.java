@@ -402,13 +402,17 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     String formattedText = result.getData().getStringExtra(RichEditorActivity.RESULT_CONTENT);
                     boolean sendImmediately = result.getData().getBooleanExtra("EXTRA_SEND_IMMEDIATELY", false);
-                    if (formattedText != null && !formattedText.trim().isEmpty()) {
+                    if (formattedText != null) {
                         if (sendImmediately) {
-                            sendText(formattedText);
+                            if (!formattedText.trim().isEmpty()) {
+                                sendText(formattedText);
+                            }
                             if (etMessage != null) etMessage.setText("");
                         } else {
-                            etMessage.setText(formattedText);
-                            etMessage.setSelection(etMessage.getText().length());
+                            if (etMessage != null) {
+                                etMessage.setText(formattedText);
+                                etMessage.setSelection(etMessage.getText().length());
+                            }
                         }
                     }
                 }
@@ -943,11 +947,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 if (etMessage != null) {
                     i.putExtra(RichEditorActivity.EXTRA_CONTENT, etMessage.getText().toString());
                 }
-                
-                View bottomContainer = findViewById(R.id.bottomContainer);
+                View layoutInput = findViewById(R.id.layoutInput);
+                View targetView = layoutInput != null ? layoutInput : v;
                 ActivityOptionsCompat options = ActivityOptionsCompat.makeSceneTransitionAnimation(
                         ChatPersonActivity.this,
-                        bottomContainer != null ? bottomContainer : v,
+                        targetView,
                         "transition_input_to_rich"
                 );
                 richEditorLauncher.launch(i, options);

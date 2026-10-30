@@ -879,8 +879,6 @@
         android:layout_marginBottom="12dp"
         android:elevation="8dp"
         android:orientation="vertical"
-        android:transitionGroup="true"
-        android:transitionName="transition_input_to_rich"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
@@ -892,6 +890,7 @@
             android:layout_height="wrap_content"
             android:background="@drawable/bg_floating_island"
             android:outlineProvider="background"
+            android:transitionName="transition_input_to_rich"
             android:paddingStart="6dp"
             android:paddingTop="4dp"
             android:paddingEnd="6dp"

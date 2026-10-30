@@ -888,6 +888,7 @@ class PrimeVideoMessageRecorder(
                             clearOnChangeListeners()
                             clearOnSliderTouchListeners()
 
+                            var lastTrimSeekMs = 0L
                             addOnChangeListener { slider, value, fromUser ->
                                 val vals = slider.values
                                 if (vals.size >= 2) {
@@ -898,7 +899,11 @@ class PrimeVideoMessageRecorder(
 
                                     if (fromUser) {
                                         videoPlaybackView?.pause()
-                                        videoPlaybackView?.seekTo(value.toInt())
+                                        val now = android.os.SystemClock.elapsedRealtime()
+                                        if (now - lastTrimSeekMs > 40) {
+                                            lastTrimSeekMs = now
+                                            videoPlaybackView?.seekTo(value.toInt())
+                                        }
                                     }
                                 }
                             }

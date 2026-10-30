@@ -505,17 +505,23 @@ class MediaPlayerActivity : AppCompatActivity() {
         }
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            private var lastSeekTimeMs: Long = 0L
+
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser && isCurrentVideo && currentPlayer != null) {
                     val total = currentPlayer!!.duration.coerceAtLeast(1L)
                     val targetMs = (progress * total) / 1000
                     scrubTargetMs = targetMs
 
-                    currentPlayer!!.setSeekParameters(SeekParameters.CLOSEST_SYNC)
-                    currentPlayer!!.seekTo(targetMs)
-
                     updateDurationText(targetMs, total)
                     navBarProgressBar.progress = progress
+
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    if (now - lastSeekTimeMs > 40) {
+                        lastSeekTimeMs = now
+                        currentPlayer!!.setSeekParameters(SeekParameters.CLOSEST_SYNC)
+                        currentPlayer!!.seekTo(targetMs)
+                    }
                 }
             }
 
@@ -1453,8 +1459,15 @@ class MediaPlayerActivity : AppCompatActivity() {
                         .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                         .build()
 
+                    val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+                        .setBufferDurationsMs(15000, 50000, 1000, 2000)
+                        .setPrioritizeTimeOverSizeThresholds(true)
+                        .build()
+
                     player = ExoPlayer.Builder(itemView.context)
                         .setAudioAttributes(audioAttributes, true)
+                        .setLoadControl(loadControl)
+                        .setSeekParameters(SeekParameters.CLOSEST_SYNC)
                         .build()
 
                     playerView.player = player

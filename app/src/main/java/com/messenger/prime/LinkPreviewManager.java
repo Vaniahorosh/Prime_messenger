@@ -5,15 +5,20 @@ import android.os.Looper;
 import android.util.Log;
 import android.util.LruCache;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
 import java.net.URL;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.concurrent.TimeUnit;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 public class LinkPreviewManager {
 
@@ -32,9 +37,14 @@ public class LinkPreviewManager {
         void onDataLoaded(LinkPreviewData data);
     }
 
-    private final LruCache<String, LinkPreviewData> cache = new LruCache<>(100);
+    private final LruCache<String, LinkPreviewData> cache = new LruCache<>(200);
     private final ExecutorService executor = Executors.newFixedThreadPool(4);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final OkHttpClient httpClient = new OkHttpClient.Builder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .build();
 
     public static synchronized LinkPreviewManager getInstance() {
         if (instance == null) {
@@ -84,94 +94,85 @@ public class LinkPreviewManager {
             URL url = new URL(urlString);
             String host = url.getHost().toLowerCase(Locale.ROOT);
 
-            // Специальная обработка для YouTube
+            // YouTube special oEmbed handler
             if (host.contains("youtube.com") || host.contains("youtu.be")) {
                 return parseYouTubePreview(urlString);
             }
 
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-            conn.setInstanceFollowRedirects(true);
+            Request request = new Request.Builder()
+                    .url(urlString)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+                    .build();
 
-            int code = conn.getResponseCode();
-            if (code != 200) return createFallbackData(urlString);
-
-            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            StringBuilder html = new StringBuilder();
-            String line;
-            int maxChars = 200000;
-            while ((line = reader.readLine()) != null && html.length() < maxChars) {
-                html.append(line).append("\n");
-            }
-            reader.close();
-
-            String pageSource = html.toString();
-            LinkPreviewData data = new LinkPreviewData();
-            data.url = urlString;
-            data.domain = url.getHost();
-
-            data.title = extractMetaProperty(pageSource, "og:title");
-            if (data.title == null || data.title.isEmpty()) {
-                data.title = extractTagContent(pageSource, "title");
-            }
-            if (data.title == null || data.title.isEmpty()) {
-                data.title = url.getHost();
-            }
-
-            data.description = extractMetaProperty(pageSource, "og:description");
-            if (data.description == null || data.description.isEmpty()) {
-                data.description = extractMetaName(pageSource, "description");
-            }
-
-            data.imageUrl = extractMetaProperty(pageSource, "og:image");
-            if (data.imageUrl == null || data.imageUrl.isEmpty()) {
-                data.imageUrl = extractMetaProperty(pageSource, "twitter:image");
-            }
-
-            if (data.imageUrl != null && !data.imageUrl.isEmpty()) {
-                if (data.imageUrl.startsWith("//")) {
-                    data.imageUrl = "https:" + data.imageUrl;
-                } else if (data.imageUrl.startsWith("/")) {
-                    data.imageUrl = "https://" + url.getHost() + data.imageUrl;
+            try (Response response = httpClient.newCall(request).execute()) {
+                if (!response.isSuccessful() || response.body() == null) {
+                    return createFallbackData(urlString);
                 }
-            }
 
-            return data;
+                String html = response.body().string();
+                Document doc = Jsoup.parse(html, urlString);
+
+                LinkPreviewData data = new LinkPreviewData();
+                data.url = urlString;
+                data.domain = url.getHost();
+
+                // Extract OpenGraph / Twitter / Standard Meta Tags with Jsoup
+                data.title = getMetaTagContent(doc, "og:title", "twitter:title");
+                if (data.title == null || data.title.isEmpty()) {
+                    data.title = doc.title();
+                }
+                if (data.title == null || data.title.isEmpty()) {
+                    data.title = url.getHost();
+                }
+
+                data.description = getMetaTagContent(doc, "og:description", "twitter:description", "description");
+
+                data.imageUrl = getMetaTagContent(doc, "og:image", "og:image:secure_url", "twitter:image", "twitter:image:src");
+                if (data.imageUrl != null && !data.imageUrl.isEmpty()) {
+                    if (data.imageUrl.startsWith("//")) {
+                        data.imageUrl = "https:" + data.imageUrl;
+                    } else if (data.imageUrl.startsWith("/")) {
+                        data.imageUrl = "https://" + url.getHost() + data.imageUrl;
+                    }
+                }
+
+                return data;
+            }
         } catch (Exception e) {
-            Log.w(TAG, "Failed to parse OpenGraph for " + urlString + ": " + e.getMessage());
+            Log.w(TAG, "Failed to parse OpenGraph via Jsoup for " + urlString + ": " + e.getMessage());
             return createFallbackData(urlString);
         }
+    }
+
+    private String getMetaTagContent(Document doc, String... keys) {
+        for (String key : keys) {
+            Elements elements = doc.select("meta[property='" + key + "'], meta[name='" + key + "']");
+            for (Element element : elements) {
+                String content = element.attr("content");
+                if (content != null && !content.trim().isEmpty()) {
+                    return content.trim();
+                }
+            }
+        }
+        return null;
     }
 
     private LinkPreviewData parseYouTubePreview(String urlString) {
         try {
             String oembedUrl = "https://www.youtube.com/oembed?url=" + java.net.URLEncoder.encode(urlString, "UTF-8") + "&format=json";
-            URL url = new URL(oembedUrl);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
-
-            if (conn.getResponseCode() == 200) {
-                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                StringBuilder jsonBuilder = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    jsonBuilder.append(line);
+            Request request = new Request.Builder().url(oembedUrl).build();
+            try (Response response = httpClient.newCall(request).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
+                    String jsonStr = response.body().string();
+                    org.json.JSONObject json = new org.json.JSONObject(jsonStr);
+                    LinkPreviewData data = new LinkPreviewData();
+                    data.url = urlString;
+                    data.domain = "youtube.com";
+                    data.title = json.optString("title", "YouTube Video");
+                    data.description = json.optString("author_name", "");
+                    data.imageUrl = json.optString("thumbnail_url", "");
+                    return data;
                 }
-                reader.close();
-
-                org.json.JSONObject json = new org.json.JSONObject(jsonBuilder.toString());
-                LinkPreviewData data = new LinkPreviewData();
-                data.url = urlString;
-                data.domain = "youtube.com";
-                data.title = json.optString("title", "YouTube Video");
-                data.description = json.optString("author_name", "");
-                data.imageUrl = json.optString("thumbnail_url", "");
-                return data;
             }
         } catch (Exception e) {
             Log.w(TAG, "Failed to parse YouTube oEmbed for " + urlString + ": " + e.getMessage());
@@ -189,42 +190,5 @@ public class LinkPreviewManager {
         }
         data.title = data.domain;
         return data;
-    }
-
-    private String extractMetaProperty(String html, String property) {
-        try {
-            Pattern p = Pattern.compile("<meta\\s+[^>]*property=[\"']" + Pattern.quote(property) + "[\"']\\s+[^>]*content=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
-            Matcher m = p.matcher(html);
-            if (m.find() && m.group(1) != null) return m.group(1).trim();
-
-            Pattern p2 = Pattern.compile("<meta\\s+[^>]*content=[\"']([^\"']+)[\"']\\s+[^>]*property=[\"']" + Pattern.quote(property) + "[\"']", Pattern.CASE_INSENSITIVE);
-            Matcher m2 = p2.matcher(html);
-            if (m2.find() && m2.group(1) != null) return m2.group(1).trim();
-        } catch (Exception ignored) {}
-        return null;
-    }
-
-    private String extractMetaName(String html, String name) {
-        try {
-            Pattern p = Pattern.compile("<meta\\s+[^>]*name=[\"']" + Pattern.quote(name) + "[\"']\\s+[^>]*content=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
-            Matcher m = p.matcher(html);
-            if (m.find() && m.group(1) != null) return m.group(1).trim();
-
-            Pattern p2 = Pattern.compile("<meta\\s+[^>]*content=[\"']([^\"']+)[\"']\\s+[^>]*name=[\"']" + Pattern.quote(name) + "[\"']", Pattern.CASE_INSENSITIVE);
-            Matcher m2 = p2.matcher(html);
-            if (m2.find() && m2.group(1) != null) return m2.group(1).trim();
-        } catch (Exception ignored) {}
-        return null;
-    }
-
-    private String extractTagContent(String html, String tag) {
-        try {
-            Pattern p = Pattern.compile("<" + Pattern.quote(tag) + "[^>]*>(.*?)</" + Pattern.quote(tag) + ">", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
-            Matcher m = p.matcher(html);
-            if (m.find() && m.group(1) != null) {
-                return m.group(1).replaceAll("<[^>]+>", "").trim();
-            }
-        } catch (Exception ignored) {}
-        return null;
     }
 }

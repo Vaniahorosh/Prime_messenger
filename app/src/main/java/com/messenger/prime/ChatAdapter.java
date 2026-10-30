@@ -1282,12 +1282,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                             tvLinkPreviewUrl.setText(data.domain);
                         }
                         if (ivLinkPreviewImage != null && data.imageUrl != null && !data.imageUrl.isEmpty()) {
-                            Glide.with(itemView.getContext())
-                                    .load(data.imageUrl)
-                                    .centerCrop()
-                                    .placeholder(R.drawable.ic_search)
-                                    .error(R.drawable.ic_search)
-                                    .into(ivLinkPreviewImage);
+                            if (!data.imageUrl.equals(ivLinkPreviewImage.getTag())) {
+                                ivLinkPreviewImage.setTag(data.imageUrl);
+                                Glide.with(itemView.getContext())
+                                        .load(data.imageUrl)
+                                        .centerCrop()
+                                        .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                                        .placeholder(ivLinkPreviewImage.getDrawable())
+                                        .error(R.drawable.ic_search)
+                                        .into(ivLinkPreviewImage);
+                            }
                         }
                     }
                 });
@@ -1800,12 +1804,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             bgColor = isDark ? Color.parseColor("#1E293B") : Color.parseColor("#E2E8F0");
         }
 
-        android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
-        drawable.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
-        drawable.setCornerRadius(radiusPx);
-        drawable.setColor(bgColor);
-
-        layoutBubble.setBackground(drawable);
+        android.graphics.drawable.Drawable existing = layoutBubble.getBackground();
+        if (existing instanceof android.graphics.drawable.GradientDrawable) {
+            android.graphics.drawable.GradientDrawable gd = (android.graphics.drawable.GradientDrawable) existing;
+            gd.setCornerRadius(radiusPx);
+            gd.setColor(bgColor);
+        } else {
+            android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
+            drawable.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+            drawable.setCornerRadius(radiusPx);
+            drawable.setColor(bgColor);
+            layoutBubble.setBackground(drawable);
+        }
     }
 
     private void resetBubbleForNormalMessage(View itemView, boolean isOutgoing) {
@@ -1953,6 +1963,22 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
 
         vnContainer.setVisibility(View.VISIBLE);
+
+        ViewGroup.LayoutParams vnLp = vnContainer.getLayoutParams();
+        if (vnLp instanceof LinearLayout.LayoutParams) {
+            LinearLayout.LayoutParams llp = (LinearLayout.LayoutParams) vnLp;
+            llp.gravity = isOutgoing ? (Gravity.END | Gravity.RIGHT) : (Gravity.START | Gravity.LEFT);
+            vnContainer.setLayoutParams(llp);
+        } else if (vnLp instanceof FrameLayout.LayoutParams) {
+            FrameLayout.LayoutParams flp = (FrameLayout.LayoutParams) vnLp;
+            flp.gravity = isOutgoing ? (Gravity.END | Gravity.RIGHT) : (Gravity.START | Gravity.LEFT);
+            vnContainer.setLayoutParams(flp);
+        }
+
+        View block = itemView.findViewById(isOutgoing ? R.id.layoutOutgoingMessageBlock : R.id.layoutIncomingMessageBlock);
+        if (block instanceof LinearLayout) {
+            ((LinearLayout) block).setGravity(isOutgoing ? (Gravity.END | Gravity.RIGHT) : (Gravity.START | Gravity.LEFT));
+        }
 
         String text = message.getText();
         String shape = "circle";
@@ -2668,8 +2694,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (imageView == null || context == null) return;
         if (pathOrUri == null || pathOrUri.isEmpty()) {
             imageView.setImageResource(R.drawable.ic_photo);
+            imageView.setTag(null);
             return;
         }
+        if (pathOrUri.equals(imageView.getTag())) {
+            return;
+        }
+        imageView.setTag(pathOrUri);
+
         try {
             File f = new File(pathOrUri);
             if (!f.exists() && !pathOrUri.contains("://")) {
@@ -2682,7 +2714,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             Glide.with(context)
                     .load(uri)
                     .centerCrop()
-                    .placeholder(R.drawable.ic_photo)
+                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                    .placeholder(imageView.getDrawable())
                     .error(R.drawable.ic_photo)
                     .into(imageView);
         } catch (Throwable e) {
@@ -2705,6 +2738,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         if (imageView != null) {
             imageView.setVisibility(View.VISIBLE);
+            if (pathOrUri.equals(imageView.getTag())) {
+                return;
+            }
+            imageView.setTag(pathOrUri);
+
             Uri uri = pathOrUri.startsWith("content://")
                     ? Uri.parse(pathOrUri)
                     : (new File(pathOrUri).exists() ? Uri.fromFile(new File(pathOrUri)) : null);
@@ -2713,7 +2751,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             Glide.with(context)
                     .load(loadUri)
                     .centerCrop()
-                    .placeholder(R.drawable.ic_video)
+                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                    .placeholder(imageView.getDrawable())
                     .error(R.drawable.ic_video)
                     .into(imageView);
         }
@@ -3098,17 +3137,17 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         });
 
                         String htmlContent = message.getCleanText();
-                        boolean isDark = (itemView.getContext().getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-                        String textColor = isDark ? "#E0E0E0" : "#121212";
-                        String linkColor = isDark ? "#90CAF9" : "#1976D2";
-                        String tableBg = isDark ? "#262626" : "#EEEEEE";
-                        String thBg = isDark ? "#333333" : "#DDDDDD";
-                        String borderColor = isDark ? "#555555" : "#CCCCCC";
+                        boolean isDark = RichEditorActivity.isDarkTheme(itemView.getContext());
+                        String textColor = isDark ? "#FFFFFF" : "#0F172A";
+                        String linkColor = isDark ? "#38BDF8" : "#0284C7";
+                        String tableBg = isDark ? "rgba(30, 41, 59, 0.6)" : "rgba(241, 245, 249, 0.8)";
+                        String thBg = isDark ? "rgba(51, 65, 85, 0.8)" : "rgba(226, 232, 240, 0.9)";
+                        String borderColor = isDark ? "rgba(71, 85, 105, 0.6)" : "rgba(203, 213, 225, 0.8)";
 
                         String css = "<style>body { margin: 0; padding: 0; font-family: sans-serif; font-size: 16px; color: " + textColor + "; background-color: transparent; line-height: 1.4; word-wrap: break-word; }" +
                             "img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; } " +
                             "table { width: 100%; border-collapse: collapse; margin: 8px 0; background-color: " + tableBg + "; border-radius: 6px; overflow: hidden; } " +
-                            "th, td { border: 1px solid " + borderColor + "; padding: 6px; text-align: left; } th { background-color: " + thBg + "; font-weight: bold; } " +
+                            "th, td { border: 1px solid " + borderColor + "; padding: 6px; text-align: left; color: " + textColor + "; } th { background-color: " + thBg + "; font-weight: bold; } " +
                             "a { color: " + linkColor + "; text-decoration: underline; }</style>";
                         String fullHtml = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" + css + "</head><body>" + htmlContent + "</body></html>";
                         wvRichMessage.loadDataWithBaseURL("file:///android_asset/", fullHtml, "text/html", "UTF-8", null);
@@ -3418,17 +3457,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         });
 
                         String htmlContent = message.getCleanText();
-                        boolean isDark = (itemView.getContext().getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
                         String textColor = "#FFFFFF";
                         String linkColor = "#FFFFFF";
-                        String tableBg = isDark ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.2)";
-                        String thBg = isDark ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.3)";
-                        String borderColor = isDark ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.5)";
+                        String tableBg = "rgba(255, 255, 255, 0.15)";
+                        String thBg = "rgba(255, 255, 255, 0.25)";
+                        String borderColor = "rgba(255, 255, 255, 0.35)";
 
                         String css = "<style>body { margin: 0; padding: 0; font-family: sans-serif; font-size: 16px; color: " + textColor + "; background-color: transparent; line-height: 1.4; word-wrap: break-word; }" +
                             "img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; } " +
                             "table { width: 100%; border-collapse: collapse; margin: 8px 0; background-color: " + tableBg + "; border-radius: 6px; overflow: hidden; } " +
-                            "th, td { border: 1px solid " + borderColor + "; padding: 6px; text-align: left; } th { background-color: " + thBg + "; font-weight: bold; } " +
+                            "th, td { border: 1px solid " + borderColor + "; padding: 6px; text-align: left; color: " + textColor + "; } th { background-color: " + thBg + "; font-weight: bold; } " +
                             "a { color: " + linkColor + "; text-decoration: underline; }</style>";
                         String fullHtml = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" + css + "</head><body>" + htmlContent + "</body></html>";
                         wvRichMessage.loadDataWithBaseURL("file:///android_asset/", fullHtml, "text/html", "UTF-8", null);

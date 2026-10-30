@@ -137,7 +137,7 @@
         <activity
             android:name=".RichEditorActivity"
             android:exported="false"
-            android:theme="@style/Theme.Prime"
+            android:theme="@style/Theme.Prime.RichEditor"
             android:windowSoftInputMode="adjustResize" />
 
         <activity-alias
