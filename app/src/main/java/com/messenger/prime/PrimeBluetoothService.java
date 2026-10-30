@@ -801,6 +801,15 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
     private String resolveBackgroundDisplayName(String fromAddress) {
         if (fromAddress == null || fromAddress.isEmpty()) return "Собеседник";
+        if ("PrimeDesktop".equalsIgnoreCase(fromAddress)) {
+            SharedPreferences sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
+            String name = sp.getString("contact_name_PrimeDesktop", null);
+            if (name == null || name.isEmpty()) name = sp.getString("PrimeDesktop_name", null);
+            if (name != null && !name.isEmpty() && !AvatarManager.isGenericIdentity(name)) {
+                return name;
+            }
+            return "Prime Desktop";
+        }
         SharedPreferences sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
         String name = sp.getString("contact_name_" + fromAddress, null);
         if (name == null || name.isEmpty()) name = sp.getString(fromAddress + "_name", null);

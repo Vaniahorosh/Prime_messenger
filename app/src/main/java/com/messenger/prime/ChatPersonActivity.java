@@ -2618,8 +2618,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         boolean isDesktop = isRemoteDesktop
                                 || "PrimeDesktop".equalsIgnoreCase(deviceAddress)
                                 || "PrimeDesktop".equalsIgnoreCase(targetUsername)
+                                || (deviceAddress != null && (deviceAddress.contains(".") || deviceAddress.startsWith("ip_")))
                                 || AvatarManager.isDesktopContact(ChatPersonActivity.this, targetUsername, deviceAddress);
                         if (isDesktop) {
+                            isRemoteDesktop = true;
                             ensureOnlineStateAndInputVisible();
                             processReceivedPacket(type, payload);
                         }
@@ -5069,6 +5071,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (address == null || address.isEmpty()) return true;
         if (activeChatPersonAddress != null && activeChatPersonAddress.equalsIgnoreCase(address)) return true;
         if (activeChatPersonName != null && activeChatPersonName.equalsIgnoreCase(address)) return true;
+        if ("PrimeDesktop".equalsIgnoreCase(address)) {
+            if ("PrimeDesktop".equalsIgnoreCase(activeChatPersonAddress) ||
+                (activeChatPersonAddress != null && (activeChatPersonAddress.contains(".") || activeChatPersonAddress.startsWith("ip_")))) {
+                return true;
+            }
+            if (PrimeApplication.getAppContext() != null && AvatarManager.isDesktopContact(PrimeApplication.getAppContext(), activeChatPersonName, activeChatPersonAddress)) {
+                return true;
+            }
+        }
         
         String remoteName = BluetoothConnectionManager.getInstance().getThreadRemoteUsername(address);
         if (remoteName != null && activeChatPersonName != null && remoteName.equalsIgnoreCase(activeChatPersonName)) {
@@ -5088,6 +5099,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         boolean isDesktopChat = isRemoteDesktop
                 || "PrimeDesktop".equalsIgnoreCase(this.deviceAddress)
                 || "PrimeDesktop".equalsIgnoreCase(this.targetUsername)
+                || (this.deviceAddress != null && (this.deviceAddress.contains(".") || this.deviceAddress.startsWith("ip_")))
                 || AvatarManager.isDesktopContact(this, this.targetUsername, this.deviceAddress);
         if (isDesktopChat && "PrimeDesktop".equalsIgnoreCase(addrOrName)) return true;
 
