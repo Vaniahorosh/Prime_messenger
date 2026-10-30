@@ -76,9 +76,13 @@ object PrimeCompanionServer {
                     val packet = DatagramPacket(buffer, buffer.size)
                     discoverySocket?.receive(packet)
                     val msg = String(packet.data, 0, packet.length, StandardCharsets.UTF_8)
-                    if (msg.startsWith("PRIME_PC_DISCOVER")) {
+                    if (msg.startsWith("PRIME_PC_DISCOVER") || msg.startsWith("PRIME_DISCOVER_ALL")) {
+                        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                        val currentUser = sp.getString("current_user", "") ?: ""
+                        val myName = sp.getString("${currentUser}_name", currentUser) ?: (if (currentUser.isNotEmpty()) currentUser else "Prime Телефон")
                         val ip = getLocalIpAddress(context) ?: "127.0.0.1"
-                        val reply = "PRIME_PHONE_HERE:$ip".toByteArray(StandardCharsets.UTF_8)
+                        val replyStr = "PRIME_PHONE_HERE:$ip;name=$myName;login=$currentUser"
+                        val reply = replyStr.toByteArray(StandardCharsets.UTF_8)
                         val resp = DatagramPacket(reply, reply.size, packet.address, packet.port)
                         discoverySocket?.send(resp)
                     }
@@ -143,6 +147,60 @@ object PrimeCompanionServer {
         try { discoverySocket?.close() } catch (ignored: Exception) {}
         clientSockets.forEach { try { it.close() } catch (ignored: Exception) {} }
         clientSockets.clear()
+    }
+
+    fun discoverLocalPeers(context: Context, onPeerFound: (ip: String, name: String, login: String, isDesktop: Boolean) -> Unit) {
+        Thread {
+            var udp: DatagramSocket? = null
+            try {
+                udp = DatagramSocket()
+                udp.broadcast = true
+                udp.soTimeout = 2500
+
+                val myIp = getLocalIpAddress(context) ?: ""
+                val msg = "PRIME_DISCOVER_ALL".toByteArray(StandardCharsets.UTF_8)
+                val broadcastAddr = java.net.InetAddress.getByName("255.255.255.255")
+                val packet = DatagramPacket(msg, msg.size, broadcastAddr, DISCOVERY_PORT)
+                udp.send(packet)
+
+                val buffer = ByteArray(1024)
+                val startTime = System.currentTimeMillis()
+                while (System.currentTimeMillis() - startTime < 2500) {
+                    try {
+                        val respPacket = DatagramPacket(buffer, buffer.size)
+                        udp.receive(respPacket)
+                        val text = String(respPacket.data, 0, respPacket.length, StandardCharsets.UTF_8)
+                        val isPc = text.startsWith("PRIME_PC_HERE:")
+                        val isPhone = text.startsWith("PRIME_PHONE_HERE:")
+                        if (isPc || isPhone) {
+                            val payload = if (isPc) text.substring(14) else text.substring(17)
+                            var peerIp = respPacket.address.hostAddress ?: ""
+                            var peerName = if (isPc) "Prime Desktop" else "Prime Телефон"
+                            var peerLogin = if (isPc) "prime_desktop" else ""
+
+                            val parts = payload.split(";")
+                            for (p in parts) {
+                                if (p.startsWith("name=")) peerName = p.substring(5).trim()
+                                else if (p.startsWith("login=")) peerLogin = p.substring(6).trim()
+                                else if (p.contains(".") && !p.contains("=")) peerIp = p.trim()
+                            }
+
+                            if (peerIp != myIp) {
+                                mainHandler.post {
+                                    onPeerFound(peerIp, peerName, peerLogin, isPc)
+                                }
+                            }
+                        }
+                    } catch (e: java.net.SocketTimeoutException) {
+                        break
+                    } catch (_: Exception) {}
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "discoverLocalPeers error", e)
+            } finally {
+                try { udp?.close() } catch (_: Exception) {}
+            }
+        }.start()
     }
 
     fun getLocalIpAddress(context: Context): String? {
