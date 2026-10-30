@@ -142,6 +142,13 @@ object AvatarManager {
     }
 
     @JvmStatic
+    fun getAvatarUrl(contactId: String): String {
+        // Normalise the contact identifier to avoid duplicate avatars
+        val normId = ContactHelper.normalizeKey(contactId)
+        return "https://example.com/avatar/" + normId
+    }
+
+    @JvmStatic
     fun getContactDisplayName(
         context: Context,
         contactId: String?,

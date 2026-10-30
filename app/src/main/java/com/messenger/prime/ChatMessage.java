@@ -523,4 +523,38 @@ public class ChatMessage {
     public boolean isReply() {
         return replyToMessageId != null && !replyToMessageId.trim().isEmpty();
     }
+
+    private boolean isRichFormatted = false;
+
+    public boolean isRichFormatted() {
+        if (messageType != null && messageType != MessageType.TEXT) {
+            return false;
+        }
+        if (isVideoNote() || isVideo() || isMusic() || isFile() || isMultiMedia()) {
+            return false;
+        }
+        if (imagePath != null && !imagePath.isEmpty()) {
+            return false;
+        }
+        if (isRichFormatted) return true;
+        if (text != null) {
+            String trimmed = text.trim();
+            if (trimmed.startsWith("[RICH]")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void setRichFormatted(boolean richFormatted) {
+        this.isRichFormatted = richFormatted;
+    }
+
+    public String getCleanText() {
+        if (text == null) return "";
+        if (text.startsWith("[RICH]")) {
+            return text.substring(6);
+        }
+        return text;
+    }
 }

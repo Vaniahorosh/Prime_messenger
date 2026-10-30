@@ -65,6 +65,7 @@ import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.webkit.MimeTypeMap;
+import android.webkit.WebView;
 import android.graphics.drawable.ColorDrawable;
 import android.widget.GridLayout;
 import android.widget.ImageButton;
@@ -1810,15 +1811,35 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private void resetBubbleForNormalMessage(View itemView, boolean isOutgoing) {
         View layoutBubble = itemView.findViewById(isOutgoing ? R.id.layoutOutgoingBubble : R.id.layoutIncomingBubble);
         if (layoutBubble != null) {
+            ViewGroup.LayoutParams lp = layoutBubble.getLayoutParams();
+            if (lp != null && lp.width != ViewGroup.LayoutParams.WRAP_CONTENT) {
+                lp.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+                layoutBubble.setLayoutParams(lp);
+            }
             applyBubbleCornerRadius(layoutBubble, isOutgoing);
             int paddingPx = (int) (12 * itemView.getResources().getDisplayMetrics().density);
             layoutBubble.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
+        }
+
+        View layoutBlock = itemView.findViewById(isOutgoing ? R.id.layoutOutgoingMessageBlock : R.id.layoutIncomingMessageBlock);
+        if (layoutBlock != null) {
+            ViewGroup.LayoutParams lpBlock = layoutBlock.getLayoutParams();
+            if (lpBlock != null && lpBlock.width != ViewGroup.LayoutParams.WRAP_CONTENT) {
+                lpBlock.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+                layoutBlock.setLayoutParams(lpBlock);
+            }
         }
 
         View vnContainer = itemView.findViewById(R.id.layoutVideoNoteContainer);
         if (vnContainer != null) {
             vnContainer.setVisibility(View.GONE);
         }
+
+        View badgeIn = itemView.findViewById(R.id.ivRichBadgeIn);
+        if (badgeIn != null) badgeIn.setVisibility(View.GONE);
+
+        View badgeOut = itemView.findViewById(R.id.ivRichBadgeOut);
+        if (badgeOut != null) badgeOut.setVisibility(View.GONE);
 
         View layoutMediaContainer = itemView.findViewById(R.id.layoutMediaContainer);
         if (layoutMediaContainer != null) {
@@ -3016,6 +3037,24 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 resetBubbleForNormalMessage(itemView, false);
             }
 
+            if (message != null && message.isRichFormatted()) {
+                if (layoutIncomingBubble != null) {
+                    ViewGroup.LayoutParams lp = layoutIncomingBubble.getLayoutParams();
+                    if (lp != null) {
+                        lp.width = ViewGroup.LayoutParams.MATCH_PARENT;
+                        layoutIncomingBubble.setLayoutParams(lp);
+                    }
+                }
+                View block = itemView.findViewById(R.id.layoutIncomingMessageBlock);
+                if (block != null) {
+                    ViewGroup.LayoutParams lpBlock = block.getLayoutParams();
+                    if (lpBlock != null) {
+                        lpBlock.width = ViewGroup.LayoutParams.MATCH_PARENT;
+                        block.setLayoutParams(lpBlock);
+                    }
+                }
+            }
+
             bindMessageAttachments(
                 message, position,
                 layoutMediaContainer, ivMessageImage, videoMessagePreview, ivVideoPlayBadge, tvVideoDuration,
@@ -3024,23 +3063,86 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             );
 
             if (!isVideoNote && message.getMessageType() != ChatMessage.MessageType.VOICE && text != null && !text.isEmpty() && !"Голосовое сообщение".equals(text) && !"Фото".equals(text) && !"Фото отправлено".equals(text) && !"Фотография".equals(text) && !"Файл".equals(text) && !"Видео".equals(text) && !"Видеозапись".equals(text) && !"Видео отправлено".equals(text)) {
-                tvMessageText.setVisibility(View.VISIBLE);
-                tvMessageText.setText(text);
-                float density = itemView.getResources().getDisplayMetrics().density;
-                tvMessageText.setPadding((int) (6 * density), (int) (4 * density), (int) (6 * density), (int) (2 * density));
-                tvMessageText.setMovementMethod(com.messenger.prime.browser.AppBrowserMovementMethod.getInstance());
-                tvMessageText.setTextIsSelectable(true);
-                setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
-                bindLinkPreview(itemView, text, message);
-                tvMessageText.setOnClickListener(v -> {
-                    if (isMultiSelectionMode) {
-                        toggleMessageSelection(message);
-                    } else if (!tvMessageText.hasSelection()) {
-                        showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
+                View ivRichBadgeIn = itemView.findViewById(R.id.ivRichBadgeIn);
+                if (ivRichBadgeIn != null) {
+                    ivRichBadgeIn.setVisibility(message.isRichFormatted() ? View.VISIBLE : View.GONE);
+                }
+
+                if (message.isRichFormatted()) {
+                    tvMessageText.setVisibility(View.GONE);
+                    WebView wvRichMessage = itemView.findViewById(R.id.wvRichMessage);
+                    if (wvRichMessage != null) {
+                        wvRichMessage.setVisibility(View.VISIBLE);
+                        wvRichMessage.getSettings().setJavaScriptEnabled(false);
+                        wvRichMessage.setOnTouchListener((v, event) -> {
+                            if (event.getActionMasked() == MotionEvent.ACTION_DOWN || event.getActionMasked() == MotionEvent.ACTION_MOVE) {
+                                v.getParent().requestDisallowInterceptTouchEvent(true);
+                            } else if (event.getActionMasked() == MotionEvent.ACTION_UP || event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                                v.getParent().requestDisallowInterceptTouchEvent(false);
+                            }
+                            if (isMultiSelectionMode) {
+                                if (event.getAction() == MotionEvent.ACTION_UP) {
+                                    toggleMessageSelection(message);
+                                }
+                                return true;
+                            }
+                            return false;
+                        });
+                        wvRichMessage.setOnLongClickListener(v -> {
+                            if (!isMultiSelectionMode) {
+                                showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
+                            } else {
+                                toggleMessageSelection(message);
+                            }
+                            return true;
+                        });
+
+                        String htmlContent = message.getCleanText();
+                        boolean isDark = (itemView.getContext().getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+                        String textColor = isDark ? "#E0E0E0" : "#121212";
+                        String linkColor = isDark ? "#90CAF9" : "#1976D2";
+                        String tableBg = isDark ? "#262626" : "#EEEEEE";
+                        String thBg = isDark ? "#333333" : "#DDDDDD";
+                        String borderColor = isDark ? "#555555" : "#CCCCCC";
+
+                        String css = "<style>body { margin: 0; padding: 0; font-family: sans-serif; font-size: 16px; color: " + textColor + "; background-color: transparent; line-height: 1.4; word-wrap: break-word; }" +
+                            "img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; } " +
+                            "table { width: 100%; border-collapse: collapse; margin: 8px 0; background-color: " + tableBg + "; border-radius: 6px; overflow: hidden; } " +
+                            "th, td { border: 1px solid " + borderColor + "; padding: 6px; text-align: left; } th { background-color: " + thBg + "; font-weight: bold; } " +
+                            "a { color: " + linkColor + "; text-decoration: underline; }</style>";
+                        String fullHtml = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" + css + "</head><body>" + htmlContent + "</body></html>";
+                        wvRichMessage.loadDataWithBaseURL("file:///android_asset/", fullHtml, "text/html", "UTF-8", null);
+                        wvRichMessage.setBackgroundColor(0x00000000);
                     }
-                });
+                } else {
+                    WebView wvRichMessage = itemView.findViewById(R.id.wvRichMessage);
+                    if (wvRichMessage != null) {
+                        wvRichMessage.setVisibility(View.GONE);
+                        wvRichMessage.loadUrl("about:blank");
+                    }
+                    tvMessageText.setVisibility(View.VISIBLE);
+                    tvMessageText.setText(message.getCleanText());
+                    float density = itemView.getResources().getDisplayMetrics().density;
+                    tvMessageText.setPadding((int) (6 * density), (int) (4 * density), (int) (6 * density), (int) (2 * density));
+                    tvMessageText.setMovementMethod(com.messenger.prime.browser.AppBrowserMovementMethod.getInstance());
+                    tvMessageText.setTextIsSelectable(true);
+                    setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
+                    bindLinkPreview(itemView, text, message);
+                    tvMessageText.setOnClickListener(v -> {
+                        if (isMultiSelectionMode) {
+                            toggleMessageSelection(message);
+                        } else if (!tvMessageText.hasSelection()) {
+                            showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
+                        }
+                    });
+                }
             } else {
                 tvMessageText.setVisibility(View.GONE);
+                WebView wvRichMessage = itemView.findViewById(R.id.wvRichMessage);
+                if (wvRichMessage != null) {
+                    wvRichMessage.setVisibility(View.GONE);
+                    wvRichMessage.loadUrl("about:blank");
+                }
                 View layoutLinkPreview = itemView.findViewById(R.id.layoutLinkPreview);
                 if (layoutLinkPreview != null) layoutLinkPreview.setVisibility(View.GONE);
             }
@@ -3255,6 +3357,24 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 resetBubbleForNormalMessage(itemView, true);
             }
 
+            if (message != null && message.isRichFormatted()) {
+                if (layoutOutgoingBubble != null) {
+                    ViewGroup.LayoutParams lp = layoutOutgoingBubble.getLayoutParams();
+                    if (lp != null) {
+                        lp.width = ViewGroup.LayoutParams.MATCH_PARENT;
+                        layoutOutgoingBubble.setLayoutParams(lp);
+                    }
+                }
+                View block = itemView.findViewById(R.id.layoutOutgoingMessageBlock);
+                if (block != null) {
+                    ViewGroup.LayoutParams lpBlock = block.getLayoutParams();
+                    if (lpBlock != null) {
+                        lpBlock.width = ViewGroup.LayoutParams.MATCH_PARENT;
+                        block.setLayoutParams(lpBlock);
+                    }
+                }
+            }
+
             bindMessageAttachments(
                 message, position,
                 layoutMediaContainer, ivMessageImage, videoMessagePreview, ivVideoPlayBadge, tvVideoDuration,
@@ -3263,23 +3383,86 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             );
 
             if (!isVideoNoteOutgoing && message.getMessageType() != ChatMessage.MessageType.VOICE && text != null && !text.isEmpty() && !"Голосовое сообщение".equals(text) && !"Фото".equals(text) && !"Фото отправлено".equals(text) && !"Фотография".equals(text) && !"Файл".equals(text) && !"Видео".equals(text) && !"Видеозапись".equals(text) && !"Видео отправлено".equals(text)) {
-                tvMessageText.setVisibility(View.VISIBLE);
-                tvMessageText.setText(text);
-                float density = itemView.getResources().getDisplayMetrics().density;
-                tvMessageText.setPadding((int) (6 * density), (int) (4 * density), (int) (6 * density), (int) (2 * density));
-                tvMessageText.setMovementMethod(com.messenger.prime.browser.AppBrowserMovementMethod.getInstance());
-                tvMessageText.setTextIsSelectable(true);
-                setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
-                bindLinkPreview(itemView, text, message);
-                tvMessageText.setOnClickListener(v -> {
-                    if (isMultiSelectionMode) {
-                        toggleMessageSelection(message);
-                    } else if (!tvMessageText.hasSelection()) {
-                        showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
+                View ivRichBadgeOut = itemView.findViewById(R.id.ivRichBadgeOut);
+                if (ivRichBadgeOut != null) {
+                    ivRichBadgeOut.setVisibility(message.isRichFormatted() ? View.VISIBLE : View.GONE);
+                }
+
+                if (message.isRichFormatted()) {
+                    tvMessageText.setVisibility(View.GONE);
+                    WebView wvRichMessage = itemView.findViewById(R.id.wvRichMessage);
+                    if (wvRichMessage != null) {
+                        wvRichMessage.setVisibility(View.VISIBLE);
+                        wvRichMessage.getSettings().setJavaScriptEnabled(false);
+                        wvRichMessage.setOnTouchListener((v, event) -> {
+                            if (event.getActionMasked() == MotionEvent.ACTION_DOWN || event.getActionMasked() == MotionEvent.ACTION_MOVE) {
+                                v.getParent().requestDisallowInterceptTouchEvent(true);
+                            } else if (event.getActionMasked() == MotionEvent.ACTION_UP || event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                                v.getParent().requestDisallowInterceptTouchEvent(false);
+                            }
+                            if (isMultiSelectionMode) {
+                                if (event.getAction() == MotionEvent.ACTION_UP) {
+                                    toggleMessageSelection(message);
+                                }
+                                return true;
+                            }
+                            return false;
+                        });
+                        wvRichMessage.setOnLongClickListener(v -> {
+                            if (!isMultiSelectionMode) {
+                                showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
+                            } else {
+                                toggleMessageSelection(message);
+                            }
+                            return true;
+                        });
+
+                        String htmlContent = message.getCleanText();
+                        boolean isDark = (itemView.getContext().getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+                        String textColor = "#FFFFFF";
+                        String linkColor = "#FFFFFF";
+                        String tableBg = isDark ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.2)";
+                        String thBg = isDark ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.3)";
+                        String borderColor = isDark ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.5)";
+
+                        String css = "<style>body { margin: 0; padding: 0; font-family: sans-serif; font-size: 16px; color: " + textColor + "; background-color: transparent; line-height: 1.4; word-wrap: break-word; }" +
+                            "img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; } " +
+                            "table { width: 100%; border-collapse: collapse; margin: 8px 0; background-color: " + tableBg + "; border-radius: 6px; overflow: hidden; } " +
+                            "th, td { border: 1px solid " + borderColor + "; padding: 6px; text-align: left; } th { background-color: " + thBg + "; font-weight: bold; } " +
+                            "a { color: " + linkColor + "; text-decoration: underline; }</style>";
+                        String fullHtml = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" + css + "</head><body>" + htmlContent + "</body></html>";
+                        wvRichMessage.loadDataWithBaseURL("file:///android_asset/", fullHtml, "text/html", "UTF-8", null);
+                        wvRichMessage.setBackgroundColor(0x00000000);
                     }
-                });
+                } else {
+                    WebView wvRichMessage = itemView.findViewById(R.id.wvRichMessage);
+                    if (wvRichMessage != null) {
+                        wvRichMessage.setVisibility(View.GONE);
+                        wvRichMessage.loadUrl("about:blank");
+                    }
+                    tvMessageText.setVisibility(View.VISIBLE);
+                    tvMessageText.setText(message.getCleanText());
+                    float density = itemView.getResources().getDisplayMetrics().density;
+                    tvMessageText.setPadding((int) (6 * density), (int) (4 * density), (int) (6 * density), (int) (2 * density));
+                    tvMessageText.setMovementMethod(com.messenger.prime.browser.AppBrowserMovementMethod.getInstance());
+                    tvMessageText.setTextIsSelectable(true);
+                    setupCustomTextSelectionActionMode(itemView, tvMessageText, message, position);
+                    bindLinkPreview(itemView, text, message);
+                    tvMessageText.setOnClickListener(v -> {
+                        if (isMultiSelectionMode) {
+                            toggleMessageSelection(message);
+                        } else if (!tvMessageText.hasSelection()) {
+                            showMessageContextMenu(v, message, position, lastTouchRaw[0], lastTouchRaw[1]);
+                        }
+                    });
+                }
             } else {
                 tvMessageText.setVisibility(View.GONE);
+                WebView wvRichMessage = itemView.findViewById(R.id.wvRichMessage);
+                if (wvRichMessage != null) {
+                    wvRichMessage.setVisibility(View.GONE);
+                    wvRichMessage.loadUrl("about:blank");
+                }
                 View layoutLinkPreview = itemView.findViewById(R.id.layoutLinkPreview);
                 if (layoutLinkPreview != null) layoutLinkPreview.setVisibility(View.GONE);
             }
