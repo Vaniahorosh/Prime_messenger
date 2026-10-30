@@ -2245,10 +2245,14 @@ class ChatListActivity : AppCompatActivity() {
     private fun handlePrimeDeviceFound(device: BluetoothDevice, name: String?) {
         if (primeDevices.add(device.address)) {
             val knownContact = chatListState.find {
-                it.id.equals(device.address, ignoreCase = true) ||
-                (!name.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(name) && it.name.equals(name, ignoreCase = true))
+                it.id.equals(device.address, ignoreCase = true)
             }
-            val rawName = knownContact?.name ?: name
+            val savedName = AvatarManager.getContactDisplayName(this, device.address, device.address, null)
+            val rawName = if (!savedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(savedName) && !AvatarManager.isGenericIdentity(savedName)) {
+                savedName
+            } else {
+                knownContact?.name ?: name
+            }
             val finalName = if (rawName.isNullOrBlank() || BluetoothAdapter.checkBluetoothAddress(rawName)) "Prime Собеседник" else rawName
             
             if (knownContact == null) {
@@ -4335,8 +4339,8 @@ class ChatListActivity : AppCompatActivity() {
                 val oldChat = existing.first
                 val oldTs = existing.second
 
-                val isOldNameMacOrGeneric = BluetoothAdapter.checkBluetoothAddress(oldChat.name) || oldChat.name == "Собеседник" || oldChat.name == "Prime Собеседник" || oldChat.name == "Контакт"
-                val isNewNameMacOrGeneric = BluetoothAdapter.checkBluetoothAddress(chat.name) || chat.name == "Собеседник" || chat.name == "Prime Собеседник" || chat.name == "Контакт"
+                val isOldNameMacOrGeneric = BluetoothAdapter.checkBluetoothAddress(oldChat.name) || AvatarManager.isGenericIdentity(oldChat.name)
+                val isNewNameMacOrGeneric = BluetoothAdapter.checkBluetoothAddress(chat.name) || AvatarManager.isGenericIdentity(chat.name)
 
                 val bestName = when {
                     isOldNameMacOrGeneric && !isNewNameMacOrGeneric -> chat.name
@@ -4344,10 +4348,14 @@ class ChatListActivity : AppCompatActivity() {
                     else -> chat.name
                 }
 
-                val bestId = if (BluetoothAdapter.checkBluetoothAddress(oldChat.id) && !BluetoothAdapter.checkBluetoothAddress(chat.id)) {
-                    chat.id
-                } else {
-                    oldChat.id
+                val isOldMac = BluetoothAdapter.checkBluetoothAddress(oldChat.id.uppercase(Locale.US))
+                val isNewMac = BluetoothAdapter.checkBluetoothAddress(chat.id.uppercase(Locale.US))
+                val bestId = when {
+                    isOldMac -> oldChat.id
+                    isNewMac -> chat.id
+                    "PrimeDesktop".equals(oldChat.id, ignoreCase = true) -> oldChat.id
+                    "PrimeDesktop".equals(chat.id, ignoreCase = true) -> chat.id
+                    else -> if (oldChat.id.isNotEmpty()) oldChat.id else chat.id
                 }
 
                 val bestLastMsg = if (ts >= oldTs && chat.lastMessage.isNotEmpty()) chat.lastMessage else if (oldChat.lastMessage.isNotEmpty()) oldChat.lastMessage else chat.lastMessage
@@ -4480,7 +4488,7 @@ class ChatListActivity : AppCompatActivity() {
                     val devUuids = try { dev.uuids } catch (_: Exception) { null }
                     val hasPrimeUuid = devUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true
                     val isSavedInChats = chatListState.any { 
-                        it.id.equals(devAddr, ignoreCase = true) || (devName != null && it.name.equals(devName, ignoreCase = true)) 
+                        it.id.equals(devAddr, ignoreCase = true)
                     }
 
                     if (isSavedInChats || devName?.contains("Prime", ignoreCase = true) == true || hasPrimeUuid) {
@@ -4523,6 +4531,38 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         BluetoothConnectionManager.getInstance().startServer(btAdapter, primeUuid)
+
+        // Also discover Wi-Fi Prime peers (PC Desktop or other phones in local Wi-Fi)
+        PrimeCompanionServer.discoverLocalPeers(this) { ip, name, login, isPc ->
+            val peerId = if (isPc) "PrimeDesktop" else ip
+            val existing = chatListState.find { it.id.equals(peerId, ignoreCase = true) }
+            val finalName = if (!existing?.name.isNullOrBlank() && !AvatarManager.isGenericIdentity(existing?.name)) {
+                existing!!.name
+            } else if (name.isNotBlank()) {
+                name
+            } else if (isPc) {
+                "Prime Desktop"
+            } else {
+                "Prime Телефон"
+            }
+            AvatarManager.saveContactPreferenceSafely(this@ChatListActivity, peerId, "contact_name", finalName)
+            if (isPc) {
+                AvatarManager.saveContactPreferenceSafely(this@ChatListActivity, peerId, "is_desktop", "true")
+            }
+            if (login.isNotBlank()) {
+                AvatarManager.saveContactPreferenceSafely(this@ChatListActivity, login, "contact_name", finalName)
+                if (isPc) {
+                    AvatarManager.saveContactPreferenceSafely(this@ChatListActivity, login, "is_desktop", "true")
+                }
+            }
+            primeDevices.add(peerId)
+            runOnUiThread {
+                if (isContactDialogVisible.value) {
+                    triggerPrimeFoundVibration()
+                    PrimeNotification.show(this@ChatListActivity, "Найден в сети: $finalName")
+                }
+            }
+        }
     }
 
     @SuppressLint("MissingPermission")
