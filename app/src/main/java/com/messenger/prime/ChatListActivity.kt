@@ -2547,6 +2547,10 @@ class ChatListActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         
         PrimeTransitions.setupActivityTransitions(this)
+        try {
+            PrimeBluetoothService.startService(this)
+            PrimeCompanionServer.start(this)
+        } catch (_: Exception) {}
 
         val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
         setupEdgeToEdge(isDarkIcons = !isDark)

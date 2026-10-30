@@ -32,6 +32,10 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
             DynamicColors.applyToActivitiesIfAvailable(this)
         }
         createNotificationChannels()
+        try {
+            PrimeCompanionServer.start(this)
+            PrimeBluetoothService.startService(this)
+        } catch (_: Exception) {}
         
         try {
             androidx.window.embedding.RuleController.getInstance(this)
