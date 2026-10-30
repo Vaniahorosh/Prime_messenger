@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
-    id("org.jetbrains.kotlin.plugin.compose")
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.0"
+    alias(libs.plugins.jetbrains.kotlin.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -43,54 +43,56 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.core.ktx)
     implementation(libs.material)
-    implementation("com.r0adkll:slidableactivity:2.1.0")
-    implementation("com.github.bumptech.glide:glide:4.16.0")
-    implementation("jp.wasabeef:glide-transformations:4.3.0")
-    implementation("org.jsoup:jsoup:1.18.3")
+    implementation(libs.slidableactivity)
+    implementation(libs.glide)
+    implementation(libs.glide.transformations)
+    implementation(libs.jsoup)
 
     // High-Performance Kotlin Coroutines & Lifecycle Architecture
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
 
     // High-Speed Networking & Image Loading
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-    implementation("io.coil-kt:coil:2.7.0")
-    implementation("io.coil-kt:coil-gif:2.7.0")
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+    implementation(libs.coil)
+    implementation(libs.coil.gif)
 
     // Startup & Compilation Optimization
-    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation(libs.androidx.profileinstaller)
+    implementation(libs.kotlinx.serialization.json)
 
     // Compose & BlurView
-    implementation("androidx.compose.ui:ui:1.6.8")
-    implementation("androidx.compose.ui:ui-viewbinding:1.6.8")
-    implementation("androidx.compose.foundation:foundation:1.6.8")
-    implementation("androidx.compose.material3:material3:1.2.1")
-    implementation("androidx.activity:activity-compose:1.9.0")
-    implementation("com.github.Dimezis:BlurView:version-2.0.5")
-    implementation("androidx.graphics:graphics-shapes:1.1.0")
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.viewbinding)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.blurview)
+    implementation(libs.androidx.graphics.shapes)
 
+    // Media3 & Playback
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
-    implementation("androidx.media3:media3-datasource:1.5.0")
-    implementation("androidx.media3:media3-extractor:1.5.0")
-    implementation("androidx.media:media:1.7.0")
-    implementation("androidx.viewpager2:viewpager2:1.1.0")
+    implementation(libs.media3.datasource)
+    implementation(libs.media3.extractor)
+    implementation(libs.androidx.media)
+    implementation(libs.androidx.viewpager2)
 
+    // Window Manager
+    implementation(libs.androidx.window)
+
+    // CameraX
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.video)
+    implementation(libs.androidx.camera.view)
+
+    // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
-
-    implementation("androidx.window:window:1.5.1")
-
-    // CameraX
-    val cameraxVersion = "1.6.2"
-    implementation("androidx.camera:camera-core:$cameraxVersion")
-    implementation("androidx.camera:camera-camera2:$cameraxVersion")
-    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
-    implementation("androidx.camera:camera-video:$cameraxVersion")
-    implementation("androidx.camera:camera-view:$cameraxVersion")
 }
