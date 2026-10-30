@@ -46,18 +46,37 @@ public class LinkPreviewManager {
     private LinkPreviewManager() {}
 
     public void fetchPreview(String rawUrl, Callback callback) {
-        // Disabled to prevent data leak to third parties (IP leak & sensitive URL access).
-        if (callback != null) {
-            LinkPreviewData fallback = new LinkPreviewData();
-            fallback.url = rawUrl;
-            fallback.title = rawUrl;
-            try {
-                fallback.domain = new java.net.URL(rawUrl.startsWith("http") ? rawUrl : "https://" + rawUrl).getHost();
-            } catch (Exception e) {
-                fallback.domain = rawUrl;
+        if (rawUrl == null || rawUrl.trim().isEmpty()) return;
+
+        final String formattedUrl = rawUrl.startsWith("http") ? rawUrl : "https://" + rawUrl;
+
+        // Check LRU Cache first for instant, lag-free loading
+        LinkPreviewData cached = cache.get(formattedUrl);
+        if (cached != null) {
+            if (callback != null) {
+                callback.onDataLoaded(cached);
             }
+            return;
+        }
+
+        // Return fallback immediately while fetching OpenGraph asynchronously
+        if (callback != null) {
+            LinkPreviewData fallback = createFallbackData(formattedUrl);
             callback.onDataLoaded(fallback);
         }
+
+        // Fetch OpenGraph in background thread safely
+        executor.execute(() -> {
+            LinkPreviewData data = parseOpenGraph(formattedUrl);
+            if (data != null) {
+                cache.put(formattedUrl, data);
+                mainHandler.post(() -> {
+                    if (callback != null) {
+                        callback.onDataLoaded(data);
+                    }
+                });
+            }
+        });
     }
 
     private LinkPreviewData parseOpenGraph(String urlString) {
