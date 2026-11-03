@@ -2365,6 +2365,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         View vTopGradient = findViewById(R.id.vTopGradient);
 
         if (vTopGradient != null) {
+            vTopGradient.setElevation(1f * density);
             ViewGroup.LayoutParams lp = vTopGradient.getLayoutParams();
             if (lp != null) {
                 int statusBarTop = getStatusBarHeight();
@@ -2376,11 +2377,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         if (layoutHeader != null) {
             if (isNoBlock) {
+                layoutHeader.setBlurEnabled(false);
                 layoutHeader.setBackground(null);
-                layoutHeader.setElevation(0f);
+                layoutHeader.setElevation(4f * density);
                 layoutHeader.setOutlineProvider(null);
                 layoutHeader.setClipToOutline(false);
             } else {
+                layoutHeader.setBlurEnabled(true);
                 layoutHeader.setBackgroundResource(R.drawable.bg_floating_island);
                 layoutHeader.setElevation(8f * density);
                 layoutHeader.setClipToOutline(true);
@@ -3513,9 +3516,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 blurHeader, blurInput, blurAttachmentPanel, blurMusicIsland, blurActionIsland
         };
 
+        SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        boolean isNoBlock = "no_block".equals(sp.getString("settings_chat_header_style", "block"));
+
         for (BlurView bv : blurViews) {
             if (bv != null) {
                 BlurViewKt.setupBlur(bv, rootView, 16f, overlayColor, windowBg);
+                if (bv == blurHeader && isNoBlock) {
+                    bv.setBlurEnabled(false);
+                }
             }
         }
     }
@@ -9587,6 +9596,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                 @Override
                 public boolean onTouch(View v, MotionEvent e) {
+                    SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                    boolean isPartnerInfoEnabled = sp.getBoolean("settings_partner_info_enabled", true);
+                    if (!isPartnerInfoEnabled) {
+                        return false;
+                    }
                     int action = e.getActionMasked();
                     switch (action) {
                         case MotionEvent.ACTION_DOWN:
@@ -9645,6 +9659,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private void updatePullUi(float progress, float dampenedDistance) {
+        SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        boolean isPartnerInfoEnabled = sp.getBoolean("settings_partner_info_enabled", true);
+        if (!isPartnerInfoEnabled) {
+            if (layoutPullIndicator != null) {
+                layoutPullIndicator.setVisibility(View.GONE);
+            }
+            return;
+        }
+
         View layoutHeader = findViewById(R.id.layoutHeader);
         View tvFloatingDate = findViewById(R.id.tvFloatingDate);
 
