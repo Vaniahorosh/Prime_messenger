@@ -3180,18 +3180,17 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         tvCounter.animate().cancel();
         tvCounter.animate()
-                .translationY(24f)
+                .translationY(25f)
                 .alpha(0f)
-                .setDuration(100)
-                .setInterpolator(new AccelerateInterpolator())
+                .setDuration(160)
                 .withEndAction(() -> {
+                    if (tvCounter == null) return;
                     tvCounter.setText(text);
-                    tvCounter.setTranslationY(-24f);
+                    tvCounter.setTranslationY(-25f);
                     tvCounter.animate()
                             .translationY(0f)
                             .alpha(1f)
-                            .setDuration(140)
-                            .setInterpolator(new DecelerateInterpolator())
+                            .setDuration(160)
                             .start();
                 })
                 .start();

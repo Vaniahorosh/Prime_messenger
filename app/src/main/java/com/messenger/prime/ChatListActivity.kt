@@ -2637,6 +2637,7 @@ class ChatListActivity : AppCompatActivity() {
             if (::binding.isInitialized) {
                 val sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                 val navStyle = sp.getString("navigation_style", "island") ?: "island"
+                val density = resources.displayMetrics.density
 
                 if (selectedIds.isEmpty()) {
                     if (navStyle == "island") {
@@ -2649,11 +2650,22 @@ class ChatListActivity : AppCompatActivity() {
                             }.start()
                         }
                     } else {
-                        if (binding.layoutBottomSelectionMode.visibility == View.VISIBLE) {
-                            binding.layoutBottomSelectionMode.animate().translationY(binding.layoutBottomSelectionMode.height.toFloat()).alpha(0f).setDuration(150).withEndAction {
-                                binding.layoutBottomSelectionMode.visibility = View.GONE
-                            }.start()
+                        // "Панель" mode: Hide top selection header and shift contacts list back up
+                        binding.layoutBottomSelectionMode.visibility = View.GONE
+                        if (binding.layoutIslandHeader.root.visibility == View.VISIBLE) {
+                            binding.layoutIslandHeader.root.animate()
+                                .translationY(-80f * density)
+                                .alpha(0f)
+                                .setDuration(180)
+                                .withEndAction {
+                                    binding.layoutIslandHeader.root.visibility = View.GONE
+                                    binding.layoutIslandHeader.layoutHeaderSelectionMode.visibility = View.GONE
+                                    binding.layoutIslandHeader.root.translationY = 0f
+                                    binding.layoutIslandHeader.root.alpha = 1f
+                                }
+                                .start()
                         }
+                        binding.recyclerViewChats.animate().translationY(0f).setDuration(180).start()
                     }
                     updateBackCallbackState()
                 } else {
@@ -2671,14 +2683,28 @@ class ChatListActivity : AppCompatActivity() {
                             binding.layoutIslandHeader.tsHeaderSelectionCount.setText(selectedIds.size.toString())
                         }
                     } else {
-                        if (binding.layoutBottomSelectionMode.visibility != View.VISIBLE) {
-                            binding.layoutBottomSelectionMode.translationY = 150f
-                            binding.layoutBottomSelectionMode.alpha = 0f
-                            binding.layoutBottomSelectionMode.visibility = View.VISIBLE
-                            binding.tsBottomSelectionCount.setText(selectedIds.size.toString())
-                            binding.layoutBottomSelectionMode.animate().translationY(0f).alpha(1f).setDuration(150).start()
+                        // "Панель" mode: Display selection header AT THE TOP and shift contacts list down
+                        binding.layoutBottomSelectionMode.visibility = View.GONE
+                        val isHeaderAlreadyVisible = binding.layoutIslandHeader.root.visibility == View.VISIBLE &&
+                                binding.layoutIslandHeader.layoutHeaderSelectionMode.visibility == View.VISIBLE
+
+                        if (!isHeaderAlreadyVisible) {
+                            binding.layoutIslandHeader.root.translationY = -80f * density
+                            binding.layoutIslandHeader.root.alpha = 0f
+                            binding.layoutIslandHeader.root.visibility = View.VISIBLE
+                            binding.layoutIslandHeader.layoutHeaderSelectionMode.visibility = View.VISIBLE
+                            binding.layoutIslandHeader.tsHeaderSelectionCount.setText(selectedIds.size.toString())
+
+                            binding.layoutIslandHeader.root.animate()
+                                .translationY(0f)
+                                .alpha(1f)
+                                .setDuration(180)
+                                .start()
+
+                            // Shift contacts list slightly down under the selection header
+                            binding.recyclerViewChats.animate().translationY(68f * density).setDuration(180).start()
                         } else {
-                            binding.tsBottomSelectionCount.setText(selectedIds.size.toString())
+                            binding.layoutIslandHeader.tsHeaderSelectionCount.setText(selectedIds.size.toString())
                         }
                     }
                     updateBackCallbackState()
