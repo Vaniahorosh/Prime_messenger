@@ -1646,7 +1646,8 @@ class SettingsActivity : AppCompatActivity() {
         b.cardBottomBarPreviewBlock?.strokeColor = if (isDark) android.graphics.Color.parseColor("#33FFFFFF") else android.graphics.Color.parseColor("#1A000000")
 
         val updatePreview = { radiusDp: Int ->
-            b.tvBottomBarRadiusValue?.text = "${radiusDp} dp"
+            val percent = Math.round((radiusDp / 36f) * 100)
+            b.tvBottomBarRadiusValue?.text = "$percent%"
             val radiusPx = radiusDp * density
             b.cardHeaderPreviewInput?.radius = radiusPx
             b.cardBottomBarPreviewInput?.radius = radiusPx
@@ -3855,10 +3856,7 @@ class SettingsActivity : AppCompatActivity() {
         updateResetVisibility(savedPercent)
 
         val updateLabel = { percent: Int ->
-            val minDp = 4
-            val maxDp = 28
-            val dpVal = minDp + (maxDp - minDp) * (percent / 100f)
-            b.tvBubbleRadiusValue.text = "${dpVal.toInt()} dp"
+            b.tvBubbleRadiusValue.text = "$percent%"
         }
         updateLabel(savedPercent)
 
@@ -4032,7 +4030,8 @@ class SettingsActivity : AppCompatActivity() {
                 else -> "$radiusPercent% (Сквиркл)"
             }
             b.tvVideoCornerRadiusValue?.text = labelText
-            b.tvVideoSizeValue?.text = "$sizeDp dp"
+            val sizePercent = Math.round(((sizeDp - 120f) / (260f - 120f)) * 100)
+            b.tvVideoSizeValue?.text = "$sizePercent%"
 
             b.layoutVideoNotePreviewFrame?.let { frame ->
                 val density = resources.displayMetrics.density

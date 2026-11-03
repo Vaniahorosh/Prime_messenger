@@ -1518,7 +1518,7 @@
                                         android:layout_height="wrap_content"
                                         android:layout_marginTop="4dp"
                                         android:layout_marginBottom="8dp"
-                                        android:text="Измените порядок или скройте кнопки. Профиль скрыть нельзя."
+                                        android:text="Измените порядок или скройте кнопки"
                                         android:textColor="@color/prime_text_secondary"
                                         android:textSize="12sp" />
 
@@ -2005,7 +2005,7 @@
                                         android:id="@+id/tvBubbleRadiusValue"
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="18 dp"
+                                        android:text="50%"
                                         android:textColor="@color/prime_brand"
                                         android:textSize="12sp"
                                         android:textStyle="bold" />
@@ -2324,16 +2324,6 @@
                                         app:cornerRadius="20dp" />
                                 </LinearLayout>
 
-                                <!-- Примечание под переключателем -->
-                                <TextView
-                                    android:id="@+id/tvChatStyleNote"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginTop="6dp"
-                                    android:text="*Функция &quot;Уровень скругления блоков в чате&quot; работает только при выборе режима &quot;Показать блок&quot;."
-                                    android:textColor="@color/prime_text_secondary"
-                                    android:textSize="11sp" />
-
                                 <!-- Блок предпросмотра стиля чата -->
                                 <com.google.android.material.card.MaterialCardView
                                     android:id="@+id/cardChatStylePreviewBlock"
@@ -2455,7 +2445,7 @@
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:layout_marginTop="2dp"
-                                        android:text="Переходить в профиль при клике на шапку чата"
+                                        android:text="Переходить в профиль при перетягивании с верхнего края чата"
                                         android:textColor="@color/prime_text_secondary"
                                         android:textSize="12sp" />
                                 </LinearLayout>
@@ -2490,7 +2480,7 @@
                                     android:id="@+id/tvBottomBarRadiusValue"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="24 dp"
+                                    android:text="67%"
                                     android:textColor="@color/prime_brand"
                                     android:textSize="12sp"
                                     android:textStyle="bold" />
@@ -2957,7 +2947,7 @@
                                 <TextView
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="Открывать ссылки в выезжающей шторке приложения"
+                                    android:text="Открывает ссылки во встроенном браузере"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="12sp"/>
                             </LinearLayout>
