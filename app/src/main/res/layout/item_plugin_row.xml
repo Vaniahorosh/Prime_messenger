@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/containerPluginRow"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginVertical="4dp"
+    android:background="@drawable/bg_date_bubble"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="14dp"
+    android:paddingVertical="10dp">
+
+    <!-- File Type Icon / Badge -->
+    <FrameLayout
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:background="@drawable/bg_circular_mode_active"
+        android:backgroundTint="@color/prime_brand"
+        android:padding="8dp">
+
+        <ImageView
+            android:id="@+id/ivPluginIcon"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/ic_file"
+            app:tint="@color/white"
+            android:contentDescription="Плагин" />
+    </FrameLayout>
+
+    <!-- Plugin Details -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="8dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvPluginName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/prime_text_primary"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            tools:text="CustomPlugin.java" />
+
+        <TextView
+            android:id="@+id/tvPluginSubtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/prime_text_secondary"
+            android:textSize="11sp"
+            tools:text="Java • Активен" />
+    </LinearLayout>
+
+    <!-- Enable / Disable Modern Material 3 Switch -->
+    <com.google.android.material.materialswitch.MaterialSwitch
+        android:id="@+id/switchPluginEnable"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="6dp"
+        app:showText="false" />
+
+    <!-- Delete Plugin Button -->
+    <ImageView
+        android:id="@+id/btnDeletePlugin"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="7dp"
+        android:src="@drawable/ic_trash"
+        app:tint="@color/prime_text_secondary"
+        android:contentDescription="Удалить плагин" />
+
+</LinearLayout>

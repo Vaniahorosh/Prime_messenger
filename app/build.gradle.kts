@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.compose.compiler)
-    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -20,7 +19,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -47,7 +51,6 @@ dependencies {
     implementation(libs.glide)
     implementation(libs.glide.transformations)
     implementation(libs.jsoup)
-
     // High-Performance Kotlin Coroutines & Lifecycle Architecture
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
@@ -57,13 +60,8 @@ dependencies {
     // High-Speed Networking & Image Loading
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
-    implementation(libs.coil)
-    implementation(libs.coil.gif)
-
     // Startup & Compilation Optimization
     implementation(libs.androidx.profileinstaller)
-    implementation(libs.kotlinx.serialization.json)
-
     // Compose & BlurView
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.viewbinding)

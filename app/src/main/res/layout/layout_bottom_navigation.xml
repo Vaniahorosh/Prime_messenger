@@ -127,6 +127,49 @@
                 android:textSize="11sp" />
         </LinearLayout>
 
+        <!-- Item 3: AI Чат -->
+        <LinearLayout
+            android:id="@+id/btnNavAi"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <FrameLayout
+                android:layout_width="56dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center">
+
+                <View
+                    android:id="@+id/vNavAiIndicator"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:alpha="0"
+                    android:background="@drawable/bg_m3_active_indicator"
+                    android:backgroundTint="@color/prime_brand" />
+
+                <ImageView
+                    android:id="@+id/ivNavAiIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_prime_ai" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvNavAiLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="AI Чат"
+                android:textColor="@color/prime_text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+
         <!-- Item 3: Поиск -->
         <LinearLayout
             android:id="@+id/btnNavSearch"

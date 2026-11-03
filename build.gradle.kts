@@ -2,5 +2,4 @@
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.jetbrains.kotlin.compose.compiler) apply false
-    alias(libs.plugins.kotlin.serialization) apply false
 }

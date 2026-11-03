@@ -20,7 +20,12 @@ import android.view.ViewOutlineProvider
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.Typeface
 import android.net.Uri
+import android.provider.OpenableColumns
+import android.widget.ArrayAdapter
+import android.widget.Spinner
+import android.widget.Toast
 import android.os.Build
 import android.os.Bundle
 import android.text.Editable
@@ -125,6 +130,34 @@ class SettingsActivity : AppCompatActivity() {
 
     private val avatarUriState = mutableStateOf<String?>(null)
     private var profileImageView: ImageView? = null
+
+    private val pluginsReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            refreshPluginsList()
+        }
+    }
+
+    private val pluginFilePickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK && result.data?.data != null) {
+            val uri = result.data!!.data!!
+            var name: String? = null
+            try {
+                contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        if (idx >= 0) name = cursor.getString(idx)
+                    }
+                }
+            } catch (_: Exception) {}
+            val plugin = PluginManager.importPluginFile(this, uri, name)
+            if (plugin != null) {
+                refreshPluginsList()
+                PrimeNotification.show(this, "Плагин ${plugin.name} импортирован!")
+            } else {
+                Toast.makeText(this, "Ошибка импорта плагина", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     private val photoEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK && result.data != null) {
@@ -771,6 +804,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         setupStickyNavToolbar(b)
+        setupPluginsSection(b)
     }
 
     private fun smoothScrollToView(nestedScrollView: androidx.core.widget.NestedScrollView, targetView: View) {
@@ -811,7 +845,7 @@ class SettingsActivity : AppCompatActivity() {
 
         fun updateActiveTabUI(activeTab: TextView?, sectionName: String) {
             val accentColor = ColorAccentManager.getCurrentAccentColor(this)
-            val tabs = listOfNotNull(b.tabStickyProfile, b.tabStickyTheme, b.tabStickyChat, b.tabStickyBrowser, b.tabStickyData, b.tabStickyInfo)
+            val tabs = listOfNotNull(b.tabStickyProfile, b.tabStickyTheme, b.tabStickyChat, b.tabStickyBrowser, b.tabStickyData, b.tabStickyPlugins, b.tabStickyInfo)
             tabs.forEach { tab ->
                 if (tab == activeTab) {
                     tab.setTextColor(accentColor)
@@ -854,6 +888,10 @@ class SettingsActivity : AppCompatActivity() {
 
         b.tabStickyData.setOnClickListener {
             smoothScrollToView(b.nestedScrollView, b.layoutDataHeader)
+        }
+
+        b.tabStickyPlugins?.setOnClickListener {
+            b.layoutPluginsHeader?.let { smoothScrollToView(b.nestedScrollView, it) }
         }
 
         b.tabStickyInfo.setOnClickListener {
@@ -942,6 +980,18 @@ class SettingsActivity : AppCompatActivity() {
             true
         }
 
+        b.tabStickyPlugins?.setOnLongClickListener { v ->
+            PrimePopupMenu.create(this, v)
+                .addItem(1, "Управление плагинами", R.drawable.ic_pipette) {
+                    b.cardPlugins?.let { smoothScrollToView(b.nestedScrollView, it) }
+                }
+                .addItem(2, "Добавить плагин (+)", R.drawable.ic_add) {
+                    showAddPluginDialog()
+                }
+                .show()
+            true
+        }
+
         b.tabStickyInfo.setOnLongClickListener { v ->
             PrimePopupMenu.create(this, v)
                 .addItem(1, "Исходный код", R.drawable.ic_github_logo) {
@@ -970,7 +1020,8 @@ class SettingsActivity : AppCompatActivity() {
             val chatStart = b.layoutChatHeader?.let { (getViewTopInContent(it, contentView) - offset).coerceAtLeast(themeStart + 1) } ?: (themeStart + 1)
             val browserStart = b.layoutBrowserHeader?.let { (getViewTopInContent(it, contentView) - offset).coerceAtLeast(chatStart + 1) } ?: (chatStart + 1)
             val dataStart = (getViewTopInContent(b.layoutDataHeader, contentView) - offset).coerceAtLeast(browserStart + 1)
-            val infoStart = (getViewTopInContent(b.layoutInfoHeader, contentView) - offset).coerceAtLeast(dataStart + 1)
+            val pluginsStart = b.layoutPluginsHeader?.let { (getViewTopInContent(it, contentView) - offset).coerceAtLeast(dataStart + 1) } ?: (dataStart + 1)
+            val infoStart = (getViewTopInContent(b.layoutInfoHeader, contentView) - offset).coerceAtLeast(pluginsStart + 1)
 
             val sectionStart: Int
             val sectionEnd: Int
@@ -997,11 +1048,16 @@ class SettingsActivity : AppCompatActivity() {
                 sectionEnd = dataStart
                 activeTab = b.tabStickyBrowser
                 sectionName = "Браузер"
-            } else if (scrollY < infoStart) {
+            } else if (scrollY < pluginsStart) {
                 sectionStart = dataStart
-                sectionEnd = infoStart
+                sectionEnd = pluginsStart
                 activeTab = b.tabStickyData
                 sectionName = "Данные и память"
+            } else if (scrollY < infoStart) {
+                sectionStart = pluginsStart
+                sectionEnd = infoStart
+                activeTab = b.tabStickyPlugins
+                sectionName = "Плагины"
             } else {
                 sectionStart = infoStart
                 sectionEnd = maxScroll
@@ -1065,28 +1121,238 @@ class SettingsActivity : AppCompatActivity() {
             updateSectionProgressAndTabs()
             val header = b.layoutSettingsHeader
             if (!header.isAttachedToWindow) return@post
-
             val locationHeader = IntArray(2)
             header.getLocationOnScreen(locationHeader)
-
             val locationScroll = IntArray(2)
             b.nestedScrollView.getLocationOnScreen(locationScroll)
-
             val headerRelativeTop = locationHeader[1] - locationScroll[1]
             val toolbarHeight = b.blurStickyToolbar.height.coerceAtLeast(1)
+            isToolbarVisible = headerRelativeTop <= toolbarHeight + 12
+            b.blurStickyToolbar.visibility = if (isToolbarVisible) View.VISIBLE else View.GONE
+            b.blurStickyToolbar.alpha = if (isToolbarVisible) 1f else 0f
+        }
+    }
 
-            val shouldShow = headerRelativeTop <= toolbarHeight + 12
+    private fun setupPluginsSection(b: ActivitySettingsContentBinding) {
+        b.btnAddPlugin?.setOnClickListener {
+            showAddPluginDialog()
+        }
+        try {
+            ContextCompat.registerReceiver(
+                this,
+                pluginsReceiver,
+                IntentFilter(PluginManager.ACTION_PLUGINS_CHANGED),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+        } catch (_: Exception) {}
+        refreshPluginsList()
+    }
 
-            if (shouldShow) {
-                isToolbarVisible = true
-                b.blurStickyToolbar.visibility = View.VISIBLE
-                b.blurStickyToolbar.alpha = 1f
-            } else {
-                isToolbarVisible = false
-                b.blurStickyToolbar.visibility = View.GONE
-                b.blurStickyToolbar.alpha = 0f
+    private fun refreshPluginsList() {
+        val b = binding ?: return
+        val list = PluginManager.getAllPlugins(this)
+        b.containerPluginsList?.removeAllViews()
+
+        if (list.isEmpty()) {
+            b.tvEmptyPluginsNotice?.visibility = View.VISIBLE
+            b.containerPluginsList?.visibility = View.GONE
+        } else {
+            b.tvEmptyPluginsNotice?.visibility = View.GONE
+            b.containerPluginsList?.visibility = View.VISIBLE
+
+            list.forEach { plugin ->
+                val row = layoutInflater.inflate(R.layout.item_plugin_row, b.containerPluginsList, false)
+                val tvName = row.findViewById<TextView>(R.id.tvPluginName)
+                val tvSubtitle = row.findViewById<TextView>(R.id.tvPluginSubtitle)
+                val switchEnable = row.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPluginEnable)
+                val btnDelete = row.findViewById<View>(R.id.btnDeletePlugin)
+
+                tvName.text = plugin.name
+                val statusStr = if (plugin.isEnabled) "Активен" else "Отключен"
+                tvSubtitle.text = "${plugin.fileType} • $statusStr"
+
+                switchEnable.isChecked = plugin.isEnabled
+                switchEnable.setOnCheckedChangeListener { _, isChecked ->
+                    PluginManager.togglePlugin(this, plugin.id, isChecked)
+                    refreshPluginsList()
+                }
+
+                btnDelete.setOnClickListener {
+                    PrimeBlurDialog.show(
+                        activity = this,
+                        title = "Удаление плагина",
+                        message = "Вы уверены, что хотите удалить плагин ${plugin.name}?",
+                        positiveText = "Удалить",
+                        negativeText = "Отмена",
+                        isPositiveDanger = true,
+                        onPositive = {
+                            PluginManager.deletePlugin(this, plugin.id)
+                            refreshPluginsList()
+                            PrimeNotification.show(this, "Плагин удален")
+                        }
+                    )
+                }
+
+                row.setOnClickListener {
+                    showPluginCodeViewerDialog(plugin)
+                }
+
+                b.containerPluginsList?.addView(row)
             }
         }
+    }
+
+    private fun showAddPluginDialog() {
+        PrimeBlurDialog.showList(
+            activity = this,
+            title = "Добавить новый плагин",
+            items = arrayOf("Из файла с устройства", "Создать файл вручную (Код)"),
+            iconRes = R.drawable.ic_add,
+            onItemSelected = { index, _ ->
+                if (index == 0) {
+                    try {
+                        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                            type = "*/*"
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                        }
+                        pluginFilePickerLauncher.launch(intent)
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Не удалось открыть выбор файлов", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    showManualPluginCreationDialog()
+                }
+            }
+        )
+    }
+
+    private fun showManualPluginCreationDialog() {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 12, 0, 12)
+        }
+
+        val tvLabelName = TextView(this).apply {
+            text = "Название плагина / файла:"
+            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.prime_text_primary))
+            textSize = 13f
+            setTypeface(null, Typeface.BOLD)
+        }
+        val etName = EditText(this).apply {
+            hint = "CustomPlugin.java"
+            setSingleLine()
+            background = ContextCompat.getDrawable(this@SettingsActivity, R.drawable.bg_date_bubble)
+            setPadding(24, 18, 24, 18)
+            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.prime_text_primary))
+        }
+
+        val tvLabelLang = TextView(this).apply {
+            text = "Язык программирования / Тип:"
+            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.prime_text_primary))
+            textSize = 13f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 12, 0, 0)
+        }
+        val languages = arrayOf("Java (.java)", "Kotlin (.kt)", "Python (.py)", "JavaScript (.js)", "HTML (.html)", "Shell (.sh)", "JSON (.json)")
+        val spinnerLang = Spinner(this).apply {
+            adapter = ArrayAdapter(this@SettingsActivity, android.R.layout.simple_spinner_dropdown_item, languages)
+        }
+
+        val tvLabelCode = TextView(this).apply {
+            text = "Код / Содержимое плагина:"
+            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.prime_text_primary))
+            textSize = 13f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 12, 0, 0)
+        }
+        val etCode = EditText(this).apply {
+            hint = "// Введите исходный код или инструкции..."
+            background = ContextCompat.getDrawable(this@SettingsActivity, R.drawable.bg_date_bubble)
+            setPadding(24, 18, 24, 18)
+            minLines = 6
+            maxLines = 10
+            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.prime_text_primary))
+        }
+
+        layout.addView(tvLabelName)
+        layout.addView(etName)
+        layout.addView(tvLabelLang)
+        layout.addView(spinnerLang)
+        layout.addView(tvLabelCode)
+        layout.addView(etCode)
+
+        PrimeBlurDialog.show(
+            activity = this,
+            title = "Создание плагина",
+            message = "Выберите язык программирования и введите исходный код.",
+            positiveText = "Создать",
+            negativeText = "Отмена",
+            iconRes = R.drawable.ic_add,
+            customView = layout,
+            onPositive = {
+                val nameInput = etName.text.toString().trim()
+                val langIndex = spinnerLang.selectedItemPosition
+                val ext = when (langIndex) {
+                    1 -> "Kotlin"
+                    2 -> "Python"
+                    3 -> "JS"
+                    4 -> "HTML"
+                    5 -> "Shell"
+                    6 -> "JSON"
+                    else -> "Java"
+                }
+                val defaultExt = when (ext) {
+                    "Kotlin" -> ".kt"
+                    "Python" -> ".py"
+                    "JS" -> ".js"
+                    "HTML" -> ".html"
+                    "Shell" -> ".sh"
+                    "JSON" -> ".json"
+                    else -> ".java"
+                }
+                val name = if (nameInput.contains(".")) nameInput else if (nameInput.isNotBlank()) "$nameInput$defaultExt" else "Plugin$defaultExt"
+                val code = etCode.text.toString().trim()
+                val plugin = PluginManager.createPluginFromCode(this, name, code, ext)
+                refreshPluginsList()
+                PrimeNotification.show(this, "Плагин ${plugin.name} создан!")
+            }
+        )
+    }
+
+    private fun showPluginCodeViewerDialog(plugin: PluginItem) {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 12, 0, 12)
+        }
+
+        val etCode = EditText(this).apply {
+            setText(plugin.codeContent)
+            background = ContextCompat.getDrawable(this@SettingsActivity, R.drawable.bg_date_bubble)
+            setPadding(24, 18, 24, 18)
+            minLines = 8
+            maxLines = 14
+            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.prime_text_primary))
+        }
+
+        layout.addView(etCode)
+
+        PrimeBlurDialog.show(
+            activity = this,
+            title = "Код: ${plugin.name}",
+            message = "Исходный код плагина (${plugin.fileType}):",
+            positiveText = "Сохранить и Запустить",
+            negativeText = "Закрыть",
+            iconRes = R.drawable.ic_file,
+            customView = layout,
+            onPositive = {
+                val newCode = etCode.text.toString().trim()
+                plugin.codeContent = newCode
+                PluginManager.savePlugin(this, plugin)
+                refreshPluginsList()
+                val execResult = PluginExecutor.executePlugin(this, plugin)
+                PrimeNotification.show(this, execResult.take(120))
+            }
+        )
     }
 
     private fun setupListeners(b: ActivitySettingsContentBinding) {
@@ -1120,6 +1386,17 @@ class SettingsActivity : AppCompatActivity() {
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
         b.vAccentColorPreview.backgroundTintList = ColorStateList.valueOf(accentColor)
+
+        val updateResetAccentVisibility = {
+            b.btnResetAccent?.visibility = if (ColorAccentManager.getAccentType(this) != ColorAccentManager.ACCENT_TYPE_DEFAULT) View.VISIBLE else View.GONE
+        }
+        updateResetAccentVisibility()
+
+        b.btnResetAccent?.setOnClickListener {
+            ColorAccentManager.setAccentDefault(this)
+            onAccentColorChanged(b)
+            updateResetAccentVisibility()
+        }
         
         // Setup Monet Switch
         b.switchMonetAccent.setOnCheckedChangeListener(null)
@@ -1131,6 +1408,7 @@ class SettingsActivity : AppCompatActivity() {
                 ColorAccentManager.setAccentDefault(this)
             }
             onAccentColorChanged(b)
+            updateResetAccentVisibility()
         }
 
         // Setup Swatches
@@ -1171,9 +1449,15 @@ class SettingsActivity : AppCompatActivity() {
         b.switchLavaBg.isChecked = isLavaOn
         updateLavaPreview(isLavaOn)
 
+        b.btnResetLava?.visibility = if (!isLavaOn) View.VISIBLE else View.GONE
+        b.btnResetLava?.setOnClickListener {
+            b.switchLavaBg.isChecked = true
+        }
+
         b.switchLavaBg.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("settings_lava_bg", isChecked).apply()
             updateLavaPreview(isChecked)
+            b.btnResetLava?.visibility = if (!isChecked) View.VISIBLE else View.GONE
             LavaBackgroundState.onActivityResumed()
             sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
             restartApp()
@@ -1288,12 +1572,33 @@ class SettingsActivity : AppCompatActivity() {
             b.cardBottomBarPreviewInput?.strokeColor = accentColor
         }
 
+        val btnReset = b.root.findViewById<ImageView>(R.id.btnResetBottomBarRadius)
+        val updateResetVisibility = { radiusDp: Int ->
+            btnReset?.visibility = if (radiusDp != 24) View.VISIBLE else View.GONE
+        }
+
         updatePreview(currentRadius)
         b.sliderBottomBarRadius?.value = currentRadius.coerceIn(0, 36).toFloat()
+        updateResetVisibility(currentRadius)
+
+        btnReset?.setOnClickListener {
+            sharedPrefs.edit()
+                .putInt("settings_chat_ui_radius_dp", 24)
+                .putInt("settings_bottom_bar_radius_dp", 24)
+                .putInt("settings_top_bar_radius_dp", 24)
+                .apply()
+            b.sliderBottomBarRadius?.value = 24f
+            updatePreview(24)
+            updateResetVisibility(24)
+            setupBottomNav(b)
+            sendBroadcast(Intent("com.messenger.prime.CHAT_UI_RADIUS_CHANGED").setPackage(packageName))
+            sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+        }
 
         b.sliderBottomBarRadius?.addOnChangeListener { _, value, fromUser ->
             val radiusInt = value.toInt()
             updatePreview(radiusInt)
+            updateResetVisibility(radiusInt)
             if (fromUser) {
                 sharedPrefs.edit()
                     .putInt("settings_chat_ui_radius_dp", radiusInt)
@@ -1323,10 +1628,31 @@ class SettingsActivity : AppCompatActivity() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         var currentNavStyle = sharedPrefs.getString("navigation_style", "island") ?: "island"
 
+        val layoutNavOrder = b.root.findViewById<LinearLayout>(R.id.layoutNavOrder)
+        val layoutNavIslandConfig = b.root.findViewById<LinearLayout>(R.id.layoutNavIslandConfig)
+        
+        val btnResetNavStyle = b.root.findViewById<ImageView>(R.id.btnResetNavStyle)
+        
+        btnResetNavStyle?.setOnClickListener {
+            sharedPrefs.edit().remove("navigation_style").apply()
+            currentNavStyle = "island"
+            b.rbStyleIsland.performClick()
+        }
+        
         val updateNavStyleUi = {
             val isIsland = currentNavStyle == "island"
             b.rbStyleIsland.isChecked = isIsland
             b.rbStyleBottomBar.isChecked = !isIsland
+
+            btnResetNavStyle?.visibility = if (!isIsland) View.VISIBLE else View.GONE
+
+            TransitionManager.beginDelayedTransition(b.cardNavStyleSection, android.transition.AutoTransition().apply { duration = 200 })
+            if (layoutNavOrder != null) {
+                layoutNavOrder.visibility = if (!isIsland) View.VISIBLE else View.GONE
+            }
+            if (layoutNavIslandConfig != null) {
+                layoutNavIslandConfig.visibility = if (isIsland) View.VISIBLE else View.GONE
+            }
 
             val accentColor = ColorAccentManager.getCurrentAccentColor(this)
             val isNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
@@ -1356,6 +1682,13 @@ class SettingsActivity : AppCompatActivity() {
             setupBottomNav(b)
         }
 
+        b.switchAiContactIsland?.setOnCheckedChangeListener(null)
+        b.switchAiContactIsland?.isChecked = sharedPrefs.getBoolean("ai_chat_contact_enabled", true)
+        b.switchAiContactIsland?.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("ai_chat_contact_enabled", isChecked).apply()
+            sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+        }
+
         updateNavStyleUi()
 
         val setStyle = { style: String ->
@@ -1372,6 +1705,83 @@ class SettingsActivity : AppCompatActivity() {
 
         b.cardStyleBottomBar.setOnClickListener { setStyle("bottom_bar") }
         b.rbStyleBottomBar.setOnClickListener { setStyle("bottom_bar") }
+        
+        setupNavOrderSection(b)
+    }
+
+    private fun setupNavOrderSection(b: ActivitySettingsContentBinding) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val btnResetNavOrder = b.root.findViewById<ImageView>(R.id.btnResetNavOrder)
+        
+        btnResetNavOrder?.setOnClickListener {
+            sharedPrefs.edit()
+                .remove("nav_buttons_order")
+                .remove("nav_button_chats_visible")
+                .remove("nav_button_devices_visible")
+                .remove("nav_button_ai_visible")
+                .remove("nav_button_search_visible")
+                .apply()
+            setupNavOrderSection(b)
+            setupBottomNav(b)
+            sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+        }
+        
+        val defaultOrder = "chats,devices,ai,search,profile"
+        val currentOrderStr = sharedPrefs.getString("nav_buttons_order", defaultOrder) ?: defaultOrder
+        val currentOrder = currentOrderStr.split(",").filter { it.isNotEmpty() }
+
+        val isChanged = currentOrderStr != defaultOrder ||
+                !sharedPrefs.getBoolean("nav_button_chats_visible", true) ||
+                !sharedPrefs.getBoolean("nav_button_devices_visible", true) ||
+                !sharedPrefs.getBoolean("nav_button_ai_visible", true) ||
+                !sharedPrefs.getBoolean("nav_button_search_visible", true)
+        btnResetNavOrder?.visibility = if (isChanged) View.VISIBLE else View.GONE
+        
+        val buttonConfigs = mutableListOf<BottomBarButtonConfig>()
+        val allIds = listOf("chats", "devices", "ai", "search", "profile")
+        val orderToUse = if (currentOrder.containsAll(allIds)) currentOrder else defaultOrder.split(",")
+        
+        for (id in orderToUse) {
+            when (id) {
+                "chats" -> buttonConfigs.add(BottomBarButtonConfig("chats", "Чаты", R.drawable.ic_nav_chats, sharedPrefs.getBoolean("nav_button_chats_visible", true)))
+                "devices" -> buttonConfigs.add(BottomBarButtonConfig("devices", "Устройства", R.drawable.ic_nav_devices, sharedPrefs.getBoolean("nav_button_devices_visible", true)))
+                "ai" -> buttonConfigs.add(BottomBarButtonConfig("ai", "AI Чат", R.drawable.ic_prime_ai, sharedPrefs.getBoolean("nav_button_ai_visible", true)))
+                "search" -> buttonConfigs.add(BottomBarButtonConfig("search", "Поиск", R.drawable.ic_search, sharedPrefs.getBoolean("nav_button_search_visible", true)))
+                "profile" -> buttonConfigs.add(BottomBarButtonConfig("profile", "Профиль", R.drawable.ic_person, true, isMandatory = true))
+            }
+        }
+        
+        val adapter = NavButtonsAdapter(buttonConfigs) {
+            val newOrder = buttonConfigs.joinToString(",") { it.id }
+            val editor = sharedPrefs.edit()
+            editor.putString("nav_buttons_order", newOrder)
+            buttonConfigs.forEach {
+                if (it.id != "profile") {
+                    editor.putBoolean("nav_button_${it.id}_visible", it.isVisible)
+                }
+            }
+            editor.apply()
+            setupBottomNav(b)
+            sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+        }
+        
+        val rvNavButtons = b.root.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.rvNavButtons)
+        rvNavButtons?.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+        rvNavButtons?.adapter = adapter
+        
+        val touchHelper = androidx.recyclerview.widget.ItemTouchHelper(object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(
+            androidx.recyclerview.widget.ItemTouchHelper.UP or androidx.recyclerview.widget.ItemTouchHelper.DOWN, 0) {
+            override fun onMove(
+                recyclerView: androidx.recyclerview.widget.RecyclerView,
+                viewHolder: androidx.recyclerview.widget.RecyclerView.ViewHolder,
+                target: androidx.recyclerview.widget.RecyclerView.ViewHolder
+            ): Boolean {
+                adapter.moveItem(viewHolder.adapterPosition, target.adapterPosition)
+                return true
+            }
+            override fun onSwiped(viewHolder: androidx.recyclerview.widget.RecyclerView.ViewHolder, direction: Int) {}
+        })
+        touchHelper.attachToRecyclerView(rvNavButtons)
     }
 
     private fun updateNavUnreadBadge(navView: View) {
@@ -1516,27 +1926,61 @@ class SettingsActivity : AppCompatActivity() {
 
         val btnNavChats = navView.findViewById<View>(R.id.btnNavChats)
         val btnNavDevices = navView.findViewById<View>(R.id.btnNavDevices)
+        val btnNavAi = navView.findViewById<View>(R.id.btnNavAi)
         val btnNavSearch = navView.findViewById<View>(R.id.btnNavSearch)
+        val btnNavProfile = navView.findViewById<View>(R.id.btnNavProfile)
+
+        val navContainer = (navView as? ViewGroup)?.getChildAt(0) as? ViewGroup
+        if (navContainer != null) {
+            val defaultOrder = "chats,devices,ai,search,profile"
+            val currentOrderStr = sharedPrefs.getString("nav_buttons_order", defaultOrder) ?: defaultOrder
+            val currentOrder = currentOrderStr.split(",").filter { it.isNotEmpty() }
+
+            navContainer.removeAllViews()
+
+            val allNavIds = listOf("chats", "devices", "ai", "search", "profile")
+            val orderToUse = if (currentOrder.containsAll(allNavIds)) currentOrder else defaultOrder.split(",")
+
+            for (id in orderToUse) {
+                val view = when (id) {
+                    "chats" -> btnNavChats
+                    "devices" -> btnNavDevices
+                    "ai" -> btnNavAi
+                    "search" -> btnNavSearch
+                    "profile" -> btnNavProfile
+                    else -> null
+                }
+                view?.let {
+                    val isVisible = sharedPrefs.getBoolean("nav_button_${id}_visible", true)
+                    it.visibility = if (isVisible || id == "profile") View.VISIBLE else View.GONE
+                    navContainer.addView(it)
+                }
+            }
+        }
 
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
         val secondaryColor = ContextCompat.getColor(this, R.color.prime_text_secondary)
 
         val vNavChatsIndicator = navView.findViewById<View>(R.id.vNavChatsIndicator)
         val vNavDevicesIndicator = navView.findViewById<View>(R.id.vNavDevicesIndicator)
+        val vNavAiIndicator = navView.findViewById<View>(R.id.vNavAiIndicator)
         val vNavSearchIndicator = navView.findViewById<View>(R.id.vNavSearchIndicator)
         val vNavProfileIndicator = navView.findViewById<View>(R.id.vNavProfileIndicator)
 
         val ivNavChatsIcon = navView.findViewById<ImageView>(R.id.ivNavChatsIcon)
         val ivNavDevicesIcon = navView.findViewById<ImageView>(R.id.ivNavDevicesIcon)
+        val ivNavAiIcon = navView.findViewById<ImageView>(R.id.ivNavAiIcon)
         val ivNavSearchIcon = navView.findViewById<ImageView>(R.id.ivNavSearchIcon)
 
         val tvNavChatsLabel = navView.findViewById<TextView>(R.id.tvNavChatsLabel)
         val tvNavDevicesLabel = navView.findViewById<TextView>(R.id.tvNavDevicesLabel)
+        val tvNavAiLabel = navView.findViewById<TextView>(R.id.tvNavAiLabel)
         val tvNavSearchLabel = navView.findViewById<TextView>(R.id.tvNavSearchLabel)
         val tvNavProfileLabel = navView.findViewById<TextView>(R.id.tvNavProfileLabel)
 
         updateM3TabState(false, vNavChatsIndicator, ivNavChatsIcon, tvNavChatsLabel, accentColor, secondaryColor)
         updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, tvNavDevicesLabel, accentColor, secondaryColor)
+        updateM3TabState(false, vNavAiIndicator, ivNavAiIcon, tvNavAiLabel, accentColor, secondaryColor)
         updateM3TabState(false, vNavSearchIndicator, ivNavSearchIcon, tvNavSearchLabel, accentColor, secondaryColor)
         updateM3TabState(true, vNavProfileIndicator, null, tvNavProfileLabel, accentColor, secondaryColor)
         updateNavUnreadBadge(navView)
@@ -1597,6 +2041,12 @@ class SettingsActivity : AppCompatActivity() {
                 PrimeTransitions.applyPageFlipTransition(this, isForward = false)
                 finish()
             }
+        }
+
+        btnNavAi?.setOnClickListener {
+            val intent = Intent(this, AiChatActivity::class.java)
+            startActivity(intent)
+            PrimeTransitions.applyOpenTransition(this)
         }
 
         btnNavSearch?.setOnClickListener {
@@ -2464,6 +2914,15 @@ class SettingsActivity : AppCompatActivity() {
         val isLight = themeStr == "light"
         val isDark = themeStr == "dark"
 
+        b.btnResetTheme?.visibility = if (!isSystem) View.VISIBLE else View.GONE
+        b.btnResetTheme?.setOnClickListener {
+            val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            sharedPrefs.edit().remove("app_theme").apply()
+            updateThemeSelectionUI(b, "system")
+            updateThemeChatPreview(b, "system")
+            applyThemeChange("system")
+        }
+
         b.rbThemeSystem.isChecked = isSystem
         b.rbThemeLight.isChecked = isLight
         b.rbThemeDark.isChecked = isDark
@@ -3306,6 +3765,12 @@ class SettingsActivity : AppCompatActivity() {
 
         b.sliderBubbleRadius.value = savedPercent.toFloat()
 
+        val btnReset = b.root.findViewById<ImageView>(R.id.btnResetBubbleRadius)
+        val updateResetVisibility = { percent: Int ->
+            btnReset?.visibility = if (percent != 50) View.VISIBLE else View.GONE
+        }
+        updateResetVisibility(savedPercent)
+
         val updateLabel = { percent: Int ->
             val minDp = 4
             val maxDp = 28
@@ -3314,10 +3779,21 @@ class SettingsActivity : AppCompatActivity() {
         }
         updateLabel(savedPercent)
 
+        btnReset?.setOnClickListener {
+            sharedPrefs.edit().putInt("settings_bubble_radius_percent", 50).apply()
+            b.sliderBubbleRadius.value = 50f
+            updateLabel(50)
+            updateResetVisibility(50)
+            val currentTheme = sharedPrefs.getString("app_theme", "system") ?: "system"
+            updateThemeChatPreview(b, currentTheme)
+            sendBroadcast(Intent("com.messenger.prime.BUBBLE_RADIUS_CHANGED").setPackage(packageName))
+        }
+
         b.sliderBubbleRadius.addOnChangeListener { _, value, fromUser ->
             val percent = value.toInt()
             sharedPrefs.edit().putInt("settings_bubble_radius_percent", percent).apply()
             updateLabel(percent)
+            updateResetVisibility(percent)
             val currentTheme = sharedPrefs.getString("app_theme", "system") ?: "system"
             updateThemeChatPreview(b, currentTheme)
             if (fromUser) {
@@ -3381,6 +3857,21 @@ class SettingsActivity : AppCompatActivity() {
             updateThemeChatPreview(b, currentTheme)
         }
 
+        val btnReset = b.root.findViewById<ImageView>(R.id.btnResetAvatarRadius)
+        val updateResetVisibility = { percent: Int ->
+            btnReset?.visibility = if (percent != 50) View.VISIBLE else View.GONE
+        }
+        updateResetVisibility(savedPercent)
+
+        btnReset?.setOnClickListener {
+            sharedPrefs.edit().putInt("settings_avatar_radius_percent", 50).apply()
+            b.sliderAvatarRadius.value = 50f
+            AvatarManager.clearAvatarRadiusCache()
+            updateAvatarPreview(50)
+            updateResetVisibility(50)
+            sendBroadcast(Intent("com.messenger.prime.AVATAR_RADIUS_CHANGED").setPackage(packageName))
+        }
+
         updateAvatarPreview(savedPercent)
 
         b.sliderAvatarRadius.addOnChangeListener { _, value, fromUser ->
@@ -3388,6 +3879,7 @@ class SettingsActivity : AppCompatActivity() {
             sharedPrefs.edit().putInt("settings_avatar_radius_percent", percent).apply()
             AvatarManager.clearAvatarRadiusCache()
             updateAvatarPreview(percent)
+            updateResetVisibility(percent)
             if (fromUser) {
                 sendBroadcast(Intent("com.messenger.prime.AVATAR_RADIUS_CHANGED").setPackage(packageName))
             }
@@ -3490,24 +3982,51 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
+        val btnResetCorner = b.root.findViewById<ImageView>(R.id.btnResetVideoCorner)
+        val btnResetSize = b.root.findViewById<ImageView>(R.id.btnResetVideoSize)
+
+        fun updateResetBtnsVisibility(radiusPercent: Int, sizeDp: Int) {
+            btnResetCorner?.visibility = if (radiusPercent != 50) View.VISIBLE else View.GONE
+            btnResetSize?.visibility = if (sizeDp != 180) View.VISIBLE else View.GONE
+        }
+
         b.sliderVideoCornerRadius?.value = savedRadiusPercent.toFloat().coerceIn(0f, 50f)
         b.sliderVideoSize?.value = savedSizeDp.toFloat().coerceIn(120f, 260f)
 
         updatePreviewAndLabels(savedRadiusPercent, savedSizeDp)
+        updateResetBtnsVisibility(savedRadiusPercent, savedSizeDp)
+
+        btnResetCorner?.setOnClickListener {
+            sharedPrefs.edit().putInt("video_message_corner_radius", 50).putString("video_message_shape", "50").apply()
+            b.sliderVideoCornerRadius?.value = 50f
+            val currentSize = b.sliderVideoSize?.value?.toInt() ?: 180
+            updatePreviewAndLabels(50, currentSize)
+            updateResetBtnsVisibility(50, currentSize)
+        }
+
+        btnResetSize?.setOnClickListener {
+            sharedPrefs.edit().putInt("video_message_size_dp", 180).apply()
+            b.sliderVideoSize?.value = 180f
+            val currentRadius = b.sliderVideoCornerRadius?.value?.toInt() ?: 50
+            updatePreviewAndLabels(currentRadius, 180)
+            updateResetBtnsVisibility(currentRadius, 180)
+        }
 
         b.sliderVideoCornerRadius?.addOnChangeListener { _, value, fromUser ->
+            val radius = value.toInt()
+            val currentSize = b.sliderVideoSize?.value?.toInt() ?: 180
+            updateResetBtnsVisibility(radius, currentSize)
             if (fromUser) {
-                val radius = value.toInt()
-                val currentSize = b.sliderVideoSize?.value?.toInt() ?: 180
                 sharedPrefs.edit().putInt("video_message_corner_radius", radius).putString("video_message_shape", radius.toString()).apply()
                 updatePreviewAndLabels(radius, currentSize)
             }
         }
 
         b.sliderVideoSize?.addOnChangeListener { _, value, fromUser ->
+            val size = value.toInt()
+            val currentRadius = b.sliderVideoCornerRadius?.value?.toInt() ?: 50
+            updateResetBtnsVisibility(currentRadius, size)
             if (fromUser) {
-                val size = value.toInt()
-                val currentRadius = b.sliderVideoCornerRadius?.value?.toInt() ?: 50
                 sharedPrefs.edit().putInt("video_message_size_dp", size).apply()
                 updatePreviewAndLabels(currentRadius, size)
             }
@@ -3581,5 +4100,99 @@ class SettingsActivity : AppCompatActivity() {
             }
             true
         }
+    }
+}
+
+data class BottomBarButtonConfig(
+    val id: String,
+    val title: String,
+    val iconRes: Int,
+    var isVisible: Boolean,
+    val isMandatory: Boolean = false
+)
+
+class NavButtonsAdapter(
+    private val items: MutableList<BottomBarButtonConfig>,
+    private val onOrderChanged: () -> Unit
+) : androidx.recyclerview.widget.RecyclerView.Adapter<NavButtonsAdapter.ViewHolder>() {
+
+    class ViewHolder(view: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(view) {
+        val ivIcon: ImageView = view.findViewById(android.R.id.icon)
+        val tvTitle: TextView = view.findViewById(android.R.id.title)
+        val switchVisibility: com.google.android.material.materialswitch.MaterialSwitch = view.findViewById(android.R.id.checkbox)
+        val ivDragHandle: ImageView = view.findViewById(android.R.id.icon2)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val context = parent.context
+        val view = LinearLayout(context).apply {
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            
+            val scale = context.resources.displayMetrics.density
+            val paddingV = (12 * scale).toInt()
+            setPadding(0, paddingV, 0, paddingV)
+            
+            val icon = ImageView(context).apply {
+                id = android.R.id.icon
+                layoutParams = LinearLayout.LayoutParams((24 * scale).toInt(), (24 * scale).toInt()).apply {
+                    marginEnd = (16 * scale).toInt()
+                }
+            }
+            addView(icon)
+            
+            val title = TextView(context).apply {
+                id = android.R.id.title
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                setTextColor(ContextCompat.getColor(context, R.color.prime_text_primary))
+                textSize = 15f
+            }
+            addView(title)
+            
+            val switch = com.google.android.material.materialswitch.MaterialSwitch(context).apply {
+                id = android.R.id.checkbox
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+            addView(switch)
+            
+            val dragHandle = ImageView(context).apply {
+                id = android.R.id.icon2
+                layoutParams = LinearLayout.LayoutParams((24 * scale).toInt(), (24 * scale).toInt()).apply {
+                    marginStart = (16 * scale).toInt()
+                }
+                setImageResource(R.drawable.ic_drag_handle)
+                imageTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(context, R.color.prime_text_secondary))
+            }
+            addView(dragHandle)
+        }
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        val item = items[position]
+        holder.ivIcon.setImageResource(item.iconRes)
+        val accent = ColorAccentManager.getCurrentAccentColor(holder.itemView.context)
+        holder.ivIcon.imageTintList = android.content.res.ColorStateList.valueOf(accent)
+        holder.tvTitle.text = item.title
+        
+        holder.switchVisibility.setOnCheckedChangeListener(null)
+        holder.switchVisibility.isChecked = item.isVisible
+        holder.switchVisibility.isEnabled = !item.isMandatory
+        holder.switchVisibility.alpha = if (item.isMandatory) 0.5f else 1f
+        
+        holder.switchVisibility.setOnCheckedChangeListener { _, isChecked ->
+            item.isVisible = isChecked
+            onOrderChanged()
+        }
+    }
+
+    override fun getItemCount() = items.size
+    
+    fun moveItem(fromPosition: Int, toPosition: Int) {
+        val item = items.removeAt(fromPosition)
+        items.add(toPosition, item)
+        notifyItemMoved(fromPosition, toPosition)
+        onOrderChanged()
     }
 }

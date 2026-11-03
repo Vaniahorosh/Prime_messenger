@@ -180,7 +180,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.textfield.TextInputEditText
 import com.messenger.prime.databinding.ActivityChatListContentBinding
-import com.messenger.prime.databinding.LayoutIslandBinding
 
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
@@ -2585,6 +2584,12 @@ class ChatListActivity : AppCompatActivity() {
         adapter = ChatListAdapter(
             chatList = allChats,
             onChatClick = { chat ->
+                if (chat.id == "ai_prime_chat") {
+                    val intent = Intent(this, AiChatActivity::class.java)
+                    startActivity(intent)
+                    PrimeTransitions.applyOpenTransition(this)
+                    return@ChatListAdapter
+                }
                 if (chat.id == "block_test_contact") {
                     val parts = (chat.lastMessage ?: "").split(" ")
                     if (parts.size >= 4) {
@@ -3814,28 +3819,62 @@ class ChatListActivity : AppCompatActivity() {
 
         val btnNavChats = navView.findViewById<View>(R.id.btnNavChats)
         val btnNavDevices = navView.findViewById<View>(R.id.btnNavDevices)
+        val btnNavAi = navView.findViewById<View>(R.id.btnNavAi)
         val btnNavSearch = navView.findViewById<View>(R.id.btnNavSearch)
         val btnNavProfile = navView.findViewById<View>(R.id.btnNavProfile)
+
+        val navContainer = (navView as? ViewGroup)?.getChildAt(0) as? ViewGroup
+        if (navContainer != null) {
+            val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+            val defaultOrder = "chats,devices,ai,search,profile"
+            val currentOrderStr = sharedPrefs.getString("nav_buttons_order", defaultOrder) ?: defaultOrder
+            val currentOrder = currentOrderStr.split(",").filter { it.isNotEmpty() }
+
+            navContainer.removeAllViews()
+
+            val allNavIds = listOf("chats", "devices", "ai", "search", "profile")
+            val orderToUse = if (currentOrder.containsAll(allNavIds)) currentOrder else defaultOrder.split(",")
+
+            for (id in orderToUse) {
+                val view = when (id) {
+                    "chats" -> btnNavChats
+                    "devices" -> btnNavDevices
+                    "ai" -> btnNavAi
+                    "search" -> btnNavSearch
+                    "profile" -> btnNavProfile
+                    else -> null
+                }
+                view?.let {
+                    val isVisible = sharedPrefs.getBoolean("nav_button_${id}_visible", true)
+                    it.visibility = if (isVisible || id == "profile") View.VISIBLE else View.GONE
+                    navContainer.addView(it)
+                }
+            }
+        }
 
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
         val secondaryColor = ContextCompat.getColor(this, R.color.prime_text_secondary)
 
         val vNavChatsIndicator = navView.findViewById<View>(R.id.vNavChatsIndicator)
         val vNavDevicesIndicator = navView.findViewById<View>(R.id.vNavDevicesIndicator)
+        val vNavAiIndicator = navView.findViewById<View>(R.id.vNavAiIndicator)
         val vNavSearchIndicator = navView.findViewById<View>(R.id.vNavSearchIndicator)
         val vNavProfileIndicator = navView.findViewById<View>(R.id.vNavProfileIndicator)
 
         val ivNavChatsIcon = navView.findViewById<ImageView>(R.id.ivNavChatsIcon)
         val ivNavDevicesIcon = navView.findViewById<ImageView>(R.id.ivNavDevicesIcon)
+        val ivNavAiIcon = navView.findViewById<ImageView>(R.id.ivNavAiIcon)
         val ivNavSearchIcon = navView.findViewById<ImageView>(R.id.ivNavSearchIcon)
 
         val tvNavChatsLabel = navView.findViewById<TextView>(R.id.tvNavChatsLabel)
         val tvNavDevicesLabel = navView.findViewById<TextView>(R.id.tvNavDevicesLabel)
+        val tvNavAiLabel = navView.findViewById<TextView>(R.id.tvNavAiLabel)
         val tvNavSearchLabel = navView.findViewById<TextView>(R.id.tvNavSearchLabel)
         val tvNavProfileLabel = navView.findViewById<TextView>(R.id.tvNavProfileLabel)
 
         updateM3TabState(true, vNavChatsIndicator, ivNavChatsIcon, tvNavChatsLabel, accentColor, secondaryColor)
         updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, tvNavDevicesLabel, accentColor, secondaryColor)
+        updateM3TabState(false, vNavAiIndicator, ivNavAiIcon, tvNavAiLabel, accentColor, secondaryColor)
         updateM3TabState(false, vNavSearchIndicator, ivNavSearchIcon, tvNavSearchLabel, accentColor, secondaryColor)
         updateM3TabState(false, vNavProfileIndicator, null, tvNavProfileLabel, accentColor, secondaryColor)
         updateNavUnreadBadge(navView)
@@ -3863,6 +3902,12 @@ class ChatListActivity : AppCompatActivity() {
 
         btnNavDevices?.setOnClickListener {
             onStartChatClicked()
+        }
+
+        btnNavAi?.setOnClickListener {
+            val intent = Intent(this, AiChatActivity::class.java)
+            startActivity(intent)
+            PrimeTransitions.applyOpenTransition(this)
         }
 
         btnNavSearch?.setOnClickListener {
@@ -3999,6 +4044,10 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private fun deleteContact(contact: ChatModel) {
+        if (contact.id == "ai_prime_chat") {
+            PrimeNotification.show(this, "AI Чат нельзя удалить из списка")
+            return
+        }
         val index = chatListState.indexOfFirst { it.id.equals(contact.id, ignoreCase = true) }
         if (index == -1) return
         
@@ -4397,6 +4446,25 @@ class ChatListActivity : AppCompatActivity() {
             .sortedWith(compareByDescending<Pair<ChatModel, Long>> { it.first.isTyping }
                 .thenByDescending { it.second })
             .map { it.first }
+
+        val resultList = deduplicatedList.toMutableList()
+        val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        val navStyle = sp.getString("navigation_style", "island") ?: "island"
+        val aiContactEnabled = sp.getBoolean("ai_chat_contact_enabled", true)
+
+        if (navStyle == "island" && aiContactEnabled) {
+            val aiContact = ChatModel(
+                id = "ai_prime_chat",
+                name = "AI Prime Chat",
+                lastMessage = "Ваш персональный нейро-ассистент",
+                time = "онлайн",
+                avatarUri = null,
+                onlineStatus = OnlineStatus.ONLINE
+            )
+            resultList.add(0, aiContact)
+        }
+
+        return resultList
 
         val array = JSONArray()
         deduplicatedList.forEach { chat ->

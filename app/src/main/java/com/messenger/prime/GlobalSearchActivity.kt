@@ -290,20 +290,24 @@ class GlobalSearchActivity : AppCompatActivity() {
 
         val vNavChatsIndicator = navView.findViewById<View>(R.id.vNavChatsIndicator)
         val vNavDevicesIndicator = navView.findViewById<View>(R.id.vNavDevicesIndicator)
+        val vNavAiIndicator = navView.findViewById<View>(R.id.vNavAiIndicator)
         val vNavSearchIndicator = navView.findViewById<View>(R.id.vNavSearchIndicator)
         val vNavProfileIndicator = navView.findViewById<View>(R.id.vNavProfileIndicator)
 
         val ivNavChatsIcon = navView.findViewById<ImageView>(R.id.ivNavChatsIcon)
         val ivNavDevicesIcon = navView.findViewById<ImageView>(R.id.ivNavDevicesIcon)
+        val ivNavAiIcon = navView.findViewById<ImageView>(R.id.ivNavAiIcon)
         val ivNavSearchIcon = navView.findViewById<ImageView>(R.id.ivNavSearchIcon)
 
         val tvNavChatsLabel = navView.findViewById<TextView>(R.id.tvNavChatsLabel)
         val tvNavDevicesLabel = navView.findViewById<TextView>(R.id.tvNavDevicesLabel)
+        val tvNavAiLabel = navView.findViewById<TextView>(R.id.tvNavAiLabel)
         val tvNavSearchLabel = navView.findViewById<TextView>(R.id.tvNavSearchLabel)
         val tvNavProfileLabel = navView.findViewById<TextView>(R.id.tvNavProfileLabel)
 
         updateM3TabState(false, vNavChatsIndicator, ivNavChatsIcon, tvNavChatsLabel, accentColor, secondaryColor)
         updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, tvNavDevicesLabel, accentColor, secondaryColor)
+        updateM3TabState(false, vNavAiIndicator, ivNavAiIcon, tvNavAiLabel, accentColor, secondaryColor)
         updateM3TabState(true, vNavSearchIndicator, ivNavSearchIcon, tvNavSearchLabel, accentColor, secondaryColor)
         updateM3TabState(false, vNavProfileIndicator, null, tvNavProfileLabel, accentColor, secondaryColor)
         updateNavUnreadBadge(navView)

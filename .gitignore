@@ -15,5 +15,6 @@
 local.properties
 *.apk
 .kotlin/
+.artifacts/
 
 

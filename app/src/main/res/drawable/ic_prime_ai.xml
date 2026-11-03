@@ -1,0 +1,22 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="36"
+    android:viewportHeight="36">
+    <!-- Outer Glass Ring / Shield -->
+    <path
+        android:fillColor="#154B87"
+        android:pathData="M18,2 C9.16,2 2,9.16 2,18 C2,26.84 9.16,34 18,34 C26.84,34 34,26.84 34,18 C34,9.16 26.84,2 18,2 Z M18,31 C10.82,31 5,25.18 5,18 C5,10.82 10.82,5 18,5 C25.18,5 31,10.82 31,18 C31,25.18 25.18,31 18,31 Z" />
+    <!-- Glowing Core Badge -->
+    <path
+        android:fillColor="#3B82F6"
+        android:pathData="M18,7 C11.92,7 7,11.92 7,18 C7,24.08 11.92,29 18,29 C24.08,29 29,24.08 29,18 C29,11.92 24.08,7 18,7 Z" />
+    <!-- Letter A -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M13.2,22.5 L12.1,22.5 L14.7,14 L16.3,14 L18.9,22.5 L17.8,22.5 L17.1,20.1 L13.9,20.1 Z M14.2,19.1 L16.8,19.1 L15.5,14.8 Z" />
+    <!-- Letter I -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M20.8,14 L22.1,14 L22.1,22.5 L20.8,22.5 Z" />
+</vector>
