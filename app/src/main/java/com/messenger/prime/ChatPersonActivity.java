@@ -759,7 +759,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 if (vTopGradient != null) {
                     ViewGroup.LayoutParams lp = vTopGradient.getLayoutParams();
                     if (lp != null) {
-                        lp.height = statusBarTop + (int) (56 * density);
+                        SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                        boolean isNoBlock = "no_block".equals(sp.getString("settings_chat_header_style", "block"));
+                        int extraHeight = isNoBlock ? (int) (112 * density) : (int) (56 * density);
+                        lp.height = statusBarTop + extraHeight;
                         vTopGradient.setLayoutParams(lp);
                     }
                     vTopGradient.setBackgroundResource(isDarkTheme ? R.drawable.bg_top_fog_dark : R.drawable.bg_top_fog_light);
@@ -2348,6 +2351,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void applyChatUiCornerRadius() {
         SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        String headerStyle = sp.getString("settings_chat_header_style", "block");
+        boolean isNoBlock = "no_block".equals(headerStyle);
+
         int topBarRadiusDp = sp.getInt("settings_top_bar_radius_dp", 24);
         int bottomBarRadiusDp = sp.getInt("settings_bottom_bar_radius_dp", 24);
 
@@ -2356,16 +2362,37 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         final float bottomRadiusPx = bottomBarRadiusDp * density;
 
         eightbitlab.com.blurview.BlurView layoutHeader = findViewById(R.id.layoutHeader);
+        View vTopGradient = findViewById(R.id.vTopGradient);
+
+        if (vTopGradient != null) {
+            ViewGroup.LayoutParams lp = vTopGradient.getLayoutParams();
+            if (lp != null) {
+                int statusBarTop = getStatusBarHeight();
+                int extraHeight = isNoBlock ? (int) (112 * density) : (int) (56 * density);
+                lp.height = statusBarTop + extraHeight;
+                vTopGradient.setLayoutParams(lp);
+            }
+        }
+
         if (layoutHeader != null) {
-            layoutHeader.setClipToOutline(true);
-            layoutHeader.setOutlineProvider(new android.view.ViewOutlineProvider() {
-                @Override
-                public void getOutline(View view, android.graphics.Outline outline) {
-                    outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), topRadiusPx);
-                }
-            });
-            layoutHeader.invalidateOutline();
-            updateViewBackgroundCorners(layoutHeader, topRadiusPx);
+            if (isNoBlock) {
+                layoutHeader.setBackground(null);
+                layoutHeader.setElevation(0f);
+                layoutHeader.setOutlineProvider(null);
+                layoutHeader.setClipToOutline(false);
+            } else {
+                layoutHeader.setBackgroundResource(R.drawable.bg_floating_island);
+                layoutHeader.setElevation(8f * density);
+                layoutHeader.setClipToOutline(true);
+                layoutHeader.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                    @Override
+                    public void getOutline(View view, android.graphics.Outline outline) {
+                        outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), topRadiusPx);
+                    }
+                });
+                layoutHeader.invalidateOutline();
+                updateViewBackgroundCorners(layoutHeader, topRadiusPx);
+            }
         }
 
         eightbitlab.com.blurview.BlurView[] blurViews = new eightbitlab.com.blurview.BlurView[] {
@@ -3875,6 +3902,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     @SuppressWarnings("unchecked")
     private void openPersonInformationActivity() {
         if (isMultiSelectionActive || (chatAdapter != null && chatAdapter.isMultiSelectionMode())) {
+            return;
+        }
+        SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        boolean isPartnerInfoEnabled = sp.getBoolean("settings_partner_info_enabled", true);
+        if (!isPartnerInfoEnabled) {
             return;
         }
         Intent intent = new Intent(this, PersonInformationActivity.class);

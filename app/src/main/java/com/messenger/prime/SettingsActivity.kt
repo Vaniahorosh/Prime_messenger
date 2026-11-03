@@ -943,10 +943,16 @@ class SettingsActivity : AppCompatActivity() {
                 .addItem(3, "Скругление аватарки", R.drawable.ic_person) {
                     smoothScrollToView(b.nestedScrollView, b.tvTitleAvatarRadius)
                 }
-                .addItem(4, "Скругление блоков в чате", R.drawable.ic_perspective) {
+                .addItem(4, "Стиль в чате", R.drawable.ic_tema) {
+                    smoothScrollToView(b.nestedScrollView, b.cardChatStyleSection)
+                }
+                .addItem(5, "Скругление блоков в чате", R.drawable.ic_perspective) {
                     b.tvTitleBottomBarRadius?.let { smoothScrollToView(b.nestedScrollView, it) }
                 }
-                .addItem(5, "Форма кружков (Видео)", R.drawable.ic_camera) {
+                .addItem(6, "Информация о собеседнике", R.drawable.ic_person) {
+                    smoothScrollToView(b.nestedScrollView, b.cardPartnerInfoSection)
+                }
+                .addItem(7, "Форма кружков (Видео)", R.drawable.ic_camera) {
                     b.cardVideoNotesSection?.let { smoothScrollToView(b.nestedScrollView, it) }
                 }
                 .show()
@@ -1474,6 +1480,8 @@ class SettingsActivity : AppCompatActivity() {
         setupNavStyleSection(b)
         setupBubbleRadiusSection(b)
         setupAvatarRadiusSection(b)
+        setupChatStyleSection(b)
+        setupPartnerInfoSection(b)
         setupBottomBarRadiusSection(b)
         setupVideoMessageSection(b)
         setupDisableAnimationsSection(b)
@@ -1540,6 +1548,81 @@ class SettingsActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 android.widget.Toast.makeText(context, "Ошибка при очистке кэша", android.widget.Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    private fun setupChatStyleSection(b: ActivitySettingsContentBinding) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        var currentStyle = sharedPrefs.getString("settings_chat_header_style", "block") ?: "block"
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+
+        val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
+        val isDark = when (themePref) {
+            "dark" -> true
+            "light" -> false
+            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        }
+
+        b.vPreviewTopFog.setBackgroundResource(if (isDark) R.drawable.bg_top_fog_dark else R.drawable.bg_top_fog_light)
+
+        val updateChatStyleUi = { style: String ->
+            currentStyle = style
+            val isBlock = style == "block"
+
+            val activeColorStateList = ColorStateList.valueOf(accentColor)
+            val transparentColorStateList = ColorStateList.valueOf(Color.TRANSPARENT)
+
+            b.btnChatStyleBlock.backgroundTintList = if (isBlock) activeColorStateList else transparentColorStateList
+            b.btnChatStyleBlock.setTextColor(if (isBlock) Color.WHITE else if (isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B"))
+
+            b.btnChatStyleNoBlock.backgroundTintList = if (!isBlock) activeColorStateList else transparentColorStateList
+            b.btnChatStyleNoBlock.setTextColor(if (!isBlock) Color.WHITE else if (isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B"))
+
+            // Update live preview
+            if (isBlock) {
+                b.cardHeaderPreviewIsland.setCardBackgroundColor(if (isDark) Color.parseColor("#1E293B") else Color.WHITE)
+                b.cardHeaderPreviewIsland.strokeWidth = (1 * resources.displayMetrics.density).toInt()
+                b.cardHeaderPreviewIsland.strokeColor = accentColor
+                b.cardHeaderPreviewIsland.cardElevation = 2 * resources.displayMetrics.density
+            } else {
+                b.cardHeaderPreviewIsland.setCardBackgroundColor(Color.TRANSPARENT)
+                b.cardHeaderPreviewIsland.strokeWidth = 0
+                b.cardHeaderPreviewIsland.cardElevation = 0f
+            }
+
+            // Enable or disable bottom bar radius slider based on whether "block" mode is selected
+            b.tvTitleBottomBarRadius?.alpha = if (isBlock) 1.0f else 0.4f
+            b.sliderBottomBarRadius?.isEnabled = isBlock
+            b.sliderBottomBarRadius?.alpha = if (isBlock) 1.0f else 0.4f
+            b.cardBottomBarPreviewBlock?.alpha = if (isBlock) 1.0f else 0.4f
+        }
+
+        updateChatStyleUi(currentStyle)
+
+        b.btnChatStyleBlock.setOnClickListener {
+            if (currentStyle != "block") {
+                sharedPrefs.edit().putString("settings_chat_header_style", "block").apply()
+                updateChatStyleUi("block")
+                sendBroadcast(Intent("com.messenger.prime.CHAT_UI_RADIUS_CHANGED").setPackage(packageName))
+            }
+        }
+
+        b.btnChatStyleNoBlock.setOnClickListener {
+            if (currentStyle != "no_block") {
+                sharedPrefs.edit().putString("settings_chat_header_style", "no_block").apply()
+                updateChatStyleUi("no_block")
+                sendBroadcast(Intent("com.messenger.prime.CHAT_UI_RADIUS_CHANGED").setPackage(packageName))
+            }
+        }
+    }
+
+    private fun setupPartnerInfoSection(b: ActivitySettingsContentBinding) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val isEnabled = sharedPrefs.getBoolean("settings_partner_info_enabled", true)
+        b.switchPartnerInfo.isChecked = isEnabled
+
+        b.switchPartnerInfo.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("settings_partner_info_enabled", isChecked).apply()
         }
     }
 

@@ -2263,6 +2263,211 @@
                                 </LinearLayout>
                             </com.google.android.material.card.MaterialCardView>
 
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:layout_marginTop="20dp"
+                                android:layout_marginBottom="16dp"
+                                android:background="@color/prime_divider" />
+
+                            <!-- Секция: Выбрать стиль в чате -->
+                            <LinearLayout
+                                android:id="@+id/cardChatStyleSection"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvTitleChatStyle"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="Выбрать стиль в чате"
+                                    android:textColor="@color/prime_brand"
+                                    android:textSize="14sp"
+                                    android:textStyle="bold" />
+
+                                <!-- Сегментированный переключатель стиля чата -->
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="44dp"
+                                    android:layout_marginTop="10dp"
+                                    android:background="@drawable/bg_date_bubble"
+                                    android:orientation="horizontal"
+                                    android:padding="3dp">
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/btnChatStyleBlock"
+                                        style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+                                        android:layout_width="0dp"
+                                        android:layout_height="match_parent"
+                                        android:layout_weight="1"
+                                        android:insetTop="0dp"
+                                        android:insetBottom="0dp"
+                                        android:text="Показать блок"
+                                        android:textAllCaps="false"
+                                        android:textSize="13sp"
+                                        android:textStyle="bold"
+                                        app:cornerRadius="20dp" />
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/btnChatStyleNoBlock"
+                                        style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+                                        android:layout_width="0dp"
+                                        android:layout_height="match_parent"
+                                        android:layout_weight="1"
+                                        android:insetTop="0dp"
+                                        android:insetBottom="0dp"
+                                        android:text="Убрать блок"
+                                        android:textAllCaps="false"
+                                        android:textSize="13sp"
+                                        android:textStyle="bold"
+                                        app:cornerRadius="20dp" />
+                                </LinearLayout>
+
+                                <!-- Примечание под переключателем -->
+                                <TextView
+                                    android:id="@+id/tvChatStyleNote"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="6dp"
+                                    android:text="*Функция &quot;Уровень скругления блоков в чате&quot; работает только при выборе режима &quot;Показать блок&quot;."
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="11sp" />
+
+                                <!-- Блок предпросмотра стиля чата -->
+                                <com.google.android.material.card.MaterialCardView
+                                    android:id="@+id/cardChatStylePreviewBlock"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="10dp"
+                                    app:cardCornerRadius="16dp"
+                                    app:cardElevation="0dp"
+                                    app:strokeWidth="0dp"
+                                    app:strokeColor="#1A000000">
+
+                                    <FrameLayout
+                                        android:id="@+id/layoutChatStylePreviewBg"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:padding="12dp">
+
+                                        <!-- Верхний туман в предпросмотре -->
+                                        <View
+                                            android:id="@+id/vPreviewTopFog"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="72dp"
+                                            android:background="@drawable/bg_top_fog_dark" />
+
+                                        <!-- Шапка в предпросмотре -->
+                                        <com.google.android.material.card.MaterialCardView
+                                            android:id="@+id/cardHeaderPreviewIsland"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            app:cardCornerRadius="20dp"
+                                            app:cardElevation="2dp"
+                                            app:strokeColor="@color/prime_brand"
+                                            app:strokeWidth="1dp"
+                                            app:cardBackgroundColor="@color/prime_base">
+
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="wrap_content"
+                                                android:gravity="center_vertical"
+                                                android:orientation="horizontal"
+                                                android:paddingHorizontal="10dp"
+                                                android:paddingVertical="8dp">
+
+                                                <ImageView
+                                                    android:layout_width="22dp"
+                                                    android:layout_height="22dp"
+                                                    android:src="@drawable/ic_arrow_back"
+                                                    app:tint="@color/prime_brand" />
+
+                                                <LinearLayout
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="wrap_content"
+                                                    android:layout_weight="1"
+                                                    android:layout_marginStart="10dp"
+                                                    android:orientation="vertical">
+
+                                                    <TextView
+                                                        android:id="@+id/tvPreviewChatName"
+                                                        android:layout_width="wrap_content"
+                                                        android:layout_height="wrap_content"
+                                                        android:text="Собеседник"
+                                                        android:textColor="@color/prime_text_primary"
+                                                        android:textSize="14sp"
+                                                        android:textStyle="bold" />
+
+                                                    <TextView
+                                                        android:id="@+id/tvPreviewChatStatus"
+                                                        android:layout_width="wrap_content"
+                                                        android:layout_height="wrap_content"
+                                                        android:text="В сети"
+                                                        android:textColor="@color/prime_success"
+                                                        android:textSize="11sp" />
+                                                </LinearLayout>
+
+                                                <ImageView
+                                                    android:layout_width="32dp"
+                                                    android:layout_height="32dp"
+                                                    android:src="@drawable/ic_person"
+                                                    app:tint="@color/prime_brand" />
+                                            </LinearLayout>
+                                        </com.google.android.material.card.MaterialCardView>
+
+                                    </FrameLayout>
+                                </com.google.android.material.card.MaterialCardView>
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:layout_marginTop="20dp"
+                                android:layout_marginBottom="16dp"
+                                android:background="@color/prime_divider" />
+
+                            <!-- Секция: Информация о собеседнике -->
+                            <LinearLayout
+                                android:id="@+id/cardPartnerInfoSection"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:id="@+id/tvTitlePartnerInfo"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="Информация о собеседнике"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="14sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvSubtitlePartnerInfo"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Переходить в профиль при клике на шапку чата"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+
+                                <com.google.android.material.materialswitch.MaterialSwitch
+                                    android:id="@+id/switchPartnerInfo"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="12dp"
+                                    android:checked="true" />
+                            </LinearLayout>
+
                             <!-- Скругление блоков и панелей в чате -->
                             <LinearLayout
                                 android:layout_width="match_parent"
