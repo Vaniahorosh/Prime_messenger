@@ -1558,7 +1558,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:layout_marginTop="2dp"
-                                            android:text="Отображать AI контакт в списке чатов"
+                                            android:text="Отображать AI-контакт в списке чатов"
                                             android:textColor="@color/prime_text_secondary"
                                             android:textSize="12sp" />
                                     </LinearLayout>
@@ -2860,7 +2860,7 @@
                                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="16dp" android:gravity="center_vertical">
                                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
                                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Camera API" android:textColor="@color/prime_text_primary" android:textSize="15sp"/>
-                                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Использовать CameraX (Стабильно)" android:textColor="@color/prime_text_secondary" android:textSize="12sp"/>
+                                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Использовать CameraX (стабильно)" android:textColor="@color/prime_text_secondary" android:textSize="12sp"/>
                                     </LinearLayout>
                                     <Spinner android:id="@+id/spinnerCameraApi" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                                 </LinearLayout>
@@ -3388,7 +3388,7 @@
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Картинки и фото вложения из чатов"
+                                        android:text="Картинки и фото-вложения из чатов"
                                         android:textColor="@color/prime_text_secondary"
                                         android:textSize="11sp" />
                                 </LinearLayout>
@@ -3562,7 +3562,7 @@
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Анимированные гифки из сообщений"
+                                        android:text="Анимированные GIF-файлы из сообщений"
                                         android:textColor="@color/prime_text_secondary"
                                         android:textSize="11sp" />
                                 </LinearLayout>
@@ -3906,7 +3906,7 @@
                                 android:layout_height="wrap_content"
                                 android:paddingVertical="12dp"
                                 android:gravity="center"
-                                android:text="Нет добавленных плагинов.\nНажмите '+', чтобы добавить Java файл, либо попросите AI агента создать плагин!"
+                                android:text="Нет добавленных плагинов.\nНажмите '+', чтобы добавить Java-файл, либо попросите AI-агента создать плагин!"
                                 android:textColor="@color/prime_text_secondary"
                                 android:textSize="13sp" />
 
@@ -4175,7 +4175,7 @@
                                     android:id="@+id/tvThanksProgramistAuthor"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="Помощник программиста: Gemini, Claude code"
+                                    android:text="Помощник программиста: Gemini, Claude Code"
                                     android:textColor="#154B87"
                                     android:textSize="13sp"
                                     android:layout_marginBottom="4dp" />
@@ -4193,7 +4193,7 @@
                                     android:id="@+id/tvThanksVisualAuthor"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="Автор Визуализации: Sora 2 / Vaniahorosh"
+                                    android:text="Автор визуализации: Sora 2 / Vaniahorosh"
                                     android:textColor="#154B87"
                                     android:textSize="13sp"
                                     android:layout_marginBottom="4dp" />
@@ -4202,7 +4202,7 @@
                                     android:id="@+id/tvThanksServerAuthor"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="Автор Серверной части: ?"
+                                    android:text="Автор серверной части: ?"
                                     android:textColor="#154B87"
                                     android:textSize="13sp"
                                     android:layout_marginBottom="12dp" />
