@@ -2378,12 +2378,16 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (layoutHeader != null) {
             if (isNoBlock) {
                 layoutHeader.setBlurEnabled(false);
+                layoutHeader.setOverlayColor(Color.TRANSPARENT);
                 layoutHeader.setBackground(null);
                 layoutHeader.setElevation(4f * density);
                 layoutHeader.setOutlineProvider(null);
                 layoutHeader.setClipToOutline(false);
             } else {
                 layoutHeader.setBlurEnabled(true);
+                boolean isDark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+                int overlayColor = isDark ? Color.parseColor("#400F172A") : Color.parseColor("#40154B87");
+                layoutHeader.setOverlayColor(overlayColor);
                 layoutHeader.setBackgroundResource(R.drawable.bg_floating_island);
                 layoutHeader.setElevation(8f * density);
                 layoutHeader.setClipToOutline(true);
@@ -3521,12 +3525,16 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         for (BlurView bv : blurViews) {
             if (bv != null) {
-                BlurViewKt.setupBlur(bv, rootView, 16f, overlayColor, windowBg);
                 if (bv == blurHeader && isNoBlock) {
                     bv.setBlurEnabled(false);
+                    bv.setOverlayColor(Color.TRANSPARENT);
+                    bv.setBackground(null);
+                } else {
+                    BlurViewKt.setupBlur(bv, rootView, 16f, overlayColor, windowBg);
                 }
             }
         }
+        applyChatUiCornerRadius();
     }
 
     private void showEditMessageDialog(ChatMessage message, int position) {
@@ -9403,6 +9411,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         rvMessages.addOnItemTouchListener(new RecyclerView.OnItemTouchListener() {
             @Override
             public boolean onInterceptTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
+                SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                boolean isPartnerInfoEnabled = sp.getBoolean("settings_partner_info_enabled", true);
+                if (!isPartnerInfoEnabled) {
+                    isPullToOpenActive = false;
+                    return false;
+                }
                 int action = e.getActionMasked();
                 switch (action) {
                     case MotionEvent.ACTION_DOWN:
@@ -9431,6 +9445,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
             @Override
             public void onTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
+                SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                boolean isPartnerInfoEnabled = sp.getBoolean("settings_partner_info_enabled", true);
+                if (!isPartnerInfoEnabled) {
+                    isPullToOpenActive = false;
+                    return;
+                }
                 if (!isPullToOpenActive) return;
 
                 int action = e.getActionMasked();
