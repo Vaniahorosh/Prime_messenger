@@ -220,8 +220,6 @@ public class ChatHistoryManager {
     public static void deleteHistoryCompletely(Context context, String targetUsername, String deviceAddress) {
         if (context == null) return;
         Context appContext = context.getApplicationContext();
-        markDeviceForgotten(appContext, targetUsername);
-        markDeviceForgotten(appContext, deviceAddress);
 
         List<String> keysToDelete = new ArrayList<>();
         if (targetUsername != null && !targetUsername.trim().isEmpty()) {
@@ -231,6 +229,8 @@ public class ChatHistoryManager {
             if (sk != null && !sk.isEmpty() && !keysToDelete.contains(sk)) keysToDelete.add(sk);
             String hk = getHistoryStorageKey(appContext, tu);
             if (hk != null && !hk.isEmpty() && !keysToDelete.contains(hk)) keysToDelete.add(hk);
+            String secureMac = DeviceBindingManager.getSecureDeviceMac(appContext, tu);
+            if (secureMac != null && !secureMac.isEmpty() && !keysToDelete.contains(secureMac)) keysToDelete.add(secureMac);
         }
         if (deviceAddress != null && !deviceAddress.trim().isEmpty()) {
             String da = deviceAddress.trim();
@@ -239,6 +239,12 @@ public class ChatHistoryManager {
             if (sk != null && !sk.isEmpty() && !keysToDelete.contains(sk)) keysToDelete.add(sk);
             String hk = getHistoryStorageKey(appContext, da);
             if (hk != null && !hk.isEmpty() && !keysToDelete.contains(hk)) keysToDelete.add(hk);
+            String secureMac = DeviceBindingManager.getSecureDeviceMac(appContext, da);
+            if (secureMac != null && !secureMac.isEmpty() && !keysToDelete.contains(secureMac)) keysToDelete.add(secureMac);
+        }
+
+        for (String k : keysToDelete) {
+            markDeviceForgotten(appContext, k);
         }
 
         // 0. Synchronously clear memoryCache for all keys
@@ -259,6 +265,13 @@ public class ChatHistoryManager {
         }
 
         executor.execute(() -> {
+            // Re-verify memory cache clearance inside executor
+            synchronized (memoryCache) {
+                for (String key : keysToDelete) {
+                    memoryCache.remove(key);
+                }
+            }
+
             // 1. Delete all history and attachments
             SharedPreferences historyPrefs = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
             SharedPreferences.Editor historyEdit = historyPrefs.edit();
@@ -294,7 +307,7 @@ public class ChatHistoryManager {
                 if (jsonFile.exists()) jsonFile.delete();
             }
 
-            // 2. Physical deletion of avatar, media, and cache files associated with contact
+            // 2. Physical deletion of avatar and cache files associated specifically with contact
             try {
                 File[] files = appContext.getFilesDir().listFiles();
                 if (files != null) {
@@ -303,7 +316,9 @@ public class ChatHistoryManager {
                         for (String tKey : keysToDelete) {
                             if (tKey != null && !tKey.isEmpty()) {
                                 String lowerKey = tKey.toLowerCase(Locale.US);
-                                if (name.contains(lowerKey)) {
+                                if (name.equals("history_" + lowerKey + ".json") ||
+                                    name.startsWith("rec_avatar_" + lowerKey) ||
+                                    name.startsWith("avatar_" + lowerKey)) {
                                     f.delete();
                                 }
                             }
@@ -320,7 +335,7 @@ public class ChatHistoryManager {
                         for (String tKey : keysToDelete) {
                             if (tKey != null && !tKey.isEmpty()) {
                                 String lowerKey = tKey.toLowerCase(Locale.US);
-                                if (name.contains(lowerKey)) {
+                                if (name.startsWith("cache_img_" + lowerKey) || name.startsWith("rec_avatar_" + lowerKey)) {
                                     f.delete();
                                 }
                             }
@@ -422,6 +437,63 @@ public class ChatHistoryManager {
         }
     }
 
+    public static void syncPersistedChatPreview(Context context, String targetUsername, ChatMessage lastMsg, boolean incrementUnread) {
+        if (context == null || targetUsername == null || targetUsername.trim().isEmpty()) return;
+        try {
+            Context appContext = context.getApplicationContext();
+            String json = getPersistedChatsJson(appContext);
+            JSONArray array = new JSONArray(json);
+            JSONArray newArray = new JSONArray();
+            boolean updated = false;
+
+            String timeStr = lastMsg != null && lastMsg.getTime() != null ? lastMsg.getTime() : new java.text.SimpleDateFormat("HH:mm", Locale.getDefault()).format(new java.util.Date());
+            String textStr = lastMsg != null ? (lastMsg.getText() != null && !lastMsg.getText().isEmpty() ? lastMsg.getText() : ChatMessage.getSummaryDescription(lastMsg)) : "";
+            long timestamp = lastMsg != null ? lastMsg.getTimestamp() : System.currentTimeMillis();
+            String msgStatus = lastMsg != null && lastMsg.getMessageStatus() != null ? lastMsg.getMessageStatus().name() : "SENT";
+
+            String resolvedMac = DeviceBindingManager.getSecureDeviceMac(appContext, targetUsername);
+            String storageKey = getStorageKey(appContext, targetUsername);
+
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject obj = array.getJSONObject(i);
+                String name = obj.optString("name", "");
+                String id = obj.optString("id", "");
+
+                boolean isMatch = targetUsername.equalsIgnoreCase(name) || targetUsername.equalsIgnoreCase(id) ||
+                                  (storageKey != null && !storageKey.isEmpty() && (storageKey.equalsIgnoreCase(name) || storageKey.equalsIgnoreCase(id))) ||
+                                  (resolvedMac != null && !resolvedMac.isEmpty() && (resolvedMac.equalsIgnoreCase(id) || resolvedMac.equalsIgnoreCase(name)));
+
+                if (isMatch) {
+                    obj.put("lastMessage", textStr);
+                    obj.put("time", timeStr);
+                    obj.put("timestamp", timestamp);
+                    obj.put("messageStatus", msgStatus);
+                    if (incrementUnread) {
+                        int count = obj.optInt("unreadCount", 0);
+                        obj.put("unreadCount", count + 1);
+                    }
+                    String mediaPath = getLastMediaPreviewPath(appContext, targetUsername, id);
+                    if (mediaPath != null && !mediaPath.isEmpty()) {
+                        obj.put("mediaPreviewPath", mediaPath);
+                    } else {
+                        obj.remove("mediaPreviewPath");
+                    }
+                    newArray.put(obj);
+                    updated = true;
+                } else {
+                    newArray.put(obj);
+                }
+            }
+
+            if (updated) {
+                savePersistedChatsJson(appContext, newArray.toString());
+                ChatListNotifier.INSTANCE.notifyChanged();
+            }
+        } catch (Exception e) {
+            Log.e("ChatHistoryManager", "Failed to sync persisted chat preview", e);
+        }
+    }
+
     public static void deleteSingleMessage(Context context, String targetUsername, String messageId) {
         if (targetUsername == null || targetUsername.isEmpty() || messageId == null || messageId.isEmpty()) return;
         Context appContext = context.getApplicationContext();
@@ -454,6 +526,8 @@ public class ChatHistoryManager {
                 snapshot = cached != null ? new ArrayList<>(cached) : new ArrayList<>();
             }
             saveHistoryList(appContext, targetUsername, snapshot);
+            ChatMessage lastMsg = snapshot.isEmpty() ? null : snapshot.get(snapshot.size() - 1);
+            syncPersistedChatPreview(appContext, targetUsername, lastMsg, false);
             ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);
         });
     }
@@ -462,6 +536,7 @@ public class ChatHistoryManager {
         if (targetUsername == null || targetUsername.isEmpty()) return;
 
         Context appContext = context.getApplicationContext();
+        unmarkDeviceForgotten(appContext, targetUsername);
         String userKey = getHistoryStorageKey(appContext, targetUsername);
 
         if (message.getImageBitmap() != null && (message.getImagePath() == null || message.getImagePath().isEmpty())) {
@@ -495,6 +570,7 @@ public class ChatHistoryManager {
                 snapshot = cached != null ? new ArrayList<>(cached) : new ArrayList<>();
             }
             saveHistoryList(appContext, targetUsername, snapshot);
+            syncPersistedChatPreview(appContext, targetUsername, message, false);
 
             if (message.isOutgoing()) {
                 ChatListNotifier.emitEvent(new ChatEvent.MessageSent(targetUsername, message));

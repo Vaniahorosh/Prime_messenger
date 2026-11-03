@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.ViewGroup
@@ -16,6 +18,9 @@ import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class AndroidPluginBridge(private val context: Context, private val pluginName: String) {
 
@@ -95,6 +100,143 @@ class AndroidPluginBridge(private val context: Context, private val pluginName: 
         } catch (e: Exception) {
             "Network Error: ${e.localizedMessage}"
         }
+    }
+
+    @JavascriptInterface
+    fun getChatsJson(): String {
+        return try {
+            ChatHistoryManager.getPersistedChatsJson(context)
+        } catch (e: Exception) {
+            "[]"
+        }
+    }
+
+    @JavascriptInterface
+    fun getCurrentUser(): String {
+        return ChatHistoryManager.getCurrentUser(context)
+    }
+
+    @JavascriptInterface
+    fun openOverlay() {
+        try {
+            PrimeOverlayService.toggleOverlayService(context)
+        } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun openChat(address: String) {
+        try {
+            val name = ChatHistoryManager.getDisplayNameForAddress(context, address)
+            val intent = Intent(context, ChatPersonActivity::class.java).apply {
+                putExtra("device_address", address)
+                putExtra("device_name", name)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun openUrl(urlStr: String) {
+        try {
+            val act = context as? androidx.fragment.app.FragmentActivity
+            if (act != null) {
+                com.messenger.prime.browser.AppBrowserManager.openUrl(act, urlStr)
+            } else {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(urlStr))
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            }
+        } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun deleteChat(address: String) {
+        try {
+            ChatHistoryManager.deleteHistoryCompletely(context, address, ChatHistoryManager.getDisplayNameForAddress(context, address))
+            toast("Чат удален")
+        } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun clearChat(address: String) {
+        try {
+            ChatHistoryManager.deleteHistory(context, address)
+            toast("История чата очищена")
+        } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun deleteAllChats() {
+        try {
+            val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            sp.edit().remove(ChatHistoryManager.getPersistedChatsKey(context)).apply()
+            toast("Все чаты удалены")
+            context.sendBroadcast(Intent("com.messenger.prime.CHAT_HISTORY_UPDATED").setPackage(context.packageName))
+        } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun changeTheme(isDark: Boolean) {
+        try {
+            val newTheme = if (isDark) "dark" else "light"
+            val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            sharedPrefs.edit().putString("app_theme", newTheme).apply()
+            
+            val mode = if (isDark) androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES else androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
+            androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(mode)
+            
+            context.sendBroadcast(Intent("com.messenger.prime.THEME_CHANGED").setPackage(context.packageName))
+        } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun vibrate(durationMs: Long) {
+        try {
+            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(android.os.VibrationEffect.createOneShot(durationMs, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(durationMs)
+            }
+        } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun playSound() {
+        try {
+            val ringtoneUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
+            val ringtone = android.media.RingtoneManager.getRingtone(context, ringtoneUri)
+            ringtone.play()
+        } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun showDialog(title: String, message: String) {
+        Handler(Looper.getMainLooper()).post {
+            try {
+                android.app.AlertDialog.Builder(context, R.style.Theme_Prime_AlertDialog)
+                    .setTitle(title)
+                    .setMessage(message)
+                    .setPositiveButton("OK", null)
+                    .show()
+            } catch (_: Exception) {}
+        }
+    }
+
+    @JavascriptInterface
+    fun sendMessage(address: String, text: String) {
+        try {
+            val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+            val senderLogin = ChatHistoryManager.getCurrentUser(context)
+            val msg = ChatMessage(text, timeStr, senderLogin, true)
+            ChatHistoryManager.saveMessage(context, address, msg)
+            
+            val updateIntent = Intent("com.messenger.prime.CHAT_HISTORY_UPDATED").setPackage(context.packageName)
+            updateIntent.putExtra("address", address)
+            context.sendBroadcast(updateIntent)
+        } catch (_: Exception) {}
     }
 }
 

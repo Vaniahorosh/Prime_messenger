@@ -84,6 +84,97 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 
+        <!-- Bottom Selection Mode Container (For Panel Mode) -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/layoutBottomSelectionMode"
+            android:layout_width="0dp"
+            android:layout_height="72dp"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_blur_glass_panel"
+            android:elevation="15dp"
+            android:outlineProvider="background"
+            android:clipToOutline="true"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <ImageButton
+                    android:id="@+id/btnBottomSelectionCancel"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_cancel"
+                    app:tint="@color/prime_brand"
+                    android:contentDescription="Отменить"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <TextSwitcher
+                    android:id="@+id/tsBottomSelectionCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toEndOf="@id/btnBottomSelectionCancel"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="44dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginEnd="4dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent">
+
+                    <ImageButton
+                        android:id="@+id/btnBottomSelectionPin"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_pin"
+                        app:tint="@color/prime_text_primary"
+                        android:contentDescription="Закрепить" />
+
+                    <ImageButton
+                        android:id="@+id/btnBottomSelectionMute"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_notifications_off"
+                        app:tint="@color/prime_text_primary"
+                        android:contentDescription="Отключить звук" />
+
+                    <ImageButton
+                        android:id="@+id/btnBottomSelectionDelete"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_trash"
+                        app:tint="@color/prime_danger"
+                        android:contentDescription="Удалить чаты" />
+
+                    <ImageButton
+                        android:id="@+id/btnBottomSelectionMore"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_more_vert"
+                        app:tint="@color/prime_text_primary"
+                        android:contentDescription="Больше" />
+                </LinearLayout>
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </eightbitlab.com.blurview.BlurView>
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- Pane Divider for Foldables / Tablets -->

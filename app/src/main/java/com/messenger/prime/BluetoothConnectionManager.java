@@ -376,10 +376,15 @@ public class BluetoothConnectionManager {
         ConnectedThread oldCt = connectionPool.get(devAddrUpper);
         if (oldCt == null && devAddr != null) oldCt = connectionPool.get(devAddr);
         if (oldCt != null && oldCt.isAlive()) {
-            Log.d(TAG, "Already connected to " + devAddr + ", keeping active connection.");
-            closeSocketQuietly(socket);
-            setState(devAddr, ConnectionState.CONNECTED, devName);
-            return;
+            if (oldCt.isSocketConnected()) {
+                Log.d(TAG, "Already connected to " + devAddr + ", keeping active connection.");
+                closeSocketQuietly(socket);
+                setState(devAddr, ConnectionState.CONNECTED, devName);
+                return;
+            } else {
+                Log.d(TAG, "Stale thread found in pool for " + devAddr + ", replacing with active connection.");
+                oldCt.cancel();
+            }
         }
 
         ConnectedThread newThread = new ConnectedThread(socket);
@@ -398,7 +403,7 @@ public class BluetoothConnectionManager {
         if (addressOrName == null || addressOrName.isEmpty()) {
             if (connectionPool.size() == 1) {
                 for (ConnectedThread t : connectionPool.values()) {
-                    if (t != null && t.isAlive()) return t;
+                    if (t != null && t.isSocketConnected()) return t;
                 }
             }
             return null;
@@ -406,13 +411,13 @@ public class BluetoothConnectionManager {
 
         String upperAddr = addressOrName.toUpperCase(Locale.US);
         ConnectedThread r = connectionPool.get(upperAddr);
-        if (r != null && r.isAlive()) return r;
+        if (r != null && r.isSocketConnected()) return r;
 
         r = connectionPool.get(addressOrName);
-        if (r != null && r.isAlive()) return r;
+        if (r != null && r.isSocketConnected()) return r;
 
         for (ConnectedThread thread : connectionPool.values()) {
-            if (thread != null && thread.isAlive()) {
+            if (thread != null && thread.isSocketConnected()) {
                 if (addressOrName.equalsIgnoreCase(thread.getThreadDeviceAddress()) ||
                     addressOrName.equalsIgnoreCase(thread.getThreadRemoteUsername())) {
                     return thread;
@@ -426,7 +431,7 @@ public class BluetoothConnectionManager {
 
         if (isGeneric && connectionPool.size() == 1) {
             for (ConnectedThread thread : connectionPool.values()) {
-                if (thread != null && thread.isAlive()) {
+                if (thread != null && thread.isSocketConnected()) {
                     return thread;
                 }
             }
@@ -644,21 +649,30 @@ public class BluetoothConnectionManager {
 
                 BluetoothSocket socket = null;
 
+                boolean isComputer = false;
+                try {
+                    if (mmDevice.getBluetoothClass() != null && mmDevice.getBluetoothClass().getMajorDeviceClass() == android.bluetooth.BluetoothClass.Device.Major.COMPUTER) {
+                        isComputer = true;
+                    }
+                } catch (Exception ignored) {}
+
                 boolean isBonded = false;
                 try {
                     isBonded = mmDevice.getBondState() == BluetoothDevice.BOND_BONDED;
                 } catch (Exception ignored) {}
 
-                // Stage 1: If Bonded, try Secure RFCOMM first (required by some Android OS versions for paired devices)
-                if (socket == null && !isCancelled && isBonded) {
+                // Stage 1: Fast Direct RFCOMM Channel 1 (Instant phone-to-phone connection across all app versions)
+                if (socket == null && !isCancelled && !isComputer) {
                     try {
-                        socket = mmDevice.createRfcommSocketToServiceRecord(mmUuid);
+                        socket = (BluetoothSocket) mmDevice.getClass()
+                                .getMethod("createRfcommSocket", int.class)
+                                .invoke(mmDevice, 1);
                         if (socket != null) {
                             this.mmSocket = socket;
                             socket.connect();
                         }
-                    } catch (Exception eSecure) {
-                        Log.w(TAG, "Stage 1 (Secure RFCOMM Bonded) failed: " + eSecure.getMessage());
+                    } catch (Exception eFallback) {
+                        Log.w(TAG, "Stage 1 (Direct Channel 1 RFCOMM) failed: " + eFallback.getMessage());
                         closeSocketQuietly(socket);
                         socket = null;
                     }
@@ -696,23 +710,16 @@ public class BluetoothConnectionManager {
                     }
                 }
 
-                // Stage 4: Direct Channel 1 RFCOMM (Fallback)
-                boolean isComputer = false;
-                try {
-                    if (mmDevice.getBluetoothClass() != null && mmDevice.getBluetoothClass().getMajorDeviceClass() == android.bluetooth.BluetoothClass.Device.Major.COMPUTER) { isComputer = true; }
-                } catch (Exception ignored) {}
-
-                if (socket == null && !isCancelled && !isComputer) {
+                // Stage 4: Secure RFCOMM (If Bonded)
+                if (socket == null && !isCancelled && isBonded) {
                     try {
-                        socket = (BluetoothSocket) mmDevice.getClass()
-                                .getMethod("createRfcommSocket", int.class)
-                                .invoke(mmDevice, 1);
+                        socket = mmDevice.createRfcommSocketToServiceRecord(mmUuid);
                         if (socket != null) {
                             this.mmSocket = socket;
                             socket.connect();
                         }
-                    } catch (Exception eFallback) {
-                        Log.w(TAG, "Stage 4 (Direct Channel 1 RFCOMM) failed: " + eFallback.getMessage());
+                    } catch (Exception eSecure) {
+                        Log.w(TAG, "Stage 4 (Secure RFCOMM Bonded) failed: " + eSecure.getMessage());
                         closeSocketQuietly(socket);
                         socket = null;
                     }
@@ -750,6 +757,10 @@ public class BluetoothConnectionManager {
         private volatile boolean isRunning = true;
         private final String threadDeviceAddress;
         private volatile String threadRemoteUsername;
+
+        public boolean isSocketConnected() {
+            return isRunning && mmSocket != null && mmSocket.isConnected();
+        }
 
         public String getThreadDeviceAddress() {
             return threadDeviceAddress;

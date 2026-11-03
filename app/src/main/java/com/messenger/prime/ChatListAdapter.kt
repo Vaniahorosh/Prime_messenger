@@ -3,8 +3,11 @@ package com.messenger.prime
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -16,6 +19,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import androidx.core.net.toUri
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
@@ -111,6 +115,65 @@ class ChatListAdapter(
 
     var currentSearchQuery = ""
         private set
+
+    var isSelectionMode = false
+        private set
+
+    val selectedItems = mutableSetOf<String>()
+    var onSelectionChanged: ((Set<String>) -> Unit)? = null
+
+    fun toggleSelection(id: String) {
+        if (id == "ai_prime_chat") return
+        if (selectedItems.contains(id)) {
+            selectedItems.remove(id)
+        } else {
+            selectedItems.add(id)
+        }
+        if (selectedItems.isEmpty()) {
+            isSelectionMode = false
+        }
+        onSelectionChanged?.invoke(selectedItems)
+        notifyDataSetChanged()
+    }
+
+    fun enterSelectionMode(id: String) {
+        if (id == "ai_prime_chat") return
+        isSelectionMode = true
+        selectedItems.clear()
+        selectedItems.add(id)
+        onSelectionChanged?.invoke(selectedItems)
+        notifyDataSetChanged()
+    }
+
+    fun clearSelection() {
+        isSelectionMode = false
+        selectedItems.clear()
+        onSelectionChanged?.invoke(selectedItems)
+        notifyDataSetChanged()
+    }
+
+    private fun getSelectedItemBackground(context: Context): Drawable {
+        val accentColor = ColorAccentManager.getCurrentAccentColor(context)
+        val alphaAccent = ColorUtils.setAlphaComponent(accentColor, 45)
+        val radiusPx = 24 * context.resources.displayMetrics.density
+
+        val shape = GradientDrawable().apply {
+            setColor(alphaAccent)
+            cornerRadius = radiusPx
+            setStroke((2 * context.resources.displayMetrics.density).toInt(), accentColor)
+        }
+
+        val mask = GradientDrawable().apply {
+            setColor(android.graphics.Color.WHITE)
+            cornerRadius = radiusPx
+        }
+
+        return RippleDrawable(
+            ColorStateList.valueOf(ColorUtils.setAlphaComponent(accentColor, 90)),
+            shape,
+            mask
+        )
+    }
 
     fun setSearchQuery(query: String) {
         currentSearchQuery = query.trim()
@@ -575,8 +638,21 @@ class ChatListAdapter(
                     }
                 }
 
+                if (isSelectionMode) {
+                    val isSelected = selectedItems.contains(chat.id)
+                    if (isSelected) {
+                        binding.layoutContent.background = getSelectedItemBackground(context)
+                    } else {
+                        binding.layoutContent.setBackgroundResource(R.drawable.bg_chat_item_light)
+                    }
+                } else {
+                    binding.layoutContent.setBackgroundResource(R.drawable.bg_chat_item_light)
+                }
+
                 binding.layoutContent.setOnClickListener {
-                    if (holder.isRevealed) {
+                    if (isSelectionMode) {
+                        toggleSelection(chat.id)
+                    } else if (holder.isRevealed) {
                         animateHideDelete(holder)
                     } else {
                         onChatClick(chat)
@@ -584,11 +660,19 @@ class ChatListAdapter(
                 }
 
                 binding.layoutContent.setOnLongClickListener {
-                    if (!holder.isRevealed) {
+                    if (chat.id == "ai_prime_chat") {
+                        // Ignore long press on AI Chat
+                    } else if (!isSelectionMode) {
                         it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                        animateShowDelete(holder)
-                        true
-                    } else false
+                        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                        val navStyle = sp.getString("navigation_style", "island") ?: "island"
+                        if (navStyle == "island") {
+                            enterSelectionMode(chat.id)
+                        } else {
+                            enterSelectionMode(chat.id)
+                        }
+                    }
+                    true
                 }
 
                 binding.btnDeleteContact.setOnClickListener {

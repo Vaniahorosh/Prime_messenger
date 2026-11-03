@@ -56,13 +56,13 @@
                     android:textSize="17sp"
                     android:textStyle="bold" />
 
-                <!-- "+ Новый чат" Button -->
+                <!-- "Новый чат" Button -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnCreateNewChat"
                     style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
                     android:layout_width="wrap_content"
                     android:layout_height="36dp"
-                    android:text="+ Новый чат"
+                    android:text="Новый чат"
                     android:textColor="@color/white"
                     android:textSize="13sp"
                     android:textAllCaps="false"
@@ -89,7 +89,7 @@
                 android:layout_height="wrap_content"
                 android:padding="24dp"
                 android:gravity="center"
-                android:text="Нет сохраненных чатов.\nНажмите '+ Новый чат', чтобы начать диалог!"
+                android:text="Нет сохраненных чатов.\nНажмите 'Новый чат', чтобы начать диалог!"
                 android:textColor="@color/prime_text_secondary"
                 android:textSize="14sp"
                 android:visibility="gone" />

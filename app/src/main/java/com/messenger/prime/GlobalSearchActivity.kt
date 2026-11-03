@@ -378,20 +378,25 @@ class GlobalSearchActivity : AppCompatActivity() {
                     val lastMsg = obj.optString("lastMessage", "")
                     val timeStr = obj.optString("time", "")
 
-                    if (targetUser.isEmpty()) continue
+                    val effectiveUser = if (targetUser.isNotEmpty()) targetUser else devAddr
+                    if (effectiveUser.isEmpty()) continue
 
-                    val displayContactName = AvatarManager.getContactDisplayName(this@GlobalSearchActivity, targetUser, devAddr, targetUser)
-                    val avatarUri = AvatarManager.getContactAvatarUriOrFile(this@GlobalSearchActivity, targetUser, displayContactName, devAddr)
+                    val isForgotten = (targetUser.isNotEmpty() && ChatHistoryManager.isDeviceForgotten(this@GlobalSearchActivity, targetUser)) ||
+                                      (devAddr.isNotEmpty() && ChatHistoryManager.isDeviceForgotten(this@GlobalSearchActivity, devAddr))
+                    if (isForgotten) continue
+
+                    val displayContactName = AvatarManager.getContactDisplayName(this@GlobalSearchActivity, effectiveUser, devAddr, effectiveUser)
+                    val avatarUri = AvatarManager.getContactAvatarUriOrFile(this@GlobalSearchActivity, effectiveUser, displayContactName, devAddr)
 
                     val lowerQuery = query.lowercase(Locale.ROOT)
 
-                    if (displayContactName.lowercase(Locale.ROOT).contains(lowerQuery) || targetUser.lowercase(Locale.ROOT).contains(lowerQuery)) {
+                    if (displayContactName.lowercase(Locale.ROOT).contains(lowerQuery) || effectiveUser.lowercase(Locale.ROOT).contains(lowerQuery) || devAddr.lowercase(Locale.ROOT).contains(lowerQuery)) {
                         results.add(
                             SearchResultItem(
                                 title = displayContactName,
                                 snippet = "Чат с пользователем • $lastMsg",
                                 time = timeStr,
-                                targetUsername = targetUser,
+                                targetUsername = effectiveUser,
                                 deviceAddress = devAddr,
                                 avatarUri = avatarUri
                             )
@@ -399,7 +404,7 @@ class GlobalSearchActivity : AppCompatActivity() {
                     }
 
                     // Search messages inside history
-                    val history = ChatHistoryManager.loadMessages(this@GlobalSearchActivity, targetUser)
+                    val history = ChatHistoryManager.loadMessages(this@GlobalSearchActivity, effectiveUser)
                     for (msg in history) {
                         val text = msg.text ?: ""
                         if (text.lowercase(Locale.ROOT).contains(lowerQuery)) {

@@ -89,6 +89,10 @@ dependencies {
     implementation(libs.androidx.camera.video)
     implementation(libs.androidx.camera.view)
 
+    // WebKit & JSON Parsing for Plugins & AI
+    implementation(libs.androidx.webkit)
+    implementation(libs.gson)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)

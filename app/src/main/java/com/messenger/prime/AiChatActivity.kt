@@ -142,14 +142,31 @@ class AiChatActivity : AppCompatActivity() {
     }
 
     private fun checkEmptyState() {
-        val sessions = AiChatStorage.getAllSessions(this)
-        val hasRealMessages = activeSession != null && activeSession!!.messages.size > 1
-        if (sessions.isEmpty() || (!hasRealMessages && sessions.size <= 1)) {
+        val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        val apiKey = sp.getString("ai_api_key", "") ?: ""
+
+        val hasRealMessages = activeSession != null && activeSession!!.messages.isNotEmpty()
+        if (!hasRealMessages) {
             binding.layoutAiEmptyState.visibility = View.VISIBLE
             binding.rvAiMessages.visibility = View.GONE
+
+            val sessions = AiChatStorage.getAllSessions(this)
+            if (sessions.isNotEmpty()) {
+                binding.btnEmptyCreateChat.visibility = View.GONE
+            } else {
+                binding.btnEmptyCreateChat.visibility = View.VISIBLE
+            }
+
+            if (apiKey.isNotBlank()) {
+                binding.btnEmptySetupKey.visibility = View.GONE
+            } else {
+                binding.btnEmptySetupKey.visibility = View.VISIBLE
+            }
         } else {
             binding.layoutAiEmptyState.visibility = View.GONE
             binding.rvAiMessages.visibility = View.VISIBLE
+            binding.btnEmptyCreateChat.visibility = View.VISIBLE
+            binding.btnEmptySetupKey.visibility = View.VISIBLE
         }
     }
 
@@ -169,9 +186,6 @@ class AiChatActivity : AppCompatActivity() {
         currentModelConfig = AiModelDetector.detect(apiKey, savedProvider, savedModel, customUrl)
 
         val newSession = AiChatStorage.createNewSession(this, currentModelConfig.model)
-        val welcomeText = "Новый чат создан. Активная модель: ${currentModelConfig.model}."
-        val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-        newSession.messages.add(AiMessage(welcomeText, isUser = false, time = timeStr))
         AiChatStorage.saveSession(this, newSession)
 
         switchSession(newSession)
@@ -375,7 +389,7 @@ class AiChatActivity : AppCompatActivity() {
         binding.etAiMessageInput.setText("")
 
         val session = activeSession ?: return
-        if (session.messages.size <= 1 && session.title == "Новый чат") {
+        if (session.messages.isEmpty() && session.title == "Новый чат") {
             session.title = AiChatStorage.autoGenerateTitle(text)
             binding.tvAiHeaderTitle.text = session.title
         }
@@ -389,15 +403,20 @@ class AiChatActivity : AppCompatActivity() {
         var systemPrompt = sp.getString("ai_system_prompt", "Вы полезный AI ассистент мессенджера Prime.") ?: ""
         val fullAccess = sp.getBoolean("ai_full_access", true)
         val pluginsSummary = PluginManager.getPluginsSummaryForAi(this)
+        val currentUser = ChatHistoryManager.getCurrentUser(this)
 
         if (fullAccess) {
             systemPrompt = """
-СИСТЕМНАЯ ДИРЕКТИВА PRIME MESSENGER [ПОЛНЫЙ ДОСТУП ВКТЮЧЕН]:
+СИСТЕМНАЯ ДИРЕКТИВА PRIME MESSENGER [ПОЛНЫЙ ДОСТУП ВКЛЮЧЕН]:
 Вы — полноценный Агент приложения Prime Messenger. ВАМ ПРЕДОСТАВЛЕН ПОЛНЫЙ ДОСТУП И УПРАВЛЕНИЕ ВСЕМИ ФУНКЦИЯМИ ПРИЛОЖЕНИЯ!
 Вам КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО отвечать: "У меня нет доступа", "Я не могу управлять устройством/приложением", "Я только языковая модель".
 Вы МОЖЕТЕ И ДОЛЖНЫ управлять приложением Prime Messenger, выполнять любые действия, менять настройки, запускать плагины, создавать чаты и интерфейсы!
 
-Доступные встроенные команды управления приложением:
+Контекст приложения:
+- Приложение работает через Bluetooth и локальную сеть.
+- Текущий пользователь: $currentUser
+
+Доступные встроенные команды управления приложением (выводить блоком кода):
 - Открыть настройки: ```action:open_settings```
 - Открыть поиск: ```action:open_search```
 - Открыть плеер: ```action:open_media_player```
@@ -405,10 +424,27 @@ class AiChatActivity : AppCompatActivity() {
 - Открыть профиль: ```action:open_profile```
 - Открыть редактор текста: ```action:open_rich_editor```
 - Запустить плагин: ```action:run_plugin:ИмяПлагина```
-- Создать плагин: ```plugin:ИмяФайла.java\n// Код\n```
+- Открыть плавающий виджет/оверлей: ```action:open_overlay```
+- Создать плагин: ```plugin:ИмяФайла.js\n// Код\n```
 - Изменить цвет акцента: ```action:set_accent_color:#HEX```
+- Сменить тему приложения: ```action:change_theme:dark/light```
 - Создать новый чат: ```action:create_chat:Тема```
+- Удалить P2P чат: ```action:delete_chat:address```
+- Открыть веб браузер (ссылку): ```action:open_url:https://google.com```
 - Создать кнопку с иконкой: ```button:Текст|Действие|иконка``` (иконки: settings, search, music, photo, file, add, done, trash, globe, pipette, prime)
+
+Для написания JS плагинов доступен объект Android:
+- Android.toast(msg), Android.notify(title, msg)
+- Android.openSettings(), Android.openSearch(), Android.openMediaPlayer()
+- Android.openWallpaperEditor(), Android.openProfile(), Android.openChat(address)
+- Android.setAccentColor(hexColor), Android.copyToClipboard(text), Android.openUrl(url)
+- Android.changeTheme(isDark: boolean), Android.vibrate(ms), Android.playSound()
+- Android.showDialog(title, message), Android.openOverlay()
+- Android.httpGet(urlStr) : String
+- Android.getCurrentUser() : String
+- Android.getChatsJson() : String (возвращает JSON массив чатов)
+- Android.deleteChat(address), Android.clearChat(address), Android.deleteAllChats()
+- Android.sendMessage(address, text)
 
 $pluginsSummary
 
@@ -527,7 +563,15 @@ $systemPrompt
             pluginRegex.findAll(responseText).forEach { match ->
                 val pluginName = match.groupValues[1].trim()
                 val pluginCode = match.groupValues[2].trim()
-                val ext = if (pluginName.endsWith(".kt", ignoreCase = true)) "Kotlin" else if (pluginName.endsWith(".json", ignoreCase = true)) "JSON" else "Java"
+                val ext = when {
+                    pluginName.endsWith(".kt", ignoreCase = true) -> "Kotlin"
+                    pluginName.endsWith(".js", ignoreCase = true) -> "JS"
+                    pluginName.endsWith(".py", ignoreCase = true) -> "Python"
+                    pluginName.endsWith(".html", ignoreCase = true) -> "HTML"
+                    pluginName.endsWith(".sh", ignoreCase = true) -> "Shell"
+                    pluginName.endsWith(".json", ignoreCase = true) -> "JSON"
+                    else -> "Java"
+                }
                 if (pluginName.isNotBlank() && pluginCode.isNotBlank()) {
                     PluginManager.createPluginFromCode(this, pluginName, pluginCode, ext)
                     PrimeNotification.show(this, "⚡ AI создал плагин: $pluginName")
@@ -537,12 +581,23 @@ $systemPrompt
 
             // Fallback: If user explicitly asked to create a plugin and AI outputted code block, save it as plugin automatically!
             if (!pluginCreated && (pLower.contains("создай плагин") || pLower.contains("напиши плагин"))) {
-                val codeBlockRegex = Regex("```(?:java|kotlin|python|js|json|html|sh)?\\s*\\n([\\s\\S]*?)```")
+                val codeBlockRegex = Regex("```(java|kotlin|python|js|json|html|sh)?\\s*\\n([\\s\\S]*?)```")
                 codeBlockRegex.find(responseText)?.let { match ->
-                    val code = match.groupValues[1].trim()
+                    val blockLang = match.groupValues[1].trim().lowercase()
+                    val code = match.groupValues[2].trim()
                     if (code.isNotBlank()) {
-                        val autoName = "AI_Plugin_${System.currentTimeMillis() / 1000}.java"
-                        PluginManager.createPluginFromCode(this, autoName, code, "Java")
+                        val autoExt = if (blockLang.isNotBlank()) blockLang else "js"
+                        val autoName = "AI_Plugin_${System.currentTimeMillis() / 1000}.$autoExt"
+                        val pluginType = when(autoExt) {
+                            "kt", "kotlin" -> "Kotlin"
+                            "py", "python" -> "Python"
+                            "html" -> "HTML"
+                            "sh", "shell" -> "Shell"
+                            "json" -> "JSON"
+                            "java" -> "Java"
+                            else -> "JS"
+                        }
+                        PluginManager.createPluginFromCode(this, autoName, code, pluginType)
                         PrimeNotification.show(this, "⚡ AI автоматически установил плагин: $autoName")
                     }
                 }
@@ -646,6 +701,56 @@ $systemPrompt
             if (isRichEditorRequest) {
                 startActivity(Intent(this, RichEditorActivity::class.java))
                 PrimeNotification.show(this, "AI открыл Редактор текста")
+            }
+
+            // 6. Process P2P Chat Actions
+            val openP2pRegex = Regex("```action:open_p2p_chat:(.*?)```")
+            openP2pRegex.find(responseText)?.let { match ->
+                val address = match.groupValues[1].trim()
+                val name = ChatHistoryManager.getDisplayNameForAddress(this, address)
+                startActivity(Intent(this, ChatPersonActivity::class.java).apply {
+                    putExtra("device_address", address)
+                    putExtra("device_name", name)
+                })
+                PrimeNotification.show(this, "AI открыл чат с $name")
+            }
+
+            val sendP2pRegex = Regex("```action:send_p2p_message:(.*?)\\|([\\s\\S]*?)```")
+            sendP2pRegex.find(responseText)?.let { match ->
+                val address = match.groupValues[1].trim()
+                val text = match.groupValues[2].trim()
+                val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+                val senderLogin = ChatHistoryManager.getCurrentUser(this)
+                val msg = ChatMessage(text, timeStr, senderLogin, true)
+                ChatHistoryManager.saveMessage(this, address, msg)
+                PrimeNotification.show(this, "AI отправил сообщение: $text")
+            }
+
+            val deleteChatRegex = Regex("```action:delete_chat:(.*?)```")
+            deleteChatRegex.find(responseText)?.let { match ->
+                val address = match.groupValues[1].trim()
+                ChatHistoryManager.deleteHistoryCompletely(this, address, ChatHistoryManager.getDisplayNameForAddress(this, address))
+                PrimeNotification.show(this, "AI удалил чат с $address")
+            }
+
+            val changeThemeRegex = Regex("```action:change_theme:(.*?)```")
+            changeThemeRegex.find(responseText)?.let { match ->
+                val mode = match.groupValues[1].trim().lowercase()
+                val newTheme = if (mode == "dark") "dark" else "light"
+                val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                sharedPrefs.edit().putString("app_theme", newTheme).apply()
+
+                val nightMode = if (newTheme == "dark") androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES else androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
+                androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(nightMode)
+                sendBroadcast(Intent("com.messenger.prime.THEME_CHANGED").setPackage(packageName))
+                PrimeNotification.show(this, "AI сменил тему на $newTheme")
+            }
+
+            val openUrlRegex = Regex("```action:open_url:(.*?)```")
+            openUrlRegex.find(responseText)?.let { match ->
+                val url = match.groupValues[1].trim()
+                com.messenger.prime.browser.AppBrowserManager.openUrl(this, url)
+                PrimeNotification.show(this, "AI открыл браузер: $url")
             }
 
             val createChatRegex = Regex("```action:create_chat:(.*?)```")
@@ -915,6 +1020,11 @@ $systemPrompt
         messages.add(AiMessage(text, isUser = true, time = timeStr))
         adapter.notifyItemInserted(messages.size - 1)
         binding.rvAiMessages.smoothScrollToPosition(messages.size - 1)
+        activeSession?.let { session ->
+            session.messages.clear()
+            session.messages.addAll(messages)
+            AiChatStorage.saveSession(this, session)
+        }
     }
 
     private fun addAiMessage(text: String) {
@@ -922,6 +1032,11 @@ $systemPrompt
         messages.add(AiMessage(text, isUser = false, time = timeStr))
         adapter.notifyItemInserted(messages.size - 1)
         binding.rvAiMessages.smoothScrollToPosition(messages.size - 1)
+        activeSession?.let { session ->
+            session.messages.clear()
+            session.messages.addAll(messages)
+            AiChatStorage.saveSession(this, session)
+        }
     }
 
     private fun showAiSettingsDialog(highlightError: Boolean = false) {
@@ -1152,8 +1267,30 @@ $systemPrompt
             action == "action:open_media_player" -> {
                 startActivity(Intent(this, MediaPlayerActivity::class.java))
             }
-            action == "action:open_wallpaper_editor" -> {
-                startActivity(Intent(this, WallpaperEditorActivity::class.java))
+            action == "action:open_rich_editor" -> {
+                startActivity(Intent(this, RichEditorActivity::class.java))
+            }
+            action == "action:open_overlay" -> {
+                PrimeOverlayService.toggleOverlayService(this)
+            }
+            action.startsWith("action:open_url:") -> {
+                val url = action.removePrefix("action:open_url:").trim()
+                com.messenger.prime.browser.AppBrowserManager.openUrl(this, url)
+            }
+            action.startsWith("action:delete_chat:") -> {
+                val address = action.removePrefix("action:delete_chat:").trim()
+                ChatHistoryManager.deleteHistoryCompletely(this, address, ChatHistoryManager.getDisplayNameForAddress(this, address))
+                PrimeNotification.show(this, "Чат $address удален")
+            }
+            action.startsWith("action:change_theme:") -> {
+                val mode = action.removePrefix("action:change_theme:").trim().lowercase()
+                val newTheme = if (mode == "dark") "dark" else "light"
+                val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+                sharedPrefs.edit().putString("app_theme", newTheme).apply()
+
+                val nightMode = if (newTheme == "dark") androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES else androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
+                androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(nightMode)
+                sendBroadcast(Intent("com.messenger.prime.THEME_CHANGED").setPackage(packageName))
             }
             action.startsWith("action:create_chat:") -> {
                 val topic = action.removePrefix("action:create_chat:").trim()

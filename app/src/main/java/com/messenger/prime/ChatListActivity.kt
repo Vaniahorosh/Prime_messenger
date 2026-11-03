@@ -591,21 +591,28 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateBackCallbackState() {
+        val hasSearch = ::binding.isInitialized && binding.layoutIslandHeader.btnHeaderSearchClear.visibility == View.VISIBLE
+        val hasSelection = ::adapter.isInitialized && adapter.isSelectionMode
+        backCallback.isEnabled = isContactDialogVisible.value || hasSearch || hasSelection
+    }
+
     private val backCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
+            if (::adapter.isInitialized && adapter.isSelectionMode) {
+                adapter.clearSelection()
+                updateBackCallbackState()
+                return
+            }
             if (isContactDialogVisible.value) {
                 isContactDialogVisible.value = false
                 stopBluetoothScan()
-                if (binding.layoutIslandHeader.btnHeaderSearchClear.visibility != View.VISIBLE) {
-                    isEnabled = false
-                }
+                updateBackCallbackState()
                 return
             }
             if (::binding.isInitialized && binding.layoutIslandHeader.btnHeaderSearchClear.visibility == View.VISIBLE) {
                 binding.layoutIslandHeader.btnHeaderSearchClear.performClick()
-                if (!isContactDialogVisible.value) {
-                    isEnabled = false
-                }
+                updateBackCallbackState()
                 return
             }
             isEnabled = false
@@ -765,10 +772,8 @@ class ChatListActivity : AppCompatActivity() {
             savedName
         } else if (targetName.isNotEmpty() && !BluetoothAdapter.checkBluetoothAddress(targetName) && targetName != "Собеседник") {
             targetName
-        } else if (deviceAddress.isNotEmpty()) {
-            deviceAddress
         } else {
-            "Собеседник"
+            DeviceAnonymizer.getAnonymizedName(targetName, deviceAddress)
         }
 
         // 1. Immediately cancel Bluetooth discovery synchronously to free radio module!
@@ -2628,6 +2633,59 @@ class ChatListActivity : AppCompatActivity() {
             }
         )
 
+        adapter.onSelectionChanged = { selectedIds ->
+            if (::binding.isInitialized) {
+                val sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                val navStyle = sp.getString("navigation_style", "island") ?: "island"
+
+                if (selectedIds.isEmpty()) {
+                    if (navStyle == "island") {
+                        if (binding.layoutIslandHeader.layoutHeaderSelectionMode.visibility == View.VISIBLE) {
+                            val island = binding.layoutIslandHeader.islandHeaderItem
+                            island.animate().rotationX(90f).setDuration(150).withEndAction {
+                                binding.layoutIslandHeader.layoutHeaderSelectionMode.visibility = View.GONE
+                                island.rotationX = -90f
+                                island.animate().rotationX(0f).setDuration(150).start()
+                            }.start()
+                        }
+                    } else {
+                        if (binding.layoutBottomSelectionMode.visibility == View.VISIBLE) {
+                            binding.layoutBottomSelectionMode.animate().translationY(binding.layoutBottomSelectionMode.height.toFloat()).alpha(0f).setDuration(150).withEndAction {
+                                binding.layoutBottomSelectionMode.visibility = View.GONE
+                            }.start()
+                        }
+                    }
+                    updateBackCallbackState()
+                } else {
+                    if (navStyle == "island") {
+                        if (binding.layoutIslandHeader.layoutHeaderSelectionMode.visibility != View.VISIBLE) {
+                            val island = binding.layoutIslandHeader.islandHeaderItem
+                            island.cameraDistance = 8000 * resources.displayMetrics.density
+                            island.animate().rotationX(90f).setDuration(150).withEndAction {
+                                binding.layoutIslandHeader.layoutHeaderSelectionMode.visibility = View.VISIBLE
+                                binding.layoutIslandHeader.tsHeaderSelectionCount.setText(selectedIds.size.toString())
+                                island.rotationX = -90f
+                                island.animate().rotationX(0f).setDuration(150).start()
+                            }.start()
+                        } else {
+                            binding.layoutIslandHeader.tsHeaderSelectionCount.setText(selectedIds.size.toString())
+                        }
+                    } else {
+                        if (binding.layoutBottomSelectionMode.visibility != View.VISIBLE) {
+                            binding.layoutBottomSelectionMode.translationY = 150f
+                            binding.layoutBottomSelectionMode.alpha = 0f
+                            binding.layoutBottomSelectionMode.visibility = View.VISIBLE
+                            binding.tsBottomSelectionCount.setText(selectedIds.size.toString())
+                            binding.layoutBottomSelectionMode.animate().translationY(0f).alpha(1f).setDuration(150).start()
+                        } else {
+                            binding.tsBottomSelectionCount.setText(selectedIds.size.toString())
+                        }
+                    }
+                    updateBackCallbackState()
+                }
+            }
+        }
+
         setContent {
             val isDialogVisible by isContactDialogVisible
             val isNameEditVisible by isNameEditDialogVisible
@@ -2939,10 +2997,8 @@ class ChatListActivity : AppCompatActivity() {
                             }
 
                             items(otherDevices, key = { "other_dev_" + it.first.address }) { (device, isPaired) ->
-                                var devName = try { @Suppress("MissingPermission") device.name ?: "" } catch (_: Exception) { "" }
-                                if (devName.isBlank() || devName == "null" || devName == "Unknown" || devName == "Неизвестное" || devName == "1" || BluetoothAdapter.checkBluetoothAddress(devName)) {
-                                    devName = "Устройство " + device.address.takeLast(5)
-                                }
+                                val devNameRaw = try { @Suppress("MissingPermission") device.name ?: "" } catch (_: Exception) { "" }
+                                val devName = DeviceAnonymizer.sanitizeDisplayName(devNameRaw, device.address)
                                 val devMac = device.address
                                 val rssi = deviceRssiMap[devMac]
 
@@ -3953,6 +4009,7 @@ class ChatListActivity : AppCompatActivity() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         @Suppress("DEPRECATION")
         imm?.showSoftInput(header.etHeaderSearch, InputMethodManager.SHOW_IMPLICIT)
+        updateBackCallbackState()
     }
 
     private fun closeHeaderSearch() {
@@ -3986,11 +4043,12 @@ class ChatListActivity : AppCompatActivity() {
             .start()
 
         performSearchQuery("")
+        updateBackCallbackState()
     }
 
     private fun setupIslandHeaderView() {
         if (!::binding.isInitialized) return
-        
+
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
@@ -4021,6 +4079,180 @@ class ChatListActivity : AppCompatActivity() {
         binding.layoutIslandHeader.ivHeaderAvatar.setOnLongClickListener {
             showLogoutDialog()
             true
+        }
+
+        binding.layoutIslandHeader.tsHeaderSelectionCount.setFactory {
+            android.widget.TextView(this).apply {
+                setTextColor(android.graphics.Color.WHITE)
+                textSize = 18f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                gravity = android.view.Gravity.CENTER_VERTICAL
+            }
+        }
+        binding.layoutIslandHeader.tsHeaderSelectionCount.inAnimation = android.view.animation.AnimationUtils.loadAnimation(this, android.R.anim.fade_in)
+        binding.layoutIslandHeader.tsHeaderSelectionCount.outAnimation = android.view.animation.AnimationUtils.loadAnimation(this, android.R.anim.fade_out)
+
+        binding.layoutIslandHeader.btnHeaderSelectionCancel.setOnClickListener {
+            adapter.clearSelection()
+        }
+
+        binding.layoutIslandHeader.btnHeaderSelectionPin.setOnClickListener {
+            PrimeNotification.show(this, "Закрепление скоро появится")
+            adapter.clearSelection()
+        }
+
+        binding.layoutIslandHeader.btnHeaderSelectionMute.setOnClickListener {
+            val selected = adapter.selectedItems.toList()
+            val sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val editor = sp.edit()
+            selected.forEach { id ->
+                val currentMuted = sp.getBoolean("chat_muted_$id", false)
+                editor.putBoolean("chat_muted_$id", !currentMuted)
+            }
+            editor.apply()
+            PrimeNotification.show(this, "Звук изменен для ${selected.size} чатов")
+
+            val initialChats = loadContacts()
+            chatListState.clear()
+            chatListState.addAll(initialChats)
+            allChats = ArrayList(chatListState)
+            adapter.updateList(allChats)
+            adapter.clearSelection()
+            updateBackCallbackState()
+        }
+
+        binding.layoutIslandHeader.btnHeaderSelectionDelete.setOnClickListener {
+            val selected = adapter.selectedItems.toList()
+            PrimeBlurDialog.show(
+                activity = this,
+                title = "Удалить чаты",
+                message = "Удалить выбранные чаты (${selected.size}) и их историю безвозвратно?",
+                positiveText = "Удалить",
+                negativeText = "Отмена",
+                isPositiveDanger = true,
+                onPositive = {
+                    selected.forEach { id ->
+                        val chat = allChats.find { it.id == id }
+                        if (chat != null) deleteContact(chat)
+                    }
+                    adapter.clearSelection()
+                    updateBackCallbackState()
+                }
+            )
+        }
+
+        binding.layoutIslandHeader.btnHeaderSelectionMore.setOnClickListener { view ->
+            val popup = android.widget.PopupMenu(this, view)
+            popup.menu.add(0, 1, 0, "Прочитать всё")
+            popup.setOnMenuItemClickListener { item ->
+                if (item.itemId == 1) {
+                    val selected = adapter.selectedItems.toList()
+                    selected.forEach { id ->
+                        ChatHistoryManager.markIncomingMessagesAsRead(this, id, id)
+                    }
+                    PrimeNotification.show(this, "Помечено как прочитанное")
+
+                    val initialChats = loadContacts()
+                    chatListState.clear()
+                    chatListState.addAll(initialChats)
+                    allChats = ArrayList(chatListState)
+                    adapter.updateList(allChats)
+                    adapter.clearSelection()
+                    updateBackCallbackState()
+                }
+                true
+            }
+            popup.show()
+        }
+
+        setupBottomSelectionView()
+    }
+
+    private fun setupBottomSelectionView() {
+        if (!::binding.isInitialized) return
+
+        binding.tsBottomSelectionCount.setFactory {
+            android.widget.TextView(this).apply {
+                setTextColor(android.graphics.Color.WHITE)
+                textSize = 18f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                gravity = android.view.Gravity.CENTER_VERTICAL
+            }
+        }
+        binding.tsBottomSelectionCount.inAnimation = android.view.animation.AnimationUtils.loadAnimation(this, android.R.anim.fade_in)
+        binding.tsBottomSelectionCount.outAnimation = android.view.animation.AnimationUtils.loadAnimation(this, android.R.anim.fade_out)
+
+        binding.btnBottomSelectionCancel.setOnClickListener {
+            adapter.clearSelection()
+        }
+
+        binding.btnBottomSelectionPin.setOnClickListener {
+            PrimeNotification.show(this, "Закрепление скоро появится")
+            adapter.clearSelection()
+        }
+
+        binding.btnBottomSelectionMute.setOnClickListener {
+            val selected = adapter.selectedItems.toList()
+            val sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val editor = sp.edit()
+            selected.forEach { id ->
+                val currentMuted = sp.getBoolean("chat_muted_$id", false)
+                editor.putBoolean("chat_muted_$id", !currentMuted)
+            }
+            editor.apply()
+            PrimeNotification.show(this, "Звук изменен для ${selected.size} чатов")
+
+            val initialChats = loadContacts()
+            chatListState.clear()
+            chatListState.addAll(initialChats)
+            allChats = ArrayList(chatListState)
+            adapter.updateList(allChats)
+            adapter.clearSelection()
+            updateBackCallbackState()
+        }
+
+        binding.btnBottomSelectionDelete.setOnClickListener {
+            val selected = adapter.selectedItems.toList()
+            PrimeBlurDialog.show(
+                activity = this,
+                title = "Удалить чаты",
+                message = "Удалить выбранные чаты (${selected.size}) и их историю безвозвратно?",
+                positiveText = "Удалить",
+                negativeText = "Отмена",
+                isPositiveDanger = true,
+                onPositive = {
+                    selected.forEach { id ->
+                        val chat = allChats.find { it.id == id }
+                        if (chat != null) deleteContact(chat)
+                    }
+                    adapter.clearSelection()
+                    updateBackCallbackState()
+                }
+            )
+        }
+
+        binding.btnBottomSelectionMore.setOnClickListener { view ->
+            val popup = android.widget.PopupMenu(this, view)
+            popup.menu.add(0, 1, 0, "Прочитать всё")
+            popup.setOnMenuItemClickListener { item ->
+                if (item.itemId == 1) {
+                    val selected = adapter.selectedItems.toList()
+                    selected.forEach { id ->
+                        ChatHistoryManager.markIncomingMessagesAsRead(this, id, id)
+                    }
+                    PrimeNotification.show(this, "Помечено как прочитанное")
+
+                    val initialChats = loadContacts()
+                    chatListState.clear()
+                    chatListState.addAll(initialChats)
+                    allChats = ArrayList(chatListState)
+                    adapter.updateList(allChats)
+                    adapter.clearSelection()
+                    updateBackCallbackState()
+                }
+                true
+            }
+            popup.show()
         }
     }
 
@@ -4107,7 +4339,12 @@ class ChatListActivity : AppCompatActivity() {
         val swipeHandler = object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(0, androidx.recyclerview.widget.ItemTouchHelper.LEFT) {
             override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean = false
             override fun getSwipeDirs(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder): Int {
-                if (viewHolder.itemViewType != 0) return 0 
+                if (viewHolder.itemViewType != 0) return 0
+                val position = viewHolder.bindingAdapterPosition
+                val currentList = adapter.getChatList()
+                if (position >= 0 && position < currentList.size) {
+                    if (currentList[position].id == "ai_prime_chat") return 0
+                }
                 return super.getSwipeDirs(recyclerView, viewHolder)
             }
             override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
@@ -4208,7 +4445,7 @@ class ChatListActivity : AppCompatActivity() {
     }
     private fun saveContacts() {
         val array = JSONArray()
-        chatListState.forEach { chat ->
+        chatListState.filter { it.id != "ai_prime_chat" }.forEach { chat ->
             val obj = JSONObject().apply {
                 put("id", chat.id)
                 put("name", chat.name)
@@ -4270,10 +4507,15 @@ class ChatListActivity : AppCompatActivity() {
                         val item = array.opt(i)
                         if (item is JSONObject) {
                             val idStr = item.optString("id", System.currentTimeMillis().toString() + i).trim()
-                            if (idStr.isEmpty()) continue
+                            if (idStr.isEmpty() || idStr == "ai_prime_chat") continue
                             val nameStr = item.optString("name", "Контакт").trim()
 
                             val finalName = AvatarManager.getContactDisplayName(this@ChatListActivity, idStr, idStr, nameStr)
+
+                            val isForgotten = ChatHistoryManager.isDeviceForgotten(this@ChatListActivity, idStr) ||
+                                              ChatHistoryManager.isDeviceForgotten(this@ChatListActivity, finalName) ||
+                                              (nameStr.isNotEmpty() && ChatHistoryManager.isDeviceForgotten(this@ChatListActivity, nameStr))
+                            if (isForgotten) continue
 
                             if (myName.isNotEmpty() && (finalName.equals(myName, ignoreCase = true) || idStr.equals(currentUser, ignoreCase = true))) {
                                 continue
@@ -4368,21 +4610,13 @@ class ChatListActivity : AppCompatActivity() {
 
             val isMac = BluetoothAdapter.checkBluetoothAddress(chat.id.uppercase(Locale.US))
             val mappedMac = if (!isMac) DeviceBindingManager.getSecureDeviceMac(this, chat.id) else chat.id.uppercase(Locale.US)
-            
-            val isGeneric = chat.id.isBlank() || 
-                            chat.id.equals("Собеседник", ignoreCase = true) || 
-                            chat.id.equals("Prime Собеседник", ignoreCase = true) || 
-                            chat.id.equals("Контакт", ignoreCase = true) || 
-                            chat.id.equals("1", ignoreCase = true)
 
-            val key = if (!mappedMac.isNullOrEmpty()) {
-                mappedMac.uppercase(Locale.US)
-            } else if (isMac) {
-                chat.id.uppercase(Locale.US)
-            } else if (isGeneric) {
-                "GENERIC_${chat.id.lowercase(Locale.US)}_${chat.name.lowercase(Locale.US)}"
-            } else {
-                chat.id.lowercase(Locale.US)
+            // Strictly key on unique ID/MAC to prevent merging chats across different users
+            val key = when {
+                !mappedMac.isNullOrEmpty() -> mappedMac.uppercase(Locale.US)
+                isMac -> chat.id.uppercase(Locale.US)
+                chat.id.isNotBlank() -> chat.id.lowercase(Locale.US)
+                else -> chat.name.lowercase(Locale.US)
             }
 
             val existing = dedupMap[key]
@@ -4465,30 +4699,6 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         return resultList
-
-        val array = JSONArray()
-        deduplicatedList.forEach { chat ->
-            val obj = JSONObject().apply {
-                put("id", chat.id)
-                put("name", chat.name)
-                put("lastMessage", chat.lastMessage)
-                put("time", chat.time)
-                put("avatarUri", chat.avatarUri)
-                if (!chat.mediaPreviewPath.isNullOrEmpty()) {
-                    put("mediaPreviewPath", chat.mediaPreviewPath)
-                }
-                put("onlineStatus", chat.onlineStatus.name)
-                put("messageStatus", chat.messageStatus.name)
-                put("unreadCount", chat.unreadCount)
-                put("isMuted", chat.isMuted)
-                put("typingUntil", chat.typingUntil)
-                put("activityState", chat.activityState)
-            }
-            array.put(obj)
-        }
-        ChatHistoryManager.savePersistedChatsJson(this, array.toString())
-
-        return deduplicatedList
     }
     private fun showNameEditDialog() {
         isNameEditDialogVisible.value = true
@@ -4628,7 +4838,24 @@ class ChatListActivity : AppCompatActivity() {
                 }
             }
             primeDevices.add(peerId)
+
+            val peerChatModel = ChatModel(
+                id = peerId,
+                name = finalName,
+                lastMessage = if (isPc) "Компьютер в локальной сети (Wi-Fi)" else "Устройство в локальной сети (Wi-Fi)",
+                time = "сейчас",
+                avatarUri = null,
+                onlineStatus = OnlineStatus.ONLINE
+            )
+
             runOnUiThread {
+                if (!chatListState.any { it.id.equals(peerId, ignoreCase = true) }) {
+                    chatListState.add(0, peerChatModel)
+                    allChats = ArrayList(chatListState)
+                    if (::adapter.isInitialized) {
+                        adapter.updateList(allChats)
+                    }
+                }
                 if (isContactDialogVisible.value) {
                     triggerPrimeFoundVibration()
                     PrimeNotification.show(this@ChatListActivity, "Найден в сети: $finalName")

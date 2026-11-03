@@ -768,25 +768,37 @@ class PhotoEditorActivity : AppCompatActivity() {
         }
         val bitmap = originalBitmap
         if (bitmap != null) {
-            val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
-            try {
-                FileOutputStream(file).use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-                    out.flush()
+            java.util.concurrent.Executors.newSingleThreadExecutor().execute {
+                val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
+                try {
+                    FileOutputStream(file).use { out ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                        out.flush()
+                    }
+                    val uriStr = Uri.fromFile(file).toString()
+                    val resultIntent = Intent().apply {
+                        putExtra("EDITED_IMAGE_URI", uriStr)
+                        putExtra("EXTRA_IMAGE_URI", uriStr)
+                        setData(Uri.parse(uriStr))
+                    }
+                    runOnUiThread {
+                        setResult(RESULT_OK, resultIntent)
+                        finish()
+                        PrimeTransitions.applyCloseTransition(this@PhotoEditorActivity)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    runOnUiThread {
+                        finishFallback()
+                    }
                 }
-                val uriStr = Uri.fromFile(file).toString()
-                val resultIntent = Intent().apply {
-                    putExtra("EDITED_IMAGE_URI", uriStr)
-                    putExtra("EXTRA_IMAGE_URI", uriStr)
-                    setData(Uri.parse(uriStr))
-                }
-                setResult(RESULT_OK, resultIntent)
-                finish()
-                PrimeTransitions.applyCloseTransition(this)
-                return
-            } catch (e: Exception) { e.printStackTrace() }
+            }
+        } else {
+            finishFallback()
         }
+    }
 
+    private fun finishFallback() {
         val fallbackUriStr = originalUri?.toString() ?: intent.getStringExtra("EXTRA_IMAGE_URI")
         if (!fallbackUriStr.isNullOrEmpty()) {
             val resultIntent = Intent().apply {
@@ -795,11 +807,9 @@ class PhotoEditorActivity : AppCompatActivity() {
                 setData(Uri.parse(fallbackUriStr))
             }
             setResult(RESULT_OK, resultIntent)
-            finish()
-            PrimeTransitions.applyCloseTransition(this)
-            return
         }
         finish()
+        PrimeTransitions.applyCloseTransition(this)
     }
 
     private fun showColorPicker(b: ActivityPhotoEditorContentBinding) {
@@ -1025,37 +1035,40 @@ class PhotoEditorActivity : AppCompatActivity() {
             return
         }
 
-        val resultBitmap = Bitmap.createBitmap(viewWidth, viewHeight, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(resultBitmap)
-        val finalMatrix = Matrix(mainMatrix)
-        finalMatrix.postRotate(rotationAngle, viewWidth / 2f, viewHeight / 2f)
-        if (isMirrored) finalMatrix.postScale(-1f, 1f, viewWidth / 2f, viewHeight / 2f)
-        finalMatrix.postSkew(perspectiveFactor, 0f, viewWidth / 2f, viewHeight / 2f)
-        val paint = Paint()
-        paint.colorFilter = ColorMatrixColorFilter(getCurrentColorMatrix())
-        canvas.drawBitmap(bitmap, finalMatrix, paint)
-
-        b.drawingView.getResultBitmap()?.let { drawingBitmap ->
-            canvas.drawBitmap(drawingBitmap, 0f, 0f, null)
-        }
-
+        val drawingBitmap = b.drawingView.getResultBitmap()
         val rect = Rect()
         b.cropFrame.getGlobalVisibleRect(rect)
         val viewRect = Rect()
         b.ivEditorPreview.getGlobalVisibleRect(viewRect)
-        val left = (rect.left - viewRect.left).coerceIn(0, resultBitmap.width - 1)
-        val top = (rect.top - viewRect.top).coerceIn(0, resultBitmap.height - 1)
-        val width = rect.width().coerceAtMost(resultBitmap.width - left)
-        val height = rect.height().coerceAtMost(resultBitmap.height - top)
-        val outputBitmap = if (width > 0 && height > 0) {
-            Bitmap.createBitmap(resultBitmap, left, top, width, height)
-        } else {
-            resultBitmap
-        }
+        val currentMatrix = getCurrentColorMatrix()
 
-        val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
         java.util.concurrent.Executors.newSingleThreadExecutor().execute {
             try {
+                val resultBitmap = Bitmap.createBitmap(viewWidth, viewHeight, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(resultBitmap)
+                val finalMatrix = Matrix(mainMatrix)
+                finalMatrix.postRotate(rotationAngle, viewWidth / 2f, viewHeight / 2f)
+                if (isMirrored) finalMatrix.postScale(-1f, 1f, viewWidth / 2f, viewHeight / 2f)
+                finalMatrix.postSkew(perspectiveFactor, 0f, viewWidth / 2f, viewHeight / 2f)
+                val paint = Paint()
+                paint.colorFilter = ColorMatrixColorFilter(currentMatrix)
+                canvas.drawBitmap(bitmap, finalMatrix, paint)
+
+                drawingBitmap?.let { db ->
+                    canvas.drawBitmap(db, 0f, 0f, null)
+                }
+
+                val left = (rect.left - viewRect.left).coerceIn(0, resultBitmap.width - 1)
+                val top = (rect.top - viewRect.top).coerceIn(0, resultBitmap.height - 1)
+                val width = rect.width().coerceAtMost(resultBitmap.width - left)
+                val height = rect.height().coerceAtMost(resultBitmap.height - top)
+                val outputBitmap = if (width > 0 && height > 0) {
+                    Bitmap.createBitmap(resultBitmap, left, top, width, height)
+                } else {
+                    resultBitmap
+                }
+
+                val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
                 FileOutputStream(file).use { out ->
                     outputBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
                     out.flush()
