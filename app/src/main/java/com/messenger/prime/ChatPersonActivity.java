@@ -22,6 +22,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.webkit.MimeTypeMap;
 import android.graphics.Color;
 import android.graphics.Canvas;
 import android.graphics.RenderEffect;
@@ -8720,13 +8721,21 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private boolean isAudioMimeOrPath(Uri uri, String path) {
         if (path != null) {
             String lower = path.toLowerCase(Locale.US);
-            if (lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac") || lower.endsWith(".opus") || lower.endsWith(".wma")) {
+            if (lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac") || lower.endsWith(".opus") || lower.endsWith(".wma") || lower.endsWith(".amr") || lower.endsWith(".caf") || lower.endsWith(".oga")) {
                 return true;
+            }
+            int lastDot = lower.lastIndexOf('.');
+            if (lastDot != -1 && lastDot < lower.length() - 1) {
+                String ext = lower.substring(lastDot + 1);
+                String mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
+                if (mime != null && mime.startsWith("audio/")) return true;
             }
         }
         if (uri != null) {
-            String mime = getContentResolver().getType(uri);
-            return mime != null && mime.startsWith("audio/");
+            try {
+                String mime = getContentResolver().getType(uri);
+                return mime != null && mime.startsWith("audio/");
+            } catch (Exception ignored) {}
         }
         return false;
     }
@@ -8734,13 +8743,21 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private boolean isPhotoMimeOrPath(Uri uri, String path) {
         if (path != null) {
             String lower = path.toLowerCase(Locale.US);
-            if (lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") || lower.endsWith(".webp")) {
+            if (lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") || lower.endsWith(".webp") || lower.endsWith(".gif") || lower.endsWith(".heic") || lower.endsWith(".heif") || lower.endsWith(".bmp") || lower.endsWith(".svg")) {
                 return true;
+            }
+            int lastDot = lower.lastIndexOf('.');
+            if (lastDot != -1 && lastDot < lower.length() - 1) {
+                String ext = lower.substring(lastDot + 1);
+                String mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
+                if (mime != null && mime.startsWith("image/")) return true;
             }
         }
         if (uri != null) {
-            String mime = getContentResolver().getType(uri);
-            return mime != null && mime.startsWith("image/");
+            try {
+                String mime = getContentResolver().getType(uri);
+                return mime != null && mime.startsWith("image/");
+            } catch (Exception ignored) {}
         }
         return false;
     }
@@ -8748,13 +8765,21 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private boolean isVideoMimeOrPath(Uri uri, String path) {
         if (path != null) {
             String lower = path.toLowerCase(Locale.US);
-            if (lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".3gp") || lower.endsWith(".webm") || lower.endsWith(".mov") || lower.endsWith(".avi")) {
+            if (lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".3gp") || lower.endsWith(".webm") || lower.endsWith(".mov") || lower.endsWith(".avi") || lower.endsWith(".m4v") || lower.endsWith(".ts") || lower.endsWith(".wmv") || lower.endsWith(".flv")) {
                 return true;
+            }
+            int lastDot = lower.lastIndexOf('.');
+            if (lastDot != -1 && lastDot < lower.length() - 1) {
+                String ext = lower.substring(lastDot + 1);
+                String mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
+                if (mime != null && mime.startsWith("video/")) return true;
             }
         }
         if (uri != null) {
-            String mime = getContentResolver().getType(uri);
-            return mime != null && mime.startsWith("video/");
+            try {
+                String mime = getContentResolver().getType(uri);
+                return mime != null && mime.startsWith("video/");
+            } catch (Exception ignored) {}
         }
         return false;
     }

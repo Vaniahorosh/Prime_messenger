@@ -2284,15 +2284,34 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             try {
                 BitmapFactory.Options options = new BitmapFactory.Options();
                 options.inJustDecodeBounds = true;
+                int orientation = androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL;
                 if (pathOrUri.startsWith("content://")) {
-                    try (InputStream is = context.getContentResolver().openInputStream(Uri.parse(pathOrUri))) {
+                    Uri uri = Uri.parse(pathOrUri);
+                    try (InputStream is = context.getContentResolver().openInputStream(uri)) {
                         if (is != null) BitmapFactory.decodeStream(is, null, options);
                     }
+                    try (InputStream isExif = context.getContentResolver().openInputStream(uri)) {
+                        if (isExif != null) {
+                            androidx.exifinterface.media.ExifInterface exif = new androidx.exifinterface.media.ExifInterface(isExif);
+                            orientation = exif.getAttributeInt(androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL);
+                        }
+                    } catch (Exception ignored) {}
                 } else if (new File(pathOrUri).exists()) {
                     BitmapFactory.decodeFile(pathOrUri, options);
+                    try {
+                        androidx.exifinterface.media.ExifInterface exif = new androidx.exifinterface.media.ExifInterface(pathOrUri);
+                        orientation = exif.getAttributeInt(androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL);
+                    } catch (Exception ignored) {}
                 }
                 if (options.outWidth > 0 && options.outHeight > 0) {
-                    int[] dims = new int[]{options.outWidth, options.outHeight};
+                    int w = options.outWidth;
+                    int h = options.outHeight;
+                    if (orientation == androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_90 || orientation == androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_270) {
+                        int tmp = w;
+                        w = h;
+                        h = tmp;
+                    }
+                    int[] dims = new int[]{w, h};
                     mediaSizeCache.put(pathOrUri, dims);
                     return dims;
                 }

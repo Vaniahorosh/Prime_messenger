@@ -93,6 +93,28 @@ public class LinkPreviewManager {
         try {
             URL url = new URL(urlString);
             String host = url.getHost().toLowerCase(Locale.ROOT);
+            String lowerUrl = urlString.toLowerCase(Locale.ROOT);
+
+            // Direct Image URL detection
+            if (lowerUrl.matches(".*\\.(jpg|jpeg|png|gif|webp|svg|bmp)(\\?.*)?$")) {
+                LinkPreviewData data = new LinkPreviewData();
+                data.url = urlString;
+                data.domain = host;
+                data.title = extractFilenameFromUrl(urlString);
+                data.description = "Изображение";
+                data.imageUrl = urlString;
+                return data;
+            }
+
+            // Direct Video URL detection
+            if (lowerUrl.matches(".*\\.(mp4|webm|mkv|mov|avi|3gp)(\\?.*)?$")) {
+                LinkPreviewData data = new LinkPreviewData();
+                data.url = urlString;
+                data.domain = host;
+                data.title = extractFilenameFromUrl(urlString);
+                data.description = "Видеофайл";
+                return data;
+            }
 
             // YouTube special oEmbed handler
             if (host.contains("youtube.com") || host.contains("youtu.be")) {
@@ -109,12 +131,23 @@ public class LinkPreviewManager {
                     return createFallbackData(urlString);
                 }
 
+                String contentType = response.header("Content-Type");
+                if (contentType != null && contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {
+                    LinkPreviewData data = new LinkPreviewData();
+                    data.url = urlString;
+                    data.domain = host;
+                    data.title = extractFilenameFromUrl(urlString);
+                    data.description = "Изображение";
+                    data.imageUrl = urlString;
+                    return data;
+                }
+
                 String html = response.body().string();
                 Document doc = Jsoup.parse(html, urlString);
 
                 LinkPreviewData data = new LinkPreviewData();
                 data.url = urlString;
-                data.domain = url.getHost();
+                data.domain = host;
 
                 // Extract OpenGraph / Twitter / Standard Meta Tags with Jsoup
                 data.title = getMetaTagContent(doc, "og:title", "twitter:title");
@@ -122,17 +155,21 @@ public class LinkPreviewManager {
                     data.title = doc.title();
                 }
                 if (data.title == null || data.title.isEmpty()) {
-                    data.title = url.getHost();
+                    data.title = host;
                 }
 
                 data.description = getMetaTagContent(doc, "og:description", "twitter:description", "description");
 
                 data.imageUrl = getMetaTagContent(doc, "og:image", "og:image:secure_url", "twitter:image", "twitter:image:src");
                 if (data.imageUrl != null && !data.imageUrl.isEmpty()) {
-                    if (data.imageUrl.startsWith("//")) {
-                        data.imageUrl = "https:" + data.imageUrl;
-                    } else if (data.imageUrl.startsWith("/")) {
-                        data.imageUrl = "https://" + url.getHost() + data.imageUrl;
+                    try {
+                        data.imageUrl = new URL(url, data.imageUrl).toString();
+                    } catch (Exception ignored) {
+                        if (data.imageUrl.startsWith("//")) {
+                            data.imageUrl = "https:" + data.imageUrl;
+                        } else if (data.imageUrl.startsWith("/")) {
+                            data.imageUrl = "https://" + host + data.imageUrl;
+                        }
                     }
                 }
 
@@ -190,5 +227,21 @@ public class LinkPreviewManager {
         }
         data.title = data.domain;
         return data;
+    }
+
+    private String extractFilenameFromUrl(String urlString) {
+        try {
+            URL url = new URL(urlString);
+            String path = url.getPath();
+            if (path != null && !path.isEmpty()) {
+                int lastSlash = path.lastIndexOf('/');
+                if (lastSlash != -1 && lastSlash < path.length() - 1) {
+                    return path.substring(lastSlash + 1);
+                }
+            }
+            return url.getHost();
+        } catch (Exception e) {
+            return urlString;
+        }
     }
 }
