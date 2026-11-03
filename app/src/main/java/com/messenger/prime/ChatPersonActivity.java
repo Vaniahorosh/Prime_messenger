@@ -3921,11 +3921,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (isMultiSelectionActive || (chatAdapter != null && chatAdapter.isMultiSelectionMode())) {
             return;
         }
-        SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-        boolean isPartnerInfoEnabled = sp.getBoolean("settings_partner_info_enabled", true);
-        if (!isPartnerInfoEnabled) {
-            return;
-        }
         Intent intent = new Intent(this, PersonInformationActivity.class);
         intent.putExtra("EXTRA_CHAT_NAME", targetUsername);
         intent.putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress);
