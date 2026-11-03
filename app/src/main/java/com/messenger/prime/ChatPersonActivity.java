@@ -1150,36 +1150,35 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         ImageButton btnBack = findViewById(R.id.btnBack);
         ImageView ivChatAvatar = findViewById(R.id.ivChatAvatar);
         View layoutHeader = findViewById(R.id.layoutHeader);
+        View layoutHeaderNormal = findViewById(R.id.layoutHeaderNormal);
         
+        View.OnClickListener openPartnerInfoListener = v -> openPersonInformationActivity();
+        View.OnLongClickListener searchDialogListener = v -> {
+            showSearchDialog();
+            return true;
+        };
+
         if (ivChatAvatar != null) {
             ViewCompat.setTransitionName(ivChatAvatar, "transition_avatar");
-            ivChatAvatar.setOnClickListener(v -> openPersonInformationActivity());
-            ivChatAvatar.setOnLongClickListener(v -> {
-                showSearchDialog();
-                return true;
-            });
+            ivChatAvatar.setOnClickListener(openPartnerInfoListener);
+            ivChatAvatar.setOnLongClickListener(searchDialogListener);
         }
         if (tvChatName != null) {
             ViewCompat.setTransitionName(tvChatName, "transition_name");
-            tvChatName.setOnClickListener(v -> openPersonInformationActivity());
-            tvChatName.setOnLongClickListener(v -> {
-                showSearchDialog();
-                return true;
-            });
+            tvChatName.setOnClickListener(openPartnerInfoListener);
+            tvChatName.setOnLongClickListener(searchDialogListener);
         }
         if (tvChatStatus != null) {
-            tvChatStatus.setOnClickListener(v -> openPersonInformationActivity());
-            tvChatStatus.setOnLongClickListener(v -> {
-                showSearchDialog();
-                return true;
-            });
+            tvChatStatus.setOnClickListener(openPartnerInfoListener);
+            tvChatStatus.setOnLongClickListener(searchDialogListener);
+        }
+        if (layoutHeaderNormal != null) {
+            layoutHeaderNormal.setOnClickListener(openPartnerInfoListener);
+            layoutHeaderNormal.setOnLongClickListener(searchDialogListener);
         }
         if (layoutHeader != null) {
-            layoutHeader.setOnClickListener(v -> openPersonInformationActivity());
-            layoutHeader.setOnLongClickListener(v -> {
-                showSearchDialog();
-                return true;
-            });
+            layoutHeader.setOnClickListener(openPartnerInfoListener);
+            layoutHeader.setOnLongClickListener(searchDialogListener);
         }
         
         layoutInput = findViewById(R.id.layoutInput);
@@ -3180,17 +3179,19 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         tvCounter.animate().cancel();
         tvCounter.animate()
-                .translationY(25f)
+                .translationY(-30f)
                 .alpha(0f)
-                .setDuration(160)
+                .setDuration(120)
+                .setInterpolator(new AccelerateInterpolator())
                 .withEndAction(() -> {
                     if (tvCounter == null) return;
                     tvCounter.setText(text);
-                    tvCounter.setTranslationY(-25f);
+                    tvCounter.setTranslationY(30f);
                     tvCounter.animate()
                             .translationY(0f)
                             .alpha(1f)
-                            .setDuration(160)
+                            .setDuration(150)
+                            .setInterpolator(new DecelerateInterpolator())
                             .start();
                 })
                 .start();

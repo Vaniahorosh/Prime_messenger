@@ -4115,8 +4115,8 @@ class ChatListActivity : AppCompatActivity() {
                 gravity = android.view.Gravity.CENTER_VERTICAL
             }
         }
-        binding.layoutIslandHeader.tsHeaderSelectionCount.inAnimation = android.view.animation.AnimationUtils.loadAnimation(this, android.R.anim.fade_in)
-        binding.layoutIslandHeader.tsHeaderSelectionCount.outAnimation = android.view.animation.AnimationUtils.loadAnimation(this, android.R.anim.fade_out)
+        binding.layoutIslandHeader.tsHeaderSelectionCount.inAnimation = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.slide_in_bottom)
+        binding.layoutIslandHeader.tsHeaderSelectionCount.outAnimation = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.slide_out_top)
 
         binding.layoutIslandHeader.btnHeaderSelectionCancel.setOnClickListener {
             adapter.clearSelection()
@@ -4205,8 +4205,8 @@ class ChatListActivity : AppCompatActivity() {
                 gravity = android.view.Gravity.CENTER_VERTICAL
             }
         }
-        binding.tsBottomSelectionCount.inAnimation = android.view.animation.AnimationUtils.loadAnimation(this, android.R.anim.fade_in)
-        binding.tsBottomSelectionCount.outAnimation = android.view.animation.AnimationUtils.loadAnimation(this, android.R.anim.fade_out)
+        binding.tsBottomSelectionCount.inAnimation = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.slide_in_bottom)
+        binding.tsBottomSelectionCount.outAnimation = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.slide_out_top)
 
         binding.btnBottomSelectionCancel.setOnClickListener {
             adapter.clearSelection()
