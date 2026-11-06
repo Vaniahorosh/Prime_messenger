@@ -1,11 +1,14 @@
 package com.messenger.prime
 
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -106,6 +109,15 @@ class DownloadsActivity : AppCompatActivity() {
         }
     }
 
+    private val accentReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.messenger.prime.ACCENT_CHANGED") {
+                applyIslandHeaderColor()
+                setupFilterChips()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
@@ -115,17 +127,40 @@ class DownloadsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         PrimeTransitions.applyOpenTransition(this)
+        applyIslandHeaderColor()
         setupSystemBarInsets()
         setupHeaderAndSearch()
         setupFilterChips()
         setupRecyclerView()
 
         loadDownloadsData()
+
+        try {
+            val filter = IntentFilter("com.messenger.prime.ACCENT_CHANGED")
+            ContextCompat.registerReceiver(this, accentReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        } catch (_: Exception) {}
     }
 
     override fun onResume() {
         super.onResume()
+        applyIslandHeaderColor()
         loadDownloadsData()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try { unregisterReceiver(accentReceiver) } catch (_: Exception) {}
+    }
+
+    private fun applyIslandHeaderColor() {
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val density = resources.displayMetrics.density
+        val bg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 24 * density
+            setColor(accentColor)
+        }
+        binding.layoutHeaderIsland.background = bg
     }
 
     private fun setupSystemBarInsets() {
