@@ -9,6 +9,7 @@ import android.content.DialogInterface
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import com.messenger.prime.DownloadsActivity
 import com.messenger.prime.DownloadsManager
 import android.os.Bundle
 import android.text.Editable
@@ -863,6 +864,9 @@ class BrowserBottomSheetDialogFragment : BottomSheetDialogFragment() {
             }
             .addItem(5, "Поделиться", R.drawable.ic_share) {
                 shareCurrentUrl()
+            }
+            .addItem(10, "Загрузки", R.drawable.ic_download) {
+                DownloadsActivity.openWithPermissionCheck(requireActivity())
             }
             .addItem(6, "Открыть в браузере", R.drawable.ic_globe) {
                 openExternalBrowser()

@@ -15,6 +15,7 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -146,7 +147,21 @@ class DownloadsActivity : AppCompatActivity() {
         }
     }
 
+    private var isGridMode = true
+
     private fun setupHeaderAndSearch() {
+        val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        isGridMode = sp.getBoolean("downloads_view_mode_grid", true)
+
+        updateViewModeLayout()
+
+        binding.btnToggleViewMode.setOnClickListener {
+            isGridMode = !isGridMode
+            sp.edit().putBoolean("downloads_view_mode_grid", isGridMode).apply()
+            updateViewModeLayout()
+            filterAndRenderDownloads()
+        }
+
         binding.btnBack.setOnClickListener {
             if (isTaskRoot) {
                 val intent = Intent(this, ChatListActivity::class.java).apply {
@@ -158,19 +173,85 @@ class DownloadsActivity : AppCompatActivity() {
             PrimeTransitions.applyCloseTransition(this)
         }
 
-        binding.btnSearchClear.setOnClickListener {
-            binding.etSearchDownloads.text?.clear()
-        }
+        binding.btnHeaderSearch.setOnClickListener { openHeaderSearch() }
+        binding.btnHeaderSearchClear.setOnClickListener { closeHeaderSearch() }
 
-        binding.etSearchDownloads.addTextChangedListener(object : TextWatcher {
+        binding.etHeaderSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 searchQuery = s?.toString()?.trim() ?: ""
-                binding.btnSearchClear.visibility = if (searchQuery.isNotEmpty()) View.VISIBLE else View.GONE
                 filterAndRenderDownloads()
             }
             override fun afterTextChanged(s: Editable?) {}
         })
+    }
+
+    private fun updateViewModeLayout() {
+        if (isGridMode) {
+            binding.btnToggleViewMode.setImageResource(R.drawable.ic_format_list_bulleted)
+            binding.btnToggleViewMode.contentDescription = "Показать списком"
+            binding.rvDownloads.layoutManager = androidx.recyclerview.widget.GridLayoutManager(this, 2)
+        } else {
+            binding.btnToggleViewMode.setImageResource(R.drawable.ic_format_table)
+            binding.btnToggleViewMode.contentDescription = "Показать сеткой"
+            binding.rvDownloads.layoutManager = LinearLayoutManager(this)
+        }
+    }
+
+    private fun openHeaderSearch() {
+        binding.layoutTitleContainer.animate().cancel()
+        binding.etHeaderSearch.animate().cancel()
+        binding.btnHeaderSearch.animate().cancel()
+        binding.btnToggleViewMode.animate().cancel()
+
+        binding.layoutTitleContainer.visibility = View.GONE
+        binding.btnHeaderSearch.visibility = View.GONE
+        binding.btnToggleViewMode.visibility = View.GONE
+
+        binding.etHeaderSearch.alpha = 0f
+        binding.etHeaderSearch.visibility = View.VISIBLE
+        binding.etHeaderSearch.animate()
+            .alpha(1f)
+            .setDuration(180)
+            .start()
+
+        binding.btnHeaderSearchClear.alpha = 0f
+        binding.btnHeaderSearchClear.visibility = View.VISIBLE
+        binding.btnHeaderSearchClear.animate()
+            .alpha(1f)
+            .setDuration(180)
+            .start()
+
+        binding.etHeaderSearch.requestFocus()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        @Suppress("DEPRECATION")
+        imm?.showSoftInput(binding.etHeaderSearch, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun closeHeaderSearch() {
+        binding.etHeaderSearch.text?.clear()
+        searchQuery = ""
+
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(binding.etHeaderSearch.windowToken, 0)
+        binding.etHeaderSearch.clearFocus()
+
+        binding.etHeaderSearch.visibility = View.GONE
+        binding.btnHeaderSearchClear.visibility = View.GONE
+
+        binding.layoutTitleContainer.alpha = 0f
+        binding.layoutTitleContainer.visibility = View.VISIBLE
+        binding.layoutTitleContainer.animate().alpha(1f).setDuration(180).start()
+
+        binding.btnHeaderSearch.alpha = 0f
+        binding.btnHeaderSearch.visibility = View.VISIBLE
+        binding.btnHeaderSearch.animate().alpha(1f).setDuration(180).start()
+
+        binding.btnToggleViewMode.alpha = 0f
+        binding.btnToggleViewMode.visibility = View.VISIBLE
+        binding.btnToggleViewMode.animate().alpha(1f).setDuration(180).start()
+
+        filterAndRenderDownloads()
     }
 
     private fun setupFilterChips() {
@@ -231,7 +312,7 @@ class DownloadsActivity : AppCompatActivity() {
             onShareItem = { item -> shareFile(item) },
             onDeleteItem = { item -> deleteFileItem(item) }
         )
-        binding.rvDownloads.layoutManager = LinearLayoutManager(this)
+        updateViewModeLayout()
         binding.rvDownloads.adapter = adapter
     }
 
@@ -241,13 +322,15 @@ class DownloadsActivity : AppCompatActivity() {
 
         val totalSize = allDownloadsList.sumOf { it.fileSize }
         val formattedSize = DownloadsManager.formatFileSize(totalSize)
-        val userLabel = if (currentUser.isNotEmpty()) "Пользователь: $currentUser" else "Текущий профиль"
-        binding.tvStorageUsage.text = "$userLabel • Занято $formattedSize"
+        binding.tvStorageUsage.text = "Собеседники и браузер • Занято $formattedSize"
 
         filterAndRenderDownloads()
     }
 
     private fun filterAndRenderDownloads() {
+        val query = searchQuery.lowercase(Locale.ROOT).trim()
+        val queryTokens = query.split("\\s+".toRegex()).filter { it.isNotEmpty() }
+
         val filtered = allDownloadsList.filter { item ->
             val matchesCategory = when (activeCategoryFilter) {
                 "MEDIA" -> item.mimeType.startsWith("image") || item.mimeType.startsWith("video") || item.fileName.endsWith(".gif")
@@ -257,15 +340,30 @@ class DownloadsActivity : AppCompatActivity() {
                 else -> true
             }
 
-            val matchesSearch = if (searchQuery.isEmpty()) true else {
-                item.fileName.lowercase(Locale.ROOT).contains(searchQuery.lowercase(Locale.ROOT)) ||
-                item.sourceName.lowercase(Locale.ROOT).contains(searchQuery.lowercase(Locale.ROOT))
+            val matchesSearch = if (queryTokens.isEmpty()) true else {
+                val fileName = item.fileName.lowercase(Locale.ROOT)
+                val sourceName = item.sourceName.lowercase(Locale.ROOT)
+                val mimeType = item.mimeType.lowercase(Locale.ROOT)
+                val formattedSize = DownloadsManager.formatFileSize(item.fileSize).lowercase(Locale.ROOT)
+                val formattedDate = DownloadsManager.formatDate(item.timestamp).lowercase(Locale.ROOT)
+
+                val categoryAlias = when {
+                    mimeType.startsWith("image") || fileName.endsWith(".gif") -> "фото медиа картинка изображение гиф gif photo image"
+                    mimeType.startsWith("video") -> "видео медиа ролик mp4 video"
+                    mimeType.startsWith("audio") -> "аудио музыка трек песню mp3 wav music audio"
+                    fileName.endsWith(".apk") -> "апк аппка обновление инсталлер приложение apk app update"
+                    else -> "документ файл текст doc pdf text file"
+                }
+
+                val searchableText = "$fileName $sourceName $mimeType $formattedSize $formattedDate $categoryAlias"
+
+                queryTokens.all { token -> searchableText.contains(token) }
             }
 
             matchesCategory && matchesSearch
         }
 
-        adapter.setItems(filtered)
+        adapter.setItems(filtered, isGridMode)
         binding.tvEmptyState.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
     }
 
@@ -386,8 +484,6 @@ class DownloadsActivity : AppCompatActivity() {
         }
     }
 
-
-
     // Downloads RecyclerView Adapter
     private class DownloadsAdapter(
         private val onOpenItem: (DownloadItem) -> Unit,
@@ -396,14 +492,21 @@ class DownloadsActivity : AppCompatActivity() {
     ) : RecyclerView.Adapter<DownloadsAdapter.ViewHolder>() {
 
         private var items = listOf<DownloadItem>()
+        private var isGrid = true
 
-        fun setItems(newItems: List<DownloadItem>) {
+        fun setItems(newItems: List<DownloadItem>, isGridMode: Boolean) {
             items = newItems
+            isGrid = isGridMode
             notifyDataSetChanged()
         }
 
+        override fun getItemViewType(position: Int): Int {
+            return if (isGrid) 1 else 0
+        }
+
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_download_file, parent, false)
+            val layoutRes = if (viewType == 1) R.layout.item_download_file_grid else R.layout.item_download_file
+            val view = LayoutInflater.from(parent.context).inflate(layoutRes, parent, false)
             return ViewHolder(view)
         }
 
@@ -415,13 +518,14 @@ class DownloadsActivity : AppCompatActivity() {
         override fun getItemCount(): Int = items.size
 
         inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            private val ivFileThumbnail: ImageView = itemView.findViewById(R.id.ivFileThumbnail)
-            private val ivFileIcon: ImageView = itemView.findViewById(R.id.ivFileIcon)
+            private val ivFileThumbnail: ImageView? = itemView.findViewById(R.id.ivFileThumbnail)
+            private val ivFileIcon: ImageView? = itemView.findViewById(R.id.ivFileIcon)
             private val tvFileName: TextView = itemView.findViewById(R.id.tvFileName)
             private val tvSourceBadge: TextView = itemView.findViewById(R.id.tvSourceBadge)
             private val tvFileMeta: TextView = itemView.findViewById(R.id.tvFileMeta)
-            private val btnShareFile: ImageButton = itemView.findViewById(R.id.btnShareFile)
-            private val btnDeleteFile: ImageButton = itemView.findViewById(R.id.btnDeleteFile)
+            private val btnOpenFile: MaterialButton? = itemView.findViewById(R.id.btnOpenFile)
+            private val btnShareFile: ImageButton? = itemView.findViewById(R.id.btnShareFile)
+            private val btnDeleteFile: ImageButton? = itemView.findViewById(R.id.btnDeleteFile)
 
             fun bind(item: DownloadItem) {
                 tvFileName.text = item.fileName
@@ -434,15 +538,17 @@ class DownloadsActivity : AppCompatActivity() {
                 val mime = item.mimeType.lowercase(Locale.ROOT)
 
                 if (file.exists() && (mime.startsWith("image") || item.fileName.endsWith(".gif"))) {
-                    ivFileThumbnail.visibility = View.VISIBLE
-                    ivFileIcon.visibility = View.GONE
-                    Glide.with(itemView.context)
-                        .load(file)
-                        .centerCrop()
-                        .into(ivFileThumbnail)
+                    ivFileThumbnail?.visibility = View.VISIBLE
+                    ivFileIcon?.visibility = View.GONE
+                    if (ivFileThumbnail != null) {
+                        Glide.with(itemView.context)
+                            .load(file)
+                            .centerCrop()
+                            .into(ivFileThumbnail)
+                    }
                 } else {
-                    ivFileThumbnail.visibility = View.GONE
-                    ivFileIcon.visibility = View.VISIBLE
+                    ivFileThumbnail?.visibility = View.GONE
+                    ivFileIcon?.visibility = View.VISIBLE
 
                     val iconRes = when {
                         mime.startsWith("video") -> R.drawable.ic_video
@@ -450,12 +556,13 @@ class DownloadsActivity : AppCompatActivity() {
                         item.fileName.endsWith(".apk") -> R.drawable.ic_download
                         else -> R.drawable.ic_file
                     }
-                    ivFileIcon.setImageResource(iconRes)
+                    ivFileIcon?.setImageResource(iconRes)
                 }
 
                 itemView.setOnClickListener { onOpenItem(item) }
-                btnShareFile.setOnClickListener { onShareItem(item) }
-                btnDeleteFile.setOnClickListener { onDeleteItem(item) }
+                btnOpenFile?.setOnClickListener { onOpenItem(item) }
+                btnShareFile?.setOnClickListener { onShareItem(item) }
+                btnDeleteFile?.setOnClickListener { onDeleteItem(item) }
             }
         }
     }

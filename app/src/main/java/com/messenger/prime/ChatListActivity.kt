@@ -3570,9 +3570,27 @@ class ChatListActivity : AppCompatActivity() {
         override fun onPacketReceived(deviceAddress: String?, type: Byte, payload: ByteArray?) {}
     }
 
+    private val transferListener = object : TransferListener {
+        override fun onTransferUpdated(transfers: List<ActiveTransfer>) {
+            val currentUser = DownloadsManager.getCurrentUser(this@ChatListActivity)
+            val hasActiveTransfers = transfers.any { it.userLogin == currentUser || currentUser.isEmpty() }
+            runOnUiThread {
+                if (::binding.isInitialized) {
+                    DownloadsIconAnimator.updateAnimationState(binding.layoutIslandHeader.btnHeaderDownloads, hasActiveTransfers)
+                }
+                val navView = findViewById<View>(R.id.blurBottomNav)
+                if (navView != null) {
+                    val ivNavDownloadsIcon = navView.findViewById<ImageView>(R.id.ivNavDownloadsIcon)
+                    DownloadsIconAnimator.updateAnimationState(ivNavDownloadsIcon, hasActiveTransfers)
+                }
+            }
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         ChatListNotifier.subscribe(onChatListChanged)
+        TransferManager.registerListener(transferListener)
         BluetoothConnectionManager.getInstance().registerCallback(globalBtCallback)
         try {
             val filter = IntentFilter().apply {
@@ -3604,6 +3622,7 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        TransferManager.unregisterListener(transferListener)
         BluetoothConnectionManager.getInstance().unregisterCallback(globalBtCallback)
         try {
             unregisterReceiver(avatarChangedReceiver)

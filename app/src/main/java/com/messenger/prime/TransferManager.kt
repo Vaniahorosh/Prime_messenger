@@ -21,6 +21,38 @@ interface TransferListener {
     fun onTransferUpdated(transfers: List<ActiveTransfer>)
 }
 
+object DownloadsIconAnimator {
+    private val animatingViews = java.util.WeakHashMap<android.view.View, android.animation.ObjectAnimator>()
+
+    @JvmStatic
+    fun updateAnimationState(view: android.view.View?, isDownloading: Boolean) {
+        if (view == null) return
+        if (isDownloading) {
+            if (animatingViews.containsKey(view)) return
+            val animator = android.animation.ObjectAnimator.ofPropertyValuesHolder(
+                view,
+                android.animation.PropertyValuesHolder.ofFloat(android.view.View.SCALE_X, 1.0f, 1.18f),
+                android.animation.PropertyValuesHolder.ofFloat(android.view.View.SCALE_Y, 1.0f, 1.18f),
+                android.animation.PropertyValuesHolder.ofFloat(android.view.View.TRANSLATION_Y, 0f, -3f)
+            ).apply {
+                duration = 550
+                repeatCount = android.animation.ValueAnimator.INFINITE
+                repeatMode = android.animation.ValueAnimator.REVERSE
+                interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+            }
+            animatingViews[view] = animator
+            animator.start()
+        } else {
+            val animator = animatingViews.remove(view)
+            animator?.cancel()
+            view.animate().cancel()
+            view.scaleX = 1.0f
+            view.scaleY = 1.0f
+            view.translationY = 0f
+        }
+    }
+}
+
 object TransferManager {
     private val activeTransfersMap = ConcurrentHashMap<String, ActiveTransfer>()
     private val listeners = mutableSetOf<TransferListener>()
