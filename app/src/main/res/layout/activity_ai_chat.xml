@@ -38,61 +38,68 @@
         tools:visibility="visible">
 
         <ImageView
-            android:layout_width="72dp"
-            android:layout_height="72dp"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
             android:background="@drawable/bg_circular_mode_active"
-            android:backgroundTint="@color/prime_brand"
-            android:padding="16dp"
+            android:backgroundTint="?attr/colorPrimary"
+            android:padding="20dp"
             android:src="@drawable/ic_prime_ai"
-            app:tint="@color/white"
+            app:tint="?attr/colorOnPrimary"
+            android:elevation="4dp"
             android:contentDescription="AI Assistant Logo" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="24dp"
             android:gravity="center"
             android:text="AI Prime Assistant"
             android:textColor="@color/prime_text_primary"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:textSize="22sp"
+            android:fontFamily="sans-serif-medium" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:layout_marginHorizontal="24dp"
             android:gravity="center"
             android:text="Умный помощник для кодинга, перевода, анализа и генерации идей. Настройте API ключ и начните первый диалог!"
             android:textColor="@color/prime_text_secondary"
-            android:textSize="14sp" />
+            android:lineSpacingMultiplier="1.2"
+            android:textSize="15sp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnEmptyCreateChat"
             style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
             android:layout_width="wrap_content"
-            android:layout_height="46dp"
-            android:layout_marginTop="28dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="32dp"
             android:text="Создать первый чат"
-            android:textColor="@color/white"
+            android:textColor="?attr/colorOnPrimary"
             android:textAllCaps="false"
-            app:cornerRadius="23dp"
-            app:backgroundTint="@color/prime_brand"
+            android:letterSpacing="0.01"
+            android:textSize="15sp"
+            app:cornerRadius="24dp"
+            app:backgroundTint="?attr/colorPrimary"
             app:icon="@drawable/ic_add"
-            app:iconTint="@color/white" />
+            app:iconTint="?attr/colorOnPrimary" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnEmptySetupKey"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="wrap_content"
-            android:layout_height="46dp"
+            android:layout_height="48dp"
             android:layout_marginTop="12dp"
             android:text="Настроить API ключ"
-            android:textColor="@color/prime_brand"
+            android:textColor="?attr/colorPrimary"
             android:textAllCaps="false"
-            app:cornerRadius="23dp"
-            app:strokeColor="@color/prime_brand"
+            android:letterSpacing="0.01"
+            android:textSize="15sp"
+            app:cornerRadius="24dp"
+            app:strokeColor="?attr/colorPrimary"
             app:icon="@drawable/ic_settings"
-            app:iconTint="@color/prime_brand" />
+            app:iconTint="?attr/colorPrimary" />
     </LinearLayout>
 
     <!-- Top Gradient Fog Shadow (Wide) -->
@@ -127,12 +134,12 @@
 
         <ImageView
             android:id="@+id/btnAiBack"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="8dp"
+            android:padding="10dp"
             android:src="@drawable/ic_arrow_back"
-            app:tint="@color/prime_brand" />
+            app:tint="@color/prime_text_primary" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -149,9 +156,9 @@
 
                 <ImageView
                     android:id="@+id/ivAiLogoHeader"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginEnd="8dp"
                     android:src="@drawable/ic_prime_ai" />
 
                 <TextView
@@ -160,8 +167,8 @@
                     android:layout_height="wrap_content"
                     android:text="Новый чат"
                     android:textColor="@color/prime_text_primary"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
+                    android:textSize="17sp"
+                    android:fontFamily="sans-serif-medium"
                     android:maxLines="1"
                     android:ellipsize="end" />
             </LinearLayout>
@@ -170,22 +177,23 @@
                 android:id="@+id/tvAiHeaderSubtitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
+                android:layout_marginTop="2dp"
                 android:text="● Онлайн • Gemini 1.5 Flash • Квота ~0%"
                 android:textColor="@color/prime_text_secondary"
-                android:textSize="11sp"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif"
                 android:maxLines="1"
                 android:ellipsize="end" />
         </LinearLayout>
 
         <ImageView
             android:id="@+id/btnAiHistory"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="8dp"
+            android:padding="10dp"
             android:src="@drawable/ic_clock"
-            app:tint="@color/prime_brand"
+            app:tint="@color/prime_text_primary"
             android:contentDescription="История чатов" />
     </LinearLayout>
 
@@ -231,16 +239,25 @@
         <!-- Separate Action Button (Pencil when empty, Send when has text) -->
         <ImageView
             android:id="@+id/btnAiActionRight"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginStart="8dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="10dp"
             android:layout_gravity="bottom"
             android:background="@drawable/bg_circular_mode_active"
-            android:backgroundTint="@color/prime_brand"
-            android:padding="10dp"
+            android:backgroundTint="?attr/colorPrimary"
+            android:elevation="2dp"
+            android:padding="12dp"
             android:src="@drawable/ic_edit"
-            app:tint="@color/white"
+            app:tint="?attr/colorOnPrimary"
             android:contentDescription="Настройки модели" />
     </LinearLayout>
+
+    <!-- Included Bottom Navigation Bar -->
+    <include
+        layout="@layout/layout_bottom_navigation"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:visibility="gone" />
 
 </FrameLayout>

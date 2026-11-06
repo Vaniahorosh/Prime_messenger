@@ -40,10 +40,11 @@
                 android:layout_marginBottom="12dp">
 
                 <ImageView
+                    android:id="@+id/ivHeaderIcon"
                     android:layout_width="22dp"
                     android:layout_height="22dp"
                     android:src="@drawable/ic_clock"
-                    app:tint="@color/prime_brand"
+                    app:tint="?attr/colorPrimary"
                     android:contentDescription="История" />
 
                 <TextView
@@ -53,24 +54,25 @@
                     android:layout_marginStart="8dp"
                     android:text="История чатов"
                     android:textColor="@color/prime_text_primary"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
+                    android:textSize="18sp"
+                    android:fontFamily="sans-serif-medium" />
 
                 <!-- "Новый чат" Button -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnCreateNewChat"
                     style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="36dp"
+                    android:layout_height="40dp"
                     android:text="Новый чат"
-                    android:textColor="@color/white"
-                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnPrimary"
+                    android:textSize="13.5sp"
+                    android:letterSpacing="0.01"
                     android:textAllCaps="false"
-                    app:cornerRadius="18dp"
-                    app:backgroundTint="@color/prime_brand"
+                    app:cornerRadius="20dp"
+                    app:backgroundTint="?attr/colorPrimary"
                     app:icon="@drawable/ic_add"
-                    app:iconTint="@color/white"
-                    app:iconSize="16dp"
+                    app:iconTint="?attr/colorOnPrimary"
+                    app:iconSize="18dp"
                     android:insetTop="0dp"
                     android:insetBottom="0dp" />
             </LinearLayout>

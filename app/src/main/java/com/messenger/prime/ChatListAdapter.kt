@@ -665,7 +665,7 @@ class ChatListAdapter(
                     } else if (!isSelectionMode) {
                         it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
                         val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-                        val navStyle = sp.getString("navigation_style", "island") ?: "island"
+                        val navStyle = sp.getString("navigation_style", "bottom_bar") ?: "bottom_bar"
                         if (navStyle == "island") {
                             enterSelectionMode(chat.id)
                         } else {

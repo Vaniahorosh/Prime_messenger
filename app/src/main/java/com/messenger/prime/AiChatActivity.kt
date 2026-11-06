@@ -74,8 +74,16 @@ class AiChatActivity : AppCompatActivity() {
         // Setup Insets, Fog, Blur & Listeners
         setupSystemBarInsets()
         setupBlurViews()
+        setupBottomNav()
         setupListeners()
         setupRecyclerView()
+
+        // Material UI Color Accent Application
+        ColorAccentManager.tintViews(this, binding.btnEmptyCreateChat)
+        binding.btnAiActionRight.backgroundTintList = ColorStateList.valueOf(ColorAccentManager.getCurrentAccentColor(this))
+        binding.btnAiActionRight.imageTintList = ColorStateList.valueOf(Color.WHITE)
+        binding.btnEmptySetupKey.setTextColor(ColorAccentManager.getCurrentAccentColor(this))
+        binding.btnEmptySetupKey.strokeColor = ColorStateList.valueOf(ColorAccentManager.getCurrentAccentColor(this))
 
         // Load or Create Active Chat Session & Auto-Detect Model
         loadActiveSessionOrNew()
@@ -230,6 +238,24 @@ class AiChatActivity : AppCompatActivity() {
             val topInset = systemBars.top
             val bottomInset = if (isImeVisible) imeInsets.bottom else systemBars.bottom
 
+            val navView = findViewById<View>(R.id.blurBottomNav)
+            val navHeight = if (navView != null && navView.visibility == View.VISIBLE && !isImeVisible) {
+                (64 * density).toInt()
+            } else {
+                0
+            }
+
+            if (navView != null && navView.visibility == View.VISIBLE && !isImeVisible) {
+                val navLp = navView.layoutParams as? ViewGroup.MarginLayoutParams
+                if (navLp != null) {
+                    val targetNavMargin = systemBars.bottom + (12 * density).toInt()
+                    if (navLp.bottomMargin != targetNavMargin) {
+                        navLp.bottomMargin = targetNavMargin
+                        navView.layoutParams = navLp
+                    }
+                }
+            }
+
             val topLp = binding.topHeaderBar.layoutParams as? ViewGroup.MarginLayoutParams
             if (topLp != null && topLp.topMargin != topInset) {
                 topLp.topMargin = topInset
@@ -244,19 +270,19 @@ class AiChatActivity : AppCompatActivity() {
 
             val bottomFogLp = binding.vBottomFog.layoutParams
             if (bottomFogLp != null) {
-                bottomFogLp.height = bottomInset + (82 * density).toInt()
+                bottomFogLp.height = bottomInset + navHeight + (82 * density).toInt()
                 binding.vBottomFog.layoutParams = bottomFogLp
             }
 
             val bottomLp = binding.bottomInputPanel.layoutParams as? ViewGroup.MarginLayoutParams
-            val targetBottomMargin = bottomInset + (12 * density).toInt()
+            val targetBottomMargin = bottomInset + navHeight + (12 * density).toInt()
             if (bottomLp != null && bottomLp.bottomMargin != targetBottomMargin) {
                 bottomLp.bottomMargin = targetBottomMargin
                 binding.bottomInputPanel.layoutParams = bottomLp
             }
 
             val topPadding = topInset + (70 * density).toInt()
-            val bottomPadding = bottomInset + (75 * density).toInt()
+            val bottomPadding = bottomInset + navHeight + (75 * density).toInt()
             binding.rvAiMessages.setPadding(
                 binding.rvAiMessages.paddingLeft,
                 topPadding,
@@ -281,6 +307,203 @@ class AiChatActivity : AppCompatActivity() {
         binding.blurInputContainer.setupBlur(targetRoot, 18f, overlayColor, window.decorView.background)
     }
 
+    private fun setupBottomNav() {
+        if (!::binding.isInitialized) return
+        val navView = findViewById<View>(R.id.blurBottomNav) ?: return
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val navStyle = sharedPrefs.getString("navigation_style", "bottom_bar") ?: "bottom_bar"
+
+        if (navStyle != "bottom_bar") {
+            navView.visibility = View.GONE
+            return
+        }
+
+        navView.visibility = View.VISIBLE
+        navView.bringToFront()
+
+        val btnNavChats = navView.findViewById<View>(R.id.btnNavChats)
+        val btnNavDevices = navView.findViewById<View>(R.id.btnNavDevices)
+        val btnNavAi = navView.findViewById<View>(R.id.btnNavAi)
+        val btnNavSearch = navView.findViewById<View>(R.id.btnNavSearch)
+        val btnNavDownloads = navView.findViewById<View>(R.id.btnNavDownloads)
+        val btnNavProfile = navView.findViewById<View>(R.id.btnNavProfile)
+
+        val navContainer = (navView as? ViewGroup)?.getChildAt(0) as? ViewGroup
+        if (navContainer != null) {
+            val defaultOrder = "chats,devices,ai,search,downloads,profile"
+            val currentOrderStr = sharedPrefs.getString("nav_buttons_order", defaultOrder) ?: defaultOrder
+            val currentOrder = currentOrderStr.split(",").filter { it.isNotEmpty() }
+
+            navContainer.removeAllViews()
+
+            val allNavIds = listOf("chats", "devices", "ai", "search", "downloads", "profile")
+            val orderToUse = if (currentOrder.containsAll(allNavIds)) currentOrder else defaultOrder.split(",")
+
+            for (id in orderToUse) {
+                val view = when (id) {
+                    "chats" -> btnNavChats
+                    "devices" -> btnNavDevices
+                    "ai" -> btnNavAi
+                    "search" -> btnNavSearch
+                    "downloads" -> btnNavDownloads
+                    "profile" -> btnNavProfile
+                    else -> null
+                }
+                view?.let {
+                    val isVisible = sharedPrefs.getBoolean("nav_button_${id}_visible", true)
+                    it.visibility = if (isVisible || id == "profile") View.VISIBLE else View.GONE
+                    navContainer.addView(it)
+                }
+            }
+        }
+
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+
+        val vNavChatsIndicator = navView.findViewById<View>(R.id.vNavChatsIndicator)
+        val vNavDevicesIndicator = navView.findViewById<View>(R.id.vNavDevicesIndicator)
+        val vNavAiIndicator = navView.findViewById<View>(R.id.vNavAiIndicator)
+        val vNavSearchIndicator = navView.findViewById<View>(R.id.vNavSearchIndicator)
+        val vNavDownloadsIndicator = navView.findViewById<View>(R.id.vNavDownloadsIndicator)
+        val vNavProfileIndicator = navView.findViewById<View>(R.id.vNavProfileIndicator)
+
+        val ivNavChatsIcon = navView.findViewById<ImageView>(R.id.ivNavChatsIcon)
+        val ivNavDevicesIcon = navView.findViewById<ImageView>(R.id.ivNavDevicesIcon)
+        val ivNavAiIcon = navView.findViewById<ImageView>(R.id.ivNavAiIcon)
+        val ivNavSearchIcon = navView.findViewById<ImageView>(R.id.ivNavSearchIcon)
+        val ivNavDownloadsIcon = navView.findViewById<ImageView>(R.id.ivNavDownloadsIcon)
+
+        updateM3TabState(false, vNavChatsIndicator, ivNavChatsIcon, accentColor)
+        updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, accentColor)
+        updateM3TabState(true, vNavAiIndicator, ivNavAiIcon, accentColor)
+        updateM3TabState(false, vNavSearchIndicator, ivNavSearchIcon, accentColor)
+        updateM3TabState(false, vNavDownloadsIndicator, ivNavDownloadsIcon, accentColor)
+        updateM3TabState(false, vNavProfileIndicator, null, accentColor)
+        updateNavUnreadBadge(navView)
+
+        val profileAvatarIv = navView.findViewById<ImageView>(R.id.ivNavProfileAvatar)
+        if (profileAvatarIv != null) {
+            val myAvatar = AvatarManager.getMyAvatarUri(this)
+            val myName = AvatarManager.getMyDisplayName(this)
+            loadAvatarIntoView(this, myAvatar, profileAvatarIv, myName)
+        }
+
+        val blurNavView = navView as? eightbitlab.com.blurview.BlurView
+        if (blurNavView != null) {
+            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val overlayColor = if (isDark) android.graphics.Color.parseColor("#400F172A") else android.graphics.Color.parseColor("#40154B87")
+            val targetRootView = (binding.root as? ViewGroup)
+                ?: (window.decorView.findViewById<ViewGroup>(android.R.id.content))
+                ?: (window.decorView as ViewGroup)
+            blurNavView.setupBlur(targetRootView, 18f, overlayColor, window.decorView.background)
+        }
+
+        btnNavChats?.setOnClickListener {
+            val intent = Intent(this, ChatListActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            PrimeTransitions.applyPageFlipTransition(this, isForward = false)
+            finish()
+        }
+
+        btnNavDevices?.setOnClickListener {
+            val intent = Intent(this, ChatListActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra("EXTRA_ACTION_SCAN", true)
+            }
+            startActivity(intent)
+            PrimeTransitions.applyPageFlipTransition(this, isForward = false)
+            finish()
+        }
+
+        btnNavAi?.setOnClickListener {
+            if (adapter.itemCount > 0) {
+                binding.rvAiMessages.smoothScrollToPosition(adapter.itemCount - 1)
+            }
+        }
+
+        btnNavSearch?.setOnClickListener {
+            val intent = Intent(this, GlobalSearchActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            PrimeTransitions.applyPageFlipTransition(this, isForward = true)
+            finish()
+        }
+
+        btnNavDownloads?.setOnClickListener {
+            DownloadsActivity.openWithPermissionCheck(this)
+        }
+
+        btnNavProfile?.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            PrimeTransitions.applyPageFlipTransition(this, isForward = true)
+            finish()
+        }
+    }
+
+    private fun updateNavUnreadBadge(navView: View) {
+        val tvNavChatsUnreadBadge = navView.findViewById<TextView>(R.id.tvNavChatsUnreadBadge) ?: return
+        var totalUnread = 0
+        try {
+            val json = ChatHistoryManager.getPersistedChatsJson(this)
+            val array = org.json.JSONArray(json)
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                totalUnread += obj.optInt("unreadCount", 0)
+            }
+        } catch (_: Exception) {}
+
+        if (totalUnread > 0) {
+            tvNavChatsUnreadBadge.text = if (totalUnread > 99) "99+" else totalUnread.toString()
+            tvNavChatsUnreadBadge.visibility = View.VISIBLE
+        } else {
+            tvNavChatsUnreadBadge.visibility = View.GONE
+        }
+    }
+
+    private fun updateM3TabState(
+        isActive: Boolean,
+        indicatorView: View?,
+        iconView: ImageView?,
+        accentColor: Int
+    ) {
+        if (indicatorView == null) return
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val inactiveColor = if (isDark) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
+        val activeIconColor = if (isDark) android.graphics.Color.parseColor("#0F172A") else android.graphics.Color.WHITE
+
+        indicatorView.visibility = View.VISIBLE
+
+        if (isActive) {
+            indicatorView.backgroundTintList = ColorStateList.valueOf(accentColor)
+            indicatorView.animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .alpha(1.0f)
+                .setDuration(220)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.1f))
+                .start()
+
+            iconView?.setColorFilter(activeIconColor)
+            iconView?.animate()?.scaleX(1.1f)?.scaleY(1.1f)?.setDuration(180)?.start()
+        } else {
+            indicatorView.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+            indicatorView.animate()
+                .scaleX(0.7f)
+                .scaleY(0.7f)
+                .alpha(0f)
+                .setDuration(180)
+                .start()
+
+            iconView?.setColorFilter(accentColor)
+            iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
+        }
+    }
+
     private var isSendMode = false
 
     private fun updateActionRightButton(hasText: Boolean) {
@@ -288,10 +511,12 @@ class AiChatActivity : AppCompatActivity() {
         isSendMode = hasText
 
         binding.btnAiActionRight.animate()
-            .scaleX(0f)
-            .scaleY(0f)
-            .rotation(90f)
+            .scaleX(0.4f)
+            .scaleY(0.4f)
+            .alpha(0f)
+            .rotation(if (hasText) 45f else -45f)
             .setDuration(120L)
+            .setInterpolator(android.view.animation.AccelerateInterpolator())
             .withEndAction {
                 if (hasText) {
                     binding.btnAiActionRight.setImageResource(R.drawable.ic_send)
@@ -300,14 +525,15 @@ class AiChatActivity : AppCompatActivity() {
                     binding.btnAiActionRight.setImageResource(R.drawable.ic_edit)
                     binding.btnAiActionRight.contentDescription = "Настройки модели"
                 }
-                binding.btnAiActionRight.scaleX = 0f
-                binding.btnAiActionRight.scaleY = 0f
-                binding.btnAiActionRight.rotation = -90f
+                binding.btnAiActionRight.imageTintList = ColorStateList.valueOf(Color.WHITE)
+                binding.btnAiActionRight.rotation = if (hasText) -45f else 45f
                 binding.btnAiActionRight.animate()
                     .scaleX(1f)
                     .scaleY(1f)
+                    .alpha(1f)
                     .rotation(0f)
-                    .setDuration(160L)
+                    .setDuration(200L)
+                    .setInterpolator(android.view.animation.OvershootInterpolator(1.5f))
                     .start()
             }
             .start()
@@ -315,6 +541,12 @@ class AiChatActivity : AppCompatActivity() {
 
     private fun setupListeners() {
         binding.btnAiBack.setOnClickListener {
+            if (isTaskRoot) {
+                val intent = Intent(this, ChatListActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+                startActivity(intent)
+            }
             finish()
             PrimeTransitions.applyCloseTransition(this)
         }
@@ -1056,8 +1288,8 @@ $systemPrompt
         val tvLabelKey = TextView(this).apply {
             text = "API Ключ (обязательно):"
             setTextColor(ContextCompat.getColor(this@AiChatActivity, R.color.prime_text_primary))
-            textSize = 13f
-            setTypeface(null, Typeface.BOLD)
+            textSize = 14f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
         val etKey = EditText(this).apply {
             setText(currentKey)
@@ -1067,17 +1299,18 @@ $systemPrompt
                 this@AiChatActivity,
                 if (highlightError && currentKey.isBlank()) R.drawable.bg_input_error else R.drawable.bg_date_bubble
             )
-            setPadding(24, 18, 24, 18)
+            setPadding(32, 24, 32, 24)
             setTextColor(ContextCompat.getColor(this@AiChatActivity, R.color.prime_text_primary))
+            textSize = 14f
         }
 
         // Provider Spinner
         val tvLabelProvider = TextView(this).apply {
             text = "Провайдер Нейросети:"
             setTextColor(ContextCompat.getColor(this@AiChatActivity, R.color.prime_text_primary))
-            textSize = 13f
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, 16, 0, 0)
+            textSize = 14f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setPadding(0, 24, 0, 0)
         }
         val providers = arrayOf("Auto (по ключу)", "Gemini (Google)", "OpenAI", "Anthropic (Claude)", "OpenRouter", "DeepSeek / Custom")
         val spinnerProvider = Spinner(this).apply {
@@ -1096,9 +1329,9 @@ $systemPrompt
         val tvLabelModel = TextView(this).apply {
             text = "Модель Нейросети (загружается из API):"
             setTextColor(ContextCompat.getColor(this@AiChatActivity, R.color.prime_text_primary))
-            textSize = 13f
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, 16, 0, 0)
+            textSize = 14f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setPadding(0, 24, 0, 0)
         }
         val spinnerModel = Spinner(this).apply {
             adapter = ArrayAdapter(this@AiChatActivity, android.R.layout.simple_spinner_dropdown_item, arrayOf(currentModel))
@@ -1137,17 +1370,18 @@ $systemPrompt
         val tvLabelPrompt = TextView(this).apply {
             text = "Системный промпт Агента:"
             setTextColor(ContextCompat.getColor(this@AiChatActivity, R.color.prime_text_primary))
-            textSize = 13f
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, 16, 0, 0)
+            textSize = 14f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setPadding(0, 24, 0, 0)
         }
         val etPrompt = EditText(this).apply {
             setText(currentPrompt)
             hint = "Инструкции для поведения нейросети..."
             background = ContextCompat.getDrawable(this@AiChatActivity, R.drawable.bg_date_bubble)
-            setPadding(24, 18, 24, 18)
+            setPadding(32, 24, 32, 24)
             maxLines = 3
             setTextColor(ContextCompat.getColor(this@AiChatActivity, R.color.prime_text_primary))
+            textSize = 14f
         }
 
         val updateSettingsAccess = { hasKey: Boolean ->
@@ -1182,8 +1416,9 @@ $systemPrompt
             text = "Полный доступ (работа с приложением и действия)"
             isChecked = currentFullAccess
             setTextColor(ContextCompat.getColor(this@AiChatActivity, R.color.prime_text_primary))
-            textSize = 13f
-            setPadding(0, 24, 0, 10)
+            textSize = 14f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setPadding(0, 32, 0, 10)
         }
 
         layout.addView(tvLabelKey)
@@ -1298,6 +1533,53 @@ $systemPrompt
                 newSession.title = topic
                 switchSession(newSession)
             }
+            action == "action:open_wallpaper_editor" -> {
+                val intent = Intent(this, PhotoEditorActivity::class.java).apply {
+                    putExtra("IS_PROFILE_PHOTO", false)
+                }
+                startActivity(intent)
+            }
+            action == "action:open_profile" -> {
+                startActivity(Intent(this, SettingsActivity::class.java))
+            }
+            action.startsWith("action:open_chat:") -> {
+                val target = action.removePrefix("action:open_chat:").trim()
+                val intent = Intent(this, ChatPersonActivity::class.java).apply {
+                    putExtra("EXTRA_ADDRESS", target)
+                    putExtra("EXTRA_NAME", ChatHistoryManager.getDisplayNameForAddress(this@AiChatActivity, target))
+                }
+                startActivity(intent)
+            }
+            action.startsWith("action:copy:") -> {
+                val copyText = action.removePrefix("action:copy:").trim()
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                val clip = android.content.ClipData.newPlainText("Prime AI Copy", copyText)
+                clipboard?.setPrimaryClip(clip)
+                PrimeNotification.show(this, "Текст скопирован в буфер")
+            }
+            action.startsWith("action:vibrate:") -> {
+                val ms = action.removePrefix("action:vibrate:").trim().toLongOrNull() ?: 100L
+                try {
+                    val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(ms)
+                } catch (_: Exception) {}
+            }
+            action.startsWith("action:toast:") -> {
+                val msg = action.removePrefix("action:toast:").trim()
+                PrimeNotification.show(this, msg)
+            }
+            action.startsWith("action:notify:") -> {
+                val msg = action.removePrefix("action:notify:").trim()
+                PrimeNotification.show(this, msg)
+            }
+            action == "action:clear_history" -> {
+                activeSession?.messages?.clear()
+                messages.clear()
+                activeSession?.let { AiChatStorage.saveSession(this, it) }
+                adapter.notifyDataSetChanged()
+                PrimeNotification.show(this, "История чата очищена")
+            }
             action.startsWith("action:set_accent_color:") -> {
                 val hex = action.removePrefix("action:set_accent_color:").trim()
                 try {
@@ -1358,7 +1640,9 @@ class AiMessagesAdapter(private val items: List<AiMessage>) : RecyclerView.Adapt
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
                 orientation = LinearLayout.VERTICAL
-                setPadding((14 * scale).toInt(), (10 * scale).toInt(), (14 * scale).toInt(), (10 * scale).toInt())
+                setPadding((16 * scale).toInt(), (12 * scale).toInt(), (16 * scale).toInt(), (12 * scale).toInt())
+                elevation = 2f * scale // Material Design elevation
+                outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
                 background = if (isUser) {
                     ColorAccentManager.createOutgoingBubbleDrawable(context)
                 } else {
@@ -1368,7 +1652,9 @@ class AiMessagesAdapter(private val items: List<AiMessage>) : RecyclerView.Adapt
                 val text = TextView(context).apply {
                     id = android.R.id.text1
                     setTextColor(ContextCompat.getColor(context, if (isUser) R.color.white else R.color.prime_text_primary))
-                    textSize = 15f
+                    textSize = 15.5f // slightly larger for readability
+                    setLineSpacing(2f * scale, 1.1f) // Better line spacing
+                    setTextIsSelectable(true)
                 }
 
                 val imagesContainer = LinearLayout(context).apply {
@@ -1398,10 +1684,10 @@ class AiMessagesAdapter(private val items: List<AiMessage>) : RecyclerView.Adapt
                 val time = TextView(context).apply {
                     id = android.R.id.text2
                     setTextColor(ContextCompat.getColor(context, if (isUser) R.color.white else R.color.prime_text_secondary))
-                    textSize = 10f
-                    alpha = 0.7f
+                    textSize = 11f
+                    alpha = 0.8f
                     gravity = android.view.Gravity.END
-                    setPadding(0, (4 * scale).toInt(), 0, 0)
+                    setPadding(0, (6 * scale).toInt(), 0, 0)
                 }
 
                 addView(text)
@@ -1498,10 +1784,11 @@ class AiMessagesAdapter(private val items: List<AiMessage>) : RecyclerView.Adapt
 
                     val btn = com.google.android.material.button.MaterialButton(context).apply {
                         text = btnLabel
-                        textSize = 13f
+                        textSize = 13.5f
                         setTextColor(Color.WHITE)
                         isAllCaps = false
-                        cornerRadius = (16 * context.resources.displayMetrics.density).toInt()
+                        letterSpacing = 0.01f
+                        cornerRadius = (20 * context.resources.displayMetrics.density).toInt()
                         backgroundTintList = ColorStateList.valueOf(ColorAccentManager.getCurrentAccentColor(context))
                         insetTop = 0
                         insetBottom = 0
@@ -1510,6 +1797,7 @@ class AiMessagesAdapter(private val items: List<AiMessage>) : RecyclerView.Adapt
                             setIconResource(iconRes)
                             iconTint = ColorStateList.valueOf(Color.WHITE)
                             iconSize = (18 * context.resources.displayMetrics.density).toInt()
+                            iconPadding = (6 * context.resources.displayMetrics.density).toInt()
                         } else if (btnIcon.startsWith("http://") || btnIcon.startsWith("https://")) {
                             com.bumptech.glide.Glide.with(context)
                                 .asDrawable()

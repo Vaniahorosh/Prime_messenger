@@ -139,6 +139,13 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".DownloadsActivity"
+            android:launchMode="singleTop"
+            android:exported="false"
+            android:theme="@style/Theme.Prime.Swipe"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".WallpaperEditorActivity"
             android:exported="false"
             android:theme="@style/Theme.Prime.Swipe" />

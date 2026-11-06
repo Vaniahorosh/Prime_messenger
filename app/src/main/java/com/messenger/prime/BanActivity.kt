@@ -78,6 +78,12 @@ class BanActivity : AppCompatActivity() {
 
         isPermanent = value <= 0
 
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                finishAffinity()
+            }
+        })
+
         findViewById<ComposeView>(R.id.composeRoot).setContent {
             Box(modifier = Modifier.fillMaxSize()) {
                 AndroidView(
@@ -95,17 +101,6 @@ class BanActivity : AppCompatActivity() {
                         view
                     },
                     modifier = Modifier.fillMaxSize()
-                )
-
-                // Размытие для системной панели навигации
-                BlurView(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                        .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp),
-                    blurRadius = 20.dp,
-                    tint = androidx.compose.ui.graphics.Color(0x0DFFFFFF)
                 )
             }
         }

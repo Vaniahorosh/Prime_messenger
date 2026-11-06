@@ -92,7 +92,7 @@
                     android:text="Профиль"
                     android:textColor="@color/prime_text_primary"
                     android:textSize="13sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="sans-serif-medium" />
 
                 <ImageView
                     android:id="@+id/ivPullCheck"
@@ -201,7 +201,7 @@
                     tools:text="Имя контакта"
                     android:textColor="@color/prime_text_primary"
                     android:textSize="18sp"
-                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
                     app:layout_constraintBottom_toTopOf="@id/tvChatStatus"
                     app:layout_constraintEnd_toStartOf="@id/ivChatAvatar"
                     app:layout_constraintStart_toEndOf="@id/layoutNavButtonContainer"
@@ -258,7 +258,7 @@
                     android:text="1"
                     android:textColor="@color/prime_text_primary"
                     android:textSize="20sp"
-                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintStart_toEndOf="@id/btnCancelSelection"
                     app:layout_constraintTop_toTopOf="parent" />
@@ -358,7 +358,7 @@
                     android:layout_marginEnd="8dp"
                     android:textColor="@color/white"
                     android:textSize="12sp"
-                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
                     tools:text="Пользователь использует более новую версию клиента" />
 
                 <ImageButton
@@ -411,7 +411,7 @@
                         android:singleLine="true"
                         android:textColor="@color/prime_text_primary"
                         android:textSize="12sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         tools:text="Название воспроизводимого трека" />
 
                     <!-- Маленький ползунок прогресса трека -->
@@ -432,7 +432,7 @@
                         android:layout_height="wrap_content"
                         android:textColor="@color/prime_brand"
                         android:textSize="10sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         tools:text="01:23 / 03:45" />
                 </LinearLayout>
 
@@ -504,7 +504,7 @@
                         android:text="Собеседник"
                         android:textColor="@color/white"
                         android:textSize="12sp"
-                        android:textStyle="bold" />
+                        android:fontFamily="sans-serif-medium" />
 
                     <ProgressBar
                         android:id="@+id/pbVideoIslandProgress"
@@ -536,7 +536,7 @@
                     android:text="1.0x"
                     android:textColor="@color/white"
                     android:textSize="11sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="sans-serif-medium" />
 
                 <ImageButton
                     android:id="@+id/btnVideoIslandClose"
@@ -619,7 +619,7 @@
         android:paddingVertical="5dp"
         android:textColor="@color/white"
         android:textSize="12sp"
-        android:textStyle="bold"
+        android:fontFamily="sans-serif-medium"
         android:visibility="gone"
         tools:text="12 марта"
         tools:visibility="visible"
@@ -705,7 +705,7 @@
                     android:layout_marginStart="10dp"
                     android:textColor="@color/prime_progress_start"
                     android:textSize="12sp"
-                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
                     tools:text="Передача... 45%" />
 
                 <ImageButton
@@ -761,8 +761,8 @@
                     android:textAllCaps="false"
                     android:textColor="@color/prime_danger"
                     android:textSize="11sp"
-                    android:textStyle="bold"
-                    app:cornerRadius="12dp"
+                    android:fontFamily="sans-serif-medium"
+                    app:cornerRadius="18dp"
                     app:strokeColor="@color/prime_danger"
                     app:strokeWidth="1dp" />
             </LinearLayout>
@@ -800,7 +800,7 @@
                         android:layout_height="wrap_content"
                         android:textColor="@color/prime_brand"
                         android:textSize="12sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         tools:text="Ответ пользователю" />
 
                     <TextView
@@ -853,7 +853,7 @@
                     android:layout_weight="1"
                     android:textColor="@color/prime_brand"
                     android:textSize="12sp"
-                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
                     tools:text="Редактирование сообщения" />
 
                 <ImageButton
@@ -986,7 +986,7 @@
                         android:layout_marginStart="8dp"
                         android:textColor="@color/prime_danger"
                         android:textSize="14sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:text="0:00" />
 
                     <com.messenger.prime.VoiceMessageItemView
@@ -1101,7 +1101,7 @@
                 android:text="00:00"
                 android:textColor="#FFFFFF"
                 android:textSize="24sp"
-                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
                 android:shadowColor="#000000"
                 android:shadowDx="1"
                 android:shadowDy="1"
@@ -1257,7 +1257,7 @@
                 android:text="Отпустите для отмены"
                 android:textColor="#FF5252"
                 android:textSize="13sp"
-                android:textStyle="bold" />
+                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
         <!-- Ползунок регулировки зума (внизу, над кнопками) -->
@@ -1280,7 +1280,7 @@
                 android:text="1x"
                 android:textColor="#CCFFFFFF"
                 android:textSize="11sp"
-                android:textStyle="bold" />
+                android:fontFamily="sans-serif-medium" />
 
             <com.google.android.material.slider.Slider
                 android:id="@+id/sliderVideoZoom"
@@ -1303,7 +1303,7 @@
                 android:text="1.0x"
                 android:textColor="#FFFFFF"
                 android:textSize="11sp"
-                android:textStyle="bold" />
+                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
         <!-- Центральная панель кнопок съемки (Отмена, Переворот, Пауза/Плей, Финиш) -->

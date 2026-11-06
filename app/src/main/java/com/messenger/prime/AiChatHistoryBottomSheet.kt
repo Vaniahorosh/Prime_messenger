@@ -60,6 +60,9 @@ class AiChatHistoryBottomSheet(
 
         b.blurViewHistorySheet.setupBlur(rootView, 20f, overlayColor, windowBg)
 
+        // Tint icons and buttons dynamically
+        ColorAccentManager.tintViews(activity, b.btnCreateNewChat, b.ivHeaderIcon)
+
         refreshSessionsList()
 
         b.btnCreateNewChat.setOnClickListener {
@@ -139,11 +142,14 @@ class AiChatHistoryAdapter(
         if (isActive) {
             holder.ivActiveBadge.visibility = View.VISIBLE
             holder.container.alpha = 1.0f
-            holder.tvTitle.setTextColor(ContextCompat.getColor(holder.itemView.context, R.color.prime_brand))
+            holder.tvTitle.setTextColor(ColorAccentManager.getCurrentAccentColor(holder.itemView.context))
+            holder.ivIcon.backgroundTintList = android.content.res.ColorStateList.valueOf(ColorAccentManager.getCurrentAccentColor(holder.itemView.context))
+            holder.ivActiveBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(ColorAccentManager.getCurrentAccentColor(holder.itemView.context))
         } else {
             holder.ivActiveBadge.visibility = View.GONE
             holder.container.alpha = 0.85f
             holder.tvTitle.setTextColor(ContextCompat.getColor(holder.itemView.context, R.color.prime_text_primary))
+            holder.ivIcon.backgroundTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.context, R.color.prime_text_secondary))
         }
 
         holder.container.setOnClickListener { onItemClick(session) }

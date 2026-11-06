@@ -36,17 +36,17 @@
 
                 <ImageButton
                     android:id="@+id/btnSearchBack"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Назад"
                     android:src="@drawable/ic_arrow_back"
-                    app:tint="@color/white" />
+                    app:tint="@color/prime_text_primary" />
 
                 <EditText
                     android:id="@+id/etGlobalSearchQuery"
                     android:layout_width="0dp"
-                    android:layout_height="42dp"
+                    android:layout_height="46dp"
                     android:layout_weight="1"
                     android:layout_marginHorizontal="8dp"
                     android:background="@drawable/bg_pending_attachment"
@@ -54,8 +54,8 @@
                     android:imeOptions="actionSearch"
                     android:inputType="text"
                     android:maxLines="1"
-                    android:paddingHorizontal="14dp"
-                    android:textColor="@color/white"
+                    android:paddingHorizontal="16dp"
+                    android:textColor="@color/prime_text_primary"
                     android:textColorHint="@color/prime_text_secondary"
                     android:textSize="14sp" />
 
@@ -99,9 +99,9 @@
     <!-- Included Bottom Navigation Bar -->
     <include
         layout="@layout/layout_bottom_navigation"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:layout_gravity="bottom"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
         android:visibility="gone" />
 
 </FrameLayout>

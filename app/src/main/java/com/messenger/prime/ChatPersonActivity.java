@@ -364,6 +364,17 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     // Attachment State
     private boolean isAttachmentPanelOpen = false;
     private PrimeVideoMessageRecorder videoMessageRecorder;
+    private OnBackPressedCallback chatBackCallback;
+
+    private void updateBackCallbackState() {
+        if (chatBackCallback != null) {
+            boolean hasActiveMode = (videoMessageRecorder != null && videoMessageRecorder.isRecordingOrPreviewing())
+                    || isMultiSelectionActive
+                    || isAttachmentPanelOpen
+                    || isEditMode;
+            chatBackCallback.setEnabled(hasActiveMode);
+        }
+    }
     // Slidr removed, using Predictive Back
     private com.messenger.prime.VideoNoteIslandManager videoNoteIslandManager;
     private com.messenger.prime.FloatingPipManager floatingPipManager;
@@ -723,7 +734,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         try {
         } catch (Exception ignored) {}
 
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+        chatBackCallback = new OnBackPressedCallback(false) {
             @Override
             public void handleOnBackPressed() {
                 if (videoMessageRecorder != null && videoMessageRecorder.isRecordingOrPreviewing()) {
@@ -734,12 +745,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     closeAttachmentPanel();
                 } else if (isEditMode) {
                     exitEditMode();
-                } else {
-                    setEnabled(false);
-                    getOnBackPressedDispatcher().onBackPressed();
                 }
+                updateBackCallbackState();
             }
-        });
+        };
+        getOnBackPressedDispatcher().addCallback(this, chatBackCallback);
         
         UIExtensionsKt.setupEdgeToEdge(this, !isDarkTheme);
         setupChatBlurViews();
@@ -1268,7 +1278,20 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             });
         }
 
-        btnBack.setOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
+        btnBack.setOnClickListener(v -> {
+            if (chatBackCallback != null && chatBackCallback.isEnabled()) {
+                chatBackCallback.handleOnBackPressed();
+            } else if (isTaskRoot()) {
+                Intent intent = new Intent(ChatPersonActivity.this, ChatListActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                startActivity(intent);
+                finish();
+                PrimeTransitions.applyCloseTransition(ChatPersonActivity.this);
+            } else {
+                finish();
+                PrimeTransitions.applyCloseTransition(ChatPersonActivity.this);
+            }
+        });
         if (ivChatAvatar != null) {
             ViewCompat.setTransitionName(ivChatAvatar, "transition_avatar");
             ivChatAvatar.setOnClickListener(v -> openPersonInformationActivity());
@@ -2935,6 +2958,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void enterEditMode(ChatMessage message, int position) {
         if (message == null || message.getMessageId() == null) return;
         isEditMode = true;
+        updateBackCallbackState();
         editingMessageId = message.getMessageId();
         sendActivityState("TYPING");
 
@@ -2968,6 +2992,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void exitEditMode() {
         isEditMode = false;
+        updateBackCallbackState();
         editingMessageId = null;
         sendActivityState("IDLE");
 
@@ -3118,6 +3143,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void enterMultiSelectionMode() {
         if (isMultiSelectionActive) return;
         isMultiSelectionActive = true;
+        updateBackCallbackState();
         animateHeaderFlip(true);
         checkAndUpdateMultiDeleteButton();
         animateInputVisibility(false);
@@ -3126,6 +3152,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void exitMultiSelectionMode() {
         if (!isMultiSelectionActive) return;
         isMultiSelectionActive = false;
+        updateBackCallbackState();
         if (chatAdapter != null) {
             chatAdapter.clearSelection();
         }
@@ -5194,22 +5221,18 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     public void onSendProgress(String deviceAddress, int progress) {
         if (!isMatchingDevice(deviceAddress)) return;
         runOnUiThread(() -> {
-            if (chatAdapter != null && currentSendingMessageId != null) {
-                if (progress >= 0 && progress < 100) {
-                    chatAdapter.updateMessageSendingProgress(currentSendingMessageId, progress);
-                    showSendingProgressUi(progress);
-                } else if (progress >= 100) {
-                    chatAdapter.updateMessageSendingProgress(currentSendingMessageId, 100);
-                    String msgIdFinished = currentSendingMessageId;
-                    chatAdapter.updateMessageStatusById(msgIdFinished, MessageStatus.SENT);
-                    ChatHistoryManager.updateMessageStatus(ChatPersonActivity.this, targetUsername, msgIdFinished, MessageStatus.SENT);
-                    currentSendingMessageId = null;
-                    activeSendingMessageId = null;
-                    activeSendingTargetUsername = null;
-                    hideSendingProgressUi();
-                    saveActivityStateToChatList(targetUsername, "IDLE");
-                    sendActivityState("IDLE");
-                    ChatMessage sentMsg = chatAdapter.findMessageById(msgIdFinished);
+            String activeId = currentSendingMessageId != null ? currentSendingMessageId : activeSendingMessageId;
+            if (progress >= 0 && progress < 100) {
+                if (chatAdapter != null && activeId != null) {
+                    chatAdapter.updateMessageSendingProgress(activeId, progress);
+                }
+                showSendingProgressUi(progress);
+            } else {
+                if (chatAdapter != null && activeId != null) {
+                    chatAdapter.updateMessageSendingProgress(activeId, 100);
+                    chatAdapter.updateMessageStatusById(activeId, MessageStatus.SENT);
+                    ChatHistoryManager.updateMessageStatus(ChatPersonActivity.this, targetUsername, activeId, MessageStatus.SENT);
+                    ChatMessage sentMsg = chatAdapter.findMessageById(activeId);
                     String summaryStr = "Медиафайл";
                     if (sentMsg != null) {
                         if (sentMsg.getMessageType() == ChatMessage.MessageType.IMAGE) summaryStr = "Фотография";
@@ -5217,12 +5240,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         else if (sentMsg.getMessageType() == ChatMessage.MessageType.FILE) summaryStr = "Файл: " + (sentMsg.getFileName() != null ? sentMsg.getFileName() : "");
                     }
                     saveLastMessageToChatList(summaryStr, MessageStatus.SENT, false, isRemoteUserOnline ? "ONLINE" : "OFFLINE");
-                } else {
-                    currentSendingMessageId = null;
-                    hideSendingProgressUi();
-                    saveActivityStateToChatList(targetUsername, "IDLE");
-                    sendActivityState("IDLE");
                 }
+                hideSendingProgressUi();
+                saveActivityStateToChatList(targetUsername, "IDLE");
+                sendActivityState("IDLE");
             }
         });
     }
@@ -8273,6 +8294,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
             if (attachmentDialog != null && !attachmentDialog.isShowing()) {
                 isAttachmentPanelOpen = true;
+                updateBackCallbackState();
                 sendActivityState("SELECTING_MEDIA");
                 if (btnAttach != null) {
                     btnAttach.setImageResource(R.drawable.ic_arrow_up);
@@ -8297,6 +8319,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void closeAttachmentPanel() {
         isAttachmentPanelOpen = false;
+        updateBackCallbackState();
         sendActivityState("IDLE");
         if (btnAttach != null) {
             btnAttach.setImageResource(R.drawable.ic_photo);
@@ -8683,6 +8706,23 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private void showSendingProgressUi(int progress) {
+        String activeId = currentSendingMessageId != null ? currentSendingMessageId : activeSendingMessageId;
+        String myUser = DownloadsManager.getCurrentUser(this);
+        if (activeId != null && progress >= 0 && progress < 100) {
+            TransferManager.updateTransferProgress(
+                activeId,
+                "Передача файла",
+                "",
+                0L,
+                progress,
+                true,
+                "Собеседник: " + (targetUsername != null ? targetUsername : "Чат"),
+                DownloadSourceType.CHAT,
+                myUser,
+                this::cancelCurrentFileSending
+            );
+        }
+
         if (layoutSendingProgress != null) {
             if (progress >= 0 && progress < 100) {
                 if (pbSendingProgress != null) pbSendingProgress.setProgress(progress);
@@ -8698,6 +8738,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             } else {
                 hideSendingProgressUi();
             }
+        } else if (progress >= 100) {
+            hideSendingProgressUi();
         }
 
         if (!isActivityForeground && progress >= 0 && progress < 100) {
@@ -8714,6 +8756,16 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private void hideSendingProgressUi() {
+        if (activeSendingMessageId != null) {
+            TransferManager.removeTransfer(activeSendingMessageId);
+        }
+        if (currentSendingMessageId != null) {
+            TransferManager.removeTransfer(currentSendingMessageId);
+        }
+        currentSendingMessageId = null;
+        activeSendingMessageId = null;
+        activeSendingTargetUsername = null;
+
         if (layoutSendingProgress != null) {
             layoutSendingProgress.animate().cancel();
             layoutSendingProgress.animate().setListener(null);

@@ -1465,6 +1465,91 @@
                                         </LinearLayout>
                                     </com.google.android.material.card.MaterialCardView>
                                 </LinearLayout>
+
+                                <!-- Island Style Configuration -->
+                                <LinearLayout
+                                    android:id="@+id/layoutNavIslandConfig"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="vertical"
+                                    android:layout_marginTop="16dp"
+                                    android:visibility="gone">
+
+                                    <!-- Switch 1: AI Contact -->
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:orientation="horizontal"
+                                        android:gravity="center_vertical">
+
+                                        <LinearLayout
+                                            android:layout_width="0dp"
+                                            android:layout_height="wrap_content"
+                                            android:layout_weight="1"
+                                            android:orientation="vertical">
+
+                                            <TextView
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:text="Чат AI Prime Chat"
+                                                android:textColor="@color/prime_text_primary"
+                                                android:textSize="14sp"
+                                                android:fontFamily="sans-serif-medium" />
+
+                                            <TextView
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:layout_marginTop="2dp"
+                                                android:text="Отображать AI-контакт в списке чатов"
+                                                android:textColor="@color/prime_text_secondary"
+                                                android:textSize="12sp" />
+                                        </LinearLayout>
+
+                                        <com.google.android.material.materialswitch.MaterialSwitch
+                                            android:id="@+id/switchAiContactIsland"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:checked="true" />
+                                    </LinearLayout>
+
+                                    <!-- Switch 2: Pull Down to Settings -->
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:orientation="horizontal"
+                                        android:gravity="center_vertical"
+                                        android:layout_marginTop="12dp">
+
+                                        <LinearLayout
+                                            android:layout_width="0dp"
+                                            android:layout_height="wrap_content"
+                                            android:layout_weight="1"
+                                            android:orientation="vertical">
+
+                                            <TextView
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:text="Переход в настройки потянув вниз"
+                                                android:textColor="@color/prime_text_primary"
+                                                android:textSize="14sp"
+                                                android:fontFamily="sans-serif-medium" />
+
+                                            <TextView
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:layout_marginTop="2dp"
+                                                android:text="Открывать настройки при свайпе вниз вверху списка"
+                                                android:textColor="@color/prime_text_secondary"
+                                                android:textSize="12sp" />
+                                        </LinearLayout>
+
+                                        <com.google.android.material.materialswitch.MaterialSwitch
+                                            android:id="@+id/switchIslandPullToSettings"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:checked="true" />
+                                    </LinearLayout>
+                                </LinearLayout>
                             </LinearLayout>
 
                             <!-- Невидимая полоса разделения -->
@@ -3703,9 +3788,9 @@
     <!-- Included Bottom Navigation Bar -->
     <include
         layout="@layout/layout_bottom_navigation"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:layout_gravity="bottom"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
         android:visibility="gone" />
 
     <!-- Sticky Floating Blur Toolbar for Settings -->

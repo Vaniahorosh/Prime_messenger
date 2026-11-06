@@ -331,6 +331,16 @@ object UpdateChecker {
                     }
                 }
 
+                DownloadsManager.addDownload(
+                    context = activity,
+                    fileName = "prime_update.apk",
+                    filePath = tempFile.absolutePath,
+                    fileSize = tempFile.length(),
+                    mimeType = "application/vnd.android.package-archive",
+                    sourceType = DownloadSourceType.UPDATE,
+                    sourceName = "Обновление Prime"
+                )
+
                 Handler(Looper.getMainLooper()).post {
                     progressDialog.dismiss()
                     installApk(activity, tempFile)

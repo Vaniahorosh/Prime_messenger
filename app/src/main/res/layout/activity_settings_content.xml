@@ -94,7 +94,7 @@
                             android:textColor="@color/white"
                             android:alpha="0.8"
                             android:textSize="11sp"
-                            android:textStyle="bold" />
+                            android:fontFamily="sans-serif-medium" />
                     </LinearLayout>
 
                     <!-- Левая колонка кнопок -->
@@ -138,7 +138,7 @@
                                 android:textColor="@color/white"
                                 android:alpha="0.8"
                                 android:textSize="11sp"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
                         <LinearLayout
@@ -172,7 +172,7 @@
                                 android:text="Выход"
                                 android:textColor="@color/prime_danger"
                                 android:textSize="11sp"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
                         <LinearLayout
@@ -207,7 +207,7 @@
                                 android:textColor="@color/white"
                                 android:alpha="0.8"
                                 android:textSize="11sp"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
                     </LinearLayout>
 
@@ -243,7 +243,7 @@
                                 android:background="@drawable/bg_date_bubble"
                                 android:textColor="@color/white"
                                 android:textSize="12sp"
-                                android:textStyle="bold"
+                                android:fontFamily="sans-serif-medium"
                                 android:paddingHorizontal="12dp"
                                 android:paddingVertical="4dp"
                                 android:elevation="10dp"
@@ -280,7 +280,7 @@
                                     android:layout_marginBottom="2dp"
                                     android:textColor="@color/white"
                                     android:textSize="22sp"
-                                    android:textStyle="bold"
+                                    android:fontFamily="sans-serif-medium"
                                     android:singleLine="true"
                                     android:ellipsize="marquee"
                                     android:marqueeRepeatLimit="marquee_forever"
@@ -328,7 +328,7 @@
                         android:textAlignment="center"
                         android:textColor="@color/prime_text_primary"
                         android:textSize="26sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:singleLine="true"
                         android:ellipsize="marquee"
                         android:marqueeRepeatLimit="marquee_forever"
@@ -379,7 +379,7 @@
                                 android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
                                 android:textSize="11sp"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
                         <LinearLayout
@@ -412,7 +412,7 @@
                                 android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
                                 android:textSize="11sp"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
                         <LinearLayout
@@ -443,7 +443,7 @@
                                 android:text="Выход"
                                 android:textColor="@color/prime_danger"
                                 android:textSize="11sp"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
                         <LinearLayout
@@ -476,7 +476,7 @@
                                 android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
                                 android:textSize="11sp"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
@@ -520,7 +520,7 @@
                             android:text="Вы в прайме,"
                             android:textColor="@color/prime_text_secondary"
                             android:textSize="12sp"
-                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-medium"
                             app:layout_constraintTop_toTopOf="parent"
                             app:layout_constraintStart_toStartOf="parent" />
 
@@ -531,7 +531,7 @@
                             android:layout_marginTop="2dp"
                             android:textColor="@color/prime_brand"
                             android:textSize="16sp"
-                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-medium"
                             app:layout_constraintTop_toBottomOf="@id/tvAccountHeaderLabel"
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintEnd_toStartOf="@+id/ivAccountArrow"
@@ -571,7 +571,7 @@
                             android:text="Имя"
                             android:textColor="@color/prime_text_secondary"
                             android:textSize="12sp"
-                            android:textStyle="bold" />
+                            android:fontFamily="sans-serif-medium" />
 
                         <com.google.android.material.textfield.TextInputLayout
                             android:id="@+id/inputLayoutName"
@@ -597,7 +597,7 @@
                                 android:imeOptions="actionNext"
                                 android:singleLine="true"
                                 android:textColor="@color/prime_brand"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
                         </com.google.android.material.textfield.TextInputLayout>
 
                         <View
@@ -613,7 +613,7 @@
                             android:text="Логин"
                             android:textColor="@color/prime_text_secondary"
                             android:textSize="12sp"
-                            android:textStyle="bold" />
+                            android:fontFamily="sans-serif-medium" />
 
                         <com.google.android.material.textfield.TextInputLayout
                             android:id="@+id/inputLayoutLogin"
@@ -642,7 +642,7 @@
                                 android:imeOptions="actionNext"
                                 android:singleLine="true"
                                 android:textColor="@color/prime_brand"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
                         </com.google.android.material.textfield.TextInputLayout>
 
                         <View
@@ -658,7 +658,7 @@
                             android:text="Пароль"
                             android:textColor="@color/prime_text_secondary"
                             android:textSize="12sp"
-                            android:textStyle="bold" />
+                            android:fontFamily="sans-serif-medium" />
 
                         <com.google.android.material.textfield.TextInputLayout
                             android:id="@+id/inputLayoutPassword"
@@ -695,7 +695,7 @@
                             android:text="Сохранить"
                             android:textAllCaps="false"
                             android:textColor="@color/white"
-                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-medium"
                             android:visibility="gone"
                             app:backgroundTint="@color/prime_brand"
                             app:cornerRadius="12dp"
@@ -726,7 +726,7 @@
                         android:text="Оформление"
                         android:textColor="@color/prime_brand"
                         android:textSize="14sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:textAllCaps="true"
                         android:letterSpacing="0.1" />
 
@@ -790,7 +790,7 @@
                                         android:layout_height="wrap_content"
                                         android:text="Тема оформления"
                                         android:textColor="@color/prime_brand"
-                                        android:textStyle="bold" />
+                                        android:fontFamily="sans-serif-medium" />
 
                                     <TextView
                                         android:id="@+id/tvThemeSummary"
@@ -962,7 +962,7 @@
                                             android:text="Системная"
                                             android:textColor="@color/prime_text_primary"
                                             android:textSize="13sp"
-                                            android:textStyle="bold" />
+                                            android:fontFamily="sans-serif-medium" />
 
                                         <RadioButton
                                             android:id="@+id/rbThemeSystem"
@@ -1075,7 +1075,7 @@
                                             android:text="Светлая"
                                             android:textColor="@color/prime_text_primary"
                                             android:textSize="13sp"
-                                            android:textStyle="bold" />
+                                            android:fontFamily="sans-serif-medium" />
 
                                         <RadioButton
                                             android:id="@+id/rbThemeLight"
@@ -1188,7 +1188,7 @@
                                             android:text="Темная"
                                             android:textColor="@color/prime_text_primary"
                                             android:textSize="13sp"
-                                            android:textStyle="bold" />
+                                            android:fontFamily="sans-serif-medium" />
 
                                         <RadioButton
                                             android:id="@+id/rbThemeDark"
@@ -1253,7 +1253,7 @@
                                             android:text="Стиль навигации"
                                             android:textColor="@color/prime_brand"
                                             android:textSize="15sp"
-                                            android:textStyle="bold" />
+                                            android:fontFamily="sans-serif-medium" />
 
                                         <TextView
                                             android:layout_width="match_parent"
@@ -1376,7 +1376,7 @@
                                                 android:text="Островок"
                                                 android:textColor="@color/prime_text_primary"
                                                 android:textSize="13sp"
-                                                android:textStyle="bold" />
+                                                android:fontFamily="sans-serif-medium" />
                                         </LinearLayout>
                                     </com.google.android.material.card.MaterialCardView>
 
@@ -1475,7 +1475,7 @@
                                                 android:text="Панель"
                                                 android:textColor="@color/prime_text_primary"
                                                 android:textSize="13sp"
-                                                android:textStyle="bold" />
+                                                android:fontFamily="sans-serif-medium" />
                                         </LinearLayout>
                                     </com.google.android.material.card.MaterialCardView>
                                 </LinearLayout>
@@ -1502,7 +1502,7 @@
                                             android:text="Настройка кнопок панели"
                                             android:textColor="@color/prime_text_primary"
                                             android:textSize="14sp"
-                                            android:textStyle="bold"/>
+                                            android:fontFamily="sans-serif-medium"/>
 
                                         <ImageView
                                             android:id="@+id/btnResetNavOrder"
@@ -1535,39 +1535,84 @@
                                     android:id="@+id/layoutNavIslandConfig"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:orientation="horizontal"
-                                    android:gravity="center_vertical"
+                                    android:orientation="vertical"
                                     android:layout_marginTop="16dp"
                                     android:visibility="gone">
 
+                                    <!-- Switch 1: AI Contact -->
                                     <LinearLayout
-                                        android:layout_width="0dp"
+                                        android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
-                                        android:layout_weight="1"
-                                        android:orientation="vertical">
+                                        android:orientation="horizontal"
+                                        android:gravity="center_vertical">
 
-                                        <TextView
+                                        <LinearLayout
+                                            android:layout_width="0dp"
+                                            android:layout_height="wrap_content"
+                                            android:layout_weight="1"
+                                            android:orientation="vertical">
+
+                                            <TextView
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:text="Чат AI Prime Chat"
+                                                android:textColor="@color/prime_text_primary"
+                                                android:textSize="14sp"
+                                                android:fontFamily="sans-serif-medium" />
+
+                                            <TextView
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:layout_marginTop="2dp"
+                                                android:text="Отображать AI-контакт в списке чатов"
+                                                android:textColor="@color/prime_text_secondary"
+                                                android:textSize="12sp" />
+                                        </LinearLayout>
+
+                                        <com.google.android.material.materialswitch.MaterialSwitch
+                                            android:id="@+id/switchAiContactIsland"
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
-                                            android:text="Чат AI Prime Chat"
-                                            android:textColor="@color/prime_text_primary"
-                                            android:textSize="14sp"
-                                            android:textStyle="bold" />
-
-                                        <TextView
-                                            android:layout_width="wrap_content"
-                                            android:layout_height="wrap_content"
-                                            android:layout_marginTop="2dp"
-                                            android:text="Отображать AI-контакт в списке чатов"
-                                            android:textColor="@color/prime_text_secondary"
-                                            android:textSize="12sp" />
+                                            android:checked="true" />
                                     </LinearLayout>
 
-                                    <com.google.android.material.materialswitch.MaterialSwitch
-                                        android:id="@+id/switchAiContactIsland"
-                                        android:layout_width="wrap_content"
+                                    <!-- Switch 2: Pull Down to Settings -->
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
-                                        android:checked="true" />
+                                        android:orientation="horizontal"
+                                        android:gravity="center_vertical"
+                                        android:layout_marginTop="12dp">
+
+                                        <LinearLayout
+                                            android:layout_width="0dp"
+                                            android:layout_height="wrap_content"
+                                            android:layout_weight="1"
+                                            android:orientation="vertical">
+
+                                            <TextView
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:text="Переход в настройки потянув вниз"
+                                                android:textColor="@color/prime_text_primary"
+                                                android:textSize="14sp"
+                                                android:fontFamily="sans-serif-medium" />
+
+                                            <TextView
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:layout_marginTop="2dp"
+                                                android:text="Открывать настройки при свайпе вниз вверху списка"
+                                                android:textColor="@color/prime_text_secondary"
+                                                android:textSize="12sp" />
+                                        </LinearLayout>
+
+                                        <com.google.android.material.materialswitch.MaterialSwitch
+                                            android:id="@+id/switchIslandPullToSettings"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:checked="true" />
+                                    </LinearLayout>
                                 </LinearLayout>
                             </LinearLayout>
 
@@ -1614,7 +1659,7 @@
                                             android:layout_height="wrap_content"
                                             android:text="Цветовой акцент"
                                             android:textColor="@color/prime_brand"
-                                            android:textStyle="bold" />
+                                            android:fontFamily="sans-serif-medium" />
 
                                         <TextView
                                             android:id="@+id/tvAccentSummary"
@@ -1694,7 +1739,7 @@
                                     android:text="Спектр"
                                     android:textColor="?attr/colorPrimary"
                                     android:textAllCaps="false"
-                                    android:textStyle="bold"
+                                    android:fontFamily="sans-serif-medium"
                                     app:cornerRadius="12dp"
                                     app:strokeColor="?attr/colorPrimary"
                                     app:icon="@drawable/ic_pipette"
@@ -1745,7 +1790,7 @@
                                             android:layout_height="wrap_content"
                                             android:text="Живой фон"
                                             android:textColor="@color/prime_brand"
-                                            android:textStyle="bold" />
+                                            android:fontFamily="sans-serif-medium" />
 
                                         <TextView
                                             android:layout_width="match_parent"
@@ -1832,7 +1877,7 @@
                                             android:text="Отключение анимаций"
                                             android:textColor="@color/prime_brand"
                                             android:textSize="15sp"
-                                            android:textStyle="bold" />
+                                            android:fontFamily="sans-serif-medium" />
 
                                         <TextView
                                             android:layout_width="match_parent"
@@ -1876,7 +1921,7 @@
                             android:text="В ЧАТЕ"
                             android:textColor="@color/prime_brand"
                             android:textSize="14sp"
-                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-medium"
                             android:textAllCaps="true"
                             android:letterSpacing="0.1" />
 
@@ -1938,7 +1983,7 @@
                                             android:layout_height="wrap_content"
                                             android:text="Выбор обоев в чате"
                                             android:textColor="@color/prime_brand"
-                                            android:textStyle="bold" />
+                                            android:fontFamily="sans-serif-medium" />
 
                                         <TextView
                                             android:id="@+id/tvWallpaperSummary"
@@ -1999,7 +2044,7 @@
                                         android:text="Уровень скругления сообщений"
                                         android:textColor="@color/prime_brand"
                                         android:textSize="14sp"
-                                        android:textStyle="bold" />
+                                        android:fontFamily="sans-serif-medium" />
 
                                     <TextView
                                         android:id="@+id/tvBubbleRadiusValue"
@@ -2008,7 +2053,7 @@
                                         android:text="50%"
                                         android:textColor="@color/prime_brand"
                                         android:textSize="12sp"
-                                        android:textStyle="bold" />
+                                        android:fontFamily="sans-serif-medium" />
 
                                     <ImageView
                                         android:id="@+id/btnResetBubbleRadius"
@@ -2073,7 +2118,7 @@
                                             android:text="P"
                                             android:textColor="#FFFFFF"
                                             android:textSize="12sp"
-                                            android:textStyle="bold" />
+                                            android:fontFamily="sans-serif-medium" />
 
                                         <LinearLayout
                                             android:id="@+id/layoutPreviewIncomingBubble"
@@ -2164,7 +2209,7 @@
                                     android:text="Уровень скругления аватарки"
                                     android:textColor="@color/prime_brand"
                                     android:textSize="14sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
 
                                 <TextView
                                     android:id="@+id/tvAvatarRadiusValue"
@@ -2173,7 +2218,7 @@
                                     android:text="50%"
                                     android:textColor="@color/prime_brand"
                                     android:textSize="12sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
 
                                 <ImageView
                                     android:id="@+id/btnResetAvatarRadius"
@@ -2236,7 +2281,7 @@
                                         android:text="P"
                                         android:textColor="#FFFFFF"
                                         android:textSize="18sp"
-                                        android:textStyle="bold" />
+                                        android:fontFamily="sans-serif-medium" />
 
                                     <LinearLayout
                                         android:layout_width="0dp"
@@ -2250,7 +2295,7 @@
                                             android:text="Предпросмотр аватарок"
                                             android:textColor="@color/prime_text_primary"
                                             android:textSize="14sp"
-                                            android:textStyle="bold" />
+                                            android:fontFamily="sans-serif-medium" />
 
                                         <TextView
                                             android:layout_width="wrap_content"
@@ -2284,7 +2329,7 @@
                                     android:text="Выбрать стиль в чате"
                                     android:textColor="@color/prime_brand"
                                     android:textSize="14sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
 
                                 <!-- Сегментированный переключатель стиля чата -->
                                 <LinearLayout
@@ -2306,7 +2351,7 @@
                                         android:text="Показать блок"
                                         android:textAllCaps="false"
                                         android:textSize="13sp"
-                                        android:textStyle="bold"
+                                        android:fontFamily="sans-serif-medium"
                                         app:cornerRadius="20dp" />
 
                                     <com.google.android.material.button.MaterialButton
@@ -2320,7 +2365,7 @@
                                         android:text="Убрать блок"
                                         android:textAllCaps="false"
                                         android:textSize="13sp"
-                                        android:textStyle="bold"
+                                        android:fontFamily="sans-serif-medium"
                                         app:cornerRadius="20dp" />
                                 </LinearLayout>
 
@@ -2387,7 +2432,7 @@
                                                         android:text="Собеседник"
                                                         android:textColor="@color/prime_text_primary"
                                                         android:textSize="14sp"
-                                                        android:textStyle="bold" />
+                                                        android:fontFamily="sans-serif-medium" />
 
                                                     <TextView
                                                         android:id="@+id/tvPreviewChatStatus"
@@ -2438,7 +2483,7 @@
                                         android:text="Информация о собеседнике"
                                         android:textColor="@color/prime_brand"
                                         android:textSize="14sp"
-                                        android:textStyle="bold" />
+                                        android:fontFamily="sans-serif-medium" />
 
                                     <TextView
                                         android:id="@+id/tvSubtitlePartnerInfo"
@@ -2474,7 +2519,7 @@
                                     android:text="Уровень скругления блоков в чате"
                                     android:textColor="@color/prime_brand"
                                     android:textSize="14sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
 
                                 <TextView
                                     android:id="@+id/tvBottomBarRadiusValue"
@@ -2483,7 +2528,7 @@
                                     android:text="67%"
                                     android:textColor="@color/prime_brand"
                                     android:textSize="12sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
 
                                 <ImageView
                                     android:id="@+id/btnResetBottomBarRadius"
@@ -2563,7 +2608,7 @@
                                                 android:text="Прайм Чат"
                                                 android:textColor="@color/prime_text_primary"
                                                 android:textSize="13sp"
-                                                android:textStyle="bold" />
+                                                android:fontFamily="sans-serif-medium" />
 
                                             <ImageView
                                                 android:layout_width="18dp"
@@ -2637,7 +2682,7 @@
                                     android:text="Настройки видеокружков"
                                     android:textColor="@color/prime_text_primary"
                                     android:textSize="16sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
 
                                 <TextView
                                     android:layout_width="wrap_content"
@@ -2661,7 +2706,7 @@
                                         android:text="Скругление видеокружка"
                                         android:textColor="@color/prime_brand"
                                         android:textSize="14sp"
-                                        android:textStyle="bold" />
+                                        android:fontFamily="sans-serif-medium" />
                                     <TextView
                                         android:id="@+id/tvVideoCornerRadiusValue"
                                         android:layout_width="wrap_content"
@@ -2669,7 +2714,7 @@
                                         android:text="50% (Круг)"
                                         android:textColor="@color/prime_brand"
                                         android:textSize="12sp"
-                                        android:textStyle="bold" />
+                                        android:fontFamily="sans-serif-medium" />
                                     <ImageView
                                         android:id="@+id/btnResetVideoCorner"
                                         android:layout_width="24dp"
@@ -2710,7 +2755,7 @@
                                         android:text="Размер видеокружка"
                                         android:textColor="@color/prime_brand"
                                         android:textSize="14sp"
-                                        android:textStyle="bold" />
+                                        android:fontFamily="sans-serif-medium" />
                                     <TextView
                                         android:id="@+id/tvVideoSizeValue"
                                         android:layout_width="wrap_content"
@@ -2718,7 +2763,7 @@
                                         android:text="180 dp"
                                         android:textColor="@color/prime_brand"
                                         android:textSize="12sp"
-                                        android:textStyle="bold" />
+                                        android:fontFamily="sans-serif-medium" />
                                     <ImageView
                                         android:id="@+id/btnResetVideoSize"
                                         android:layout_width="24dp"
@@ -2806,7 +2851,7 @@
                                                     android:text="12:34"
                                                     android:textColor="#FFFFFF"
                                                     android:textSize="11sp"
-                                                    android:textStyle="bold" />
+                                                    android:fontFamily="sans-serif-medium" />
 
                                                 <ImageView
                                                     android:layout_width="14dp"
@@ -2827,7 +2872,7 @@
                                     android:text="Настройки камеры"
                                     android:textColor="@color/prime_text_primary"
                                     android:textSize="16sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
 
                                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="12dp" android:gravity="center_vertical">
                                     <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Качество записи" android:textColor="@color/prime_text_primary" android:textSize="15sp"/>
@@ -2889,7 +2934,7 @@
                         android:text="БРАУЗЕР"
                         android:textColor="@color/prime_brand"
                         android:textSize="14sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:textAllCaps="true"
                         android:letterSpacing="0.1" />
 
@@ -2924,7 +2969,7 @@
                             android:text="Встроенный веб-браузер"
                             android:textColor="@color/prime_text_primary"
                             android:textSize="16sp"
-                            android:textStyle="bold" />
+                            android:fontFamily="sans-serif-medium" />
 
                         <!-- Использовать встроенный браузер -->
                         <LinearLayout
@@ -3121,7 +3166,7 @@
                                     android:text="Очистить кэш браузера"
                                     android:textColor="@color/prime_danger"
                                     android:textSize="15sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
 
                                 <TextView
                                     android:layout_width="wrap_content"
@@ -3158,7 +3203,7 @@
                         android:text="Данные и память"
                         android:textColor="@color/prime_brand"
                         android:textSize="14sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:textAllCaps="true"
                         android:letterSpacing="0.1" />
 
@@ -3222,7 +3267,7 @@
                                         android:text="Память Прайма"
                                         android:textColor="@color/prime_brand"
                                         android:textSize="16sp"
-                                        android:textStyle="bold" />
+                                        android:fontFamily="sans-serif-medium" />
 
                                     <TextView
                                         android:id="@+id/tvStorageTotalSize"
@@ -3310,7 +3355,7 @@
                                     android:text="Детальная выборка"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="12sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
 
                                 <TextView
                                     android:id="@+id/tvSelectAllStorage"
@@ -3321,7 +3366,7 @@
                                     android:text="Снять всё"
                                     android:textColor="@color/prime_brand"
                                     android:textSize="12sp"
-                                    android:textStyle="bold"
+                                    android:fontFamily="sans-serif-medium"
                                     android:background="?attr/selectableItemBackground"
                                     android:clickable="true"
                                     android:focusable="true" />
@@ -3390,7 +3435,7 @@
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- 2. Видео -->
@@ -3448,7 +3493,7 @@
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- 3. Аудио и голосовые -->
@@ -3506,7 +3551,7 @@
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- 4. GIF-анимации -->
@@ -3564,7 +3609,7 @@
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- 5. Файлы и документы -->
@@ -3622,7 +3667,7 @@
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- 6. Кэш аватаров контактов -->
@@ -3680,7 +3725,7 @@
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- 7. Кэш приложения -->
@@ -3738,7 +3783,7 @@
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- Кнопка очистки с анимированным индикатором -->
@@ -3751,7 +3796,7 @@
                                 android:textAllCaps="false"
                                 android:textColor="@color/white"
                                 android:textSize="15sp"
-                                android:textStyle="bold"
+                                android:fontFamily="sans-serif-medium"
                                 android:maxLines="1"
                                 android:ellipsize="middle"
                                 app:autoSizeTextType="uniform"
@@ -3789,7 +3834,7 @@
                         android:text="Плагины"
                         android:textColor="@color/prime_brand"
                         android:textSize="14sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:textAllCaps="true"
                         android:letterSpacing="0.1" />
 
@@ -3851,7 +3896,7 @@
                                         android:text="Управление плагинами"
                                         android:textColor="@color/prime_brand"
                                         android:textSize="16sp"
-                                        android:textStyle="bold" />
+                                        android:fontFamily="sans-serif-medium" />
 
                                     <TextView
                                         android:layout_width="wrap_content"
@@ -3934,7 +3979,7 @@
                         android:text="Информация"
                         android:textColor="@color/prime_brand"
                         android:textSize="14sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:textAllCaps="true"
                         android:letterSpacing="0.1" />
 
@@ -3992,7 +4037,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Исходный код"
                                     android:textColor="@color/prime_brand"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
 
                                 <TextView
                                     android:layout_width="match_parent"
@@ -4045,7 +4090,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Сообщить о проблеме"
                                     android:textColor="@color/prime_brand"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
 
                                 <TextView
                                     android:id="@+id/tvAppVersion"
@@ -4106,7 +4151,7 @@
                                         android:text="Благодарности"
                                         android:textColor="@color/prime_brand"
                                         android:textSize="16sp"
-                                        android:textStyle="bold"
+                                        android:fontFamily="sans-serif-medium"
                                         app:layout_constraintStart_toEndOf="@id/ivThanksIcon"
                                         app:layout_constraintEnd_toStartOf="@id/layoutHeartBadge"
                                         app:layout_constraintTop_toTopOf="parent"
@@ -4141,7 +4186,7 @@
                                             android:text="0"
                                             android:textColor="#FF2A55"
                                             android:textSize="13sp"
-                                            android:textStyle="bold" />
+                                            android:fontFamily="sans-serif-medium" />
                                     </LinearLayout>
 
                                 </androidx.constraintlayout.widget.ConstraintLayout>
@@ -4203,7 +4248,7 @@
                                     android:text="Прочие благодарности:"
                                     android:textColor="#949CC5"
                                     android:textSize="12sp"
-                                    android:textStyle="bold"
+                                    android:fontFamily="sans-serif-medium"
                                     android:layout_marginBottom="4dp" />
 
                                 <TextView
@@ -4252,9 +4297,9 @@
     <!-- Included Bottom Navigation Bar -->
     <include
         layout="@layout/layout_bottom_navigation"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:layout_gravity="bottom"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
         android:visibility="gone" />
 
     <!-- Sticky Floating Blur Toolbar for Settings -->
@@ -4301,7 +4346,7 @@
                     android:text="Настройки"
                     android:textColor="@color/prime_text_primary"
                     android:textSize="18sp"
-                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
                     app:layout_constraintStart_toEndOf="@id/btnStickyBack"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent" />
@@ -4314,7 +4359,7 @@
                     android:text="Профиль"
                     android:textColor="@color/prime_brand"
                     android:textSize="12sp"
-                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent" />
@@ -4347,7 +4392,7 @@
                         android:text="• Профиль"
                         android:textColor="@color/prime_brand"
                         android:textSize="13sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:clickable="true"
                         android:focusable="true"
                         android:background="?attr/selectableItemBackgroundBorderless" />
@@ -4361,7 +4406,7 @@
                         android:text="• Оформление"
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="13sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:clickable="true"
                         android:focusable="true"
                         android:background="?attr/selectableItemBackgroundBorderless" />
@@ -4375,7 +4420,7 @@
                         android:text="• В чате"
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="13sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:clickable="true"
                         android:focusable="true"
                         android:background="?attr/selectableItemBackgroundBorderless" />
@@ -4389,7 +4434,7 @@
                         android:text="• Браузер"
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="13sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:clickable="true"
                         android:focusable="true"
                         android:background="?attr/selectableItemBackgroundBorderless" />
@@ -4403,7 +4448,7 @@
                         android:text="• Данные и память"
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="13sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:clickable="true"
                         android:focusable="true"
                         android:background="?attr/selectableItemBackgroundBorderless" />
@@ -4417,7 +4462,7 @@
                         android:text="• Плагины"
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="13sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:clickable="true"
                         android:focusable="true"
                         android:background="?attr/selectableItemBackgroundBorderless" />
@@ -4431,7 +4476,7 @@
                         android:text="• Информация"
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="13sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:clickable="true"
                         android:focusable="true"
                         android:background="?attr/selectableItemBackgroundBorderless" />

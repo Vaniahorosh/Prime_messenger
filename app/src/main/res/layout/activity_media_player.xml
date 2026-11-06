@@ -96,8 +96,8 @@
                         android:ellipsize="end"
                         android:maxLines="1"
                         android:textColor="@color/prime_text_primary"
-                        android:textSize="16sp"
-                        android:textStyle="bold"
+                        android:textSize="17sp"
+                        android:fontFamily="sans-serif-medium"
                         tools:text="Отправитель" />
 
                     <TextView
@@ -138,9 +138,9 @@
         android:background="@drawable/bg_date_bubble"
         android:textColor="@color/white"
         android:textSize="12sp"
-        android:textStyle="bold"
+        android:fontFamily="sans-serif-medium"
         android:paddingHorizontal="14dp"
-        android:paddingVertical="5dp"
+        android:paddingVertical="6dp"
         android:elevation="10dp"
         android:alpha="0"
         android:translationY="40dp"
@@ -221,8 +221,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="@color/prime_text_primary"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif-medium"
                     tools:text="00:00/00:00" />
 
                 <SeekBar
@@ -268,7 +268,7 @@
         android:text="Ускорение 2x"
         android:textColor="@color/prime_text_primary"
         android:textSize="14sp"
-        android:textStyle="bold"
+        android:fontFamily="sans-serif-medium"
         android:paddingHorizontal="16dp"
         android:paddingVertical="8dp"
         android:elevation="4dp"

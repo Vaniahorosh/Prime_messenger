@@ -347,9 +347,12 @@ object PrimeTransitions {
 
                 override fun handleOnBackPressed() {
                     if (!isGestureActive) {
-                        isEnabled = false
-                        activity.onBackPressedDispatcher.onBackPressed()
-                        isEnabled = true
+                        if (activity.isTaskRoot || PrimeApplication.getPreviousActivity() == null) {
+                            activity.finish()
+                        } else {
+                            activity.finish()
+                            applyCloseTransition(activity)
+                        }
                         return
                     }
                     isGestureActive = false

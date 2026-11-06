@@ -292,16 +292,6 @@ class PhotoEditorActivity : AppCompatActivity() {
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // Размытие для системной панели навигации
-                BlurView(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                        .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp),
-                    blurRadius = 20.dp,
-                    tint = Color(0x0DFFFFFF)
-                )
             }
         }
 

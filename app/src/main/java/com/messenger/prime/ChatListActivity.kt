@@ -2465,8 +2465,10 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val navStyle = sharedPrefs.getString("navigation_style", "island") ?: "island"
-        if (navStyle == "bottom_bar") {
+        val navStyle = sharedPrefs.getString("navigation_style", "bottom_bar") ?: "bottom_bar"
+        val isPullToSettingsEnabled = sharedPrefs.getBoolean("island_pull_to_settings_enabled", true)
+
+        if (navStyle != "island" || !isPullToSettingsEnabled) {
             return super.dispatchTouchEvent(event)
         }
 
@@ -2636,7 +2638,7 @@ class ChatListActivity : AppCompatActivity() {
         adapter.onSelectionChanged = { selectedIds ->
             if (::binding.isInitialized) {
                 val sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-                val navStyle = sp.getString("navigation_style", "island") ?: "island"
+                val navStyle = sp.getString("navigation_style", "bottom_bar") ?: "bottom_bar"
                 val density = resources.displayMetrics.density
 
                 if (selectedIds.isEmpty()) {
@@ -3480,16 +3482,6 @@ class ChatListActivity : AppCompatActivity() {
                 }
             }
             }
-
-                BlurView(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                        .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp),
-                    blurRadius = 20.dp,
-                    tint = Color(0x0DFFFFFF)
-                )
             }
         }
 
@@ -3747,11 +3739,9 @@ class ChatListActivity : AppCompatActivity() {
         isActive: Boolean,
         indicatorView: View?,
         iconView: ImageView?,
-        labelView: TextView?,
-        accentColor: Int,
-        secondaryColor: Int
+        accentColor: Int
     ) {
-        if (indicatorView == null || labelView == null) return
+        if (indicatorView == null) return
         val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
         val inactiveColor = if (isDark) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
         val activeIconColor = if (isDark) android.graphics.Color.parseColor("#0F172A") else android.graphics.Color.WHITE
@@ -3770,10 +3760,6 @@ class ChatListActivity : AppCompatActivity() {
 
             iconView?.setColorFilter(activeIconColor)
             iconView?.animate()?.scaleX(1.1f)?.scaleY(1.1f)?.setDuration(180)?.start()
-
-            labelView.setTextColor(accentColor)
-            labelView.setTypeface(null, android.graphics.Typeface.BOLD)
-            labelView.animate()?.scaleX(1.05f)?.scaleY(1.05f)?.alpha(1.0f)?.setDuration(180)?.start()
         } else {
             indicatorView.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
             indicatorView.animate()
@@ -3785,10 +3771,6 @@ class ChatListActivity : AppCompatActivity() {
 
             iconView?.setColorFilter(accentColor)
             iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
-
-            labelView.setTextColor(inactiveColor)
-            labelView.setTypeface(null, android.graphics.Typeface.NORMAL)
-            labelView.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.alpha(0.85f)?.setDuration(180)?.start()
         }
     }
 
@@ -3813,7 +3795,7 @@ class ChatListActivity : AppCompatActivity() {
         if (!::binding.isInitialized) return
         updateFoldableDualPaneLayout()
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val navStyle = sharedPrefs.getString("navigation_style", "island") ?: "island"
+        val navStyle = sharedPrefs.getString("navigation_style", "bottom_bar") ?: "bottom_bar"
         val navView = findViewById<View>(R.id.blurBottomNav) ?: return
 
         val density = resources.displayMetrics.density
@@ -3874,7 +3856,7 @@ class ChatListActivity : AppCompatActivity() {
         if (!::binding.isInitialized) return
         val navView = findViewById<View>(R.id.blurBottomNav) ?: return
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val navStyle = sharedPrefs.getString("navigation_style", "island") ?: "island"
+        val navStyle = sharedPrefs.getString("navigation_style", "bottom_bar") ?: "bottom_bar"
 
         if (navStyle != "bottom_bar") {
             navView.visibility = View.GONE
@@ -3903,18 +3885,19 @@ class ChatListActivity : AppCompatActivity() {
         val btnNavDevices = navView.findViewById<View>(R.id.btnNavDevices)
         val btnNavAi = navView.findViewById<View>(R.id.btnNavAi)
         val btnNavSearch = navView.findViewById<View>(R.id.btnNavSearch)
+        val btnNavDownloads = navView.findViewById<View>(R.id.btnNavDownloads)
         val btnNavProfile = navView.findViewById<View>(R.id.btnNavProfile)
 
         val navContainer = (navView as? ViewGroup)?.getChildAt(0) as? ViewGroup
         if (navContainer != null) {
             val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-            val defaultOrder = "chats,devices,ai,search,profile"
+            val defaultOrder = "chats,devices,ai,search,downloads,profile"
             val currentOrderStr = sharedPrefs.getString("nav_buttons_order", defaultOrder) ?: defaultOrder
             val currentOrder = currentOrderStr.split(",").filter { it.isNotEmpty() }
 
             navContainer.removeAllViews()
 
-            val allNavIds = listOf("chats", "devices", "ai", "search", "profile")
+            val allNavIds = listOf("chats", "devices", "ai", "search", "downloads", "profile")
             val orderToUse = if (currentOrder.containsAll(allNavIds)) currentOrder else defaultOrder.split(",")
 
             for (id in orderToUse) {
@@ -3923,6 +3906,7 @@ class ChatListActivity : AppCompatActivity() {
                     "devices" -> btnNavDevices
                     "ai" -> btnNavAi
                     "search" -> btnNavSearch
+                    "downloads" -> btnNavDownloads
                     "profile" -> btnNavProfile
                     else -> null
                 }
@@ -3941,24 +3925,21 @@ class ChatListActivity : AppCompatActivity() {
         val vNavDevicesIndicator = navView.findViewById<View>(R.id.vNavDevicesIndicator)
         val vNavAiIndicator = navView.findViewById<View>(R.id.vNavAiIndicator)
         val vNavSearchIndicator = navView.findViewById<View>(R.id.vNavSearchIndicator)
+        val vNavDownloadsIndicator = navView.findViewById<View>(R.id.vNavDownloadsIndicator)
         val vNavProfileIndicator = navView.findViewById<View>(R.id.vNavProfileIndicator)
 
         val ivNavChatsIcon = navView.findViewById<ImageView>(R.id.ivNavChatsIcon)
         val ivNavDevicesIcon = navView.findViewById<ImageView>(R.id.ivNavDevicesIcon)
         val ivNavAiIcon = navView.findViewById<ImageView>(R.id.ivNavAiIcon)
         val ivNavSearchIcon = navView.findViewById<ImageView>(R.id.ivNavSearchIcon)
+        val ivNavDownloadsIcon = navView.findViewById<ImageView>(R.id.ivNavDownloadsIcon)
 
-        val tvNavChatsLabel = navView.findViewById<TextView>(R.id.tvNavChatsLabel)
-        val tvNavDevicesLabel = navView.findViewById<TextView>(R.id.tvNavDevicesLabel)
-        val tvNavAiLabel = navView.findViewById<TextView>(R.id.tvNavAiLabel)
-        val tvNavSearchLabel = navView.findViewById<TextView>(R.id.tvNavSearchLabel)
-        val tvNavProfileLabel = navView.findViewById<TextView>(R.id.tvNavProfileLabel)
-
-        updateM3TabState(true, vNavChatsIndicator, ivNavChatsIcon, tvNavChatsLabel, accentColor, secondaryColor)
-        updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, tvNavDevicesLabel, accentColor, secondaryColor)
-        updateM3TabState(false, vNavAiIndicator, ivNavAiIcon, tvNavAiLabel, accentColor, secondaryColor)
-        updateM3TabState(false, vNavSearchIndicator, ivNavSearchIcon, tvNavSearchLabel, accentColor, secondaryColor)
-        updateM3TabState(false, vNavProfileIndicator, null, tvNavProfileLabel, accentColor, secondaryColor)
+        updateM3TabState(true, vNavChatsIndicator, ivNavChatsIcon, accentColor)
+        updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, accentColor)
+        updateM3TabState(false, vNavAiIndicator, ivNavAiIcon, accentColor)
+        updateM3TabState(false, vNavSearchIndicator, ivNavSearchIcon, accentColor)
+        updateM3TabState(false, vNavDownloadsIndicator, ivNavDownloadsIcon, accentColor)
+        updateM3TabState(false, vNavProfileIndicator, null, accentColor)
         updateNavUnreadBadge(navView)
 
         val profileAvatarIv = navView.findViewById<ImageView>(R.id.ivNavProfileAvatar)
@@ -3987,19 +3968,29 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         btnNavAi?.setOnClickListener {
-            val intent = Intent(this, AiChatActivity::class.java)
+            val intent = Intent(this, AiChatActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
             startActivity(intent)
             PrimeTransitions.applyOpenTransition(this)
         }
 
         btnNavSearch?.setOnClickListener {
-            val intent = Intent(this, GlobalSearchActivity::class.java)
+            val intent = Intent(this, GlobalSearchActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
             startActivity(intent)
             PrimeTransitions.applyPageFlipTransition(this, isForward = true)
         }
 
+        btnNavDownloads?.setOnClickListener {
+            DownloadsActivity.openWithPermissionCheck(this)
+        }
+
         btnNavProfile?.setOnClickListener {
-            val intent = Intent(this, SettingsActivity::class.java)
+            val intent = Intent(this, SettingsActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
             startActivity(intent)
             PrimeTransitions.applyPageFlipTransition(this, isForward = true)
         }
@@ -4083,6 +4074,7 @@ class ChatListActivity : AppCompatActivity() {
         }
         binding.layoutIslandHeader.islandHeaderItem.background = bg
 
+        binding.layoutIslandHeader.btnHeaderDownloads.setOnClickListener { DownloadsActivity.openWithPermissionCheck(this) }
         binding.layoutIslandHeader.btnHeaderSearch.setOnClickListener { openHeaderSearch() }
         binding.layoutIslandHeader.btnHeaderSearchClear.setOnClickListener { closeHeaderSearch() }
 
@@ -4709,7 +4701,7 @@ class ChatListActivity : AppCompatActivity() {
 
         val resultList = deduplicatedList.toMutableList()
         val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-        val navStyle = sp.getString("navigation_style", "island") ?: "island"
+        val navStyle = sp.getString("navigation_style", "bottom_bar") ?: "bottom_bar"
         val aiContactEnabled = sp.getBoolean("ai_chat_contact_enabled", true)
 
         if (navStyle == "island" && aiContactEnabled) {

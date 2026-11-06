@@ -36,6 +36,7 @@ class LoginActivity : AppCompatActivity() {
     private var isPasswordState = false
     private var isRegistrationMode = false
     private var avatarUri: Uri? = null
+    private lateinit var loginBackCallback: OnBackPressedCallback
 
     private val photoPickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
@@ -98,17 +99,15 @@ class LoginActivity : AppCompatActivity() {
 
         val sharedPreferences = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        loginBackCallback = object : OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
                 val b = binding
                 if (isRegistrationMode && b != null) {
                     toggleMode(b)
-                } else {
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
                 }
             }
-        })
+        }
+        onBackPressedDispatcher.addCallback(this, loginBackCallback)
 
         setContent {
             val darkTheme = isSystemInDarkTheme()
@@ -351,14 +350,6 @@ class LoginActivity : AppCompatActivity() {
                         },
                         modifier = Modifier.fillMaxSize().statusBarsPadding().imePadding()
                     )
-
-                    BlurView(
-                        modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
-                            .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp),
-                        blurRadius = 20.dp,
-                        tint = Color(0x0DFFFFFF)
-                    )
                 }
             }
         }
@@ -373,6 +364,9 @@ class LoginActivity : AppCompatActivity() {
 
     private fun toggleMode(b: ActivityLoginContentBinding) {
         isRegistrationMode = !isRegistrationMode
+        if (::loginBackCallback.isInitialized) {
+            loginBackCallback.isEnabled = isRegistrationMode
+        }
         
         val transition = androidx.transition.AutoTransition()
         transition.duration = 400

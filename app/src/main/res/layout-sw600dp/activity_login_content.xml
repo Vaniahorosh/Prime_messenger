@@ -248,7 +248,7 @@
                                 app:shapeAppearanceOverlay="@style/RoundedDialogShape"/>
                         </LinearLayout>
 
-                        <Button
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnToggleMode"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
