@@ -83,7 +83,7 @@
                 android:layout_height="match_parent"
                 android:background="@android:color/transparent"
                 android:gravity="center_vertical"
-                android:hint="Умный поиск файлов и медиа..."
+                android:hint="Поиск файлов и медиа..."
                 android:importantForAutofill="no"
                 android:imeOptions="actionSearch"
                 android:inputType="textNoSuggestions"
