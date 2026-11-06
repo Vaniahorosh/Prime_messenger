@@ -1,12 +1,19 @@
 package com.messenger.prime
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.concurrent.thread
 
 enum class DownloadSourceType {
     CHAT,
@@ -35,6 +42,138 @@ object DownloadsManager {
     fun getCurrentUser(context: Context): String {
         val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         return sp.getString("current_user", "") ?: ""
+    }
+
+    @JvmStatic
+    fun downloadBrowserFile(
+        context: Context,
+        downloadUrl: String,
+        userAgent: String?,
+        contentDisposition: String?,
+        mimetype: String?,
+        contentLength: Long
+    ) {
+        val currentUser = getCurrentUser(context)
+        val fileName = try {
+            android.webkit.URLUtil.guessFileName(downloadUrl, contentDisposition, mimetype)
+        } catch (_: Exception) {
+            "download_${System.currentTimeMillis()}"
+        }
+
+        val destFile = File(context.filesDir, fileName)
+        val transferId = "browser_dl_${System.currentTimeMillis()}_${(1000..9999).random()}"
+        val mimeToUse = if (mimetype.isNullOrEmpty() || mimetype == "*/*") getMimeType(fileName) else mimetype
+
+        var isCancelled = false
+        var httpConn: HttpURLConnection? = null
+
+        val cancelAction = Runnable {
+            isCancelled = true
+            try {
+                httpConn?.disconnect()
+            } catch (_: Exception) {}
+            if (destFile.exists()) {
+                destFile.delete()
+            }
+            TransferManager.removeTransfer(transferId)
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(context, "Скачивание отменено", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        TransferManager.updateTransferProgress(
+            id = transferId,
+            fileName = fileName,
+            filePath = destFile.absolutePath,
+            fileSize = contentLength,
+            progress = 0,
+            isSending = false,
+            sourceName = "Из браузера",
+            sourceType = DownloadSourceType.BROWSER,
+            userLogin = currentUser,
+            cancelAction = cancelAction
+        )
+
+        Toast.makeText(context, "Загрузка '$fileName' начата в Центре загрузок", Toast.LENGTH_SHORT).show()
+
+        thread {
+            try {
+                val url = URL(downloadUrl)
+                val conn = url.openConnection() as HttpURLConnection
+                httpConn = conn
+                conn.connectTimeout = 15000
+                conn.readTimeout = 15000
+                if (!userAgent.isNullOrEmpty()) {
+                    conn.setRequestProperty("User-Agent", userAgent)
+                }
+                conn.connect()
+
+                if (conn.responseCode != HttpURLConnection.HTTP_OK && conn.responseCode != HttpURLConnection.HTTP_PARTIAL) {
+                    throw Exception("HTTP ${conn.responseCode}")
+                }
+
+                val totalSize = if (contentLength > 0) contentLength else conn.contentLength.toLong()
+
+                conn.inputStream.use { input ->
+                    FileOutputStream(destFile).use { output ->
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        var downloadedBytes: Long = 0
+
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            if (isCancelled) return@thread
+
+                            output.write(buffer, 0, bytesRead)
+                            downloadedBytes += bytesRead
+
+                            if (totalSize > 0) {
+                                val progress = (downloadedBytes * 100 / totalSize).toInt().coerceIn(0, 99)
+                                TransferManager.updateTransferProgress(
+                                    id = transferId,
+                                    fileName = fileName,
+                                    filePath = destFile.absolutePath,
+                                    fileSize = totalSize,
+                                    progress = progress,
+                                    isSending = false,
+                                    sourceName = "Из браузера",
+                                    sourceType = DownloadSourceType.BROWSER,
+                                    userLogin = currentUser,
+                                    cancelAction = cancelAction
+                                )
+                            }
+                        }
+                        output.flush()
+                    }
+                }
+
+                if (isCancelled) return@thread
+
+                TransferManager.removeTransfer(transferId)
+                addDownload(
+                    context = context,
+                    fileName = fileName,
+                    filePath = destFile.absolutePath,
+                    fileSize = destFile.length(),
+                    mimeType = mimeToUse,
+                    sourceType = DownloadSourceType.BROWSER,
+                    sourceName = "Из браузера"
+                )
+
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(context, "Файл '$fileName' сохранен в Загрузки", Toast.LENGTH_LONG).show()
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                if (!isCancelled) {
+                    TransferManager.removeTransfer(transferId)
+                    if (destFile.exists()) destFile.delete()
+                    Handler(Looper.getMainLooper()).post {
+                        Toast.makeText(context, "Ошибка скачивания из браузера: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
     }
 
     @JvmStatic

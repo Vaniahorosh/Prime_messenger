@@ -9,6 +9,7 @@ import android.content.DialogInterface
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import com.messenger.prime.DownloadsManager
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -366,13 +367,17 @@ class BrowserBottomSheetDialogFragment : BottomSheetDialogFragment() {
             false
         }
 
-        webView.setDownloadListener { downloadUrl, _, _, _, _ ->
+        webView.setDownloadListener { downloadUrl, userAgent, contentDisposition, mimetype, contentLength ->
             Log.d("BrowserDebug", "Download triggered for URL: $downloadUrl")
-            try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl))
-                startActivity(intent)
-            } catch (e: Exception) {
-                Toast.makeText(context, "Не удалось открыть файл для скачивания", Toast.LENGTH_SHORT).show()
+            context?.let { ctx ->
+                DownloadsManager.downloadBrowserFile(
+                    context = ctx,
+                    downloadUrl = downloadUrl,
+                    userAgent = userAgent,
+                    contentDisposition = contentDisposition,
+                    mimetype = mimetype,
+                    contentLength = contentLength
+                )
             }
         }
 
