@@ -295,9 +295,18 @@ object PrimeMusicManager {
             val f = File(track.coverPath)
             if (f.exists()) {
                 try {
-                    val bmp = BitmapFactory.decodeFile(f.absolutePath)
-                    metadataBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, bmp)
-                    metadataBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, bmp)
+                    val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeFile(f.absolutePath, boundsOpts)
+                    var sampleSize = 1
+                    while (boundsOpts.outWidth / sampleSize > 384 || boundsOpts.outHeight / sampleSize > 384) {
+                        sampleSize *= 2
+                    }
+                    val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+                    val bmp = BitmapFactory.decodeFile(f.absolutePath, decodeOpts)
+                    if (bmp != null) {
+                        metadataBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, bmp)
+                        metadataBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, bmp)
+                    }
                 } catch (_: Exception) {}
             }
         }

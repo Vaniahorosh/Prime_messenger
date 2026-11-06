@@ -139,7 +139,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private val pluginFilePickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK && result.data?.data != null) {
-            val uri = result.data!!.data!!
+            val uri = result.data?.data ?: return@registerForActivityResult
             var name: String? = null
             try {
                 contentResolver.query(uri, null, null, null, null)?.use { cursor ->
@@ -4009,6 +4009,7 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         stopWobbling()
+        try { unregisterReceiver(pluginsReceiver) } catch (_: Exception) {}
         super.onDestroy()
     }
 

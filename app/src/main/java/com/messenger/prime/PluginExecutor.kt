@@ -357,6 +357,12 @@ object PluginExecutor {
             try {
                 val webView = WebView(context)
                 webView.settings.javaScriptEnabled = true
+                webView.settings.allowFileAccess = false
+                webView.settings.allowContentAccess = false
+                @Suppress("DEPRECATION")
+                webView.settings.allowFileAccessFromFileURLs = false
+                @Suppress("DEPRECATION")
+                webView.settings.allowUniversalAccessFromFileURLs = false
                 webView.addJavascriptInterface(AndroidPluginBridge(context, plugin.name), "Android")
 
                 val wrappedCode = """
@@ -436,6 +442,12 @@ object PluginExecutor {
                 val webView = WebView(act).apply {
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (340 * resources.displayMetrics.density).toInt())
                     settings.javaScriptEnabled = true
+                    settings.allowFileAccess = false
+                    settings.allowContentAccess = false
+                    @Suppress("DEPRECATION")
+                    settings.allowFileAccessFromFileURLs = false
+                    @Suppress("DEPRECATION")
+                    settings.allowUniversalAccessFromFileURLs = false
                     addJavascriptInterface(AndroidPluginBridge(act, plugin.name), "Android")
                     loadDataWithBaseURL("file:///android_asset/", code, "text/html", "UTF-8", null)
                 }

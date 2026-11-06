@@ -18,8 +18,9 @@ object MediaSaveUtils {
         if (mediaUri == null) return false
         try {
             val resolver = context.contentResolver
-            val inputStream = if ("file".equals(mediaUri.scheme, ignoreCase = true) && mediaUri.path != null) {
-                val f = File(mediaUri.path!!)
+            val filePath = mediaUri.path
+            val inputStream = if ("file".equals(mediaUri.scheme, ignoreCase = true) && filePath != null) {
+                val f = File(filePath)
                 if (!f.exists()) return false
                 f.inputStream()
             } else {

@@ -68,8 +68,9 @@ class DrawingView(context: Context, attrs: AttributeSet) : View(context, attrs) 
         if (w > 0 && h > 0) {
             lastWidth = w
             lastHeight = h
-            canvasBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-            drawCanvas = Canvas(canvasBitmap!!)
+            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            canvasBitmap = bmp
+            drawCanvas = Canvas(bmp)
             redrawOnBitmap()
         }
     }

@@ -519,9 +519,10 @@ class WallpaperEditorActivity : AppCompatActivity() {
                 binding.vPhotoDimOverlay.visibility = View.VISIBLE
                 binding.vPhotoDimOverlay.alpha = photoDimOpacity
 
-                if (!selectedImageLocalPath.isNullOrEmpty() && loadedBitmap == null) {
+                val imgPath = selectedImageLocalPath
+                if (!imgPath.isNullOrEmpty() && loadedBitmap == null) {
                     lifecycleScope.launch(Dispatchers.IO) {
-                        val bmp = BitmapFactory.decodeFile(selectedImageLocalPath!!)
+                        val bmp = BitmapFactory.decodeFile(imgPath)
                         withContext(Dispatchers.Main) {
                             loadedBitmap = bmp
                             updatePreviewUI()

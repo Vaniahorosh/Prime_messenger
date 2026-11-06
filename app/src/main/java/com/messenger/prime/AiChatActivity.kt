@@ -47,6 +47,7 @@ class AiChatActivity : AppCompatActivity() {
     private lateinit var binding: ActivityAiChatBinding
     private val messages = mutableListOf<AiMessage>()
     private lateinit var adapter: AiMessagesAdapter
+    private val typewriterHandler = Handler(Looper.getMainLooper())
 
     private var activeSession: AiChatSession? = null
     private var currentModelConfig: AiModelConfig = AiModelConfig("Gemini", "gemini-1.5-flash", "https://generativelanguage.googleapis.com", 1048576)
@@ -121,7 +122,7 @@ class AiChatActivity : AppCompatActivity() {
 
         activeSession = session
         messages.clear()
-        if (session!!.messages.isEmpty()) {
+        if (session?.messages?.isEmpty() == true) {
             val welcomeText = if (apiKey.isEmpty()) {
                 "Привет! Я AI Ассистент Prime. Нажмите на иконку шестеренки (слева внизу), чтобы ввести ваш API ключ. Я автоматически определю модель и настроюсь!"
             } else {
@@ -153,7 +154,7 @@ class AiChatActivity : AppCompatActivity() {
         val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val apiKey = sp.getString("ai_api_key", "") ?: ""
 
-        val hasRealMessages = activeSession != null && activeSession!!.messages.isNotEmpty()
+        val hasRealMessages = activeSession != null && activeSession?.messages?.isNotEmpty() == true
         if (!hasRealMessages) {
             binding.layoutAiEmptyState.visibility = View.VISIBLE
             binding.rvAiMessages.visibility = View.GONE
@@ -754,7 +755,7 @@ $systemPrompt
             return
         }
 
-        val handler = Handler(Looper.getMainLooper())
+        typewriterHandler.removeCallbacksAndMessages(null)
         var currentIndex = 0
         val length = fullText.length
         val chunkSize = (length / 60).coerceIn(2, 10)
@@ -762,6 +763,7 @@ $systemPrompt
 
         val runnable = object : Runnable {
             override fun run() {
+                if (isFinishing || isDestroyed) return
                 if (currentIndex < length) {
                     currentIndex = (currentIndex + chunkSize).coerceAtMost(length)
                     val currentChunk = fullText.substring(0, currentIndex)
@@ -772,13 +774,13 @@ $systemPrompt
                         adapter.notifyItemChanged(targetIndex)
                         binding.rvAiMessages.smoothScrollToPosition(targetIndex)
                     }
-                    handler.postDelayed(this, delayMs)
+                    typewriterHandler.postDelayed(this, delayMs)
                 } else {
                     onComplete()
                 }
             }
         }
-        handler.post(runnable)
+        typewriterHandler.post(runnable)
     }
 
     private fun processFullAccessActions(userPrompt: String, responseText: String) {
@@ -1593,6 +1595,7 @@ $systemPrompt
 
     override fun onDestroy() {
         super.onDestroy()
+        typewriterHandler.removeCallbacksAndMessages(null)
         try { unregisterReceiver(wallpaperReceiver) } catch (_: Exception) {}
     }
 }

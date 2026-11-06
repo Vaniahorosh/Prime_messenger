@@ -5958,7 +5958,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 // Обязательно сжимаем аватарку для уведомления, чтобы избежать TransactionTooLargeException (лимит 1MB)
                 if (bmp.getWidth() > 256 || bmp.getHeight() > 256) {
                     float ratio = Math.min(256f / bmp.getWidth(), 256f / bmp.getHeight());
-                    bmp = Bitmap.createScaledBitmap(bmp, Math.round(bmp.getWidth() * ratio), Math.round(bmp.getHeight() * ratio), true);
+                    Bitmap scaled = Bitmap.createScaledBitmap(bmp, Math.round(bmp.getWidth() * ratio), Math.round(bmp.getHeight() * ratio), true);
+                    if (scaled != bmp && !bmp.isRecycled()) {
+                        bmp.recycle();
+                    }
+                    bmp = scaled;
                 }
                 return bmp;
             }
@@ -5998,6 +6002,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (deletionHandler != null) deletionHandler.removeCallbacksAndMessages(null);
         if (statusAnimHandler != null) statusAnimHandler.removeCallbacksAndMessages(null);
         if (autoRetryHandler != null) autoRetryHandler.removeCallbacksAndMessages(null);
+        if (galleryThumbnailExecutor != null) {
+            try { galleryThumbnailExecutor.shutdownNow(); } catch (Exception ignored) {}
+        }
 
         if (bluetoothAdapter != null) {
             try {

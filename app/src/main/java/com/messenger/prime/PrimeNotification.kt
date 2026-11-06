@@ -65,6 +65,22 @@ object PrimeNotification {
     private const val DURATION = 3000L // 3 секунды
     private const val TAG = "PrimeNotification"
 
+    private fun decodeSampledBitmap(path: String, maxDim: Int): android.graphics.Bitmap? {
+        return try {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(path, bounds)
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+            var sampleSize = 1
+            while (bounds.outWidth / sampleSize > maxDim || bounds.outHeight / sampleSize > maxDim) {
+                sampleSize *= 2
+            }
+            val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            BitmapFactory.decodeFile(path, options)
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
     private var activeNotificationRef: WeakReference<View>? = null
     private var activeTimerAnimator: ValueAnimator? = null
 
@@ -411,7 +427,7 @@ object PrimeNotification {
             val avatarFile = getAvatarFileFor(context, senderName, deviceAddress)
             if (avatarFile != null && avatarFile.exists()) {
                 try {
-                    val bmp = BitmapFactory.decodeFile(avatarFile.absolutePath)
+                    val bmp = decodeSampledBitmap(avatarFile.absolutePath, 256)
                     if (bmp != null) {
                         personBuilder.setIcon(IconCompat.createWithBitmap(bmp))
                     }
@@ -499,19 +515,20 @@ object PrimeNotification {
             val resolvedMediaPath = if (!mediaPath.isNullOrEmpty()) mediaPath else ChatHistoryManager.getLastMediaPreviewPath(context, senderName, deviceAddress)
             if (!resolvedMediaPath.isNullOrEmpty() && File(resolvedMediaPath).exists()) {
                 try {
-                    val mediaBmp = BitmapFactory.decodeFile(resolvedMediaPath)
+                    val mediaBmp = decodeSampledBitmap(resolvedMediaPath, 1024)
                     if (mediaBmp != null) {
                         val bigPictureStyle = NotificationCompat.BigPictureStyle()
                             .bigPicture(mediaBmp)
                             .bigLargeIcon(null as android.graphics.Bitmap?)
                             .setSummaryText(if (!messageText.isNullOrEmpty()) messageText else "Фотография")
                         builder.setStyle(bigPictureStyle)
-                        builder.setLargeIcon(mediaBmp)
+                        val iconBmp = decodeSampledBitmap(resolvedMediaPath, 256) ?: mediaBmp
+                        builder.setLargeIcon(iconBmp)
                     }
                 } catch (_: Throwable) {}
             } else if (avatarFile != null && avatarFile.exists()) {
                 try {
-                    val bmp = BitmapFactory.decodeFile(avatarFile.absolutePath)
+                    val bmp = decodeSampledBitmap(avatarFile.absolutePath, 256)
                     if (bmp != null) {
                         builder.setLargeIcon(bmp)
                     }
@@ -624,7 +641,7 @@ object PrimeNotification {
 
         if (!track.coverPath.isNullOrEmpty()) {
             try {
-                val bitmap = BitmapFactory.decodeFile(track.coverPath)
+                val bitmap = decodeSampledBitmap(track.coverPath, 256)
                 if (bitmap != null) {
                     builder.setLargeIcon(bitmap)
                 }

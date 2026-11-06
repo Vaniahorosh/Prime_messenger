@@ -1009,8 +1009,9 @@ class PhotoEditorActivity : AppCompatActivity() {
     }
 
     private fun saveAndFinish(b: ActivityPhotoEditorContentBinding) {
-        if (isGifMode && originalUri != null) {
-            saveGifAndFinish(originalUri!!)
+        val gifUri = originalUri
+        if (isGifMode && gifUri != null) {
+            saveGifAndFinish(gifUri)
             return
         }
         val bitmap = originalBitmap

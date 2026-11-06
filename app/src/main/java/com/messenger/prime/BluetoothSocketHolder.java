@@ -288,6 +288,8 @@ public class BluetoothSocketHolder {
                                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                                 scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos);
                                 avatarBytes = baos.toByteArray();
+                                if (scaled != bitmap && !scaled.isRecycled()) scaled.recycle();
+                                if (!bitmap.isRecycled()) bitmap.recycle();
                             }
                         }
                     }

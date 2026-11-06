@@ -196,6 +196,7 @@ class PersonInformationActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        liveStatusHandler.removeCallbacksAndMessages(null)
         try {
             unregisterReceiver(statusUpdateReceiver)
         } catch (ignored: Exception) {}

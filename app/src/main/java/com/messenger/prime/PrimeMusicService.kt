@@ -30,7 +30,11 @@ class PrimeMusicService : Service() {
 
         // ALWAYS call startForeground IMMEDIATELY to prevent ForegroundServiceStartNotAllowed / startForeground timeout crash!
         try {
-            startForeground(2001, notification)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                startForeground(2001, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+            } else {
+                startForeground(2001, notification)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }

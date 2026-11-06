@@ -731,7 +731,7 @@ class ChatListActivity : AppCompatActivity() {
             PrimeNotification.show(this, "Bluetooth не поддерживается")
             return
         }
-        if (!bluetoothAdapter!!.isEnabled) {
+        if (bluetoothAdapter?.isEnabled != true) {
             val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
             enableBluetoothLauncher.launch(enableBtIntent)
             return
@@ -1346,11 +1346,9 @@ class ChatListActivity : AppCompatActivity() {
                 }
 
                 if (isCurrentlyTyping || activityState != "IDLE") {
-                    resetTypingRunnable?.let { autoRetryHandler.removeCallbacks(it) }
-                    resetTypingRunnable = Runnable {
-                        updateChatStatus(isConnected, "IDLE")
+                    resetTypingRunnable?.let {
+                        autoRetryHandler.postDelayed(it, 4500)
                     }
-                    autoRetryHandler.postDelayed(resetTypingRunnable!!, 4500)
                 }
             }
         }
@@ -1576,6 +1574,7 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         fun onDestroy() {
+            ChatListNotifier.removeListener(notifierListener)
             PrimeMusicManager.removeListener(this)
             autoRetryHandler.removeCallbacksAndMessages(null)
             BluetoothConnectionManager.getInstance().unregisterCallback(connectionCallback)
@@ -3657,7 +3656,7 @@ class ChatListActivity : AppCompatActivity() {
             onStartChatClicked()
         }
         isPulling = false; isThresholdCrossed = false
-        if (bluetoothAdapter != null && bluetoothAdapter!!.isEnabled) {
+        if (bluetoothAdapter?.isEnabled == true) {
             BluetoothConnectionManager.getInstance().startServer(bluetoothAdapter, primeUuid)
         }
     }
@@ -4748,7 +4747,7 @@ class ChatListActivity : AppCompatActivity() {
             PrimeNotification.show(this, "Bluetooth не поддерживается устройством")
             return
         }
-        if (!bluetoothAdapter!!.isEnabled) {
+        if (bluetoothAdapter?.isEnabled != true) {
             try {
                 val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
                 enableBluetoothLauncher.launch(enableBtIntent)
@@ -4922,6 +4921,11 @@ class ChatListActivity : AppCompatActivity() {
         embeddedChatController = null
         activeEmbeddedChatViewController = null
         typingExpireHandler.removeCallbacksAndMessages(null)
+        searchTimeoutHandler.removeCallbacksAndMessages(null)
+        TransferManager.unregisterListener(transferListener)
+        try {
+            BluetoothConnectionManager.getInstance().unregisterCallback(globalBtCallback)
+        } catch (_: Exception) {}
         try {
             connectivityManager.unregisterNetworkCallback(networkCallback)
         } catch (_: Exception) {}

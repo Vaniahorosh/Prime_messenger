@@ -171,7 +171,14 @@ class PrimeMusicPlayerDialog(private val context: Context) : PrimeMusicManager.P
 
         if (!track.coverPath.isNullOrEmpty()) {
             try {
-                val bmp = BitmapFactory.decodeFile(track.coverPath)
+                val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(track.coverPath, boundsOpts)
+                var sampleSize = 1
+                while (boundsOpts.outWidth / sampleSize > 384 || boundsOpts.outHeight / sampleSize > 384) {
+                    sampleSize *= 2
+                }
+                val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+                val bmp = BitmapFactory.decodeFile(track.coverPath, decodeOpts)
                 if (bmp != null) {
                     b.ivPlayerCover.setImageBitmap(bmp)
                     val adaptiveTint = extractAdaptiveOverlayColor(bmp, isDark)
