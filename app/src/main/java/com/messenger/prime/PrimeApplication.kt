@@ -10,6 +10,7 @@ import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
 import android.app.Activity
 import android.os.Bundle
+import android.view.View
 import com.google.android.material.color.DynamicColors
 import androidx.activity.ComponentActivity
 import java.lang.ref.WeakReference
@@ -190,6 +191,14 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         // Ensure it's at the top of the stack
         activityStack.removeAll { it.get() == null || it.get() == activity }
         activityStack.add(WeakReference(activity))
+        
+        try {
+            val contentView = activity.findViewById<View>(android.R.id.content)
+            if (contentView != null) {
+                val accentColor = ColorAccentManager.getCurrentAccentColor(activity)
+                ColorAccentManager.tintViewTree(contentView, accentColor)
+            }
+        } catch (_: Exception) {}
     }
     override fun onActivityPaused(activity: Activity) {
         if (currentActivityRef?.get() == activity) {

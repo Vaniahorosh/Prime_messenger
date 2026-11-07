@@ -47,7 +47,7 @@
                         android:layout_marginTop="6dp"
                         android:gravity="center"
                         android:text="Доступ к функциям Prime Messenger"
-                        android:textColor="@color/white"
+                        android:textColor="@color/prime_text_primary"
                         android:textSize="17sp"
                         android:textStyle="bold" />
 
@@ -57,7 +57,7 @@
                         android:layout_marginTop="4dp"
                         android:gravity="center"
                         android:text="Для работы всех возможностей мессенджера (онлайн и без интернета) рекомендуются следующие разрешения:"
-                        android:textColor="#B3FFFFFF"
+                        android:textColor="@color/prime_text_secondary"
                         android:textSize="12sp" />
                 </LinearLayout>
 

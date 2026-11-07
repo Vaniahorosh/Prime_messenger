@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Изменить фото профиля"
-        android:textColor="@color/white"
+        android:textColor="@color/prime_text_primary"
         android:textSize="20sp"
         android:textStyle="bold"
         android:layout_marginBottom="16dp"/>
@@ -22,16 +22,16 @@
         android:layout_height="wrap_content"
         android:text="Выбрать из галереи"
         app:icon="@drawable/ic_photo"
-        app:backgroundTint="#20FFFFFF"
-        android:textColor="@color/white"
+        app:backgroundTint="#20000000"
+        android:textColor="@color/prime_text_primary"
         app:cornerRadius="12dp"
-        app:iconTint="@color/white"/>
+        app:iconTint="@color/prime_text_primary"/>
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Готовые аватары"
-        android:textColor="#B3FFFFFF"
+        android:textColor="@color/prime_text_secondary"
         android:textSize="14sp"
         android:layout_marginTop="16dp"
         android:layout_marginBottom="12dp"/>

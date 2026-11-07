@@ -811,8 +811,7 @@ class PhotoEditorActivity : AppCompatActivity() {
         val blurCard = dialogBinding.root.findViewById<BlurView>(R.id.blurDialogCard)
         if (blurCard != null) {
             val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
-            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            val overlayColor = if (isDark) android.graphics.Color.parseColor("#400F172A") else android.graphics.Color.parseColor("#40154B87")
+            val overlayColor = com.messenger.prime.getDefaultBlurOverlayColor(this)
             val windowBg = window.decorView.background
             blurCard.setupBlur(rootView, 16f, overlayColor, windowBg)
         }

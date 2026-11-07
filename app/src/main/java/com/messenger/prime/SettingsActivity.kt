@@ -787,7 +787,7 @@ class SettingsActivity : AppCompatActivity() {
             updateToolbarPadding()
         }
 
-        val overlayColor = if (darkTheme) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+        val overlayColor = getDefaultBlurOverlayColor(this)
         val targetRootView = (b.root as? ViewGroup)
             ?: (window.decorView.findViewById<ViewGroup>(android.R.id.content))
             ?: (window.decorView as ViewGroup)
@@ -2076,8 +2076,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val blurNavView = navView as? eightbitlab.com.blurview.BlurView
         if (blurNavView != null) {
-            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            val overlayColor = if (isDark) android.graphics.Color.parseColor("#400F172A") else android.graphics.Color.parseColor("#40154B87")
+            val overlayColor = com.messenger.prime.getDefaultBlurOverlayColor(this)
             val targetRootView = (bindingRef?.root as? ViewGroup)
                 ?: (window.decorView.findViewById<ViewGroup>(android.R.id.content))
                 ?: (window.decorView as ViewGroup)
@@ -3114,8 +3113,7 @@ class SettingsActivity : AppCompatActivity() {
         val blurCard = dialogBinding.root.findViewById<BlurView>(R.id.blurDialogCard)
         if (blurCard != null) {
             val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
-            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            val overlayColor = if (isDark) android.graphics.Color.parseColor("#400F172A") else android.graphics.Color.parseColor("#40154B87")
+            val overlayColor = com.messenger.prime.getDefaultBlurOverlayColor(this)
             blurCard.setupBlur(rootView, 16f, overlayColor, window.decorView.background)
         }
 

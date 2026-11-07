@@ -884,135 +884,168 @@
         app:layout_constraintStart_toStartOf="parent">
 
         <!-- Строка ввода -->
-        <eightbitlab.com.blurview.BlurView
+        <LinearLayout
             android:id="@+id/layoutInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_floating_island"
-            android:outlineProvider="background"
+            android:orientation="horizontal"
+            android:gravity="bottom"
             android:transitionName="transition_input_to_rich"
-            android:paddingStart="6dp"
-            android:paddingTop="4dp"
-            android:paddingEnd="6dp"
-            android:paddingBottom="4dp"
             android:visibility="gone">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <!-- Attach/Cancel block -->
+            <eightbitlab.com.blurview.BlurView
+                android:id="@+id/blurInputAttach"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <ImageButton
-                    android:id="@+id/btnAttach"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    tools:ignore="HardcodedText"
-                    android:contentDescription="Прикрепить"
-                    android:src="@drawable/ic_photo"
-                    app:tint="@color/prime_brand" />
-
-                <ImageButton
-                    android:id="@+id/btnCancelEdit"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    tools:ignore="HardcodedText"
-                    android:contentDescription="Отменить"
-                    android:src="@drawable/ic_cancel"
-                    android:visibility="gone"
-                    app:tint="@color/prime_danger" />
-
-                <EditText
-                    android:id="@+id/etMessage"
-                    android:layout_width="0dp"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_floating_island"
+                android:outlineProvider="background">
+                <FrameLayout
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:background="@null"
-                    tools:ignore="HardcodedText"
-                    android:hint="Сообщение..."
-                    android:importantForAutofill="no"
-                    android:inputType="textMultiLine|textCapSentences"
-                    android:maxLines="4"
-                    android:paddingStart="10dp"
-                    android:paddingTop="10dp"
-                    android:paddingEnd="10dp"
-                    android:paddingBottom="10dp"
-                    android:textColor="@color/prime_text_primary"
-                    android:textColorHint="@color/prime_text_secondary"
-                    android:textSize="15sp" />
-
-                <!-- Extended formatting button (Ф) – appears beside Send button when > 3 lines -->
-                <ImageButton
-                    android:id="@+id/btnFormat"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_gravity="center_vertical"
-                    android:layout_marginEnd="2dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Расширенное форматирование"
-                    android:src="@drawable/ic_format_extended"
-                    android:visibility="gone"
-                    android:alpha="0"
-                    android:scaleX="0.2"
-                    android:scaleY="0.2"
-                    app:tint="@color/prime_brand" />
-
-                <!-- Специализированная панель записи ГС -->
-                <LinearLayout
-                    android:id="@+id/layoutVoiceRecordBar"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:visibility="gone">
+                    android:padding="4dp">
 
                     <ImageButton
-                        android:id="@+id/btnVoiceRecordCancel"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
+                        android:id="@+id/btnAttach"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         tools:ignore="HardcodedText"
-                        android:contentDescription="Отмена"
-                        android:src="@drawable/ic_trash"
-                        app:tint="@color/prime_danger" />
-
-                    <TextView
-                        android:id="@+id/tvVoiceRecordTimer"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:textColor="@color/prime_danger"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium"
-                        android:text="0:00" />
-
-                    <com.messenger.prime.VoiceMessageItemView
-                        android:id="@+id/voiceRecordWaveform"
-                        android:layout_width="0dp"
-                        android:layout_height="28dp"
-                        android:layout_weight="1"
-                        android:layout_marginStart="8dp"
-                        android:layout_marginEnd="8dp" />
-
-                    <ImageButton
-                        android:id="@+id/btnVoiceRecordSend"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        tools:ignore="HardcodedText"
-                        android:contentDescription="Отправить"
-                        android:src="@drawable/ic_send"
+                        android:contentDescription="Прикрепить"
+                        android:src="@drawable/ic_photo"
                         app:tint="@color/prime_brand" />
-                </LinearLayout>
 
+                    <ImageButton
+                        android:id="@+id/btnCancelEdit"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        tools:ignore="HardcodedText"
+                        android:contentDescription="Отменить"
+                        android:src="@drawable/ic_cancel"
+                        android:visibility="gone"
+                        app:tint="@color/prime_danger" />
+                </FrameLayout>
+            </eightbitlab.com.blurview.BlurView>
+
+            <!-- Input block -->
+            <eightbitlab.com.blurview.BlurView
+                android:id="@+id/blurInputEt"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_floating_island"
+                android:outlineProvider="background">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:minHeight="50dp"
+                    android:paddingStart="4dp"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="4dp"
+                    android:paddingBottom="4dp">
+
+                    <EditText
+                        android:id="@+id/etMessage"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@null"
+                        tools:ignore="HardcodedText"
+                        android:hint="Сообщение..."
+                        android:importantForAutofill="no"
+                        android:inputType="textMultiLine|textCapSentences"
+                        android:maxLines="4"
+                        android:paddingStart="10dp"
+                        android:paddingTop="10dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="10dp"
+                        android:textColor="@color/prime_text_primary"
+                        android:textColorHint="@color/prime_text_secondary"
+                        android:textSize="15sp" />
+
+                    <!-- Extended formatting button (Ф) -->
+                    <ImageButton
+                        android:id="@+id/btnFormat"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
+                        android:layout_gravity="center_vertical"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Расширенное форматирование"
+                        android:src="@drawable/ic_format_extended"
+                        android:visibility="gone"
+                        android:alpha="0"
+                        android:scaleX="0.2"
+                        android:scaleY="0.2"
+                        app:tint="@color/prime_brand" />
+
+                    <!-- Специализированная панель записи ГС -->
+                    <LinearLayout
+                        android:id="@+id/layoutVoiceRecordBar"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:visibility="gone">
+
+                        <ImageButton
+                            android:id="@+id/btnVoiceRecordCancel"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            tools:ignore="HardcodedText"
+                            android:contentDescription="Отмена"
+                            android:src="@drawable/ic_trash"
+                            app:tint="@color/prime_danger" />
+
+                        <TextView
+                            android:id="@+id/tvVoiceRecordTimer"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:textColor="@color/prime_danger"
+                            android:textSize="14sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:text="0:00" />
+
+                        <com.messenger.prime.VoiceMessageItemView
+                            android:id="@+id/voiceRecordWaveform"
+                            android:layout_width="0dp"
+                            android:layout_height="28dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:layout_marginEnd="8dp" />
+
+                        <ImageButton
+                            android:id="@+id/btnVoiceRecordSend"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            tools:ignore="HardcodedText"
+                            android:contentDescription="Отправить"
+                            android:src="@drawable/ic_send"
+                            app:tint="@color/prime_brand" />
+                    </LinearLayout>
+                </LinearLayout>
+            </eightbitlab.com.blurview.BlurView>
+
+            <!-- Action buttons block -->
+            <eightbitlab.com.blurview.BlurView
+                android:id="@+id/blurInputSend"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_floating_island"
+                android:outlineProvider="background">
                 <FrameLayout
                     android:id="@+id/layoutActionButtons"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_gravity="center_vertical">
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="4dp">
 
                     <ImageButton
                         android:id="@+id/btnVoiceVideoNote"
@@ -1038,9 +1071,9 @@
                         android:scaleY="0.2"
                         app:tint="@color/prime_brand" />
                 </FrameLayout>
+            </eightbitlab.com.blurview.BlurView>
 
-            </LinearLayout>
-        </eightbitlab.com.blurview.BlurView>
+        </LinearLayout>
 
     </LinearLayout>
 

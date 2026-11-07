@@ -181,10 +181,15 @@ object PrimeBlurDialog {
 
         var alertDialog: AlertDialog? = null
 
+        val isDark = (activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val itemTextColor = if (isDark) Color.WHITE else Color.parseColor("#0F172A")
+        val itemBgColor = if (isDark) Color.parseColor("#1FFFFFFF") else Color.parseColor("#10000000")
+        val itemStrokeColor = if (isDark) Color.parseColor("#33FFFFFF") else Color.parseColor("#20000000")
+
         items.forEachIndexed { index, itemText ->
             val itemView = TextView(activity).apply {
                 text = itemText
-                setTextColor(Color.WHITE)
+                setTextColor(itemTextColor)
                 textSize = 15f
                 setPadding(40, 30, 40, 30)
                 gravity = Gravity.CENTER_VERTICAL
@@ -192,8 +197,8 @@ object PrimeBlurDialog {
                 val glassBg = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE
                     cornerRadius = 32f
-                    setColor(Color.parseColor("#1FFFFFFF"))
-                    setStroke(1, Color.parseColor("#33FFFFFF"))
+                    setColor(itemBgColor)
+                    setStroke(1, itemStrokeColor)
                 }
                 background = glassBg
                 

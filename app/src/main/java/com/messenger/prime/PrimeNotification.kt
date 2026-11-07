@@ -116,11 +116,7 @@ object PrimeNotification {
                 if (blurView != null) {
                     try {
                         val isDark = (activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-                        val overlayColor = if (isDark) {
-                            Color.parseColor("#400F172A")
-                        } else {
-                            Color.parseColor("#40154B87")
-                        }
+                        val overlayColor = getDefaultBlurOverlayColor(activity)
                         val windowBg = activity.window?.decorView?.background
                         blurView.setupBlur(rootLayout, 16f, overlayColor, windowBg)
                     } catch (e: Exception) {
@@ -334,6 +330,15 @@ object PrimeNotification {
         mediaPath: String? = null
     ) {
         if (context == null || senderName.isNullOrEmpty()) return
+
+        // Проверяем отключен ли звук у чата (Mute)
+        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val muteUntilName = sp.getLong("mute_until_$senderName", 0L)
+        val muteUntilAddress = sp.getLong("mute_until_$deviceAddress", 0L)
+        if (muteUntilName > now || muteUntilAddress > now) {
+            return
+        }
 
         // Подавляем системные уведомления, если активен чат с данным собеседником
         if (PrimeApplication.isChatActive(deviceAddress, senderName) ||

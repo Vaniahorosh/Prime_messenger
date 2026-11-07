@@ -302,8 +302,7 @@ class AiChatActivity : AppCompatActivity() {
     }
 
     private fun setupBlurViews() {
-        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val overlayColor = if (isDark) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+        val overlayColor = com.messenger.prime.getDefaultBlurOverlayColor(this)
         val targetRoot = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: (window.decorView as ViewGroup)
         binding.blurInputContainer.setupBlur(targetRoot, 18f, overlayColor, window.decorView.background)
     }
@@ -390,8 +389,7 @@ class AiChatActivity : AppCompatActivity() {
 
         val blurNavView = navView as? eightbitlab.com.blurview.BlurView
         if (blurNavView != null) {
-            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            val overlayColor = if (isDark) android.graphics.Color.parseColor("#400F172A") else android.graphics.Color.parseColor("#40154B87")
+            val overlayColor = com.messenger.prime.getDefaultBlurOverlayColor(this)
             val targetRootView = (binding.root as? ViewGroup)
                 ?: (window.decorView.findViewById<ViewGroup>(android.R.id.content))
                 ?: (window.decorView as ViewGroup)

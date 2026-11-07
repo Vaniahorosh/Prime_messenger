@@ -3969,8 +3969,7 @@ class ChatListActivity : AppCompatActivity() {
 
         val blurNavView = navView as? eightbitlab.com.blurview.BlurView
         if (blurNavView != null) {
-            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            val overlayColor = if (isDark) android.graphics.Color.parseColor("#400F172A") else android.graphics.Color.parseColor("#40154B87")
+             val overlayColor = com.messenger.prime.getDefaultBlurOverlayColor(this)
             val targetRootView = (binding.root as? ViewGroup)
                 ?: (window.decorView.findViewById<ViewGroup>(android.R.id.content))
                 ?: (window.decorView as ViewGroup)
@@ -4133,20 +4132,49 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         binding.layoutIslandHeader.btnHeaderSelectionPin.setOnClickListener {
-            PrimeNotification.show(this, "Закрепление скоро появится")
+            val selected = adapter.selectedItems.toList()
+            val sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val editor = sp.edit()
+            var anyPinned = false
+            selected.forEach { id ->
+                val isPinned = sp.getBoolean("is_pinned_$id", false)
+                if (isPinned) anyPinned = true
+            }
+            selected.forEachIndexed { index, id ->
+                val setPinned = !anyPinned
+                editor.putBoolean("is_pinned_$id", setPinned)
+                if (setPinned) {
+                    editor.putInt("pinned_order_$id", index)
+                } else {
+                    editor.remove("pinned_order_$id")
+                }
+            }
+            editor.apply()
+            PrimeNotification.show(this, if (!anyPinned) "Чаты закреплены" else "Чаты откреплены")
             adapter.clearSelection()
+            val newChats = loadContacts()
+            chatListState.clear()
+            chatListState.addAll(newChats)
+            allChats = ArrayList(chatListState)
+            adapter.updateList(allChats)
+            updateEmptyState()
         }
 
         binding.layoutIslandHeader.btnHeaderSelectionMute.setOnClickListener {
             val selected = adapter.selectedItems.toList()
             val sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
             val editor = sp.edit()
+            val now = System.currentTimeMillis()
+            var anyMuted = false
             selected.forEach { id ->
-                val currentMuted = sp.getBoolean("chat_muted_$id", false)
-                editor.putBoolean("chat_muted_$id", !currentMuted)
+                val isMuted = sp.getLong("mute_until_$id", 0L) > now
+                if (isMuted) anyMuted = true
+            }
+            selected.forEach { id ->
+                editor.putLong("mute_until_$id", if (anyMuted) 0L else Long.MAX_VALUE)
             }
             editor.apply()
-            PrimeNotification.show(this, "Звук изменен для ${selected.size} чатов")
+            PrimeNotification.show(this, if (!anyMuted) "Уведомления отключены" else "Уведомления включены")
 
             val initialChats = loadContacts()
             chatListState.clear()
@@ -4372,8 +4400,52 @@ class ChatListActivity : AppCompatActivity() {
     private val isNameEditDialogVisible = mutableStateOf(false)
 
     private fun setupSwipeToDelete() {
-        val swipeHandler = object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(0, androidx.recyclerview.widget.ItemTouchHelper.LEFT) {
-            override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean = false
+        val swipeHandler = object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(
+            androidx.recyclerview.widget.ItemTouchHelper.UP or androidx.recyclerview.widget.ItemTouchHelper.DOWN,
+            androidx.recyclerview.widget.ItemTouchHelper.LEFT
+        ) {
+            override fun getMovementFlags(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder): Int {
+                if (viewHolder.itemViewType != 0) return makeMovementFlags(0, 0)
+                val position = viewHolder.bindingAdapterPosition
+                val currentList = adapter.getChatList()
+                if (position in currentList.indices) {
+                    val item = currentList[position]
+                    if (item.id == "ai_prime_chat") return makeMovementFlags(0, 0)
+                    if (item.isPinned) {
+                        return makeMovementFlags(
+                            androidx.recyclerview.widget.ItemTouchHelper.UP or androidx.recyclerview.widget.ItemTouchHelper.DOWN,
+                            androidx.recyclerview.widget.ItemTouchHelper.LEFT
+                        )
+                    }
+                }
+                return makeMovementFlags(0, androidx.recyclerview.widget.ItemTouchHelper.LEFT)
+            }
+
+            override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean {
+                val fromPos = viewHolder.bindingAdapterPosition
+                val toPos = target.bindingAdapterPosition
+                val currentList = adapter.getChatList()
+                if (fromPos in currentList.indices && toPos in currentList.indices) {
+                    val fromItem = currentList[fromPos]
+                    val toItem = currentList[toPos]
+                    if (fromItem.isPinned && toItem.isPinned) {
+                        adapter.swapItems(fromPos, toPos)
+                        
+                        val sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                        val editor = sp.edit()
+                        val updatedList = adapter.getChatList()
+                        updatedList.forEachIndexed { index, chat ->
+                            if (chat.isPinned) {
+                                editor.putInt("pinned_order_${chat.id}", index)
+                                editor.putInt("pinned_order_${chat.name}", index)
+                            }
+                        }
+                        editor.apply()
+                        return true
+                    }
+                }
+                return false
+            }
             override fun getSwipeDirs(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder): Int {
                 if (viewHolder.itemViewType != 0) return 0
                 val position = viewHolder.bindingAdapterPosition
@@ -4617,6 +4689,10 @@ class ChatListActivity : AppCompatActivity() {
                                 ChatHistoryManager.getLastMediaPreviewPath(this@ChatListActivity, finalName, idStr)
                             }
 
+                            val isMuted = sharedPrefs.getLong("mute_until_$idStr", 0L) > now || sharedPrefs.getLong("mute_until_$nameStr", 0L) > now
+                            val isPinned = sharedPrefs.getBoolean("is_pinned_$idStr", false) || sharedPrefs.getBoolean("is_pinned_$nameStr", false)
+                            val pinOrder = if (sharedPrefs.contains("pinned_order_$idStr")) sharedPrefs.getInt("pinned_order_$idStr", 0) else sharedPrefs.getInt("pinned_order_$nameStr", 0)
+
                             val chat = ChatModel(
                                 idStr,
                                 finalName,
@@ -4627,7 +4703,9 @@ class ChatListActivity : AppCompatActivity() {
                                 realOnlineStatus,
                                 finalMessageStatus,
                                 finalUnreadCount,
-                                item.optBoolean("isMuted", false),
+                                isMuted,
+                                isPinned,
+                                pinOrder,
                                 isTyping,
                                 typingUntil,
                                 actState
@@ -4693,6 +4771,9 @@ class ChatListActivity : AppCompatActivity() {
                 val bestTypingUntil = maxOf(oldChat.typingUntil, chat.typingUntil)
                 val bestActState = if (chat.activityState != "IDLE") chat.activityState else oldChat.activityState
 
+                val bestPinned = chat.isPinned || oldChat.isPinned
+                val bestPinOrder = minOf(oldChat.pinOrder, chat.pinOrder)
+
                 val merged = ChatModel(
                     bestId,
                     bestName,
@@ -4704,6 +4785,8 @@ class ChatListActivity : AppCompatActivity() {
                     bestMsgStatus,
                     bestUnread,
                     bestMuted,
+                    bestPinned,
+                    bestPinOrder,
                     bestTyping,
                     bestTypingUntil,
                     bestActState
@@ -4713,7 +4796,9 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         val deduplicatedList = dedupMap.values.toList()
-            .sortedWith(compareByDescending<Pair<ChatModel, Long>> { it.first.isTyping }
+            .sortedWith(compareByDescending<Pair<ChatModel, Long>> { it.first.isPinned }
+                .thenBy { it.first.pinOrder }
+                .thenByDescending { it.first.isTyping }
                 .thenByDescending { it.second })
             .map { it.first }
 

@@ -68,7 +68,7 @@ class PrimeMusicPlayerDialog(private val context: Context) : PrimeMusicManager.P
         if (activityRoot != null) {
             val windowBackground = (context as android.app.Activity).window.decorView.background
             val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            val overlayColor = if (isDark) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+            val overlayColor = getDefaultBlurOverlayColor(b.root.context)
             
             b.blurViewPlayerSheet.setupBlur(activityRoot, 20f, overlayColor, windowBackground)
         }
@@ -185,7 +185,7 @@ class PrimeMusicPlayerDialog(private val context: Context) : PrimeMusicManager.P
                     b.blurViewPlayerSheet.setOverlayColor(adaptiveTint)
                 } else {
                     b.ivPlayerCover.setImageResource(R.drawable.ic_music)
-                    val defaultTint = if (isDark) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+                    val defaultTint = getDefaultBlurOverlayColor(b.ivPlayerCover.context)
                     b.blurViewPlayerSheet.setOverlayColor(defaultTint)
                 }
             } catch (_: Exception) {
@@ -193,7 +193,7 @@ class PrimeMusicPlayerDialog(private val context: Context) : PrimeMusicManager.P
             }
         } else {
             b.ivPlayerCover.setImageResource(R.drawable.ic_music)
-            val defaultTint = if (isDark) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+            val defaultTint = getDefaultBlurOverlayColor(b.ivPlayerCover.context)
             b.blurViewPlayerSheet.setOverlayColor(defaultTint)
         }
 
@@ -205,7 +205,7 @@ class PrimeMusicPlayerDialog(private val context: Context) : PrimeMusicManager.P
         val width = bitmap.width
         val height = bitmap.height
         if (width <= 0 || height <= 0) {
-            return if (isDarkTheme) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+            return getDefaultBlurOverlayColor(context)
         }
 
         var redSum = 0L
@@ -227,7 +227,7 @@ class PrimeMusicPlayerDialog(private val context: Context) : PrimeMusicManager.P
         }
 
         if (sampleCount == 0) {
-            return if (isDarkTheme) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+            return getDefaultBlurOverlayColor(context)
         }
 
         val avgRed = (redSum / sampleCount).toInt()

@@ -32,14 +32,14 @@
                 android:layout_height="18dp"
                 android:contentDescription="Ответить"
                 android:src="@drawable/ic_reply"
-                app:tint="@color/white" />
+                app:tint="@color/prime_text_primary" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="10dp"
                 android:text="Ответить на выделенное"
-                android:textColor="@color/white"
+                android:textColor="@color/prime_text_primary"
                 android:textSize="13sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -61,14 +61,14 @@
                 android:layout_height="18dp"
                 android:contentDescription="Копировать"
                 android:src="@drawable/ic_copy"
-                app:tint="@color/white" />
+                app:tint="@color/prime_text_primary" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="10dp"
                 android:text="Копировать"
-                android:textColor="@color/white"
+                android:textColor="@color/prime_text_primary"
                 android:textSize="13sp"
                 android:textStyle="bold" />
         </LinearLayout>

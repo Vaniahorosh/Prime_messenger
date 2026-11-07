@@ -249,16 +249,37 @@ object ColorAccentManager {
     @JvmStatic
     fun isBrandColor(colorInt: Int): Boolean {
         if (colorInt == 0) return false
-        val isBrandHex = colorInt == 0xFF154B87.toInt() ||
-                        colorInt == 0xFF4D9FFF.toInt() ||
-                        colorInt == 0xCC154B87.toInt() ||
-                        colorInt == 0xCC4D9FFF.toInt() ||
-                        colorInt == 0xFF154A86.toInt() ||
-                        colorInt == 0xFF007BFF.toInt() ||
-                        colorInt == 0xFF38BDF8.toInt()
+        val alpha = (colorInt ushr 24)
+        if (alpha == 0) return false
+
+        val rgb = colorInt and 0x00FFFFFF
+        val isBrandHex = rgb == 0x154B87 ||
+                        rgb == 0x4D9FFF ||
+                        rgb == 0x154A86 ||
+                        rgb == 0x007BFF ||
+                        rgb == 0x38BDF8 ||
+                        rgb == 0x3B82F6 ||
+                        rgb == 0x2563EB ||
+                        rgb == 0x1D4ED8 ||
+                        rgb == 0x1E62B0 ||
+                        rgb == 0x2196F3 ||
+                        rgb == 0x64B5F6 ||
+                        rgb == 0x00897B ||
+                        rgb == 0x26A69A ||
+                        rgb == 0x7C4DFF ||
+                        rgb == 0xB388FF ||
+                        rgb == 0xFB8C00 ||
+                        rgb == 0xFFB74D ||
+                        rgb == 0xE53935 ||
+                        rgb == 0xFF5252 ||
+                        rgb == 0x00ACC1 ||
+                        rgb == 0x4DD0E1 ||
+                        rgb == 0xE91E63 ||
+                        rgb == 0xFF4081
+
         if (isBrandHex) return true
 
-        return PRESET_COLORS.any { it.lightColor == colorInt || it.darkColor == colorInt }
+        return PRESET_COLORS.any { (it.lightColor and 0x00FFFFFF) == rgb || (it.darkColor and 0x00FFFFFF) == rgb }
     }
 
     @JvmStatic

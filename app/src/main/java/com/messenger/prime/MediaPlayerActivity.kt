@@ -467,11 +467,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
         val windowBg = window.decorView.background
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val overlayColor = if (isDark) {
-            Color.parseColor("#400F172A")
-        } else {
-            Color.parseColor("#40154B87")
-        }
+        val overlayColor = getDefaultBlurOverlayColor(this)
 
         val topBlur = findViewById<BlurView>(R.id.topOverlay)
         val bottomBlur = findViewById<BlurView>(R.id.bottomOverlay)

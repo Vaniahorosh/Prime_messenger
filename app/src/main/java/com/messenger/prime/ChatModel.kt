@@ -18,6 +18,8 @@ data class ChatModel(
     // Счетчики и настройки
     val unreadCount: Int = 0, // Количество новых сообщений
     val isMuted: Boolean = false, // Заглушен ли чат (иконка без звука)
+    val isPinned: Boolean = false, // Закреплен ли чат
+    val pinOrder: Int = 0, // Порядок расположения закрепленного чата
     val isTyping: Boolean = false, // Печатает ли собеседник
     val typingUntil: Long = 0L, // Время до окончания индикатора печати
     val activityState: String = "IDLE" // Активность ("TYPING", "SENDING_PHOTO", "VIEWING_PHOTO", "IDLE")

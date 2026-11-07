@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.res.Configuration
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.graphics.drawable.Drawable
@@ -12,12 +13,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -32,6 +35,15 @@ import eightbitlab.com.blurview.BlurView as EightBitBlurView
 import eightbitlab.com.blurview.RenderEffectBlur
 import eightbitlab.com.blurview.RenderScriptBlur
 
+fun getDefaultBlurOverlayColor(context: Context): Int {
+    val isDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+    return if (isDark) {
+        android.graphics.Color.parseColor("#400F172A")
+    } else {
+        android.graphics.Color.parseColor("#40FFFFFF") // Better for light theme
+    }
+}
+
 /**
  * BlurView - Настоящее размытие фона с использованием библиотеки Dimezis BlurView
  * через AndroidView в Jetpack Compose с неразмываемым контентом поверх.
@@ -44,10 +56,11 @@ fun BlurView(
     shape: Shape = RectangleShape,
     content: (@Composable () -> Unit)? = null
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val overlayColorInt = if (tint != Color.Unspecified) {
         tint.toArgb()
     } else {
-        android.graphics.Color.parseColor("#40154B87")
+        getDefaultBlurOverlayColor(context)
     }
 
     Box(
@@ -133,9 +146,11 @@ private fun findActivity(context: Context): Activity? {
 fun EightBitBlurView.setupBlur(
     rootView: ViewGroup,
     blurRadius: Float = 16f,
-    tintColor: Int = android.graphics.Color.parseColor("#40154B87"),
+    tintColor: Int? = null,
     frameClearDrawable: Drawable? = null
 ) {
+    val actualTintColor = tintColor ?: getDefaultBlurOverlayColor(context)
+    
     outlineProvider = ViewOutlineProvider.BACKGROUND
     clipToOutline = true
 
@@ -143,7 +158,7 @@ fun EightBitBlurView.setupBlur(
     val isLowRam = activityManager?.isLowRamDevice == true
 
     if (isLowRam) {
-        this.setBackgroundColor(tintColor)
+        this.setBackgroundColor(actualTintColor)
         this.setBlurEnabled(false)
         return
     }
@@ -166,7 +181,7 @@ fun EightBitBlurView.setupBlur(
                 setBlurEnabled(true)
                 setupWith(targetRoot, algorithm)
                     .setBlurRadius(blurRadius.coerceIn(1f, 25f))
-                    .setOverlayColor(tintColor)
+                    .setOverlayColor(actualTintColor)
                     .setBlurAutoUpdate(true)
                     .apply {
                         if (frameClearDrawable != null) {
@@ -179,10 +194,10 @@ fun EightBitBlurView.setupBlur(
                     try {
                         setRenderEffect(RenderEffect.createBlurEffect(blurRadius.coerceIn(1f, 25f), blurRadius.coerceIn(1f, 25f), Shader.TileMode.CLAMP))
                     } catch (_: Throwable) {
-                        setBackgroundColor(tintColor)
+                        setBackgroundColor(actualTintColor)
                     }
                 } else {
-                    setBackgroundColor(tintColor)
+                    setBackgroundColor(actualTintColor)
                 }
             }
         }
@@ -208,23 +223,24 @@ fun EightBitBlurView.setupBlur(
 fun Modifier.blurView(
     blurRadius: Dp = 16.dp,
     tint: Color = Color.Unspecified
-): Modifier = this.then(
-    if (tint != Color.Unspecified) Modifier.background(tint) 
-    else Modifier.background(Color(0x40154B87))
-)
+): Modifier = composed {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val actualTint = if (tint != Color.Unspecified) tint else Color(getDefaultBlurOverlayColor(context))
+    this.then(Modifier.background(actualTint))
+}
 
 fun View.applyBlurView(radius: Float = 30f) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         setRenderEffect(RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP))
     } else {
-        setBackgroundColor(android.graphics.Color.parseColor("#40154B87"))
+        setBackgroundColor(getDefaultBlurOverlayColor(context))
     }
 }
 
 object BlurViewHelper {
     @JvmStatic
     @JvmOverloads
-    fun setupBlurView(composeView: ComposeView?, tint: Color = Color(0x40154B87)) {
+    fun setupBlurView(composeView: ComposeView?, tint: Color = Color.Unspecified) {
         composeView?.setContent {
             BlurView(
                 modifier = Modifier.fillMaxSize(),

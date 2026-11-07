@@ -150,9 +150,9 @@
                                 android:textStyle="bold" />
                         </LinearLayout>
 
-                        <!-- 3. Кнопка Отключиться -->
+                        <!-- 3. Кнопка Режим читателя -->
                         <LinearLayout
-                            android:id="@+id/btnDisconnectLayout"
+                            android:id="@+id/btnReaderModeLayout"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
@@ -160,7 +160,7 @@
                             android:orientation="vertical">
 
                             <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnDisconnect"
+                                android:id="@+id/btnReaderMode"
                                 style="@style/Widget.MaterialComponents.Button.Icon"
                                 android:layout_width="56dp"
                                 android:layout_height="56dp"
@@ -171,16 +171,17 @@
                                 android:insetRight="0dp"
                                 android:insetBottom="0dp"
                                 app:cornerRadius="16dp"
-                                app:icon="@drawable/ic_exit_to_app"
+                                app:icon="@drawable/ic_book"
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
                                 app:iconSize="24dp"
                                 app:iconTint="@color/white" />
 
                             <TextView
+                                android:id="@+id/tvReaderModeLabel"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Отключиться"
+                                android:text="Читатель"
                                 android:textColor="@color/white"
                                 android:alpha="0.8"
                                 android:textSize="10sp"

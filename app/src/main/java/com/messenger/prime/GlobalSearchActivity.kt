@@ -342,8 +342,7 @@ class GlobalSearchActivity : AppCompatActivity() {
 
         val blurNavView = navView as? eightbitlab.com.blurview.BlurView
         if (blurNavView != null) {
-            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            val overlayColor = if (isDark) android.graphics.Color.parseColor("#400F172A") else android.graphics.Color.parseColor("#40154B87")
+            val overlayColor = com.messenger.prime.getDefaultBlurOverlayColor(this)
             val targetRootView = (window.decorView.findViewById<ViewGroup>(android.R.id.content))
                 ?: (window.decorView as ViewGroup)
             blurNavView.setupBlur(targetRootView, 18f, overlayColor, window.decorView.background)

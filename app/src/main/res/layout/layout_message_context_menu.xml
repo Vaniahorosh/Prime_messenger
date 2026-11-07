@@ -155,14 +155,14 @@
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:src="@drawable/ic_reply"
-                app:tint="@color/white" />
+                app:tint="@color/prime_text_primary" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:text="Ответить"
-                android:textColor="@color/white"
+                android:textColor="@color/prime_text_primary"
                 android:textSize="14sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -183,14 +183,14 @@
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:src="@drawable/ic_copy"
-                app:tint="@color/white" />
+                app:tint="@color/prime_text_primary" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:text="Копировать"
-                android:textColor="@color/white"
+                android:textColor="@color/prime_text_primary"
                 android:textSize="14sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -211,14 +211,14 @@
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:src="@drawable/ic_forward"
-                app:tint="@color/white" />
+                app:tint="@color/prime_text_primary" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:text="Переслать"
-                android:textColor="@color/white"
+                android:textColor="@color/prime_text_primary"
                 android:textSize="14sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -239,14 +239,14 @@
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:src="@drawable/ic_edit"
-                app:tint="@color/white" />
+                app:tint="@color/prime_text_primary" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:text="Редактировать"
-            android:textColor="@color/white"
+            android:textColor="@color/prime_text_primary"
             android:textSize="14sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -295,14 +295,14 @@
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:src="@drawable/ic_done"
-                app:tint="@color/white" />
+                app:tint="@color/prime_text_primary" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:text="Выбрать"
-                android:textColor="@color/white"
+                android:textColor="@color/prime_text_primary"
                 android:textSize="14sp"
                 android:textStyle="bold" />
         </LinearLayout>

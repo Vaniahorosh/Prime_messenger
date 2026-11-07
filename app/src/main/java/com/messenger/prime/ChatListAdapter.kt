@@ -122,6 +122,15 @@ class ChatListAdapter(
     val selectedItems = mutableSetOf<String>()
     var onSelectionChanged: ((Set<String>) -> Unit)? = null
 
+    fun swapItems(fromPos: Int, toPos: Int) {
+        if (fromPos in chatList.indices && toPos in chatList.indices) {
+            val mutable = chatList.toMutableList()
+            java.util.Collections.swap(mutable, fromPos, toPos)
+            chatList = mutable
+            notifyItemMoved(fromPos, toPos)
+        }
+    }
+
     fun toggleSelection(id: String) {
         if (id == "ai_prime_chat") return
         if (selectedItems.contains(id)) {
@@ -447,6 +456,7 @@ class ChatListAdapter(
 
         if (diffBundle.containsKey("isMuted")) {
             binding.ivMuteStatus.visibility = if (chat.isMuted) View.VISIBLE else View.GONE
+            binding.ivPinStatus.visibility = if (chat.isPinned) View.VISIBLE else View.GONE
         }
 
         if (diffBundle.containsKey("mediaPreviewPath")) {
@@ -721,6 +731,7 @@ class ChatListAdapter(
                 }
 
                 binding.ivMuteStatus.visibility = if (chat.isMuted) View.VISIBLE else View.GONE
+            binding.ivPinStatus.visibility = if (chat.isPinned) View.VISIBLE else View.GONE
 
                 if (chat.unreadCount > 0) {
                     binding.tvUnreadCounter.visibility = View.VISIBLE

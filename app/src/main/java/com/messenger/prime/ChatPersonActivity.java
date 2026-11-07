@@ -438,6 +438,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private boolean isChatDeleted = false;
     private boolean isManuallyDisconnected = false;
+    private boolean isReaderMode() {
+        if (targetUsername == null) return false;
+        SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        return sp.getBoolean("reader_mode_" + targetUsername, false) || sp.getBoolean("reader_mode_" + deviceAddress, false);
+    }
     private boolean isRemoteUserOnline = false;
     private boolean isOpeningSubActivity = false;
     private String currentActivityState = "IDLE";
@@ -477,7 +482,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private final Runnable autoRetryRunnable = new Runnable() {
         @Override
         public void run() {
-            if (!isFinishing() && !isDestroyed() && !isManuallyDisconnected && !isConnectionActive()) {
+            if (!isFinishing() && !isDestroyed() && !isManuallyDisconnected && !isReaderMode() && !isConnectionActive()) {
                 connectionRetryCount++;
                 Log.d(TAG, "Auto-retrying connection attempt " + connectionRetryCount + "...");
                 startPrimeConnection();
@@ -1170,8 +1175,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         if (ivChatAvatar != null) {
             ViewCompat.setTransitionName(ivChatAvatar, "transition_avatar");
-            ivChatAvatar.setOnClickListener(openPartnerInfoListener);
-            ivChatAvatar.setOnLongClickListener(searchDialogListener);
+            ivChatAvatar.setOnClickListener(v -> showAvatarMenu(ivChatAvatar));
+            ivChatAvatar.setOnLongClickListener(v -> { showAvatarMenu(ivChatAvatar); return true; });
         }
         if (tvChatName != null) {
             ViewCompat.setTransitionName(tvChatName, "transition_name");
@@ -1294,11 +1299,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         });
         if (ivChatAvatar != null) {
             ViewCompat.setTransitionName(ivChatAvatar, "transition_avatar");
-            ivChatAvatar.setOnClickListener(v -> openPersonInformationActivity());
-            ivChatAvatar.setOnLongClickListener(v -> {
-                showSearchDialog();
-                return true;
-            });
+            ivChatAvatar.setOnClickListener(v -> showAvatarMenu(ivChatAvatar));
+            ivChatAvatar.setOnLongClickListener(v -> { showAvatarMenu(ivChatAvatar); return true; });
         }
 
         // Получение данных из Intent
@@ -2408,7 +2410,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             } else {
                 layoutHeader.setBlurEnabled(true);
                 boolean isDark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-                int overlayColor = isDark ? Color.parseColor("#400F172A") : Color.parseColor("#40154B87");
+                int overlayColor = BlurViewKt.getDefaultBlurOverlayColor(this);
                 layoutHeader.setOverlayColor(overlayColor);
                 layoutHeader.setBackgroundResource(R.drawable.bg_floating_island);
                 layoutHeader.setElevation(8f * density);
@@ -2425,7 +2427,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
 
         eightbitlab.com.blurview.BlurView[] blurViews = new eightbitlab.com.blurview.BlurView[] {
-            findViewById(R.id.layoutInput),
+            findViewById(R.id.blurInputEt),
+            findViewById(R.id.blurInputAttach),
+            findViewById(R.id.blurInputSend),
             findViewById(R.id.layoutActionIsland)
         };
 
@@ -2722,7 +2726,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             sendLocalAvatar(false);
         } else {
             updateInputVisibility(false);
-            if (!isManuallyDisconnected) {
+            if (!isManuallyDisconnected && !isReaderMode()) {
                 autoRetryHandler.removeCallbacks(autoRetryRunnable);
                 startPrimeConnection(true);
             }
@@ -3533,18 +3537,18 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         boolean isDark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         Drawable windowBg = getWindow().getDecorView().getBackground();
-        int overlayColor = isDark
-                ? Color.parseColor("#400F172A")
-                : Color.parseColor("#40154B87");
+        int overlayColor = BlurViewKt.getDefaultBlurOverlayColor(this);
 
         BlurView blurHeader = findViewById(R.id.layoutHeader);
-        BlurView blurInput = findViewById(R.id.layoutInput);
+        BlurView blurInputEt = findViewById(R.id.blurInputEt);
+        BlurView blurInputAttach = findViewById(R.id.blurInputAttach);
+        BlurView blurInputSend = findViewById(R.id.blurInputSend);
         BlurView blurAttachmentPanel = findViewById(R.id.layoutAttachmentPanel);
         BlurView blurMusicIsland = findViewById(R.id.layoutMusicIsland);
         BlurView blurActionIsland = findViewById(R.id.layoutActionIsland);
 
         BlurView[] blurViews = new BlurView[]{
-                blurHeader, blurInput, blurAttachmentPanel, blurMusicIsland, blurActionIsland
+                blurHeader, blurInputEt, blurInputAttach, blurInputSend, blurAttachmentPanel, blurMusicIsland, blurActionIsland
         };
 
         SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
@@ -3943,7 +3947,82 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         );
     }
 
-    @SuppressWarnings("unchecked")
+    private void showAvatarMenu(View anchor) {
+        String name = AvatarManager.getContactDisplayName(this, deviceAddress, targetUsername, targetUsername);
+        
+        PrimePopupMenu menu = PrimePopupMenu.create(this, anchor);
+        menu.addItem("В начало", R.drawable.ic_arrow_up, false, () -> {
+            if (chatAdapter != null && chatAdapter.getItemCount() > 0 && rvMessages != null) {
+                rvMessages.scrollToPosition(0);
+            }
+            return kotlin.Unit.INSTANCE;
+        });
+        menu.addItem("Поиск по чату", R.drawable.ic_search, false, () -> {
+            showSearchDialog();
+            return kotlin.Unit.INSTANCE;
+        });
+        
+        if (isConnectionActive() || isReaderMode()) {
+            menu.addItem("Изменить обои", R.drawable.ic_photo, false, () -> {
+                Intent intent = new Intent(this, WallpaperEditorActivity.class);
+                intent.putExtra(WallpaperManager.EXTRA_CONTACT_KEY, targetUsername);
+                intent.putExtra(WallpaperManager.EXTRA_CONTACT_NAME, name);
+                startActivity(intent);
+                return kotlin.Unit.INSTANCE;
+            });
+            menu.addItem("Отключить звук", R.drawable.ic_notifications_off, false, () -> {
+                showMuteDialog();
+                return kotlin.Unit.INSTANCE;
+            });
+        }
+        
+        boolean readerMode = isReaderMode();
+        menu.addItem(readerMode ? "Отключить читателя" : "Режим читателя", readerMode ? R.drawable.ic_close : R.drawable.ic_book, false, () -> {
+            boolean newMode = !readerMode;
+            SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+            sp.edit().putBoolean("reader_mode_" + targetUsername, newMode)
+                     .putBoolean("reader_mode_" + deviceAddress, newMode).apply();
+            if (newMode) {
+                disconnectCurrentChat();
+                PrimeNotification.INSTANCE.show(this, "Включен режим читателя", null);
+            } else {
+                startPrimeConnection();
+                PrimeNotification.INSTANCE.show(this, "Режим читателя отключен", null);
+            }
+            return kotlin.Unit.INSTANCE;
+        });
+        
+        menu.addItem("Удалить чат", R.drawable.ic_trash, false, () -> {
+            ChatHistoryManager.deleteHistoryCompletely(this, targetUsername, deviceAddress);
+            disconnectCurrentChat();
+            PrimeNotification.INSTANCE.show(this, "Чат удален", null);
+            finish();
+            return kotlin.Unit.INSTANCE;
+        });
+        
+        menu.show();
+    }
+
+    private void showMuteDialog() {
+        String[] options = {"На 1 час", "На 8 часов", "На 24 часа", "Навсегда", "Включить звук"};
+        PrimeBlurDialog.showList(this, "Отключить уведомления", options, null, (index, text) -> {
+            long muteUntil = 0;
+            long now = System.currentTimeMillis();
+            switch (index) {
+                case 0: muteUntil = now + 60 * 60 * 1000L; break;
+                case 1: muteUntil = now + 8 * 60 * 60 * 1000L; break;
+                case 2: muteUntil = now + 24 * 60 * 60 * 1000L; break;
+                case 3: muteUntil = Long.MAX_VALUE; break;
+                case 4: muteUntil = 0; break;
+            }
+            SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+            sp.edit().putLong("mute_until_" + targetUsername, muteUntil)
+                     .putLong("mute_until_" + deviceAddress, muteUntil).apply();
+            PrimeNotification.show(this, index == 4 ? "Уведомления включены" : "Уведомления отключены");
+            return kotlin.Unit.INSTANCE;
+        });
+    }
+
     private void openPersonInformationActivity() {
         if (isMultiSelectionActive || (chatAdapter != null && chatAdapter.isMultiSelectionMode())) {
             return;
@@ -5044,7 +5123,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     @SuppressLint("MissingPermission")
     private void startPrimeConnection(boolean forceClient) {
-        if (isChatDeleted || isManuallyDisconnected) return;
+        if (isChatDeleted || isManuallyDisconnected || isReaderMode()) return;
         if (isConnectionActive()) {
             updateInputVisibility(true);
             return;
@@ -5875,7 +5954,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     };
 
     private void handleDisconnectionUiAndAutoReconnect() {
-        if (!isChatDeleted && !isFinishing() && !isDestroyed() && !isManuallyDisconnected && isActivityForeground) {
+        if (!isChatDeleted && !isFinishing() && !isDestroyed() && !isManuallyDisconnected && !isReaderMode() && isActivityForeground) {
             autoRetryHandler.removeCallbacks(autoRetryRunnable);
             if (connectionRetryCount >= 4) {
                 Log.d(TAG, "Max auto-reconnect attempts reached (4). Stopping idle auto-retry loop.");
@@ -8160,7 +8239,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         boolean isDark = (getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES;
         android.graphics.drawable.Drawable windowBg = getWindow().getDecorView().getBackground();
-        int overlayColor = isDark ? Color.parseColor("#400F172A") : Color.parseColor("#40154B87");
+        int overlayColor = BlurViewKt.getDefaultBlurOverlayColor(this);
         BlurViewKt.setupBlur(layoutMusicIsland, rootView, 16f, overlayColor, windowBg);
         layoutMusicIsland.invalidateOutline();
 

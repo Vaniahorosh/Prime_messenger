@@ -37,7 +37,7 @@ class ChatPlaceholderActivity : AppCompatActivity() {
 
         val blur = binding.blurRightPaneEmpty
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val overlayColor = if (isDark) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+        val overlayColor = getDefaultBlurOverlayColor(this)
         blur.setupBlur(binding.root, 16f, overlayColor, wallpaper.background)
     }
 }

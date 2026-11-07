@@ -220,7 +220,7 @@ public class RichEditorActivity extends AppCompatActivity {
 
         boolean isDark = isDarkTheme(this);
         Drawable windowBg = getWindow().getDecorView().getBackground();
-        int overlayColor = isDark ? Color.parseColor("#400F172A") : Color.parseColor("#40154B87");
+        int overlayColor = BlurViewKt.getDefaultBlurOverlayColor(this);
 
         eightbitlab.com.blurview.BlurView blurBottomIsland = findViewById(R.id.layoutFloatingBottomIsland);
 

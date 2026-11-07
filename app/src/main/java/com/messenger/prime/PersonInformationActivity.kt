@@ -77,7 +77,7 @@ class PersonInformationActivity : AppCompatActivity() {
                     setupHeaderUi()
                 }
                 "com.messenger.prime.CHAT_DELETED" -> {
-                    Toast.makeText(this@PersonInformationActivity, "Чат удален", Toast.LENGTH_SHORT).show()
+                    PrimeNotification.show(this@PersonInformationActivity, "Чат удален")
                     supportFinishAfterTransition()
                 }
             }
@@ -413,7 +413,7 @@ class PersonInformationActivity : AppCompatActivity() {
             updateToolbarPadding()
         }
 
-        val overlayColor = if (darkTheme) Color.parseColor("#400F172A") else Color.parseColor("#40154B87")
+        val overlayColor = getDefaultBlurOverlayColor(this)
         val targetRootView = (binding.personInfoRoot as? ViewGroup)
             ?: (window.decorView.findViewById<ViewGroup>(android.R.id.content))
             ?: (window.decorView as ViewGroup)
@@ -711,7 +711,7 @@ class PersonInformationActivity : AppCompatActivity() {
             startActivity(intent)
             PrimeTransitions.applyOpenTransition(this)
         } else {
-            Toast.makeText(this, "Фотография не установлена", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(this, "Фотография не установлена")
         }
     }
 
@@ -766,7 +766,7 @@ class PersonInformationActivity : AppCompatActivity() {
     private fun setupLeftColumnButtons() {
         binding.photoCard.addBounceTouchEffect()
         binding.btnViewPhoto.addBounceTouchEffect()
-        binding.btnDisconnect.addBounceTouchEffect()
+        binding.btnReaderMode.addBounceTouchEffect()
         binding.btnDeleteChat.addBounceTouchEffect()
 
         // 1. Назад
@@ -779,16 +779,39 @@ class PersonInformationActivity : AppCompatActivity() {
             openAvatarInMediaPlayer()
         }
 
-        // 3. Отключиться
-        binding.btnDisconnect.setOnClickListener {
+        val sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val isReaderMode = sp.getBoolean("reader_mode_${deviceAddress ?: targetUsername}", false)
+        if (isReaderMode) {
+            binding.tvReaderModeLabel.text = "Выкл. читателя"
+            binding.btnReaderMode.setIconResource(R.drawable.ic_close)
+        } else {
+            binding.tvReaderModeLabel.text = "Читатель"
+            binding.btnReaderMode.setIconResource(R.drawable.ic_book)
+        }
+
+        // 3. Режим читателя
+        binding.btnReaderMode.setOnClickListener {
             val targetAddr = deviceAddress ?: targetUsername
-            BluetoothConnectionManager.getInstance().disconnect(targetAddr)
-
-            val disconnectIntent = Intent("com.messenger.prime.DISCONNECT_REQUESTED").setPackage(packageName)
-            sendBroadcast(disconnectIntent)
-
+            val prefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val currentMode = prefs.getBoolean("reader_mode_$targetAddr", false)
+            val newMode = !currentMode
+            
+            prefs.edit().putBoolean("reader_mode_$targetAddr", newMode).apply()
+            
+            if (newMode) {
+                BluetoothConnectionManager.getInstance().disconnect(targetAddr)
+                val disconnectIntent = Intent("com.messenger.prime.DISCONNECT_REQUESTED").setPackage(packageName)
+                sendBroadcast(disconnectIntent)
+                
+                binding.tvReaderModeLabel.text = "Выкл. читателя"
+                binding.btnReaderMode.setIconResource(R.drawable.ic_close)
+                PrimeNotification.show(this, "Включен режим читателя")
+            } else {
+                binding.tvReaderModeLabel.text = "Читатель"
+                binding.btnReaderMode.setIconResource(R.drawable.ic_book)
+                PrimeNotification.show(this, "Режим читателя отключен")
+            }
             updateLiveStatus()
-            Toast.makeText(this, "Подключение отключено", Toast.LENGTH_SHORT).show()
         }
 
         // 4. Удалить чат
