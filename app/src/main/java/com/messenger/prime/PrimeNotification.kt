@@ -30,8 +30,10 @@ import android.view.ViewGroup
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextSwitcher
 import android.widget.TextView
@@ -104,10 +106,11 @@ object PrimeNotification {
                 val notificationView = inflater.inflate(R.layout.layout_prime_notification, rootLayout, false)
 
                 val textView = notificationView.findViewById<TextView>(R.id.tvNotificationText)
+                val ivIcon = notificationView.findViewById<ImageView>(R.id.ivNotificationIcon)
                 val layoutTimer = notificationView.findViewById<View>(R.id.layoutTimer)
                 val pbTimer = notificationView.findViewById<ProgressBar>(R.id.pbTimer)
                 val tsSeconds = notificationView.findViewById<TextSwitcher>(R.id.tsTimerSeconds)
-                val btnUndo = notificationView.findViewById<ImageButton>(R.id.btnUndo)
+                val btnUndo = notificationView.findViewById<View>(R.id.btnUndo)
 
                 textView.text = message
 
@@ -118,7 +121,7 @@ object PrimeNotification {
                         val isDark = (activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
                         val overlayColor = getDefaultBlurOverlayColor(activity)
                         val windowBg = activity.window?.decorView?.background
-                        blurView.setupBlur(rootLayout, 16f, overlayColor, windowBg)
+                        blurView.setupBlur(rootLayout, 18f, overlayColor, windowBg)
                     } catch (e: Exception) {
                         Log.w(TAG, "BlurView setup failed, falling back to static background", e)
                     }
@@ -128,8 +131,22 @@ object PrimeNotification {
                 val density = activity.resources.displayMetrics.density
                 val bottomContainer = activity.findViewById<View>(R.id.bottomContainer)
                 val inputView = activity.findViewById<View>(R.id.layoutInput)
+                val bottomNav = activity.findViewById<View>(R.id.blurBottomNav)
+                val bottomSelection = activity.findViewById<View>(R.id.layoutBottomSelectionMode)
 
-                val inputBottomOffset = if (bottomContainer != null && bottomContainer.visibility == View.VISIBLE) {
+                var imeHeight = 0
+                var sysNavBarHeight = 0
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val insets = rootLayout.rootWindowInsets
+                    if (insets != null) {
+                        imeHeight = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
+                        sysNavBarHeight = insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom
+                    }
+                }
+
+                val inputBottomOffset = if (imeHeight > 0) {
+                    imeHeight + (16 * density).toInt()
+                } else if (bottomContainer != null && bottomContainer.visibility == View.VISIBLE) {
                     val containerParams = bottomContainer.layoutParams as? ViewGroup.MarginLayoutParams
                     val bottomMargin = containerParams?.bottomMargin ?: 0
                     val containerHeight = if (bottomContainer.height > 0) {
@@ -139,19 +156,27 @@ object PrimeNotification {
                     } else {
                         (68 * density).toInt()
                     }
-                    containerHeight + bottomMargin + (12 * density).toInt()
+                    containerHeight + bottomMargin + (12 * density).toInt() + sysNavBarHeight
                 } else if (inputView != null && inputView.visibility == View.VISIBLE) {
                     val inputHeight = if (inputView.height > 0) inputView.height else (64 * density).toInt()
-                    inputHeight + (16 * density).toInt()
+                    inputHeight + (16 * density).toInt() + sysNavBarHeight
+                } else if (bottomSelection != null && bottomSelection.visibility == View.VISIBLE) {
+                    val height = if (bottomSelection.height > 0) bottomSelection.height else (72 * density).toInt()
+                    val params2 = bottomSelection.layoutParams as? ViewGroup.MarginLayoutParams
+                    height + (params2?.bottomMargin ?: 0) + (12 * density).toInt() + sysNavBarHeight
+                } else if (bottomNav != null && bottomNav.visibility == View.VISIBLE) {
+                    val height = if (bottomNav.height > 0) bottomNav.height else (72 * density).toInt()
+                    val params2 = bottomNav.layoutParams as? ViewGroup.MarginLayoutParams
+                    height + (params2?.bottomMargin ?: 0) + (12 * density).toInt() + sysNavBarHeight
                 } else {
-                    (30 * density).toInt()
+                    (30 * density).toInt() + sysNavBarHeight
                 }
 
                 val params = FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
-                params.gravity = Gravity.BOTTOM
+                params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
                 params.bottomMargin = inputBottomOffset
                 notificationView.layoutParams = params
 
@@ -163,17 +188,21 @@ object PrimeNotification {
                     notificationView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                 } catch (_: Exception) {}
 
-                // --- АНИМАЦИЯ ПОЯВЛЕНИЯ ---
+                // --- ПЛАВНАЯ СОВРЕМЕННАЯ АНИМАЦИЯ ПОЯВЛЕНИЯ ---
                 notificationView.alpha = 0f
-                notificationView.translationY = 100f
+                notificationView.scaleX = 0.92f
+                notificationView.scaleY = 0.92f
+                notificationView.translationY = 60f
                 notificationView.animate()
                     .alpha(1f)
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
                     .translationY(0f)
-                    .setDuration(350)
-                    .setInterpolator(DecelerateInterpolator())
+                    .setDuration(320)
+                    .setInterpolator(OvershootInterpolator(1.1f))
                     .start()
 
-                // --- ЛОГИКА ТАЙМЕРА ---
+                // --- ЛОГИКА UNDO И ТАЙМЕРА ---
                 val textColorPrimary = ContextCompat.getColor(activity, R.color.prime_text_primary)
                 tsSeconds.setFactory {
                     TextView(activity).apply {
@@ -190,14 +219,16 @@ object PrimeNotification {
 
                 var lastSecond = -1
                 var isCancelled = false
+                val customDuration = if (onUndo != null) DURATION else 3200L
+
                 val timerAnimator = ValueAnimator.ofInt(1000, 0).apply {
-                    duration = DURATION
+                    duration = customDuration
                     interpolator = LinearInterpolator()
                     addUpdateListener { animator ->
                         val progress = animator.animatedValue as Int
                         pbTimer.progress = progress
 
-                        val secondsLeft = ceil(progress.toDouble() * DURATION / 1000000.0).toInt().coerceAtLeast(1)
+                        val secondsLeft = ceil(progress.toDouble() * customDuration / 1000000.0).toInt().coerceAtLeast(1)
                         if (secondsLeft != lastSecond) {
                             lastSecond = secondsLeft
                             tsSeconds.setText(secondsLeft.toString())
@@ -219,8 +250,8 @@ object PrimeNotification {
                 })
                 timerAnimator.start()
 
-                // --- ЛОГИКА UNDO ---
                 if (onUndo != null) {
+                    ivIcon.visibility = View.GONE
                     layoutTimer.visibility = View.VISIBLE
                     btnUndo.visibility = View.VISIBLE
                     btnUndo.setOnClickListener {
@@ -234,6 +265,7 @@ object PrimeNotification {
                         dismiss(notificationView, 1f, 0f)
                     }
                 } else {
+                    ivIcon.visibility = View.VISIBLE
                     layoutTimer.visibility = View.GONE
                     btnUndo.visibility = View.GONE
                 }

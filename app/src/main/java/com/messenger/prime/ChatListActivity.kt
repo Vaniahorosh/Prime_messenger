@@ -2274,8 +2274,7 @@ class ChatListActivity : AppCompatActivity() {
                     return@runOnUiThread
                 }
                 if (isContactDialogVisible.value) {
-                    triggerPrimeFoundVibration()
-                    PrimeNotification.show(this@ChatListActivity, "Найден: $finalName")
+                    // triggerPrimeFoundVibration()
                 }
                 if (::adapter.isInitialized) {
                     adapter.updateList(allChats)
@@ -3612,11 +3611,6 @@ class ChatListActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         stopBluetoothScan()
-        isIncomingConnectionDialogVisible.value = false
-        isFoundDeviceDialogVisible.value = false
-        isContactDialogVisible.value = false
-        try { incomingSocket?.close() } catch (e: Exception) {}
-        incomingSocket = null
     }
 
     override fun onStop() {
@@ -3627,11 +3621,6 @@ class ChatListActivity : AppCompatActivity() {
             unregisterReceiver(avatarChangedReceiver)
         } catch (_: Exception) {}
         stopBluetoothScan()
-        isIncomingConnectionDialogVisible.value = false
-        isFoundDeviceDialogVisible.value = false
-        isContactDialogVisible.value = false
-        try { incomingSocket?.close() } catch (e: Exception) {}
-        incomingSocket = null
         typingExpireHandler.removeCallbacks(typingExpireRunnable)
         ChatListNotifier.unsubscribe(onChatListChanged)
     }
@@ -4344,57 +4333,75 @@ class ChatListActivity : AppCompatActivity() {
             PrimeNotification.show(this, "AI Чат нельзя удалить из списка")
             return
         }
-        val index = chatListState.indexOfFirst { it.id.equals(contact.id, ignoreCase = true) }
-        if (index == -1) return
+        val targetName = contact.name
+        val targetId = contact.id
         
-        val targetName = chatListState[index].name
-        val targetId = chatListState[index].id
-        chatListState.removeAt(index)
-        allChats = ArrayList(chatListState)
-        
-        try {
-            val currentUser = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("current_user", "") ?: ""
-            val myDisplayName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${currentUser}_name", currentUser) ?: currentUser
-            val payload = "DELETE_CHAT:login=$myDisplayName;name=$myDisplayName".toByteArray(Charsets.UTF_8)
-            
-            // Execute Bluetooth packet send and disconnect in background to avoid dropping frames
-            Thread {
-                try {
-                    BluetoothConnectionManager.getInstance().sendPacket(targetId, 8.toByte(), payload)
-                    PrimeCompanionServer.broadcastPacket(8.toByte(), payload)
-                    Thread.sleep(100)
-                } catch (e: Exception) {
-                    Log.e("ChatListActivity", "Error sending deletion packet", e)
-                } finally {
-                    BluetoothConnectionManager.getInstance().disconnect(targetId)
-                    BluetoothSocketHolder.removeConnection(contact.id, contact.name)
-                }
-            }.start()
-        } catch (e: Exception) {
-            Log.e("ChatListActivity", "Error setting up deletion thread", e)
-        }
-        
-        // Completely forget the device (unpair/removeBond) if it's a Bluetooth MAC address
-        try {
-            val bManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-            val bAdapter = bManager.adapter
-            if (bAdapter != null && bAdapter.isEnabled && BluetoothAdapter.checkBluetoothAddress(contact.id)) {
-                val device = bAdapter.getRemoteDevice(contact.id)
-                val removeBondMethod = device.javaClass.getMethod("removeBond")
-                removeBondMethod.invoke(device)
+        // Remove from UI immediately for responsiveness
+        allChats = allChats.filter { !it.id.equals(targetId, ignoreCase = true) }
+        val iterator = chatListState.iterator()
+        while (iterator.hasNext()) {
+            if (iterator.next().id.equals(targetId, ignoreCase = true)) {
+                iterator.remove()
             }
-        } catch (e: Exception) {
-            Log.w("ChatListActivity", "Remove bond ignored: ${e.message}")
         }
-        
-        ChatHistoryManager.deleteHistoryCompletely(this, targetName, targetId)
-        saveContacts()
         
         if (::adapter.isInitialized) {
             adapter.updateList(allChats)
         }
         updateEmptyState()
         binding.recyclerViewChats.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+
+        var isCancelled = false
+        PrimeNotification.show(this, "Удаление чата с $targetName...", onUndo = {
+            isCancelled = true
+            // Restore chat
+            allChats = (allChats + contact).sortedByDescending { it.time }
+            chatListState.add(contact)
+            chatListState.sortByDescending { it.time }
+            if (::adapter.isInitialized) {
+                adapter.updateList(allChats)
+            }
+            updateEmptyState()
+        })
+
+        // Execute actual deletion in background with delay to allow undo
+        Thread {
+            try {
+                Thread.sleep(5000) // 5 seconds for undo
+            } catch (e: Exception) {}
+            
+            if (isCancelled) return@Thread
+            
+            try {
+                val currentUser = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("current_user", "") ?: ""
+                val myDisplayName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${currentUser}_name", currentUser) ?: currentUser
+                val payload = "DELETE_CHAT:login=$myDisplayName;name=$myDisplayName".toByteArray(Charsets.UTF_8)
+                
+                BluetoothConnectionManager.getInstance().sendPacket(targetId, 8.toByte(), payload)
+                PrimeCompanionServer.broadcastPacket(8.toByte(), payload)
+                Thread.sleep(100)
+            } catch (e: Exception) {
+                Log.e("ChatListActivity", "Error sending deletion packet", e)
+            } finally {
+                BluetoothConnectionManager.getInstance().disconnect(targetId)
+                BluetoothSocketHolder.removeConnection(contact.id, contact.name)
+            }
+            
+            try {
+                val bManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+                val bAdapter = bManager.adapter
+                if (bAdapter != null && bAdapter.isEnabled && BluetoothAdapter.checkBluetoothAddress(contact.id)) {
+                    val device = bAdapter.getRemoteDevice(contact.id)
+                    val removeBondMethod = device.javaClass.getMethod("removeBond")
+                    removeBondMethod.invoke(device)
+                }
+            } catch (e: Exception) {
+                Log.w("ChatListActivity", "Remove bond ignored: ${e.message}")
+            }
+            
+            ChatHistoryManager.deleteHistoryCompletely(this, targetName, targetId)
+            runOnUiThread { saveContacts() }
+        }.start()
     }
 
     private val isNameEditDialogVisible = mutableStateOf(false)
@@ -4649,10 +4656,11 @@ class ChatListActivity : AppCompatActivity() {
                             }
 
                             val rawAvatar = if (item.isNull("avatarUri")) null else item.optString("avatarUri")
-                            val typingUntil = item.optLong("typingUntil", 0L)
-                            val isTyping = typingUntil > now
+                            val activityUntil = item.optLong("typingUntil", 0L)
+                            val isActivityActive = activityUntil > now
                             val rawActState = item.optString("activityState", "IDLE")
-                            val actState = if (!isTyping) "IDLE" else rawActState
+                            val actState = if (!isActivityActive) "IDLE" else rawActState
+                            val isTyping = actState != "IDLE"
 
                             val resolvedAvatar = AvatarManager.getContactAvatarUriOrFile(this@ChatListActivity, idStr, finalName, idStr)
                             val finalAvatar = if (!resolvedAvatar.isNullOrEmpty()) resolvedAvatar else (if (rawAvatar.isNullOrEmpty()) null else rawAvatar)
@@ -4707,7 +4715,7 @@ class ChatListActivity : AppCompatActivity() {
                                 isPinned,
                                 pinOrder,
                                 isTyping,
-                                typingUntil,
+                                activityUntil,
                                 actState
                             )
                             tempList.add(Pair(chat, lastTimestamp))

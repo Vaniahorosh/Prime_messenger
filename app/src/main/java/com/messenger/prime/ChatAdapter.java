@@ -312,6 +312,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         notifyItemInserted(messages.size() - 1);
     }
 
+    public void restoreMessageAt(int position, ChatMessage message) {
+        if (message == null) return;
+        int targetPos = Math.max(0, Math.min(position, messages.size()));
+        messages.add(targetPos, message);
+        notifyItemInserted(targetPos);
+    }
+
     public void updateMessageSendingProgress(String messageId, int progress) {
         if (messageId == null) return;
         for (int i = 0; i < messages.size(); i++) {
@@ -1268,9 +1275,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 if (tvLinkPreviewTitle != null) tvLinkPreviewTitle.setText(domain);
                 if (tvLinkPreviewUrl != null) tvLinkPreviewUrl.setText(url);
                 if (tvLinkPreviewDescription != null) tvLinkPreviewDescription.setVisibility(View.GONE);
+                if (ivLinkPreviewImage != null) {
+                    ivLinkPreviewImage.setTag(R.id.photoRootContainer, url); // Track the requested URL
+                    ivLinkPreviewImage.setImageDrawable(null); // Clear previous image
+                }
 
                 LinkPreviewManager.getInstance().fetchPreview(url, data -> {
                     if (data != null && itemView.isAttachedToWindow()) {
+                        if (ivLinkPreviewImage != null && !url.equals(ivLinkPreviewImage.getTag(R.id.photoRootContainer))) {
+                            return; // View was recycled for another URL
+                        }
                         if (tvLinkPreviewTitle != null && data.title != null && !data.title.isEmpty()) {
                             tvLinkPreviewTitle.setText(data.title);
                         }
@@ -1282,16 +1296,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                             tvLinkPreviewUrl.setText(data.domain);
                         }
                         if (ivLinkPreviewImage != null && data.imageUrl != null && !data.imageUrl.isEmpty()) {
-                            if (!data.imageUrl.equals(ivLinkPreviewImage.getTag())) {
-                                ivLinkPreviewImage.setTag(data.imageUrl);
-                                Glide.with(itemView.getContext())
-                                        .load(data.imageUrl)
-                                        .centerCrop()
-                                        .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
-                                        .placeholder(ivLinkPreviewImage.getDrawable())
-                                        .error(R.drawable.ic_search)
-                                        .into(ivLinkPreviewImage);
-                            }
+                            Glide.with(itemView.getContext())
+                                    .load(data.imageUrl)
+                                    .centerCrop()
+                                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                                    .error(R.drawable.ic_search)
+                                    .into(ivLinkPreviewImage);
                         }
                     }
                 });

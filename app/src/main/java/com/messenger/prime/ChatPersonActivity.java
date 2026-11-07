@@ -1622,6 +1622,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     return;
                 }
                 
+                final int originalPos = position;
+                final ChatMessage backupMsg = message;
+                
                 sendPacket(TYPE_DELETE_MSG, message.getMessageId().getBytes(StandardCharsets.UTF_8));
                 
                 Intent deleteMsgIntent = new Intent("com.messenger.prime.MSG_DELETED").setPackage(getPackageName());
@@ -1643,6 +1646,17 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     } else {
                         saveLastMessageToChatList(""); // Clear last message
                     }
+                });
+
+                PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Сообщение удалено", () -> {
+                    ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, backupMsg);
+                    chatAdapter.restoreMessageAt(originalPos, backupMsg);
+                    rvMessages.scrollToPosition(originalPos);
+                    ChatMessage last = chatAdapter.getLastMessage();
+                    if (last != null) {
+                        saveLastMessageToChatList(last.getText());
+                    }
+                    return kotlin.Unit.INSTANCE;
                 });
             }
 
@@ -2385,7 +2399,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         final float topRadiusPx = topBarRadiusDp * density;
         final float bottomRadiusPx = bottomBarRadiusDp * density;
 
-        eightbitlab.com.blurview.BlurView layoutHeader = findViewById(R.id.layoutHeader);
+        eightbitlab.com.blurview.BlurView layoutHeaderBack = findViewById(R.id.layoutHeaderBackIsland);
+        eightbitlab.com.blurview.BlurView layoutHeaderInfo = findViewById(R.id.layoutHeaderInfoIsland);
         View vTopGradient = findViewById(R.id.vTopGradient);
 
         if (vTopGradient != null) {
@@ -2399,30 +2414,32 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
         }
 
-        if (layoutHeader != null) {
-            if (isNoBlock) {
-                layoutHeader.setBlurEnabled(false);
-                layoutHeader.setOverlayColor(Color.TRANSPARENT);
-                layoutHeader.setBackground(null);
-                layoutHeader.setElevation(4f * density);
-                layoutHeader.setOutlineProvider(null);
-                layoutHeader.setClipToOutline(false);
-            } else {
-                layoutHeader.setBlurEnabled(true);
-                boolean isDark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-                int overlayColor = BlurViewKt.getDefaultBlurOverlayColor(this);
-                layoutHeader.setOverlayColor(overlayColor);
-                layoutHeader.setBackgroundResource(R.drawable.bg_floating_island);
-                layoutHeader.setElevation(8f * density);
-                layoutHeader.setClipToOutline(true);
-                layoutHeader.setOutlineProvider(new android.view.ViewOutlineProvider() {
-                    @Override
-                    public void getOutline(View view, android.graphics.Outline outline) {
-                        outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), topRadiusPx);
-                    }
-                });
-                layoutHeader.invalidateOutline();
-                updateViewBackgroundCorners(layoutHeader, topRadiusPx);
+        eightbitlab.com.blurview.BlurView[] headerIslands = new eightbitlab.com.blurview.BlurView[]{ layoutHeaderBack, layoutHeaderInfo };
+        for (eightbitlab.com.blurview.BlurView island : headerIslands) {
+            if (island != null) {
+                if (isNoBlock) {
+                    island.setBlurEnabled(false);
+                    island.setOverlayColor(Color.TRANSPARENT);
+                    island.setBackground(null);
+                    island.setElevation(4f * density);
+                    island.setOutlineProvider(null);
+                    island.setClipToOutline(false);
+                } else {
+                    island.setBlurEnabled(true);
+                    int overlayColor = BlurViewKt.getDefaultBlurOverlayColor(this);
+                    island.setOverlayColor(overlayColor);
+                    island.setBackgroundResource(R.drawable.bg_floating_island);
+                    island.setElevation(8f * density);
+                    island.setClipToOutline(true);
+                    island.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                        @Override
+                        public void getOutline(View view, android.graphics.Outline outline) {
+                            outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), topRadiusPx);
+                        }
+                    });
+                    island.invalidateOutline();
+                    updateViewBackgroundCorners(island, topRadiusPx);
+                }
             }
         }
 
@@ -3539,7 +3556,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         Drawable windowBg = getWindow().getDecorView().getBackground();
         int overlayColor = BlurViewKt.getDefaultBlurOverlayColor(this);
 
-        BlurView blurHeader = findViewById(R.id.layoutHeader);
+        BlurView blurHeaderBack = findViewById(R.id.layoutHeaderBackIsland);
+        BlurView blurHeaderInfo = findViewById(R.id.layoutHeaderInfoIsland);
         BlurView blurInputEt = findViewById(R.id.blurInputEt);
         BlurView blurInputAttach = findViewById(R.id.blurInputAttach);
         BlurView blurInputSend = findViewById(R.id.blurInputSend);
@@ -3548,7 +3566,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         BlurView blurActionIsland = findViewById(R.id.layoutActionIsland);
 
         BlurView[] blurViews = new BlurView[]{
-                blurHeader, blurInputEt, blurInputAttach, blurInputSend, blurAttachmentPanel, blurMusicIsland, blurActionIsland
+                blurHeaderBack, blurHeaderInfo, blurInputEt, blurInputAttach, blurInputSend, blurAttachmentPanel, blurMusicIsland, blurActionIsland
         };
 
         SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
@@ -3556,7 +3574,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         for (BlurView bv : blurViews) {
             if (bv != null) {
-                if (bv == blurHeader && isNoBlock) {
+                if ((bv == blurHeaderBack || bv == blurHeaderInfo) && isNoBlock) {
                     bv.setBlurEnabled(false);
                     bv.setOverlayColor(Color.TRANSPARENT);
                     bv.setBackground(null);

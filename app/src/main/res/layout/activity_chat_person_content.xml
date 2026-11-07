@@ -119,193 +119,211 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- 2. Верхний парящий островок (Floating Glass Header) -->
-    <eightbitlab.com.blurview.BlurView
+    <!-- 2. Верхний парящий блок (Разделенные островки: Кнопка назад + Собеседник) -->
+    <LinearLayout
         android:id="@+id/layoutHeader"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="12dp"
         android:layout_marginTop="12dp"
         android:layout_marginEnd="12dp"
-        android:background="@drawable/bg_floating_island"
-        android:outlineProvider="background"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:elevation="8dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+        <!-- Левый островок: Кнопка назад -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/layoutHeaderBackIsland"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_floating_island"
+            android:outlineProvider="background"
+            android:clipToOutline="true"
+            android:elevation="4dp">
 
-            <!-- Обычное состояние: Имя, статус, аватарка -->
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:id="@+id/layoutHeaderNormal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingStart="6dp"
-                android:paddingTop="6dp"
-                android:paddingEnd="12dp"
-                android:paddingBottom="6dp">
+            <FrameLayout
+                android:id="@+id/layoutNavButtonContainer"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:padding="4dp">
 
-                <FrameLayout
-                    android:id="@+id/layoutNavButtonContainer"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent">
-
-                    <ImageButton
-                        android:id="@+id/btnBack"
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        tools:ignore="HardcodedText"
-                        android:contentDescription="Назад"
-                        android:src="@drawable/ic_arrow_back"
-                        android:transitionName="transition_back_btn"
-                        app:tint="@color/prime_text_primary" />
-
-                    <ImageButton
-                        android:id="@+id/btnCloseEmbeddedChat"
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        tools:ignore="HardcodedText"
-                        android:contentDescription="Закрыть чат"
-                        android:src="@drawable/ic_cancel"
-                        android:visibility="gone"
-                        app:tint="@color/prime_text_primary" />
-                </FrameLayout>
-
-                <com.google.android.material.imageview.ShapeableImageView
-                    android:id="@+id/ivChatAvatar"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:scaleType="centerCrop"
-                    android:src="@drawable/ic_person"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
-
-                <TextView
-                    android:id="@+id/tvChatName"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:layout_marginEnd="12dp"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    tools:text="Имя контакта"
-                    android:textColor="@color/prime_text_primary"
-                    android:textSize="18sp"
-                    android:fontFamily="sans-serif-medium"
-                    app:layout_constraintBottom_toTopOf="@id/tvChatStatus"
-                    app:layout_constraintEnd_toStartOf="@id/ivChatAvatar"
-                    app:layout_constraintStart_toEndOf="@id/layoutNavButtonContainer"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintVertical_chainStyle="packed" />
-
-                <TextView
-                    android:id="@+id/tvChatStatus"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:layout_marginEnd="12dp"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    tools:text="Ожидание подключения..."
-                    android:textColor="@color/prime_text_secondary"
-                    android:textSize="13sp"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toStartOf="@id/ivChatAvatar"
-                    app:layout_constraintStart_toEndOf="@id/layoutNavButtonContainer"
-                    app:layout_constraintTop_toBottomOf="@id/tvChatName" />
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <!-- Состояние выбора нескольких сообщений (Мультивыбор) -->
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:id="@+id/layoutHeaderSelection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingStart="6dp"
-                android:paddingTop="6dp"
-                android:paddingEnd="12dp"
-                android:paddingBottom="6dp"
-                android:visibility="gone">
-
-                <!-- Кнопка отмены выбора (Крестик) -->
                 <ImageButton
-                    android:id="@+id/btnCancelSelection"
+                    android:id="@+id/btnBack"
                     android:layout_width="44dp"
                     android:layout_height="44dp"
+                    android:layout_gravity="center"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Отмена выбора"
-                    android:src="@drawable/ic_cancel"
-                    app:tint="@color/prime_text_primary"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
+                    tools:ignore="HardcodedText"
+                    android:contentDescription="Назад"
+                    android:src="@drawable/ic_arrow_back"
+                    android:transitionName="transition_back_btn"
+                    app:tint="@color/prime_text_primary" />
 
-                <!-- Анимированный счетчик выбранных сообщений -->
-                <TextView
-                    android:id="@+id/tvSelectionCounter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:text="1"
-                    android:textColor="@color/prime_text_primary"
-                    android:textSize="20sp"
-                    android:fontFamily="sans-serif-medium"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toEndOf="@id/btnCancelSelection"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <!-- Действия мультивыбора справа: Переслать | Копировать | Удалить -->
-                <LinearLayout
-                    android:layout_width="wrap_content"
+                <ImageButton
+                    android:id="@+id/btnCloseEmbeddedChat"
+                    android:layout_width="44dp"
                     android:layout_height="44dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent">
+                    android:layout_gravity="center"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    tools:ignore="HardcodedText"
+                    android:contentDescription="Закрыть чат"
+                    android:src="@drawable/ic_cancel"
+                    android:visibility="gone"
+                    app:tint="@color/prime_text_primary" />
+            </FrameLayout>
+        </eightbitlab.com.blurview.BlurView>
 
+        <!-- Правый островок: Информация о собеседнике / мультивыбор -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/layoutHeaderInfoIsland"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_floating_island"
+            android:outlineProvider="background"
+            android:clipToOutline="true"
+            android:elevation="4dp">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <!-- Обычное состояние: Имя, статус, аватарка -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/layoutHeaderNormal"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="6dp">
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/ivChatAvatar"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/ic_person"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
+
+                    <TextView
+                        android:id="@+id/tvChatName"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="10dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        tools:text="Имя контакта"
+                        android:textColor="@color/prime_text_primary"
+                        android:textSize="17sp"
+                        android:fontFamily="sans-serif-medium"
+                        app:layout_constraintBottom_toTopOf="@id/tvChatStatus"
+                        app:layout_constraintEnd_toStartOf="@id/ivChatAvatar"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintVertical_chainStyle="packed" />
+
+                    <TextView
+                        android:id="@+id/tvChatStatus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="10dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        tools:text="Ожидание подключения..."
+                        android:textColor="@color/prime_text_secondary"
+                        android:textSize="12.5sp"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toStartOf="@id/ivChatAvatar"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/tvChatName" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <!-- Состояние выбора нескольких сообщений (Мультивыбор) -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/layoutHeaderSelection"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="10dp"
+                    android:visibility="gone">
+
+                    <!-- Кнопка отмены выбора (Крестик) -->
                     <ImageButton
-                        android:id="@+id/btnMultiForward"
+                        android:id="@+id/btnCancelSelection"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Переслать выбранное"
-                        android:src="@drawable/ic_forward"
-                        app:tint="@color/prime_text_primary" />
+                        android:contentDescription="Отмена выбора"
+                        android:src="@drawable/ic_cancel"
+                        app:tint="@color/prime_text_primary"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
 
-                    <ImageButton
-                        android:id="@+id/btnMultiCopy"
-                        android:layout_width="40dp"
+                    <!-- Анимированный счетчик выбранных сообщений -->
+                    <TextView
+                        android:id="@+id/tvSelectionCounter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="1"
+                        android:textColor="@color/prime_text_primary"
+                        android:textSize="18sp"
+                        android:fontFamily="sans-serif-medium"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toEndOf="@id/btnCancelSelection"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <!-- Действия мультивыбора справа: Переслать | Копировать | Удалить -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
                         android:layout_height="40dp"
-                        android:layout_marginStart="4dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Копировать выбранное"
-                        android:src="@drawable/ic_copy"
-                        app:tint="@color/prime_text_primary" />
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent">
 
-                    <ImageButton
-                        android:id="@+id/btnMultiDelete"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginStart="4dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Удалить выбранное"
-                        android:src="@drawable/bg_chat_item_delete"
-                        app:tint="@color/prime_danger" />
-                </LinearLayout>
+                        <ImageButton
+                            android:id="@+id/btnMultiForward"
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Переслать выбранное"
+                            android:src="@drawable/ic_forward"
+                            app:tint="@color/prime_text_primary" />
 
-            </androidx.constraintlayout.widget.ConstraintLayout>
-        </FrameLayout>
-    </eightbitlab.com.blurview.BlurView>
+                        <ImageButton
+                            android:id="@+id/btnMultiCopy"
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:layout_marginStart="2dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Копировать выбранное"
+                            android:src="@drawable/ic_copy"
+                            app:tint="@color/prime_text_primary" />
+
+                        <ImageButton
+                            android:id="@+id/btnMultiDelete"
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:layout_marginStart="2dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Удалить выбранное"
+                            android:src="@drawable/bg_chat_item_delete"
+                            app:tint="@color/prime_danger" />
+                    </LinearLayout>
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </FrameLayout>
+        </eightbitlab.com.blurview.BlurView>
+    </LinearLayout>
 
     <!-- Островок информации о версии и музыки (вылетает из-под шапки) -->
     <eightbitlab.com.blurview.BlurView

@@ -3,75 +3,119 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/notificationBlurView"
-    android:layout_width="match_parent"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
+    android:layout_gravity="center_horizontal"
     android:layout_marginHorizontal="20dp"
-    android:layout_marginBottom="80dp"
-    android:background="@drawable/bg_floating_island"
+    android:layout_marginBottom="24dp"
+    android:background="@drawable/bg_notification_pill"
     android:outlineProvider="background"
     android:clipToOutline="true"
-    android:elevation="12dp">
+    android:elevation="16dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:padding="8dp">
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp">
 
-        <!-- Контейнер таймера -->
+        <!-- Left Icon / Timer Container -->
         <FrameLayout
-            android:id="@+id/layoutTimer"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:clipChildren="true"
+            android:id="@+id/layoutIconContainer"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
-            <ProgressBar
-                android:id="@+id/pbTimer"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:indeterminate="false"
-                android:max="1000"
-                android:progress="1000"
-                android:progressDrawable="@drawable/bg_notification_timer" />
+            <!-- Static Checkmark Icon -->
+            <ImageView
+                android:id="@+id/ivNotificationIcon"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_done"
+                app:tint="@color/prime_brand" />
 
-            <TextSwitcher
-                android:id="@+id/tsTimerSeconds"
+            <!-- Timer Container (Visible when onUndo is active) -->
+            <FrameLayout
+                android:id="@+id/layoutTimer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:inAnimation="@anim/slide_in_top_alpha"
-                android:outAnimation="@anim/slide_out_bottom" />
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:id="@+id/pbTimer"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:indeterminate="false"
+                    android:max="1000"
+                    android:progress="1000"
+                    android:progressDrawable="@drawable/bg_notification_timer" />
+
+                <TextSwitcher
+                    android:id="@+id/tsTimerSeconds"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inAnimation="@anim/slide_in_top_alpha"
+                    android:outAnimation="@anim/slide_out_bottom" />
+            </FrameLayout>
         </FrameLayout>
 
+        <!-- Message Text -->
         <TextView
             android:id="@+id/tvNotificationText"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="12dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="10dp"
             android:gravity="start|center_vertical"
             android:textColor="@color/prime_text_primary"
-            android:textSize="14sp"
-            android:textStyle="bold"
+            android:textSize="13.5sp"
+            android:fontFamily="sans-serif-medium"
+            android:ellipsize="end"
+            android:maxLines="2"
+            app:layout_constraintWidth_default="wrap"
+            app:layout_constraintWidth_max="240dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@+id/btnUndo"
-            app:layout_constraintStart_toEndOf="@+id/layoutTimer"
+            app:layout_constraintStart_toEndOf="@+id/layoutIconContainer"
             app:layout_constraintTop_toTopOf="parent"
             tools:text="Данные обновлены" />
 
-        <ImageButton
+        <!-- Modern Undo Button -->
+        <LinearLayout
             android:id="@+id/btnUndo"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:background="@drawable/bg_glass_button"
+            android:paddingHorizontal="10dp"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:clickable="true"
+            android:focusable="true"
             android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:tint="@color/prime_text_primary"
-            tools:visibility="visible" />
+            tools:visibility="visible">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_undo_modern"
+                app:tint="@color/white" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="5dp"
+                android:text="Отмена"
+                android:textColor="@color/white"
+                android:textSize="12.5sp"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

@@ -3719,9 +3719,23 @@ class SettingsActivity : AppCompatActivity() {
         if (b != null) {
             updatePhotoCardImage(b)
         }
+        val backupUri = uriToDelete
         Executors.newSingleThreadExecutor().execute { sendProfileUpdateOverBluetooth() }
         sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
-        PrimeNotification.show(this, "Фото удалено")
+        PrimeNotification.show(this, "Фото удалено", onUndo = {
+            if (!backupUri.isNullOrEmpty()) {
+                AvatarHistoryManager.addMyAvatar(this@SettingsActivity, backupUri)
+                currentAvatarUri = backupUri
+                avatarUriState.value = backupUri
+                applyAvatarState(backupUri)
+                val b2 = binding
+                if (b2 != null) {
+                    updatePhotoCardImage(b2)
+                }
+                Executors.newSingleThreadExecutor().execute { sendProfileUpdateOverBluetooth() }
+                sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
+            }
+        })
     }
 
     private fun showLogoutDialog() {
