@@ -961,6 +961,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             btnFormat.setScaleX(0.2f);
             btnFormat.setScaleY(0.2f);
             btnFormat.setOnClickListener(v -> {
+                if (!isConnectionActive()) {
+                    Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
                 Intent i = new Intent(ChatPersonActivity.this, RichEditorActivity.class);
                 if (etMessage != null) {
@@ -1037,6 +1041,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             final Runnable longPressRunnable = new Runnable() {
                 @Override
                 public void run() {
+                    if (!isConnectionActive()) {
+                        Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
                     isLongPressTriggered[0] = true;
                     btnVoiceVideoNote.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
                     Log.d("VoiceDebug", "Long press triggered. isVideoNoteMode: " + isVideoNoteMode);
@@ -5908,18 +5916,26 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                 if (btnSend != null) {
                     btnSend.setEnabled(active);
+                    btnSend.setClickable(active);
                     btnSend.setAlpha(active ? 1.0f : 0.4f);
                 }
 
                 if (btnVoiceVideoNote != null) {
                     btnVoiceVideoNote.setEnabled(active);
+                    btnVoiceVideoNote.setClickable(active);
                     btnVoiceVideoNote.setAlpha(active ? 1.0f : 0.4f);
                 }
 
                 if (btnAttach != null) {
-                    btnAttach.setEnabled(true);
-                    btnAttach.setClickable(true);
+                    btnAttach.setEnabled(active);
+                    btnAttach.setClickable(active);
                     btnAttach.setAlpha(active ? 1.0f : 0.4f);
+                }
+
+                if (btnFormat != null) {
+                    btnFormat.setEnabled(active);
+                    btnFormat.setClickable(active);
+                    btnFormat.setAlpha(active ? 1.0f : 0.4f);
                 }
 
                 if (!active) {
@@ -5938,18 +5954,25 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             if (!isFinishing() && !isDestroyed() && isActivityForeground) {
                 boolean active = isConnectionActive();
                 if (btnAttach != null) {
-                    btnAttach.setEnabled(true);
-                    btnAttach.setClickable(true);
+                    btnAttach.setEnabled(active);
+                    btnAttach.setClickable(active);
                     btnAttach.setAlpha(active ? 1.0f : 0.4f);
                     if (!active) closeAttachmentPanel();
                 }
                 if (btnSend != null) {
                     btnSend.setEnabled(active);
+                    btnSend.setClickable(active);
                     btnSend.setAlpha(active ? 1.0f : 0.4f);
                 }
                 if (btnVoiceVideoNote != null) {
                     btnVoiceVideoNote.setEnabled(active);
+                    btnVoiceVideoNote.setClickable(active);
                     btnVoiceVideoNote.setAlpha(active ? 1.0f : 0.4f);
+                }
+                if (btnFormat != null) {
+                    btnFormat.setEnabled(active);
+                    btnFormat.setClickable(active);
+                    btnFormat.setAlpha(active ? 1.0f : 0.4f);
                 }
                 if (etMessage != null) {
                     etMessage.setEnabled(active);
@@ -8641,6 +8664,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void setPendingAttachmentFromUri(Uri uri, boolean isVideo, String fallbackName) {
         if (uri == null) return;
+        if (!isConnectionActive()) {
+            Toast.makeText(this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+            closeAttachmentPanel();
+            return;
+        }
         String path = getPathFromUri(uri);
         String name = getFileNameFromUri(uri);
         if (name == null || name.isEmpty() || "Вложение".equals(name) || "Файл".equals(name)) {
@@ -8680,6 +8708,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void setPendingAttachmentFromUris(List<Uri> uris) {
         if (uris == null || uris.isEmpty()) return;
+        if (!isConnectionActive()) {
+            Toast.makeText(this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+            closeAttachmentPanel();
+            return;
+        }
         List<MediaItem> mediaItems = new ArrayList<>();
         for (Uri uri : uris) {
             String path = getPathFromUri(uri);
@@ -8693,6 +8726,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void setPendingAttachmentFromMediaItems(List<MediaItem> items, boolean closePanel) {
         if (items == null || items.isEmpty()) return;
+        if (!isConnectionActive()) {
+            Toast.makeText(this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+            if (closePanel) closeAttachmentPanel();
+            return;
+        }
         PendingAttachment pending = new PendingAttachment();
         for (MediaItem mi : items) {
             Bitmap thumb = null;
@@ -8723,6 +8761,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void setPendingAttachmentFromMusic(List<com.messenger.prime.TrackItem> tracks, boolean closePanel) {
         if (tracks == null || tracks.isEmpty()) return;
+        if (!isConnectionActive()) {
+            Toast.makeText(this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+            if (closePanel) closeAttachmentPanel();
+            return;
+        }
         PendingAttachment pending = new PendingAttachment();
         for (com.messenger.prime.TrackItem track : tracks) {
             String path = track.getPath();
