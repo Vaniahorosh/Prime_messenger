@@ -156,6 +156,9 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     private var activeWallpaper: ChatWallpaper? = null
 
     fun setContactKey(key: String?) {
+        if (this.contactKey != key) {
+            this.activeWallpaper = null
+        }
         this.contactKey = key
         updateThemeColors()
     }
@@ -183,6 +186,11 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
             generateGridShapes(width, height)
         }
         invalidate()
+    }
+
+    fun refreshWallpaper() {
+        activeWallpaper = null
+        updateThemeColors()
     }
 
     fun updateThemeColors() {

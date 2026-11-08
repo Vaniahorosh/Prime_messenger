@@ -342,13 +342,13 @@ object UpdateChecker {
                 )
 
                 Handler(Looper.getMainLooper()).post {
-                    progressDialog.dismiss()
+                    progressDialog?.dismiss()
                     installApk(activity, tempFile)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
                 Handler(Looper.getMainLooper()).post {
-                    progressDialog.dismiss()
+                    progressDialog?.dismiss()
                     try {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl))
                         activity.startActivity(intent)
@@ -397,7 +397,7 @@ object UpdateChecker {
     }
 
     private class ProgressUI(
-        val dialog: AlertDialog,
+        val dialog: AlertDialog?,
         val progressBar: ProgressBar,
         val tvProgress: TextView
     )
@@ -445,7 +445,7 @@ object UpdateChecker {
         )
         
         try {
-            dialog.findViewById<TextView>(R.id.tvDialogTitle)?.visibility = android.view.View.GONE
+            dialog?.findViewById<TextView>(R.id.tvDialogTitle)?.visibility = android.view.View.GONE
         } catch (e: Exception) {}
 
         return ProgressUI(dialog, progressBar, tvProgress)

@@ -40,7 +40,8 @@ object PrimeBlurDialog {
         customView: View? = null,
         onPositive: (() -> Unit)? = null,
         onNegative: (() -> Unit)? = null
-    ): AlertDialog {
+    ): AlertDialog? {
+        if (activity.isFinishing || activity.isDestroyed) return null
         val dialogView = LayoutInflater.from(activity).inflate(R.layout.dialog_blur_generic, null)
         val blurCard = dialogView.findViewById<EightBitBlurView>(R.id.blurDialogCard)
         val ivIcon = dialogView.findViewById<ImageView>(R.id.ivDialogIcon)
@@ -170,7 +171,8 @@ object PrimeBlurDialog {
         items: Array<String>,
         iconRes: Int? = null,
         onItemSelected: ((Int, String) -> Unit)? = null
-    ): AlertDialog {
+    ): AlertDialog? {
+        if (activity.isFinishing || activity.isDestroyed) return null
         val listView = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = ViewGroup.LayoutParams(

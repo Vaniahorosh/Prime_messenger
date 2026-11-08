@@ -4351,6 +4351,9 @@ class ChatListActivity : AppCompatActivity() {
         updateEmptyState()
         binding.recyclerViewChats.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
 
+        // Save state immediately so it's gone across app restarts
+        saveContacts()
+
         var isCancelled = false
         PrimeNotification.show(this, "Удаление чата с $targetName...", onUndo = {
             isCancelled = true
@@ -4362,6 +4365,7 @@ class ChatListActivity : AppCompatActivity() {
                 adapter.updateList(allChats)
             }
             updateEmptyState()
+            saveContacts()
         })
 
         // Execute actual deletion in background with delay to allow undo
@@ -4400,7 +4404,6 @@ class ChatListActivity : AppCompatActivity() {
             }
             
             ChatHistoryManager.deleteHistoryCompletely(this, targetName, targetId)
-            runOnUiThread { saveContacts() }
         }.start()
     }
 

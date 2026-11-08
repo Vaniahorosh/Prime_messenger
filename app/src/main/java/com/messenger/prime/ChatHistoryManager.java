@@ -760,10 +760,9 @@ public class ChatHistoryManager {
         if (context == null || nameOrAddress == null || nameOrAddress.trim().isEmpty()) return "";
         String clean = nameOrAddress.trim();
 
-        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-        String currentUser = getCurrentUser(context);
-
         if (BluetoothAdapter.checkBluetoothAddress(clean.toUpperCase(Locale.US))) {
+            String currentUser = getCurrentUser(context);
+            SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
             String upperMac = clean.toUpperCase(Locale.US);
             String mappedName = null;
             if (currentUser != null && !currentUser.trim().isEmpty()) {
@@ -773,9 +772,54 @@ public class ChatHistoryManager {
                 }
             }
             if (mappedName == null || mappedName.trim().isEmpty()) {
+                mappedName = sp.getString("contact_name_" + upperMac, null);
+            }
+            if (mappedName == null || mappedName.trim().isEmpty()) {
+                mappedName = sp.getString("contact_name_" + clean, null);
+            }
+            if (mappedName == null || mappedName.trim().isEmpty()) {
                 mappedName = AvatarManager.getContactDisplayName(context, clean, clean, null);
             }
             if (mappedName != null && !mappedName.trim().isEmpty() && !BluetoothAdapter.checkBluetoothAddress(mappedName.trim()) && !"Собеседник".equals(mappedName.trim())) {
+                String oldStorageKey = mappedName.trim();
+                try {
+                    String prefix = currentUser != null && !currentUser.trim().isEmpty() ? currentUser.trim() + "_" : "";
+                    File oldFile = new File(context.getFilesDir(), "history_" + prefix + oldStorageKey + ".json");
+                    File newFile = new File(context.getFilesDir(), "history_" + prefix + clean + ".json");
+                    if (oldFile.exists() && !newFile.exists()) {
+                        oldFile.renameTo(newFile);
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+        return clean;
+    }
+
+    public static String getDisplayNameForAddress(Context context, String addressOrName) {
+        if (context == null || addressOrName == null || addressOrName.trim().isEmpty()) return "Собеседник";
+        String clean = addressOrName.trim();
+
+        if (BluetoothAdapter.checkBluetoothAddress(clean.toUpperCase(Locale.US))) {
+            String currentUser = getCurrentUser(context);
+            SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+            String upperMac = clean.toUpperCase(Locale.US);
+            String mappedName = null;
+            if (currentUser != null && !currentUser.trim().isEmpty()) {
+                mappedName = sp.getString("contact_name_" + currentUser.trim() + "_" + upperMac, null);
+                if (mappedName == null || mappedName.trim().isEmpty()) {
+                    mappedName = sp.getString("contact_name_" + currentUser.trim() + "_" + clean, null);
+                }
+            }
+            if (mappedName == null || mappedName.trim().isEmpty()) {
+                mappedName = sp.getString("contact_name_" + upperMac, null);
+            }
+            if (mappedName == null || mappedName.trim().isEmpty()) {
+                mappedName = sp.getString("contact_name_" + clean, null);
+            }
+            if (mappedName == null || mappedName.trim().isEmpty()) {
+                mappedName = AvatarManager.getContactDisplayName(context, clean, clean, null);
+            }
+            if (mappedName != null && !mappedName.trim().isEmpty() && !BluetoothAdapter.checkBluetoothAddress(mappedName.trim())) {
                 return mappedName.trim();
             }
             try {
@@ -790,33 +834,8 @@ public class ChatHistoryManager {
                     }
                 }
             } catch (Exception ignored) {}
-            return clean;
         }
-
-        String mappedMac = null;
-        if (currentUser != null && !currentUser.trim().isEmpty()) {
-            mappedMac = DeviceBindingManager.getSecureDeviceMac(context, currentUser.trim() + "_" + clean);
-        }
-        if (mappedMac == null || mappedMac.trim().isEmpty()) {
-            mappedMac = DeviceBindingManager.getSecureDeviceMac(context, clean);
-        }
-        if (mappedMac != null && !mappedMac.trim().isEmpty()) {
-            String nameForMac = AvatarManager.getContactDisplayName(context, mappedMac, clean, null);
-            if (nameForMac != null && !nameForMac.trim().isEmpty() && !"Собеседник".equals(nameForMac.trim())) {
-                return nameForMac.trim();
-            }
-        }
-
         return clean;
-    }
-
-    public static String getDisplayNameForAddress(Context context, String addressOrName) {
-        if (context == null || addressOrName == null || addressOrName.trim().isEmpty()) return "Собеседник";
-        String key = getStorageKey(context, addressOrName);
-        if (key == null || key.trim().isEmpty() || BluetoothAdapter.checkBluetoothAddress(key.trim().toUpperCase(Locale.US))) {
-            return "Собеседник";
-        }
-        return key;
     }
 
     private static void migrateLegacyHistoryFileIfNeeded(Context context, String userKey, String baseKey) {

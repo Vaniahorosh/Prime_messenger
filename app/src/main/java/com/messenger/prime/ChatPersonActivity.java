@@ -2520,7 +2520,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 MaterialShapesWallpaperView wallpaperView = findViewById(R.id.vWallpaperBackground);
                 if (wallpaperView != null) {
                     wallpaperView.setContactKey(targetUsername);
-                    wallpaperView.updateThemeColors();
+                    wallpaperView.refreshWallpaper();
                 }
                 applyAccentToChatUi();
                 if (chatAdapter != null) chatAdapter.notifyDataSetChanged();
@@ -2761,7 +2761,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         MaterialShapesWallpaperView vWallpaper = findViewById(R.id.vWallpaperBackground);
         if (vWallpaper != null) {
-            vWallpaper.updateThemeColors();
+            vWallpaper.refreshWallpaper();
             if (!wasSubActivity) {
                 vWallpaper.startEntranceAnimation();
             }
