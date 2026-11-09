@@ -11,31 +11,45 @@ import android.view.View
 import kotlin.math.abs
 import kotlin.math.sin
 
+/**
+ * Material 3 Expressive Wavy Progress Bar (M3 Snake Slider).
+ *
+ * Unplayed track: Thin line + round end dot.
+ * Played track (Snake segment):
+ *  - When paused/idle: Thick flat line segment with rounded caps.
+ *  - When playing: Thick animated wavy squiggle ("змейка") that flows along progress.
+ */
 class VoiceMessageItemView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
     private val density = resources.displayMetrics.density
 
+    // Thick active played segment (wavy snake or flat line)
     private val paintPlayed = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 3.5f * density
+        strokeWidth = 5.5f * density
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
 
+    // Thin unplayed background track line
     private val paintUnplayed = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#40FFFFFF")
         style = Paint.Style.STROKE
-        strokeWidth = 3.5f * density
+        strokeWidth = 2.0f * density
         strokeCap = Paint.Cap.ROUND
-        strokeJoin = Paint.Join.ROUND
+    }
+
+    // Small end dot paint for unplayed track
+    private val paintDot = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#60FFFFFF")
+        style = Paint.Style.FILL
     }
 
     private val pathPlayed = Path()
     private val pathUnplayed = Path()
 
-    private var amplitudes: List<Int> = emptyList()
     private var progress: Float = 0f // 0.0 to 1.0
 
     var isPlaying: Boolean = false
@@ -47,12 +61,12 @@ class VoiceMessageItemView @JvmOverloads constructor(
         }
 
     private var wavePhase: Float = 0f
-    private var waveFactor: Float = 0f // 0.0 (flat line) to 1.0 (snake wave)
+    private var waveFactor: Float = 0f // 0.0 (flat line) to 1.0 (wavy snake)
 
     var onSeekListener: ((Float) -> Unit)? = null
 
-    fun setWaveform(amps: List<Int>) {
-        amplitudes = amps
+    fun setWaveform(amps: List<Int>?) {
+        // Retained for API compatibility
         invalidate()
     }
 
@@ -69,11 +83,11 @@ class VoiceMessageItemView @JvmOverloads constructor(
         if (usableWidth <= 0 || usableHeight <= 0) return
 
         val targetFactor = if (isPlaying) 1.0f else 0.0f
-        waveFactor += (targetFactor - waveFactor) * 0.15f
+        waveFactor += (targetFactor - waveFactor) * 0.16f
 
-        if (isPlaying || abs(waveFactor - targetFactor) > 0.005f) {
+        if (isPlaying || abs(waveFactor - targetFactor) > 0.003f) {
             if (isPlaying) {
-                wavePhase += 0.16f
+                wavePhase += 0.20f
             }
             postInvalidateOnAnimation()
         } else {
@@ -84,62 +98,51 @@ class VoiceMessageItemView @JvmOverloads constructor(
         paintPlayed.color = accentColor
 
         val centerY = paddingTop + usableHeight / 2f
-        val maxAmplitude = (usableHeight * 0.38f) * waveFactor
-        val splitX = paddingLeft + usableWidth * progress
+        val startX = paddingLeft + (3f * density)
+        val endX = width - paddingRight - (3f * density)
+        val activeWidth = endX - startX
+        if (activeWidth <= 0) return
 
-        pathPlayed.reset()
+        val splitX = startX + activeWidth * progress.coerceIn(0f, 1f)
+
+        // 1. Draw thin unplayed track line
         pathUnplayed.reset()
-
-        val steps = (usableWidth / density).toInt().coerceAtLeast(40)
-        val stepX = usableWidth.toFloat() / steps
-
-        var isPlayedStarted = false
-        var isUnplayedStarted = false
-
-        for (i in 0..steps) {
-            val x = paddingLeft + i * stepX
-            val sineVal = sin((i * 0.18f) + wavePhase).toFloat()
-            val y = centerY + sineVal * maxAmplitude
-
-            if (x <= splitX) {
-                if (!isPlayedStarted) {
-                    pathPlayed.moveTo(x, y)
-                    isPlayedStarted = true
-                } else {
-                    pathPlayed.lineTo(x, y)
-                }
-            } else {
-                if (!isUnplayedStarted) {
-                    if (isPlayedStarted) {
-                        val midSine = sin(((splitX - paddingLeft) / stepX * 0.18f) + wavePhase).toFloat()
-                        val midY = centerY + midSine * maxAmplitude
-                        pathPlayed.lineTo(splitX, midY)
-                        pathUnplayed.moveTo(splitX, midY)
-                    } else {
-                        pathUnplayed.moveTo(x, y)
-                    }
-                    isUnplayedStarted = true
-                }
-                pathUnplayed.lineTo(x, y)
-            }
-        }
-
-        if (isPlayedStarted) {
-            canvas.drawPath(pathPlayed, paintPlayed)
-        }
-        if (isUnplayedStarted) {
+        if (splitX < endX) {
+            pathUnplayed.moveTo(splitX, centerY)
+            pathUnplayed.lineTo(endX, centerY)
             canvas.drawPath(pathUnplayed, paintUnplayed)
         }
+        // Draw small dot at the end of unplayed track
+        paintDot.color = Color.parseColor("#80FFFFFF")
+        canvas.drawCircle(endX, centerY, 2.5f * density, paintDot)
 
-        // Glowing head dot on snake progress
-        if (progress in 0.01f..0.99f) {
-            val headSine = sin(((splitX - paddingLeft) / stepX * 0.18f) + wavePhase).toFloat()
-            val headY = centerY + headSine * maxAmplitude
-            val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = accentColor
-                style = Paint.Style.FILL
+        // 2. Draw thick active played track (flat segment when paused, wavy squiggle when playing)
+        val playedLength = splitX - startX
+        if (playedLength > 0.5f * density) {
+            pathPlayed.reset()
+            pathPlayed.moveTo(startX, centerY)
+
+            val waveAmplitude = (4.5f * density) * waveFactor
+            val frequency = 0.22f / density
+
+            if (waveFactor < 0.01f) {
+                // Flat thick line segment
+                pathPlayed.lineTo(splitX, centerY)
+            } else {
+                // Wavy squiggle line segment ("змейка")
+                val stepX = 2f * density
+                var currX = startX
+                while (currX < splitX) {
+                    currX += stepX
+                    if (currX > splitX) currX = splitX
+
+                    val sineVal = sin(((currX - startX) * frequency) - wavePhase).toFloat()
+                    val currY = centerY + (sineVal * waveAmplitude)
+                    pathPlayed.lineTo(currX, currY)
+                }
             }
-            canvas.drawCircle(splitX, headY, 5f * density, dotPaint)
+
+            canvas.drawPath(pathPlayed, paintPlayed)
         }
     }
 
