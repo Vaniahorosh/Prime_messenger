@@ -8,7 +8,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
@@ -100,6 +102,12 @@ class MediaPlayerActivity : AppCompatActivity() {
     private lateinit var wavyProgressIndicator: WavySeekBar
     private lateinit var navBarProgressBar: ProgressBar
     private lateinit var tvSpeedIndicator: TextView
+    private lateinit var cardScrubPreview: View
+    private lateinit var ivScrubFramePreview: ImageView
+    private lateinit var tvScrubTimeBadge: TextView
+
+    private val frameCache = android.util.LruCache<String, Bitmap>(60)
+    private val frameExecutor = java.util.concurrent.Executors.newFixedThreadPool(2)
 
     private var adapter: MediaPagerAdapter? = null
     private var areControlsVisible = false
@@ -431,6 +439,9 @@ class MediaPlayerActivity : AppCompatActivity() {
         wavyProgressIndicator = findViewById(R.id.wavyProgressIndicator)
         navBarProgressBar = findViewById(R.id.navBarProgressBar)
         tvSpeedIndicator = findViewById(R.id.tvSpeedIndicator)
+        cardScrubPreview = findViewById(R.id.cardScrubPreview)
+        ivScrubFramePreview = findViewById(R.id.ivScrubFramePreview)
+        tvScrubTimeBadge = findViewById(R.id.tvScrubTimeBadge)
 
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
         val colorStateList = android.content.res.ColorStateList.valueOf(accentColor)
@@ -515,7 +526,34 @@ class MediaPlayerActivity : AppCompatActivity() {
             if (scrubbing) {
                 handler.removeCallbacks(autoHideControlsRunnable)
                 handler.removeCallbacks(updateProgressRunnable)
+
+                if (isCurrentVideo) {
+                    cardScrubPreview.animate().cancel()
+                    cardScrubPreview.visibility = View.VISIBLE
+                    cardScrubPreview.alpha = 0f
+                    cardScrubPreview.scaleX = 0.7f
+                    cardScrubPreview.scaleY = 0.7f
+                    cardScrubPreview.animate()
+                        .alpha(1f)
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(220)
+                        .setInterpolator(emphasizedDecelerate)
+                        .start()
+                }
             } else {
+                if (cardScrubPreview.visibility == View.VISIBLE) {
+                    cardScrubPreview.animate().cancel()
+                    cardScrubPreview.animate()
+                        .alpha(0f)
+                        .scaleX(0.7f)
+                        .scaleY(0.7f)
+                        .setDuration(200)
+                        .setInterpolator(emphasizedAccelerate)
+                        .withEndAction { cardScrubPreview.visibility = View.GONE }
+                        .start()
+                }
+
                 if (isCurrentVideo && currentPlayer != null && scrubTargetMs != -1L) {
                     currentPlayer!!.setSeekParameters(SeekParameters.EXACT)
                     currentPlayer!!.seekTo(scrubTargetMs)
@@ -532,14 +570,37 @@ class MediaPlayerActivity : AppCompatActivity() {
                 val targetMs = (prog * total.toFloat()).toLong()
                 scrubTargetMs = targetMs
                 updateDurationText(targetMs, total)
+                tvScrubTimeBadge.text = formatMs(targetMs)
                 navBarProgressBar.progress = (prog * 1000).toInt()
                 showControls()
 
-                val now = android.os.SystemClock.elapsedRealtime()
-                if (now - lastSeekTimeMs > 16) {
-                    lastSeekTimeMs = now
-                    player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
-                    player.seekTo(targetMs)
+                val density = resources.displayMetrics.density
+                val screenW = resources.displayMetrics.widthPixels.toFloat()
+                val cardW = 120f * density
+                val seekBarW = wavyProgressIndicator.width.toFloat().coerceAtLeast(1f)
+                val rawX = (wavyProgressIndicator.left + (prog * seekBarW)) - (seekBarW / 2f)
+                val clampedX = rawX.coerceIn(-(screenW / 2f) + (cardW / 2f) + (16f * density), (screenW / 2f) - (cardW / 2f) - (16f * density))
+                cardScrubPreview.translationX = clampedX
+
+                val videoPath = getCurrentVideoPath()
+                if (!videoPath.isNullOrEmpty()) {
+                    val secKey = "${videoPath}_${targetMs / 1000L}"
+                    val cached = frameCache.get(secKey)
+                    if (cached != null) {
+                        ivScrubFramePreview.setImageBitmap(cached)
+                    } else {
+                        frameExecutor.execute {
+                            val bmp = extractVideoFrameAtTime(videoPath, targetMs)
+                            if (bmp != null) {
+                                frameCache.put(secKey, bmp)
+                                runOnUiThread {
+                                    if (isScrubbing) {
+                                        ivScrubFramePreview.setImageBitmap(bmp)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -983,6 +1044,32 @@ class MediaPlayerActivity : AppCompatActivity() {
         }, 100)
 
         showControls()
+    }
+
+    private fun getCurrentVideoPath(): String? {
+        val list = sharedMediaList ?: return null
+        val currentPos = viewPager.currentItem
+        if (currentPos in list.indices) {
+            return list[currentPos].imagePath
+        }
+        return null
+    }
+
+    private fun extractVideoFrameAtTime(path: String, timeMs: Long): Bitmap? {
+        var retriever: MediaMetadataRetriever? = null
+        return try {
+            retriever = MediaMetadataRetriever()
+            if (path.startsWith("content://") || path.startsWith("file://") || path.startsWith("http")) {
+                retriever.setDataSource(this, Uri.parse(path))
+            } else {
+                retriever.setDataSource(path)
+            }
+            retriever.getFrameAtTime(timeMs * 1000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+        } catch (_: Exception) {
+            null
+        } finally {
+            try { retriever?.release() } catch (_: Exception) {}
+        }
     }
 
     fun onPlayerActiveAndReady(player: ExoPlayer, position: Int) {
