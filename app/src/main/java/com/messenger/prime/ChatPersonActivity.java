@@ -1013,6 +1013,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                     @Override
                     public void onRecordingStateChanged(boolean isRecording) {
+                        if (videoNoteIslandManager != null) {
+                            videoNoteIslandManager.setRecordingActive(isRecording);
+                        }
                         if (isRecording) {
                             sendActivityState("RECORDING_VOICE");
                         } else {
@@ -1026,6 +1029,28 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 runOnUiThread(() -> {
                     if (chatAdapter != null) {
                         chatAdapter.updateVoicePlaybackState(msgId, state);
+                    }
+                    if (videoNoteIslandManager != null) {
+                        boolean isVideoPlaying = chatAdapter != null && chatAdapter.getCurrentlyPlayingPosition() != -1;
+                        if (!isVideoPlaying) {
+                            if (state instanceof PrimeMediaPlaybackService.PlaybackState.Playing) {
+                                PrimeMediaPlaybackService.PlaybackState.Playing playing = (PrimeMediaPlaybackService.PlaybackState.Playing) state;
+                                int durMs = (int) playing.getDurationMs();
+                                int curMs = (int) (playing.getProgress() * durMs);
+                                videoNoteIslandManager.showIsland("Голосовое сообщение", durMs);
+                                videoNoteIslandManager.updatePlayPauseIcon(true);
+                                videoNoteIslandManager.updateProgressUI(curMs, durMs);
+                            } else if (state instanceof PrimeMediaPlaybackService.PlaybackState.Paused) {
+                                PrimeMediaPlaybackService.PlaybackState.Paused paused = (PrimeMediaPlaybackService.PlaybackState.Paused) state;
+                                int durMs = (int) paused.getDurationMs();
+                                int curMs = (int) (paused.getProgress() * durMs);
+                                videoNoteIslandManager.showIsland("Голосовое сообщение", durMs);
+                                videoNoteIslandManager.updatePlayPauseIcon(false);
+                                videoNoteIslandManager.updateProgressUI(curMs, durMs);
+                            } else if (state instanceof PrimeMediaPlaybackService.PlaybackState.Idle) {
+                                videoNoteIslandManager.hideIsland();
+                            }
+                        }
                     }
                 });
             });
@@ -3868,12 +3893,32 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
     }
 
-    private boolean isRecipientVersionBelow64() {
+    public static int parseVersionCode(String verVal) {
+        if (verVal == null || verVal.trim().isEmpty()) return -1;
+        String clean = verVal.trim().toLowerCase(Locale.ROOT).replace("v", "");
+        if (clean.contains("desk")) return -1;
+        try {
+            if (clean.contains(".")) {
+                String[] parts = clean.split("\\.");
+                if (parts.length >= 2) {
+                    int major = Integer.parseInt(parts[0]);
+                    int minor = Integer.parseInt(parts[1]);
+                    if (major == 0) return minor;
+                    return major * 100 + minor;
+                }
+            }
+            return Integer.parseInt(clean);
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    private boolean isRecipientVersionBelow65() {
         boolean isDesktop = isRemoteDesktop 
                 || AvatarManager.isDesktopContact(this, targetUsername, deviceAddress);
         if (isDesktop) return false;
-        if (remoteVersionCode == -1) return true;
-        return remoteVersionCode < 64;
+        if (remoteVersionCode == -1) return false;
+        return remoteVersionCode < 65;
     }
 
     private void sendUpdateTextToRecipient() {
@@ -3893,7 +3938,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         File voiceFile = new File(path);
         if (!voiceFile.exists()) return;
 
-        if (isRecipientVersionBelow64()) {
+        if (isRecipientVersionBelow65()) {
             sendUpdateTextToRecipient();
             return;
         }
@@ -5493,7 +5538,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                         AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, targetUsername, "is_desktop", "true");
                                         if (deviceAddress != null) AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, deviceAddress, "is_desktop", "true");
                                     } else {
-                                        try { remoteVersionCode = Integer.parseInt(verVal); } catch (Exception ignored) {}
+                                        remoteVersionCode = parseVersionCode(verVal);
                                     }
                                 } else if (p.startsWith("features=")) {
                                     remoteHasVideoNotesSupport = p.contains("vn");
@@ -6328,7 +6373,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                             AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, targetUsername, "is_desktop", "true");
                                             if (deviceAddress != null) AvatarManager.saveContactPreferenceSafely(ChatPersonActivity.this, deviceAddress, "is_desktop", "true");
                                         } else {
-                                            try { remoteVersionCode = Integer.parseInt(verVal); } catch (Exception ignored) {}
+                                            remoteVersionCode = parseVersionCode(verVal);
                                         }
                                     } else if (p.startsWith("features=")) {
                                         remoteHasVideoNotesSupport = p.contains("vn");
@@ -7200,7 +7245,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (pending == null) return;
 
         boolean isVideoNoteOrVoice = (pending.messageType == ChatMessage.MessageType.VOICE) || (text != null && text.startsWith("VIDEO_NOTE:"));
-        if (isVideoNoteOrVoice && isRecipientVersionBelow64()) {
+        if (isVideoNoteOrVoice && isRecipientVersionBelow65()) {
             sendUpdateTextToRecipient();
             return;
         }
@@ -10209,6 +10254,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                     @Override
                     public void onRecordingStateChanged(boolean isRecording) {
+                        if (videoNoteIslandManager != null) {
+                            videoNoteIslandManager.setRecordingActive(isRecording);
+                        }
                         if (isRecording) {
                             stopAllVideoNotePlayback();
                             sendActivityState("RECORDING_VIDEO_NOTE");
@@ -10224,7 +10272,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void sendVideoNoteFile(File file) {
         if (file == null || !file.exists()) return;
 
-        if (isRecipientVersionBelow64()) {
+        if (isRecipientVersionBelow65()) {
             sendUpdateTextToRecipient();
             return;
         }
@@ -10351,11 +10399,23 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         if (videoNoteIslandManager != null) {
             videoNoteIslandManager.setOnPlayPauseClickListener(() -> {
-                handleVideoNotePlayPauseToggle();
+                if (PrimeMediaPlaybackService.Companion.getCurrentVoiceMessageId() != null) {
+                    Intent intent = new Intent(ChatPersonActivity.this, PrimeMediaPlaybackService.class);
+                    intent.setAction("TOGGLE_VOICE");
+                    startService(intent);
+                } else {
+                    handleVideoNotePlayPauseToggle();
+                }
                 return kotlin.Unit.INSTANCE;
             });
 
             videoNoteIslandManager.setOnSpeedClickListener(speed -> {
+                if (PrimeMediaPlaybackService.Companion.getCurrentVoiceMessageId() != null) {
+                    Intent intent = new Intent(ChatPersonActivity.this, PrimeMediaPlaybackService.class);
+                    intent.setAction("SET_SPEED");
+                    intent.putExtra("EXTRA_SPEED", speed);
+                    startService(intent);
+                }
                 if (floatingPipManager != null && floatingPipManager.isShowing()) {
                     floatingPipManager.setSpeed(speed);
                 } else if (chatAdapter != null && rvMessages != null) {
@@ -10374,6 +10434,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             });
 
             videoNoteIslandManager.setOnCloseClickListener(() -> {
+                if (PrimeMediaPlaybackService.Companion.getCurrentVoiceMessageId() != null) {
+                    Intent intent = new Intent(ChatPersonActivity.this, PrimeMediaPlaybackService.class);
+                    intent.setAction("STOP_VOICE");
+                    startService(intent);
+                }
                 stopAllVideoNotePlayback();
                 return kotlin.Unit.INSTANCE;
             });

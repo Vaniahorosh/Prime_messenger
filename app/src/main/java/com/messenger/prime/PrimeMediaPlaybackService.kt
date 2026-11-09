@@ -146,6 +146,11 @@ class PrimeMediaPlaybackService : Service() {
                     player?.let { p ->
                         p.setMediaItem(mediaItem)
                         p.prepare()
+                        val savedSpeed = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                            .getFloat("video_note_playback_speed", 1.0f)
+                        try {
+                            p.setPlaybackSpeed(savedSpeed)
+                        } catch (_: Exception) {}
                         if (initialSeekProgress in 0f..1f && p.duration > 0) {
                             p.seekTo((initialSeekProgress * p.duration).toLong())
                         }
@@ -163,6 +168,14 @@ class PrimeMediaPlaybackService : Service() {
             "TOGGLE_VOICE" -> {
                 player?.let { p ->
                     if (p.isPlaying) p.pause() else p.play()
+                }
+            }
+            "SET_SPEED" -> {
+                val speed = intent.getFloatExtra("EXTRA_SPEED", 1.0f)
+                player?.let { p ->
+                    try {
+                        p.setPlaybackSpeed(speed)
+                    } catch (_: Exception) {}
                 }
             }
             "SEEK_VOICE" -> {

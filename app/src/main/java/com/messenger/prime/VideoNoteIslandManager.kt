@@ -41,6 +41,14 @@ class VideoNoteIslandManager(
     var onSpeedClickListener: ((Float) -> Unit)? = null
     var onCloseClickListener: (() -> Unit)? = null
 
+    var isRecordingActive: Boolean = false
+        set(value) {
+            field = value
+            if (value) {
+                hideIsland()
+            }
+        }
+
     private val speedMenuBlur: BlurView? = (islandView.parent as? ViewGroup)?.findViewById(R.id.layoutVideoSpeedMenuBlur)
     private val speedItemsContainer: LinearLayout? = speedMenuBlur?.findViewById(R.id.layoutVideoSpeedItemsContainer)
     private val speedMenuDismissView: View? = (islandView.parent as? ViewGroup)?.findViewById(R.id.viewVideoSpeedMenuDismiss)
@@ -357,36 +365,35 @@ class VideoNoteIslandManager(
     fun getCurrentSpeed(context: Context): Float = getSavedSpeed(context)
 
     fun showIsland(senderName: String, durationMs: Int = 0) {
+        if (isRecordingActive) return
+
         tvSenderName.text = senderName
         if (durationMs > 0) {
             this.currentDurationMs = durationMs
         }
 
-        islandView.animate().cancel()
-        islandView.translationY = -120f
-        islandView.alpha = 0f
-        islandView.visibility = View.VISIBLE
-        islandView.elevation = 24f * islandView.context.resources.displayMetrics.density
-        islandView.bringToFront()
+        val isAlreadyVisible = islandView.visibility == View.VISIBLE
 
-        setupBlur()
+        if (!isAlreadyVisible) {
+            islandView.animate().cancel()
+            islandView.translationY = -120f
+            islandView.alpha = 0f
+            islandView.visibility = View.VISIBLE
+            islandView.elevation = 24f * islandView.context.resources.displayMetrics.density
+            islandView.bringToFront()
 
-        islandView.animate()
-            .translationY(0f)
-            .alpha(1f)
-            .setDuration(300)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
+            setupBlur()
 
-        btnPlayPause.setImageResource(R.drawable.ic_media_pause)
+            islandView.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(300)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
 
         val savedSpeed = getSavedSpeed(islandView.context)
         btnSpeed.text = formatSpeedLabel(savedSpeed)
-        if (savedSpeed != 1.0f) {
-            islandView.post {
-                onSpeedClickListener?.invoke(savedSpeed)
-            }
-        }
 
         updateProgressUI(0, durationMs)
     }

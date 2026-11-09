@@ -159,6 +159,7 @@ class PersonInformationActivity : AppCompatActivity() {
         )
 
         setupThemeAndBackground()
+        setupMaterial3ExpressiveDesign()
         setupHeaderUi()
         setupLeftColumnButtons()
         setupCategoryTabs()
@@ -545,6 +546,33 @@ class PersonInformationActivity : AppCompatActivity() {
             }
         }
         return list
+    }
+
+    private fun setupMaterial3ExpressiveDesign() {
+        val density = resources.displayMetrics.density
+        val expressRadiusPx = 28f * density
+
+        try {
+            binding.photoCard.addBounceTouchEffect()
+            binding.btnViewPhoto.addBounceTouchEffect()
+            binding.btnReaderMode.addBounceTouchEffect()
+            binding.btnDeleteChat.addBounceTouchEffect()
+            binding.btnBack.addBounceTouchEffect()
+            binding.btnStickyBack.addBounceTouchEffect()
+            binding.tabPhotoVideo.addBounceTouchEffect()
+            binding.tabFiles.addBounceTouchEffect()
+            binding.tabGifs.addBounceTouchEffect()
+            binding.tabMusic.addBounceTouchEffect()
+
+            binding.cardSharedContent?.let {
+                if (it is com.google.android.material.card.MaterialCardView) {
+                    it.radius = expressRadiusPx
+                }
+                it.addBounceTouchEffect()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PersonInfoM3", "Error applying M3 Expressive design", e)
+        }
     }
 
     private fun setupHeaderUi() {

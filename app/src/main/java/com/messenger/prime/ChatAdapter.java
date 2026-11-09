@@ -1742,12 +1742,43 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
+    private void animateExpandVideoNoteContainer(View vnContainer, boolean isOutgoing) {
+        if (vnContainer == null) return;
+        vnContainer.animate().cancel();
+        vnContainer.setPivotX(vnContainer.getWidth() / 2f);
+        vnContainer.setPivotY(vnContainer.getHeight() / 2f);
+        float density = vnContainer.getContext().getResources().getDisplayMetrics().density;
+        vnContainer.animate()
+            .scaleX(1.35f)
+            .scaleY(1.35f)
+            .translationZ(16f * density)
+            .setDuration(350)
+            .setInterpolator(new android.view.animation.OvershootInterpolator(1.3f))
+            .start();
+    }
+
+    private void animateShrinkVideoNoteContainer(View vnContainer) {
+        if (vnContainer == null) return;
+        vnContainer.animate().cancel();
+        vnContainer.animate()
+            .scaleX(1.0f)
+            .scaleY(1.0f)
+            .translationZ(0f)
+            .setDuration(280)
+            .setInterpolator(new android.view.animation.DecelerateInterpolator())
+            .start();
+    }
+
     public void stopCurrentlyPlayingVideoNote() {
         stopVideoProgressAnimation();
         if (currentlyPlayingPosition >= 0 && mRecyclerView != null) {
             RecyclerView.ViewHolder holder = mRecyclerView.findViewHolderForAdapterPosition(currentlyPlayingPosition);
             if (holder != null && holder.itemView != null) {
                 abandonAudioFocusForVideoNote(holder.itemView.getContext());
+                View vnContainer = holder.itemView.findViewById(R.id.layoutVideoNoteContainer);
+                if (vnContainer != null) {
+                    animateShrinkVideoNoteContainer(vnContainer);
+                }
                 com.messenger.prime.TextureVideoView vv = holder.itemView.findViewById(R.id.vvVideoNotePlayer);
                 ImageView ivPlayIcon = holder.itemView.findViewById(R.id.ivVideoNotePlayIcon);
                 ImageView ivImg = holder.itemView.findViewById(R.id.ivVideoNoteImage);
@@ -2027,6 +2058,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (ivImg != null) ivImg.setVisibility(View.VISIBLE);
             if (ivPlayIcon != null) ivPlayIcon.setVisibility(View.VISIBLE);
             if (pbFrame != null) pbFrame.setProgress(0);
+            vnContainer.animate().cancel();
+            vnContainer.setScaleX(1.0f);
+            vnContainer.setScaleY(1.0f);
+            vnContainer.setTranslationZ(0f);
+        } else {
+            vnContainer.setScaleX(1.35f);
+            vnContainer.setScaleY(1.35f);
+            vnContainer.setTranslationZ(16f * itemView.getContext().getResources().getDisplayMetrics().density);
         }
 
         String videoPath = message.getImagePath();
@@ -2052,6 +2091,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         stopVideoProgressAnimation();
                         if (ivPlayIcon != null) ivPlayIcon.setVisibility(View.VISIBLE);
                         if (pbFrame != null) pbFrame.setProgress(0);
+                        animateShrinkVideoNoteContainer(vnContainer);
                         if (videoNotePlaybackListener != null) {
                             videoNotePlaybackListener.onVideoNoteStopped(message);
                         }
@@ -2062,6 +2102,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         vvPlayer.setVisibility(View.VISIBLE);
                         if (ivPlayIcon != null) ivPlayIcon.setVisibility(View.GONE);
 
+                        animateExpandVideoNoteContainer(vnContainer, isOutgoing);
                         vvPlayer.setVideoPath(videoPath);
                         vvPlayer.setOnPreparedListener(mp -> {
                             mp.setLooping(false);
@@ -2081,8 +2122,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                                 vvPlayer.setVisibility(View.GONE);
                             }
                             if (ivImg != null) ivImg.setVisibility(View.VISIBLE);
-                            if (ivPlayIcon != null) ivPlayIcon.setVisibility(View.VISIBLE);
+                            if (ivPlayIcon != null) ivPlayIcon.setVisibility(View.GONE);
                             if (pbFrame != null) pbFrame.setProgress(0);
+                            animateShrinkVideoNoteContainer(vnContainer);
                             
                             int currentPos = position;
                             currentlyPlayingVideoNote = null;

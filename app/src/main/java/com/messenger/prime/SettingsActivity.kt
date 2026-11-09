@@ -1362,7 +1362,50 @@ class SettingsActivity : AppCompatActivity() {
         )
     }
 
+    private fun setupMaterial3ExpressiveDesign(b: ActivitySettingsContentBinding) {
+        val density = resources.displayMetrics.density
+        val expressRadiusPx = 28f * density
+
+        try {
+            b.photoCard?.addBounceTouchEffect()
+            b.btnBackNP.addBounceTouchEffect()
+            b.btnLogoutNP.addBounceTouchEffect()
+            b.btnChangePhotoNP.addBounceTouchEffect()
+            b.btnExtraSettingsNP.addBounceTouchEffect()
+            b.cardGithub.addBounceTouchEffect()
+            b.cardThanks.addBounceTouchEffect()
+
+            val cardsToStyle = arrayOf(
+                b.cardTheme,
+                b.cardNavStyleSection,
+                b.cardColorAccent,
+                b.cardLavaBg,
+                b.cardChatAppearance,
+                b.cardWallpaperSection,
+                b.cardChatStyleSection,
+                b.cardVideoNotesSection,
+                b.cardThanks,
+                b.cardGithub,
+                b.cardThemeSystem,
+                b.cardThemeLight,
+                b.cardThemeDark
+            )
+
+            cardsToStyle.forEach { card ->
+                card?.let {
+                    if (it is com.google.android.material.card.MaterialCardView) {
+                        it.radius = expressRadiusPx
+                    }
+                    it.addBounceTouchEffect()
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SettingsM3", "Error applying M3 Expressive design", e)
+        }
+    }
+
     private fun setupListeners(b: ActivitySettingsContentBinding) {
+        setupMaterial3ExpressiveDesign(b)
         b.btnBackNP.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         
         b.btnLogoutNP.setOnClickListener { showLogoutDialog() }
