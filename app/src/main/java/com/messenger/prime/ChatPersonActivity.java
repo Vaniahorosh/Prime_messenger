@@ -3913,12 +3913,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
     }
 
-    private boolean isRecipientVersionBelow65() {
+    private boolean isRecipientVersionBelow64() {
         boolean isDesktop = isRemoteDesktop 
                 || AvatarManager.isDesktopContact(this, targetUsername, deviceAddress);
         if (isDesktop) return false;
         if (remoteVersionCode == -1) return false;
-        return remoteVersionCode < 65;
+        return remoteVersionCode < 64;
     }
 
     private void sendUpdateTextToRecipient() {
@@ -3938,7 +3938,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         File voiceFile = new File(path);
         if (!voiceFile.exists()) return;
 
-        if (isRecipientVersionBelow65()) {
+        if (isRecipientVersionBelow64()) {
             sendUpdateTextToRecipient();
             return;
         }
@@ -7245,7 +7245,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (pending == null) return;
 
         boolean isVideoNoteOrVoice = (pending.messageType == ChatMessage.MessageType.VOICE) || (text != null && text.startsWith("VIDEO_NOTE:"));
-        if (isVideoNoteOrVoice && isRecipientVersionBelow65()) {
+        if (isVideoNoteOrVoice && isRecipientVersionBelow64()) {
             sendUpdateTextToRecipient();
             return;
         }
@@ -8267,13 +8267,14 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
 
         int myVersion = getAppVersionCode(this);
-        if (remoteVersionCode != -1 && remoteVersionCode != myVersion) {
+        if (remoteVersionCode != -1 && remoteVersionCode < 64) {
             if (layoutVersionInfo != null && tvVersionInfoText != null) {
-                if (remoteVersionCode > myVersion) {
-                    tvVersionInfoText.setText("Пользователь использует более новую версию клиента");
-                } else {
-                    tvVersionInfoText.setText("Пользователь использует предыдущую версию клиента");
-                }
+                tvVersionInfoText.setText("У собеседника устаревшая версия клиента. Попросите обновить приложение!");
+                layoutVersionInfo.setVisibility(View.VISIBLE);
+            }
+        } else if (remoteVersionCode > myVersion) {
+            if (layoutVersionInfo != null && tvVersionInfoText != null) {
+                tvVersionInfoText.setText("Пользователь использует более новую версию клиента");
                 layoutVersionInfo.setVisibility(View.VISIBLE);
             }
         } else {
@@ -10272,7 +10273,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void sendVideoNoteFile(File file) {
         if (file == null || !file.exists()) return;
 
-        if (isRecipientVersionBelow65()) {
+        if (isRecipientVersionBelow64()) {
             sendUpdateTextToRecipient();
             return;
         }
