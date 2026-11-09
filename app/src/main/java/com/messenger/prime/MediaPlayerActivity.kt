@@ -97,8 +97,8 @@ class MediaPlayerActivity : AppCompatActivity() {
     private lateinit var tvCaption: TextView
     private lateinit var layoutSeekBarRow: View
     private lateinit var tvDuration: TextView
-    private lateinit var wavyProgressIndicator: VoiceMessageItemView
-    private lateinit var navBarWavyProgressBar: VoiceMessageItemView
+    private lateinit var wavyProgressIndicator: WavySeekBar
+    private lateinit var navBarWavyProgressBar: WavySeekBar
     private lateinit var tvSpeedIndicator: TextView
 
     private var adapter: MediaPagerAdapter? = null
@@ -183,7 +183,7 @@ class MediaPlayerActivity : AppCompatActivity() {
 
     private val updateProgressRunnable = object : Runnable {
         override fun run() {
-            if (!isScrubbing) {
+            if (!isScrubbing && !wavyProgressIndicator.isScrubbing) {
                 currentPlayer?.let { player ->
                     val isPlaying = player.isPlaying
                     val current = player.currentPosition
@@ -199,7 +199,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                 }
             }
             if (isCurrentVideo) {
-                handler.postDelayed(this, 200)
+                handler.postDelayed(this, 150)
             }
         }
     }
@@ -527,11 +527,11 @@ class MediaPlayerActivity : AppCompatActivity() {
                 val targetMs = (prog * total.toFloat()).toLong()
                 scrubTargetMs = targetMs
                 updateDurationText(targetMs, total)
-                navBarWavyProgressBar.setProgress(prog)
+                navBarWavyProgressBar.forceProgress(prog)
                 showControls()
 
                 val now = android.os.SystemClock.elapsedRealtime()
-                if (now - lastSeekTimeMs > 60) {
+                if (now - lastSeekTimeMs > 40) {
                     lastSeekTimeMs = now
                     player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
                     player.seekTo(targetMs)
