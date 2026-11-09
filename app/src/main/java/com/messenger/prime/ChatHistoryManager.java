@@ -550,16 +550,34 @@ public class ChatHistoryManager {
                 history = loadMessagesFromDisk(appContext, targetUsername);
             }
             boolean updated = false;
-            for (int i = 0; i < history.size(); i++) {
-                if (message.getMessageId() != null && message.getMessageId().equals(history.get(i).getMessageId())) {
-                    history.set(i, message);
-                    updated = true;
-                    break;
+            String msgId = message.getMessageId();
+            if (msgId != null && !msgId.trim().isEmpty()) {
+                String cleanId = msgId.trim();
+                for (int i = 0; i < history.size(); i++) {
+                    ChatMessage existing = history.get(i);
+                    if (existing != null && cleanId.equals(existing.getMessageId())) {
+                        history.set(i, message);
+                        updated = true;
+                        break;
+                    }
+                }
+            }
+            if (!updated) {
+                for (int i = 0; i < history.size(); i++) {
+                    ChatMessage existing = history.get(i);
+                    if (existing != null && existing.getTimestamp() == message.getTimestamp() &&
+                        java.util.Objects.equals(existing.getSenderLogin(), message.getSenderLogin()) &&
+                        java.util.Objects.equals(existing.getText(), message.getText())) {
+                        history.set(i, message);
+                        updated = true;
+                        break;
+                    }
                 }
             }
             if (!updated) {
                 history.add(message);
             }
+            history = deduplicateMessagesList(history);
             memoryCache.put(userKey, new ArrayList<>(history));
         }
 
@@ -1044,11 +1062,41 @@ public class ChatHistoryManager {
                 Log.e("ChatHistoryManager", "Failed to load history", e);
             }
         }
-        return list;
+        return deduplicateMessagesList(list);
+    }
+
+    public static List<ChatMessage> deduplicateMessagesList(List<ChatMessage> rawList) {
+        if (rawList == null || rawList.isEmpty()) return new ArrayList<>();
+        List<ChatMessage> result = new ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
+        Set<String> seenSigs = new HashSet<>();
+
+        for (ChatMessage msg : rawList) {
+            if (msg == null) continue;
+            String msgId = msg.getMessageId();
+            if (msgId != null && !msgId.trim().isEmpty()) {
+                String cleanId = msgId.trim();
+                if (seenIds.contains(cleanId)) {
+                    continue;
+                }
+                seenIds.add(cleanId);
+            } else {
+                String text = msg.getText() != null ? msg.getText() : "";
+                String sender = msg.getSenderLogin() != null ? msg.getSenderLogin() : "";
+                String sig = msg.getTimestamp() + "_" + sender + "_" + text;
+                if (seenSigs.contains(sig)) {
+                    continue;
+                }
+                seenSigs.add(sig);
+            }
+            result.add(msg);
+        }
+        return result;
     }
 
     public static void saveHistoryList(Context context, String targetUsername, List<ChatMessage> history) {
         if (context == null || targetUsername == null || targetUsername.isEmpty()) return;
+        history = deduplicateMessagesList(history);
         String userKey = getHistoryStorageKey(context, targetUsername);
         String baseKey = getStorageKey(context, targetUsername);
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);

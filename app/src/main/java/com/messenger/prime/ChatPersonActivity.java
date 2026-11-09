@@ -1808,10 +1808,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             incomingMessage.setReplyToText(parsed.replyToText);
                         }
                         addMessageToUI(incomingMessage);
-                        ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, incomingMessage);
-                        if (deviceAddress != null && !deviceAddress.isEmpty() && !deviceAddress.equalsIgnoreCase(targetUsername)) {
-                            ChatHistoryManager.saveMessage(ChatPersonActivity.this, deviceAddress, incomingMessage);
-                        }
                         saveLastMessageToChatList(parsed.realText, MessageStatus.READ, false, isRemoteUserOnline ? "ONLINE" : "OFFLINE");
                         typingResetHandler.removeCallbacks(resetTypingRunnable);
                         resetTypingRunnable.run();
@@ -1897,7 +1893,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                                 runOnUiThread(() -> {
                                                     if (isFinishing() || isDestroyed()) return;
                                                     addMessageToUI(multiMsg);
-                                                    ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, multiMsg);
                                                     typingResetHandler.removeCallbacks(resetTypingRunnable);
                                                     resetTypingRunnable.run();
                                                 });
@@ -1966,7 +1961,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                     runOnUiThread(() -> {
                                         if (isFinishing() || isDestroyed()) return;
                                         addMessageToUI(photoMsg);
-                                        ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, photoMsg);
                                         typingResetHandler.removeCallbacks(resetTypingRunnable);
                                         resetTypingRunnable.run();
                                     });
@@ -1986,7 +1980,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                         runOnUiThread(() -> {
                                             if (isFinishing() || isDestroyed()) return;
                                             addMessageToUI(fileMsg);
-                                            ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, fileMsg);
                                             typingResetHandler.removeCallbacks(resetTypingRunnable);
                                             resetTypingRunnable.run();
                                         });
@@ -4871,7 +4864,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             runOnUiThread(() -> {
                 showSendingProgressUi(100);
                 addMessageToUI(multiMsg);
-                ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, multiMsg);
                 saveLastMessageToChatList("Медиафайлы (" + items.size() + ")", MessageStatus.SENT, false, isRemoteUserOnline ? "ONLINE" : "OFFLINE");
             });
         });
@@ -4975,7 +4967,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         saveActivityStateToChatList(targetUsername, "SENDING_MEDIA");
                         sendActivityState("SENDING_MEDIA");
                         addMessageToUI(photoMsg);
-                        ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, photoMsg);
                         saveLastMessageToChatList("Фотография", MessageStatus.SENDING, false, isRemoteUserOnline ? "ONLINE" : "OFFLINE");
                         latch.countDown();
                     });
@@ -7373,7 +7364,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     if (hasReply) cancelReplyMode();
                     showSendingProgressUi(0);
                     addMessageToUI(msg);
-                    ChatHistoryManager.saveMessage(ChatPersonActivity.this, targetUsername, msg);
                     String summaryStr = ChatMessage.getSummaryDescription(msg);
                     saveLastMessageToChatList(summaryStr, MessageStatus.SENDING, false, "ONLINE");
                     String pendingState = isVideo ? "SENDING_MEDIA" : "SENDING_FILE";

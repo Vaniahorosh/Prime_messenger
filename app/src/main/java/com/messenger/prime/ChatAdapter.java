@@ -284,12 +284,23 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public void addMessage(ChatMessage message) {
         if (message == null) return;
         String msgId = message.getMessageId();
-        if (msgId != null && !msgId.isEmpty()) {
-            int pos = findPositionByMessageId(msgId);
+        if (msgId != null && !msgId.trim().isEmpty()) {
+            int pos = findPositionByMessageId(msgId.trim());
             if (pos != -1) {
                 messages.set(pos, message);
                 notifyItemChanged(pos);
                 return;
+            }
+        } else {
+            for (int i = 0; i < messages.size(); i++) {
+                ChatMessage m = messages.get(i);
+                if (m != null && m.getTimestamp() == message.getTimestamp() &&
+                    Objects.equals(m.getSenderLogin(), message.getSenderLogin()) &&
+                    Objects.equals(m.getText(), message.getText())) {
+                    messages.set(i, message);
+                    notifyItemChanged(i);
+                    return;
+                }
             }
         }
         messages.add(message);
@@ -299,12 +310,23 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public void addMessageAnimated(ChatMessage message) {
         if (message == null) return;
         String msgId = message.getMessageId();
-        if (msgId != null && !msgId.isEmpty()) {
-            int pos = findPositionByMessageId(msgId);
+        if (msgId != null && !msgId.trim().isEmpty()) {
+            int pos = findPositionByMessageId(msgId.trim());
             if (pos != -1) {
                 messages.set(pos, message);
                 notifyItemChanged(pos);
                 return;
+            }
+        } else {
+            for (int i = 0; i < messages.size(); i++) {
+                ChatMessage m = messages.get(i);
+                if (m != null && m.getTimestamp() == message.getTimestamp() &&
+                    Objects.equals(m.getSenderLogin(), message.getSenderLogin()) &&
+                    Objects.equals(m.getText(), message.getText())) {
+                    messages.set(i, message);
+                    notifyItemChanged(i);
+                    return;
+                }
             }
         }
         messages.add(message);
@@ -355,7 +377,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public void setMessages(List<ChatMessage> newMessages) {
-        List<ChatMessage> incomingMessages = newMessages != null ? newMessages : new ArrayList<>();
+        List<ChatMessage> incomingMessages = ChatHistoryManager.deduplicateMessagesList(newMessages);
         DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new DiffUtil.Callback() {
             @Override
             public int getOldListSize() {
