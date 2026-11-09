@@ -4,6 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     android:orientation="vertical"
     android:padding="4dp">
 
@@ -107,6 +109,8 @@
             android:layout_gravity="start"
             android:layout_marginStart="14dp"
             android:layout_marginEnd="60dp"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:orientation="vertical">
 
             <LinearLayout
@@ -114,6 +118,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_bubble_incoming"
+                android:clipChildren="false"
+                android:clipToPadding="false"
                 android:orientation="vertical"
                 android:elevation="0dp"
                 android:padding="12dp">

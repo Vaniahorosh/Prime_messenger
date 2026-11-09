@@ -321,10 +321,16 @@ class TextureVideoView @JvmOverloads constructor(
         }
     }
 
+    companion object {
+        private val rotationCache = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    }
+
     private fun getRotationDegrees(): Int {
         val path = videoPath ?: return 0
+        rotationCache[path]?.let { return it }
+
         var retriever: MediaMetadataRetriever? = null
-        return try {
+        val rot = try {
             retriever = MediaMetadataRetriever()
             if (path.startsWith("content://") || path.startsWith("file://") || path.startsWith("http://") || path.startsWith("https://")) {
                 retriever.setDataSource(context, Uri.parse(path))
@@ -338,6 +344,8 @@ class TextureVideoView @JvmOverloads constructor(
         } finally {
             try { retriever?.release() } catch (_: Exception) {}
         }
+        rotationCache[path] = rot
+        return rot
     }
 
     private fun updateCenterCropMatrix(rawVideoWidth: Int, rawVideoHeight: Int) {

@@ -4,6 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     android:orientation="vertical"
     android:padding="4dp">
 
@@ -72,6 +74,8 @@
             android:layout_height="wrap_content"
             android:layout_gravity="end"
             android:layout_marginStart="64dp"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:gravity="end"
             android:orientation="vertical">
 
@@ -80,6 +84,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_bubble_outgoing"
+                android:clipChildren="false"
+                android:clipToPadding="false"
                 android:orientation="vertical"
                 android:elevation="0dp"
                 android:padding="12dp">

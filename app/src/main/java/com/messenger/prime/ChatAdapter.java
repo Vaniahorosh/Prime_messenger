@@ -1127,12 +1127,33 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
 
 
+    private static final ThreadLocal<SimpleDateFormat> timeFormatter = 
+            ThreadLocal.withInitial(() -> new SimpleDateFormat("HH:mm", Locale.getDefault()));
+
+    private static String formatTime(ChatMessage message) {
+        if (message == null) return "00:00";
+        String cached = message.getCachedFormattedTime();
+        if (cached != null) return cached;
+
+        String baseTime;
+        long timestamp = message.getTimestamp();
+        if (timestamp <= 0) {
+            String fallback = message.getTime();
+            baseTime = fallback != null ? fallback : "00:00";
+        } else {
+            baseTime = timeFormatter.get().format(new Date(timestamp));
+        }
+        String res = message.isEdited() ? "ред. " + baseTime : baseTime;
+        message.setCachedFormattedTime(res);
+        return res;
+    }
+
     private static String formatTime(long timestamp, String fallbackTime, boolean isEdited) {
         String baseTime;
         if (timestamp <= 0) {
             baseTime = fallbackTime != null ? fallbackTime : "";
         } else {
-            baseTime = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(timestamp));
+            baseTime = timeFormatter.get().format(new Date(timestamp));
         }
         return isEdited ? "ред. " + baseTime : baseTime;
     }
@@ -1742,18 +1763,34 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
+    private void disableParentClipping(View child) {
+        if (child == null) return;
+        android.view.ViewParent p = child.getParent();
+        while (p != null) {
+            if (p instanceof android.view.ViewGroup) {
+                ((android.view.ViewGroup) p).setClipChildren(false);
+                ((android.view.ViewGroup) p).setClipToPadding(false);
+            }
+            if (p instanceof androidx.recyclerview.widget.RecyclerView) break;
+            p = p.getParent();
+        }
+    }
+
     private void animateExpandVideoNoteContainer(View vnContainer, boolean isOutgoing) {
         if (vnContainer == null) return;
+        disableParentClipping(vnContainer);
         vnContainer.animate().cancel();
         vnContainer.setPivotX(vnContainer.getWidth() / 2f);
         vnContainer.setPivotY(vnContainer.getHeight() / 2f);
+        vnContainer.setHasTransientState(true);
+        vnContainer.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         float density = vnContainer.getContext().getResources().getDisplayMetrics().density;
         vnContainer.animate()
-            .scaleX(1.35f)
-            .scaleY(1.35f)
+            .scaleX(1.32f)
+            .scaleY(1.32f)
             .translationZ(16f * density)
-            .setDuration(350)
-            .setInterpolator(new android.view.animation.OvershootInterpolator(1.3f))
+            .setDuration(320)
+            .setInterpolator(new android.view.animation.OvershootInterpolator(1.2f))
             .start();
     }
 
@@ -1764,8 +1801,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             .scaleX(1.0f)
             .scaleY(1.0f)
             .translationZ(0f)
-            .setDuration(280)
+            .setDuration(250)
             .setInterpolator(new android.view.animation.DecelerateInterpolator())
+            .withEndAction(() -> {
+                vnContainer.setLayerType(View.LAYER_TYPE_NONE, null);
+                vnContainer.setHasTransientState(false);
+            })
             .start();
     }
 
@@ -2042,7 +2083,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         applyShapeToMediaViews(vnContainer, ivImg, vvPlayer, shape);
 
         if (tvTime != null) {
-            tvTime.setText(formatTime(message.getTimestamp(), message.getTime(), false));
+            tvTime.setText(formatTime(message));
         }
 
         boolean isThisMessagePlaying = currentlyPlayingVideoNote != null &&
@@ -2302,36 +2343,45 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
+    private static final java.util.concurrent.ExecutorService ioExecutor = 
+            java.util.concurrent.Executors.newFixedThreadPool(4);
+
     public static int[] getMediaDimensions(Context context, String pathOrUri, boolean isVideo) {
         if (pathOrUri == null || pathOrUri.isEmpty()) return new int[]{16, 9};
         int[] cached = mediaSizeCache.get(pathOrUri);
         if (cached != null) return cached;
 
         if (isVideo) {
-            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
-            try {
-                if (pathOrUri.startsWith("content://") || pathOrUri.startsWith("file://") || pathOrUri.startsWith("http://") || pathOrUri.startsWith("https://")) {
-                    retriever.setDataSource(context, Uri.parse(pathOrUri));
-                } else {
-                    retriever.setDataSource(pathOrUri);
-                }
-                String wStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
-                String hStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
-                String rStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
-                if (wStr != null && hStr != null) {
-                    int w = Integer.parseInt(wStr);
-                    int h = Integer.parseInt(hStr);
-                    int rot = rStr != null ? Integer.parseInt(rStr) : 0;
-                    int[] dims = (rot == 90 || rot == 270) ? new int[]{h, w} : new int[]{w, h};
-                    if (dims[0] > 0 && dims[1] > 0) {
-                        mediaSizeCache.put(pathOrUri, dims);
-                        return dims;
+            int[] defaultDims = new int[]{16, 9};
+            ioExecutor.execute(() -> {
+                MediaMetadataRetriever retriever = null;
+                try {
+                    retriever = new MediaMetadataRetriever();
+                    if (pathOrUri.startsWith("content://") || pathOrUri.startsWith("file://") || pathOrUri.startsWith("http://") || pathOrUri.startsWith("https://")) {
+                        retriever.setDataSource(context, Uri.parse(pathOrUri));
+                    } else {
+                        retriever.setDataSource(pathOrUri);
+                    }
+                    String wStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
+                    String hStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
+                    String rStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
+                    if (wStr != null && hStr != null) {
+                        int w = Integer.parseInt(wStr);
+                        int h = Integer.parseInt(hStr);
+                        int rot = rStr != null ? Integer.parseInt(rStr) : 0;
+                        int[] dims = (rot == 90 || rot == 270) ? new int[]{h, w} : new int[]{w, h};
+                        if (dims[0] > 0 && dims[1] > 0) {
+                            mediaSizeCache.put(pathOrUri, dims);
+                        }
+                    }
+                } catch (Exception ignored) {
+                } finally {
+                    if (retriever != null) {
+                        try { retriever.release(); } catch (Exception ignored) {}
                     }
                 }
-            } catch (Exception ignored) {
-            } finally {
-                try { retriever.release(); } catch (Exception ignored) {}
-            }
+            });
+            return defaultDims;
         } else {
             try {
                 BitmapFactory.Options options = new BitmapFactory.Options();
@@ -3257,7 +3307,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 if (layoutLinkPreview != null) layoutLinkPreview.setVisibility(View.GONE);
             }
 
-            tvMessageTime.setText(formatTime(message.getTimestamp(), message.getTime(), message.isEdited()));
+            tvMessageTime.setText(formatTime(message));
             View layoutMessageTime = itemView.findViewById(R.id.layoutMessageTimeContainer);
             if (layoutMessageTime != null) {
                 layoutMessageTime.setVisibility(isVideoNote ? View.GONE : View.VISIBLE);
@@ -3576,7 +3626,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 if (layoutLinkPreview != null) layoutLinkPreview.setVisibility(View.GONE);
             }
 
-            tvMessageTime.setText(formatTime(message.getTimestamp(), message.getTime(), message.isEdited()));
+            tvMessageTime.setText(formatTime(message));
             View layoutMessageTime = itemView.findViewById(R.id.layoutMessageTimeContainer);
             if (layoutMessageTime != null) {
                 layoutMessageTime.setVisibility(isVideoNoteOutgoing ? View.GONE : View.VISIBLE);

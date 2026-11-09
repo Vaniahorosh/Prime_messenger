@@ -512,6 +512,16 @@ public class ChatMessage {
         this.minAppVersion = minAppVersion;
     }
 
+    private transient String cachedFormattedTime = null;
+
+    public String getCachedFormattedTime() {
+        return cachedFormattedTime;
+    }
+
+    public void setCachedFormattedTime(String cachedFormattedTime) {
+        this.cachedFormattedTime = cachedFormattedTime;
+    }
+
     public String getReplyToText() {
         return replyToText;
     }
