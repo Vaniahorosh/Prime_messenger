@@ -225,13 +225,12 @@
                     android:fontFamily="sans-serif-medium"
                     tools:text="00:00/00:00" />
 
-                <SeekBar
-                    android:id="@+id/seekBar"
+                <com.messenger.prime.VoiceMessageItemView
+                    android:id="@+id/wavyProgressIndicator"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="32dp"
                     android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    android:max="1000" />
+                    android:layout_marginStart="8dp" />
 
                 <ImageButton
                     android:id="@+id/btnFullscreen"
@@ -246,16 +245,12 @@
         </LinearLayout>
     </eightbitlab.com.blurview.BlurView>
 
-    <ProgressBar
-        android:id="@+id/navBarProgressBar"
-        style="?android:attr/progressBarStyleHorizontal"
+    <com.messenger.prime.VoiceMessageItemView
+        android:id="@+id/navBarWavyProgressBar"
         android:layout_width="0dp"
-        android:layout_height="4dp"
-        android:max="1000"
-        android:progress="0"
+        android:layout_height="16dp"
         android:alpha="0"
         android:visibility="gone"
-        android:progressDrawable="@drawable/bg_progress_bar_custom"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />

@@ -97,8 +97,8 @@ class MediaPlayerActivity : AppCompatActivity() {
     private lateinit var tvCaption: TextView
     private lateinit var layoutSeekBarRow: View
     private lateinit var tvDuration: TextView
-    private lateinit var seekBar: SeekBar
-    private lateinit var navBarProgressBar: ProgressBar
+    private lateinit var wavyProgressIndicator: VoiceMessageItemView
+    private lateinit var navBarWavyProgressBar: VoiceMessageItemView
     private lateinit var tvSpeedIndicator: TextView
 
     private var adapter: MediaPagerAdapter? = null
@@ -185,18 +185,21 @@ class MediaPlayerActivity : AppCompatActivity() {
         override fun run() {
             if (!isScrubbing) {
                 currentPlayer?.let { player ->
-                    if (player.isPlaying) {
-                        val current = player.currentPosition
-                        val total = player.duration.coerceAtLeast(1L)
-                        val progress = ((current * 1000) / total).toInt().coerceIn(0, 1000)
-                        seekBar.progress = progress
-                        navBarProgressBar.progress = progress
-                        updateDurationText(current, total)
-                    }
+                    val isPlaying = player.isPlaying
+                    val current = player.currentPosition
+                    val total = player.duration.coerceAtLeast(1L)
+                    val prog = (current.toFloat() / total).coerceIn(0f, 1f)
+
+                    wavyProgressIndicator.setProgress(prog)
+                    wavyProgressIndicator.isPlaying = isPlaying
+                    navBarWavyProgressBar.setProgress(prog)
+                    navBarWavyProgressBar.isPlaying = isPlaying
+
+                    updateDurationText(current, total)
                 }
             }
             if (isCurrentVideo) {
-                handler.postDelayed(this, 250)
+                handler.postDelayed(this, 200)
             }
         }
     }
@@ -424,15 +427,9 @@ class MediaPlayerActivity : AppCompatActivity() {
         tvCaption = findViewById(R.id.tvCaption)
         layoutSeekBarRow = findViewById(R.id.layoutSeekBarRow)
         tvDuration = findViewById(R.id.tvDuration)
-        seekBar = findViewById(R.id.seekBar)
-        navBarProgressBar = findViewById(R.id.navBarProgressBar)
+        wavyProgressIndicator = findViewById(R.id.wavyProgressIndicator)
+        navBarWavyProgressBar = findViewById(R.id.navBarWavyProgressBar)
         tvSpeedIndicator = findViewById(R.id.tvSpeedIndicator)
-
-        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
-        val colorStateList = android.content.res.ColorStateList.valueOf(accentColor)
-        seekBar.progressTintList = colorStateList
-        seekBar.thumbTintList = colorStateList
-        navBarProgressBar.progressTintList = colorStateList
     }
 
     @SuppressLint("InternalInsetResource", "Discouraged")
@@ -506,43 +503,18 @@ class MediaPlayerActivity : AppCompatActivity() {
             showMultifunctionalMenu()
         }
 
-        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            private var lastSeekTimeMs: Long = 0L
-
-            override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser && isCurrentVideo && currentPlayer != null) {
-                    val total = currentPlayer!!.duration.coerceAtLeast(1L)
-                    val targetMs = (progress * total) / 1000
-                    scrubTargetMs = targetMs
-
-                    updateDurationText(targetMs, total)
-                    navBarProgressBar.progress = progress
-
-                    val now = android.os.SystemClock.elapsedRealtime()
-                    if (now - lastSeekTimeMs > 40) {
-                        lastSeekTimeMs = now
-                        currentPlayer!!.setSeekParameters(SeekParameters.CLOSEST_SYNC)
-                        currentPlayer!!.seekTo(targetMs)
-                    }
-                }
-            }
-
-            override fun onStartTrackingTouch(sb: SeekBar?) {
-                isScrubbing = true
-                handler.removeCallbacks(autoHideControlsRunnable)
-                handler.removeCallbacks(updateProgressRunnable)
-            }
-
-            override fun onStopTrackingTouch(sb: SeekBar?) {
-                isScrubbing = false
-                if (isCurrentVideo && currentPlayer != null && scrubTargetMs != -1L) {
-                    currentPlayer!!.setSeekParameters(SeekParameters.EXACT)
-                    currentPlayer!!.seekTo(scrubTargetMs)
-                }
+        wavyProgressIndicator.onSeekListener = { prog ->
+            val player = currentPlayer
+            if (player != null && isCurrentVideo) {
+                val total = player.duration.coerceAtLeast(1L)
+                val targetMs = (prog * total).toLong()
+                player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
+                player.seekTo(targetMs)
+                updateDurationText(targetMs, total)
+                navBarWavyProgressBar.setProgress(prog)
                 showControls()
-                handler.post(updateProgressRunnable)
             }
-        })
+        }
     }
 
     private fun seekRelative(offsetMs: Long) {
@@ -550,9 +522,9 @@ class MediaPlayerActivity : AppCompatActivity() {
         val duration = player.duration.coerceAtLeast(1L)
         val newPos = (player.currentPosition + offsetMs).coerceIn(0L, duration)
         player.seekTo(newPos)
-        val currentProgress = ((newPos * 1000) / duration).toInt().coerceIn(0, 1000)
-        seekBar.progress = currentProgress
-        navBarProgressBar.progress = currentProgress
+        val prog = newPos.toFloat() / duration
+        wavyProgressIndicator.setProgress(prog)
+        navBarWavyProgressBar.setProgress(prog)
         updateDurationText(newPos, duration)
 
         val text = if (offsetMs > 0) "+10 сек" else "-10 сек"
@@ -1050,10 +1022,10 @@ class MediaPlayerActivity : AppCompatActivity() {
             bottomOverlay.visibility = View.VISIBLE
             bottomOverlay.animate().setListener(null).alpha(1f).translationY(0f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
 
-            seekBar.pivotY = seekBar.height.toFloat() / 2f
-            seekBar.animate().cancel()
-            seekBar.scaleY = 0.2f
-            seekBar.animate()
+            wavyProgressIndicator.pivotY = wavyProgressIndicator.height.toFloat() / 2f
+            wavyProgressIndicator.animate().cancel()
+            wavyProgressIndicator.scaleY = 0.2f
+            wavyProgressIndicator.animate()
                 .scaleY(1.0f)
                 .setDuration(280)
                 .setInterpolator(android.view.animation.OvershootInterpolator(1.2f))
@@ -1066,10 +1038,10 @@ class MediaPlayerActivity : AppCompatActivity() {
                 counterBadge.animate().setListener(null).alpha(1f).translationY(0f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
             }
 
-            navBarProgressBar.animate().alpha(0f).setDuration(200)
+            navBarWavyProgressBar.animate().alpha(0f).setDuration(200)
                 .setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
-                        if (areControlsVisible) navBarProgressBar.visibility = View.GONE
+                        if (areControlsVisible) navBarWavyProgressBar.visibility = View.GONE
                     }
                 }).start()
         }
@@ -1102,9 +1074,9 @@ class MediaPlayerActivity : AppCompatActivity() {
                     }
                 }).start()
 
-            seekBar.pivotY = seekBar.height.toFloat() / 2f
-            seekBar.animate().cancel()
-            seekBar.animate()
+            wavyProgressIndicator.pivotY = wavyProgressIndicator.height.toFloat() / 2f
+            wavyProgressIndicator.animate().cancel()
+            wavyProgressIndicator.animate()
                 .scaleY(0.2f)
                 .setDuration(240)
                 .setInterpolator(android.view.animation.DecelerateInterpolator())
@@ -1121,8 +1093,8 @@ class MediaPlayerActivity : AppCompatActivity() {
             }
 
             if (isCurrentVideo) {
-                navBarProgressBar.visibility = View.VISIBLE
-                navBarProgressBar.animate().alpha(0.85f).setDuration(240).start()
+                navBarWavyProgressBar.visibility = View.VISIBLE
+                navBarWavyProgressBar.animate().alpha(0.85f).setDuration(240).start()
             }
         }
     }
