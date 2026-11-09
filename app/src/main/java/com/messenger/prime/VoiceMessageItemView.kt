@@ -65,6 +65,7 @@ class VoiceMessageItemView @JvmOverloads constructor(
 
     private var wavePhase: Float = 0f
     private var currentAmplitude: Float = 0f
+    private var lastFrameTimeNanos: Long = 0L
 
     var onSeekListener: ((Float) -> Unit)? = null
 
@@ -84,16 +85,26 @@ class VoiceMessageItemView @JvmOverloads constructor(
         val usableHeight = height - paddingTop - paddingBottom
         if (usableWidth <= 0 || usableHeight <= 0) return
 
+        val now = System.nanoTime()
+        val dtSec = if (lastFrameTimeNanos > 0L && isPlaying) {
+            ((now - lastFrameTimeNanos) / 1_000_000_000f).coerceIn(0.001f, 0.05f)
+        } else {
+            0.016f
+        }
+        lastFrameTimeNanos = if (isPlaying) now else 0L
+
         val targetAmplitude = if (isPlaying) (4.5f * density) else 0f
-        currentAmplitude += (targetAmplitude - currentAmplitude) * 0.16f
+        currentAmplitude += (targetAmplitude - currentAmplitude) * (12f * dtSec).coerceIn(0.05f, 0.5f)
 
         if (isPlaying || abs(currentAmplitude - targetAmplitude) > 0.05f) {
             if (isPlaying) {
-                wavePhase += (2.2f * density)
+                // Calm, fluid 20dp/sec wave movement rate
+                wavePhase += (20f * density) * dtSec
             }
             postInvalidateOnAnimation()
         } else {
             currentAmplitude = targetAmplitude
+            lastFrameTimeNanos = 0L
         }
 
         val accentColor = ColorAccentManager.getCurrentAccentColor(context)
