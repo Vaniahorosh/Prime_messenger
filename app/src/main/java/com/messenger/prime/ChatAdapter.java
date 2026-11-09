@@ -835,7 +835,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     if (isCurrentPlaying && state instanceof PrimeMediaPlaybackService.PlaybackState.Playing) {
                         PrimeMediaPlaybackService.PlaybackState.Playing playing = (PrimeMediaPlaybackService.PlaybackState.Playing) state;
                         if (btnPlay != null) btnPlay.setImageResource(R.drawable.ic_media_pause);
-                        if (waveformView != null) waveformView.setProgress(playing.getProgress());
+                        if (waveformView != null) {
+                            waveformView.setPlaying(true);
+                            waveformView.setProgress(playing.getProgress());
+                        }
                         if (tvDuration != null) {
                             long curSec = (long)(playing.getDurationMs() * playing.getProgress() / 1000);
                             long totalSec = playing.getDurationMs() / 1000;
@@ -844,7 +847,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     } else if (isCurrentPlaying && state instanceof PrimeMediaPlaybackService.PlaybackState.Paused) {
                         PrimeMediaPlaybackService.PlaybackState.Paused paused = (PrimeMediaPlaybackService.PlaybackState.Paused) state;
                         if (btnPlay != null) btnPlay.setImageResource(R.drawable.ic_media_play);
-                        if (waveformView != null) waveformView.setProgress(paused.getProgress());
+                        if (waveformView != null) {
+                            waveformView.setPlaying(false);
+                            waveformView.setProgress(paused.getProgress());
+                        }
                         if (tvDuration != null) {
                             long curSec = (long)(paused.getDurationMs() * paused.getProgress() / 1000);
                             long totalSec = paused.getDurationMs() / 1000;
@@ -852,7 +858,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         }
                     } else {
                         if (btnPlay != null) btnPlay.setImageResource(R.drawable.ic_media_play);
-                        if (waveformView != null) waveformView.setProgress(0f);
+                        if (waveformView != null) {
+                            waveformView.setPlaying(false);
+                            waveformView.setProgress(0f);
+                        }
                         if (tvDuration != null) tvDuration.setText(msg.getAudioDuration() != null ? msg.getAudioDuration() : "00:00");
                     }
                 }
@@ -1398,6 +1407,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 if (isCurrentPlaying && state instanceof PrimeMediaPlaybackService.PlaybackState.Playing) {
                     PrimeMediaPlaybackService.PlaybackState.Playing playing = (PrimeMediaPlaybackService.PlaybackState.Playing) state;
                     btnPlay.setImageResource(R.drawable.ic_media_pause);
+                    waveformView.setPlaying(true);
                     waveformView.setProgress(playing.getProgress());
                     long curSec = (long)(playing.getDurationMs() * playing.getProgress() / 1000);
                     long totalSec = playing.getDurationMs() / 1000;
@@ -1405,12 +1415,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 } else if (isCurrentPlaying && state instanceof PrimeMediaPlaybackService.PlaybackState.Paused) {
                     PrimeMediaPlaybackService.PlaybackState.Paused paused = (PrimeMediaPlaybackService.PlaybackState.Paused) state;
                     btnPlay.setImageResource(R.drawable.ic_media_play);
+                    waveformView.setPlaying(false);
                     waveformView.setProgress(paused.getProgress());
                     long curSec = (long)(paused.getDurationMs() * paused.getProgress() / 1000);
                     long totalSec = paused.getDurationMs() / 1000;
                     tvDuration.setText(String.format(java.util.Locale.US, "%02d:%02d / %02d:%02d", curSec / 60, curSec % 60, totalSec / 60, totalSec % 60));
                 } else {
                     btnPlay.setImageResource(R.drawable.ic_media_play);
+                    waveformView.setPlaying(false);
                     waveformView.setProgress(0f);
                     tvDuration.setText(message.getAudioDuration() != null ? message.getAudioDuration() : "00:00");
                 }

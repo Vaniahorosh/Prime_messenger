@@ -4,36 +4,50 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.RectF
+import android.graphics.Path
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import kotlin.math.abs
+import kotlin.math.sin
 
 class VoiceMessageItemView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
     private val density = resources.displayMetrics.density
-    
+
     private val paintPlayed = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#4CAF50") // Accent color
-        style = Paint.Style.FILL
+        style = Paint.Style.STROKE
+        strokeWidth = 3.5f * density
         strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
     }
-    
+
     private val paintUnplayed = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#80FFFFFF") // Dimmed color
-        style = Paint.Style.FILL
+        color = Color.parseColor("#40FFFFFF")
+        style = Paint.Style.STROKE
+        strokeWidth = 3.5f * density
         strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
     }
+
+    private val pathPlayed = Path()
+    private val pathUnplayed = Path()
 
     private var amplitudes: List<Int> = emptyList()
     private var progress: Float = 0f // 0.0 to 1.0
 
-    private val barWidth = 3f * density
-    private val barSpacing = 2f * density
-    private val minBarHeight = 3f * density
-    private val rectF = RectF()
+    var isPlaying: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
+
+    private var wavePhase: Float = 0f
+    private var waveFactor: Float = 0f // 0.0 (flat line) to 1.0 (snake wave)
 
     var onSeekListener: ((Float) -> Unit)? = null
 
@@ -49,55 +63,83 @@ class VoiceMessageItemView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        
+
         val usableWidth = width - paddingLeft - paddingRight
         val usableHeight = height - paddingTop - paddingBottom
         if (usableWidth <= 0 || usableHeight <= 0) return
 
-        val totalBars = (usableWidth / (barWidth + barSpacing)).toInt().coerceAtLeast(1)
-        
-        val displayAmps = IntArray(totalBars)
-        if (amplitudes.isEmpty()) {
-            // Draw default quiet bars
-            displayAmps.fill(5)
-        } else if (amplitudes.size <= totalBars) {
-            for (i in displayAmps.indices) {
-                if (i < amplitudes.size) {
-                    displayAmps[i] = amplitudes[i]
-                } else {
-                    displayAmps[i] = 2
-                }
+        val targetFactor = if (isPlaying) 1.0f else 0.0f
+        waveFactor += (targetFactor - waveFactor) * 0.15f
+
+        if (isPlaying || abs(waveFactor - targetFactor) > 0.005f) {
+            if (isPlaying) {
+                wavePhase += 0.16f
             }
+            postInvalidateOnAnimation()
         } else {
-            val step = amplitudes.size.toFloat() / totalBars
-            for (i in 0 until totalBars) {
-                val startIdx = (i * step).toInt()
-                val endIdx = (((i + 1) * step).toInt()).coerceAtMost(amplitudes.size)
-                var max = 0
-                for (j in startIdx until endIdx) {
-                    if (amplitudes[j] > max) max = amplitudes[j]
+            waveFactor = targetFactor
+        }
+
+        val accentColor = ColorAccentManager.getCurrentAccentColor(context)
+        paintPlayed.color = accentColor
+
+        val centerY = paddingTop + usableHeight / 2f
+        val maxAmplitude = (usableHeight * 0.38f) * waveFactor
+        val splitX = paddingLeft + usableWidth * progress
+
+        pathPlayed.reset()
+        pathUnplayed.reset()
+
+        val steps = (usableWidth / density).toInt().coerceAtLeast(40)
+        val stepX = usableWidth.toFloat() / steps
+
+        var isPlayedStarted = false
+        var isUnplayedStarted = false
+
+        for (i in 0..steps) {
+            val x = paddingLeft + i * stepX
+            val sineVal = sin((i * 0.18f) + wavePhase).toFloat()
+            val y = centerY + sineVal * maxAmplitude
+
+            if (x <= splitX) {
+                if (!isPlayedStarted) {
+                    pathPlayed.moveTo(x, y)
+                    isPlayedStarted = true
+                } else {
+                    pathPlayed.lineTo(x, y)
                 }
-                displayAmps[i] = max
+            } else {
+                if (!isUnplayedStarted) {
+                    if (isPlayedStarted) {
+                        val midSine = sin(((splitX - paddingLeft) / stepX * 0.18f) + wavePhase).toFloat()
+                        val midY = centerY + midSine * maxAmplitude
+                        pathPlayed.lineTo(splitX, midY)
+                        pathUnplayed.moveTo(splitX, midY)
+                    } else {
+                        pathUnplayed.moveTo(x, y)
+                    }
+                    isUnplayedStarted = true
+                }
+                pathUnplayed.lineTo(x, y)
             }
         }
 
-        val centerY = paddingTop + usableHeight / 2f
-        val maxBarHeight = usableHeight * 0.9f
-        val splitIndex = (totalBars * progress).toInt()
+        if (isPlayedStarted) {
+            canvas.drawPath(pathPlayed, paintPlayed)
+        }
+        if (isUnplayedStarted) {
+            canvas.drawPath(pathUnplayed, paintUnplayed)
+        }
 
-        for (i in 0 until totalBars) {
-            val amp = displayAmps[i].coerceIn(0, 100)
-            val barHeight = ((amp / 100f) * maxBarHeight).coerceAtLeast(minBarHeight)
-            
-            val left = paddingLeft + i * (barWidth + barSpacing)
-            val top = centerY - barHeight / 2f
-            val right = left + barWidth
-            val bottom = centerY + barHeight / 2f
-
-            rectF.set(left, top, right, bottom)
-            
-            val paint = if (i <= splitIndex && progress > 0f) paintPlayed else paintUnplayed
-            canvas.drawRoundRect(rectF, barWidth / 2f, barWidth / 2f, paint)
+        // Glowing head dot on snake progress
+        if (progress in 0.01f..0.99f) {
+            val headSine = sin(((splitX - paddingLeft) / stepX * 0.18f) + wavePhase).toFloat()
+            val headY = centerY + headSine * maxAmplitude
+            val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = accentColor
+                style = Paint.Style.FILL
+            }
+            canvas.drawCircle(splitX, headY, 5f * density, dotPaint)
         }
     }
 

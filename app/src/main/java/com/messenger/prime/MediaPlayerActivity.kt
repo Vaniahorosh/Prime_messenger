@@ -427,6 +427,12 @@ class MediaPlayerActivity : AppCompatActivity() {
         seekBar = findViewById(R.id.seekBar)
         navBarProgressBar = findViewById(R.id.navBarProgressBar)
         tvSpeedIndicator = findViewById(R.id.tvSpeedIndicator)
+
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val colorStateList = android.content.res.ColorStateList.valueOf(accentColor)
+        seekBar.progressTintList = colorStateList
+        seekBar.thumbTintList = colorStateList
+        navBarProgressBar.progressTintList = colorStateList
     }
 
     @SuppressLint("InternalInsetResource", "Discouraged")
@@ -1044,6 +1050,15 @@ class MediaPlayerActivity : AppCompatActivity() {
             bottomOverlay.visibility = View.VISIBLE
             bottomOverlay.animate().setListener(null).alpha(1f).translationY(0f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
 
+            seekBar.pivotY = seekBar.height.toFloat() / 2f
+            seekBar.animate().cancel()
+            seekBar.scaleY = 0.2f
+            seekBar.animate()
+                .scaleY(1.0f)
+                .setDuration(280)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.2f))
+                .start()
+
             val counterBadge = tvMediaCounterBadge
             val list = sharedMediaList ?: emptyList()
             if (counterBadge != null && list.size > 1) {
@@ -1087,6 +1102,14 @@ class MediaPlayerActivity : AppCompatActivity() {
                     }
                 }).start()
 
+            seekBar.pivotY = seekBar.height.toFloat() / 2f
+            seekBar.animate().cancel()
+            seekBar.animate()
+                .scaleY(0.2f)
+                .setDuration(240)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .start()
+
             val counterBadge = tvMediaCounterBadge
             if (counterBadge != null && counterBadge.visibility == View.VISIBLE) {
                 counterBadge.animate().alpha(0f).translationY(40f).setDuration(240).setInterpolator(emphasizedAccelerate)
@@ -1099,7 +1122,7 @@ class MediaPlayerActivity : AppCompatActivity() {
 
             if (isCurrentVideo) {
                 navBarProgressBar.visibility = View.VISIBLE
-                navBarProgressBar.animate().alpha(0.4f).setDuration(240).start()
+                navBarProgressBar.animate().alpha(0.85f).setDuration(240).start()
             }
         }
     }
