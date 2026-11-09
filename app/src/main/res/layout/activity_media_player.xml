@@ -245,12 +245,16 @@
         </LinearLayout>
     </eightbitlab.com.blurview.BlurView>
 
-    <com.messenger.prime.WavySeekBar
-        android:id="@+id/navBarWavyProgressBar"
+    <ProgressBar
+        android:id="@+id/navBarProgressBar"
+        style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="0dp"
-        android:layout_height="20dp"
+        android:layout_height="4dp"
+        android:max="1000"
+        android:progress="0"
         android:alpha="0"
         android:visibility="gone"
+        android:progressDrawable="@drawable/bg_progress_bar_custom"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />

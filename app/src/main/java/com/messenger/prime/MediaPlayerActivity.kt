@@ -98,7 +98,7 @@ class MediaPlayerActivity : AppCompatActivity() {
     private lateinit var layoutSeekBarRow: View
     private lateinit var tvDuration: TextView
     private lateinit var wavyProgressIndicator: WavySeekBar
-    private lateinit var navBarWavyProgressBar: WavySeekBar
+    private lateinit var navBarProgressBar: ProgressBar
     private lateinit var tvSpeedIndicator: TextView
 
     private var adapter: MediaPagerAdapter? = null
@@ -192,8 +192,9 @@ class MediaPlayerActivity : AppCompatActivity() {
 
                     wavyProgressIndicator.setProgress(prog)
                     wavyProgressIndicator.isPlaying = isPlaying
-                    navBarWavyProgressBar.setProgress(prog)
-                    navBarWavyProgressBar.isPlaying = isPlaying
+
+                    val intProgress = ((current * 1000) / total).toInt().coerceIn(0, 1000)
+                    navBarProgressBar.progress = intProgress
 
                     updateDurationText(current, total)
                 }
@@ -428,8 +429,12 @@ class MediaPlayerActivity : AppCompatActivity() {
         layoutSeekBarRow = findViewById(R.id.layoutSeekBarRow)
         tvDuration = findViewById(R.id.tvDuration)
         wavyProgressIndicator = findViewById(R.id.wavyProgressIndicator)
-        navBarWavyProgressBar = findViewById(R.id.navBarWavyProgressBar)
+        navBarProgressBar = findViewById(R.id.navBarProgressBar)
         tvSpeedIndicator = findViewById(R.id.tvSpeedIndicator)
+
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val colorStateList = android.content.res.ColorStateList.valueOf(accentColor)
+        navBarProgressBar.progressTintList = colorStateList
     }
 
     @SuppressLint("InternalInsetResource", "Discouraged")
@@ -527,7 +532,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                 val targetMs = (prog * total.toFloat()).toLong()
                 scrubTargetMs = targetMs
                 updateDurationText(targetMs, total)
-                navBarWavyProgressBar.forceProgress(prog)
+                navBarProgressBar.progress = (prog * 1000).toInt()
                 showControls()
 
                 val now = android.os.SystemClock.elapsedRealtime()
@@ -547,7 +552,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         player.seekTo(newPos)
         val prog = newPos.toFloat() / duration
         wavyProgressIndicator.setProgress(prog)
-        navBarWavyProgressBar.setProgress(prog)
+        navBarProgressBar.progress = (prog * 1000).toInt()
         updateDurationText(newPos, duration)
 
         val text = if (offsetMs > 0) "+10 сек" else "-10 сек"
@@ -1061,10 +1066,10 @@ class MediaPlayerActivity : AppCompatActivity() {
                 counterBadge.animate().setListener(null).alpha(1f).translationY(0f).setDuration(260).setInterpolator(emphasizedDecelerate).start()
             }
 
-            navBarWavyProgressBar.animate().alpha(0f).setDuration(200)
+            navBarProgressBar.animate().alpha(0f).setDuration(200)
                 .setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
-                        if (areControlsVisible) navBarWavyProgressBar.visibility = View.GONE
+                        if (areControlsVisible) navBarProgressBar.visibility = View.GONE
                     }
                 }).start()
         }
@@ -1116,8 +1121,8 @@ class MediaPlayerActivity : AppCompatActivity() {
             }
 
             if (isCurrentVideo) {
-                navBarWavyProgressBar.visibility = View.VISIBLE
-                navBarWavyProgressBar.animate().alpha(0.85f).setDuration(240).start()
+                navBarProgressBar.visibility = View.VISIBLE
+                navBarProgressBar.animate().alpha(0.85f).setDuration(240).start()
             }
         }
     }
