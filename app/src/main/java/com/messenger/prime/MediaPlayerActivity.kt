@@ -536,7 +536,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                 showControls()
 
                 val now = android.os.SystemClock.elapsedRealtime()
-                if (now - lastSeekTimeMs > 40) {
+                if (now - lastSeekTimeMs > 16) {
                     lastSeekTimeMs = now
                     player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
                     player.seekTo(targetMs)
@@ -1004,11 +1004,9 @@ class MediaPlayerActivity : AppCompatActivity() {
             if (currentPlayer!!.isPlaying) {
                 currentPlayer!!.pause()
                 btnPlayPause.setImageResource(R.drawable.ic_media_play)
-                showIslandBadge("Пауза", 1200L)
             } else {
                 currentPlayer!!.play()
                 btnPlayPause.setImageResource(R.drawable.ic_media_pause)
-                showIslandBadge("Воспроизведение", 1200L)
             }
         }
         showControls()
@@ -1479,7 +1477,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                         .build()
 
                     val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-                        .setBufferDurationsMs(15000, 50000, 1000, 2000)
+                        .setBufferDurationsMs(500, 30000, 250, 500)
                         .setPrioritizeTimeOverSizeThresholds(true)
                         .build()
 
