@@ -503,16 +503,39 @@ class MediaPlayerActivity : AppCompatActivity() {
             showMultifunctionalMenu()
         }
 
+        var lastSeekTimeMs = 0L
+
+        wavyProgressIndicator.onScrubStateChangeListener = { scrubbing ->
+            isScrubbing = scrubbing
+            if (scrubbing) {
+                handler.removeCallbacks(autoHideControlsRunnable)
+                handler.removeCallbacks(updateProgressRunnable)
+            } else {
+                if (isCurrentVideo && currentPlayer != null && scrubTargetMs != -1L) {
+                    currentPlayer!!.setSeekParameters(SeekParameters.EXACT)
+                    currentPlayer!!.seekTo(scrubTargetMs)
+                }
+                showControls()
+                handler.post(updateProgressRunnable)
+            }
+        }
+
         wavyProgressIndicator.onSeekListener = { prog ->
             val player = currentPlayer
             if (player != null && isCurrentVideo) {
                 val total = player.duration.coerceAtLeast(1L)
-                val targetMs = (prog * total).toLong()
-                player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
-                player.seekTo(targetMs)
+                val targetMs = (prog * total.toFloat()).toLong()
+                scrubTargetMs = targetMs
                 updateDurationText(targetMs, total)
                 navBarWavyProgressBar.setProgress(prog)
                 showControls()
+
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (now - lastSeekTimeMs > 60) {
+                    lastSeekTimeMs = now
+                    player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
+                    player.seekTo(targetMs)
+                }
             }
         }
     }

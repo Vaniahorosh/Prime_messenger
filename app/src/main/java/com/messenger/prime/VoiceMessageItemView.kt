@@ -68,6 +68,7 @@ class VoiceMessageItemView @JvmOverloads constructor(
     private var lastFrameTimeNanos: Long = 0L
 
     var onSeekListener: ((Float) -> Unit)? = null
+    var onScrubStateChangeListener: ((Boolean) -> Unit)? = null
 
     fun setWaveform(amps: List<Int>?) {
         invalidate()
@@ -170,22 +171,37 @@ class VoiceMessageItemView @JvmOverloads constructor(
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.action) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                val usableWidth = width - paddingLeft - paddingRight
-                if (usableWidth > 0) {
-                    val tapX = (event.x - paddingLeft).coerceIn(0f, usableWidth.toFloat())
-                    val tapProgress = (tapX / usableWidth).coerceIn(0f, 1f)
-                    setProgress(tapProgress)
-                    onSeekListener?.invoke(tapProgress)
-                }
+            MotionEvent.ACTION_DOWN -> {
+                onScrubStateChangeListener?.invoke(true)
+                handleTouchProgress(event.x)
                 return true
             }
-            MotionEvent.ACTION_UP -> {
+            MotionEvent.ACTION_MOVE -> {
+                handleTouchProgress(event.x)
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                onScrubStateChangeListener?.invoke(false)
                 performClick()
                 return true
             }
         }
         return super.onTouchEvent(event)
+    }
+
+    private fun handleTouchProgress(eventX: Float) {
+        val usableWidth = width - paddingLeft - paddingRight
+        if (usableWidth > 0) {
+            val startX = paddingLeft + (3f * density)
+            val endX = width - paddingRight - (3f * density)
+            val activeWidth = endX - startX
+            if (activeWidth > 0) {
+                val tapX = (eventX - startX).coerceIn(0f, activeWidth)
+                val tapProgress = (tapX / activeWidth).coerceIn(0f, 1f)
+                setProgress(tapProgress)
+                onSeekListener?.invoke(tapProgress)
+            }
+        }
     }
 
     override fun performClick(): Boolean {
