@@ -94,73 +94,82 @@
                 android:foreground="?attr/selectableItemBackground"
                 android:padding="12dp">
 
-        <!-- Бесшовный фигурный контейнер для кружков (без фона пузыря) -->
-        <FrameLayout
+        <!-- Бесшовный фигурный контейнер для кружков (Material 3 Card) -->
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/layoutVideoNoteContainer"
             android:layout_width="200dp"
             android:layout_height="200dp"
             android:layout_marginBottom="4dp"
+            app:cardCornerRadius="100dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp"
+            app:cardBackgroundColor="@android:color/transparent"
             android:visibility="gone">
 
-            <ImageView
-                android:id="@+id/ivVideoNoteImage"
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleType="centerCrop" />
-
-            <com.messenger.prime.TextureVideoView
-                android:id="@+id/vvVideoNotePlayer"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_gravity="center"
-                android:visibility="gone" />
-
-            <com.messenger.prime.PrimeWaterLoadingView
-                android:id="@+id/pbVideoNoteFrameProgress"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:max="100"
-                android:progress="0" />
-
-            <ImageView
-                android:id="@+id/ivVideoNotePlayIcon"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:layout_gravity="center"
-                android:background="@drawable/bg_glass_button"
-                android:padding="10dp"
-                android:src="@drawable/ic_media_play"
-                app:tint="@color/white" />
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="bottom|center_horizontal"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/bg_glass_button"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="6dp"
-                android:paddingVertical="2dp">
-
-                <TextView
-                    android:id="@+id/tvVideoNoteTimeBadge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/white"
-                    android:textSize="10sp"
-                    tools:text="14:23" />
+                android:layout_height="match_parent">
 
                 <ImageView
-                    android:id="@+id/ivVideoNoteStatusBadge"
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
-                    android:layout_marginStart="4dp"
-                    android:src="@drawable/ic_done"
-                    android:visibility="gone"
+                    android:id="@+id/ivVideoNoteImage"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop" />
+
+                <com.messenger.prime.TextureVideoView
+                    android:id="@+id/vvVideoNotePlayer"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="center"
+                    android:visibility="gone" />
+
+                <com.messenger.prime.PrimeWaterLoadingView
+                    android:id="@+id/pbVideoNoteFrameProgress"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:max="100"
+                    android:progress="0" />
+
+                <ImageView
+                    android:id="@+id/ivVideoNotePlayIcon"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_glass_button"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_media_play"
                     app:tint="@color/white" />
-            </LinearLayout>
-        </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:layout_marginBottom="12dp"
+                    android:background="@drawable/bg_glass_button"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="2dp">
+
+                    <TextView
+                        android:id="@+id/tvVideoNoteTimeBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/white"
+                        android:textSize="10sp"
+                        tools:text="14:23" />
+
+                    <ImageView
+                        android:id="@+id/ivVideoNoteStatusBadge"
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:layout_marginStart="4dp"
+                        android:src="@drawable/ic_done"
+                        android:visibility="gone"
+                        app:tint="@color/white" />
+                </LinearLayout>
+            </FrameLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Медиа Контейнер (1 элемент, 2 элемента сетка, 3-5 слайдер) -->
         <FrameLayout
