@@ -217,6 +217,68 @@ public class ChatHistoryManager {
         return set != null && set.contains(addressOrName.trim().toLowerCase(Locale.US));
     }
 
+    public static void recordDeletedMessageTombstone(Context context, String targetUsername, String messageId) {
+        if (context == null || targetUsername == null || messageId == null || messageId.trim().isEmpty()) return;
+        try {
+            SharedPreferences sp = context.getSharedPreferences("PrimeTombstones", Context.MODE_PRIVATE);
+            String userKey = getHistoryStorageKey(context, targetUsername);
+            Set<String> set = new HashSet<>(sp.getStringSet("deleted_ids_" + userKey, new HashSet<>()));
+            set.add(messageId.trim());
+            sp.edit().putStringSet("deleted_ids_" + userKey, set).apply();
+        } catch (Exception e) {
+            Log.e("ChatHistoryManager", "Failed to record tombstone", e);
+        }
+    }
+
+    public static Set<String> getDeletedMessageTombstones(Context context, String targetUsername) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return new HashSet<>();
+        try {
+            SharedPreferences sp = context.getSharedPreferences("PrimeTombstones", Context.MODE_PRIVATE);
+            String userKey = getHistoryStorageKey(context, targetUsername);
+            return new HashSet<>(sp.getStringSet("deleted_ids_" + userKey, new HashSet<>()));
+        } catch (Exception e) {
+            return new HashSet<>();
+        }
+    }
+
+    public static void clearDeletedMessageTombstones(Context context, String targetUsername) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return;
+        try {
+            SharedPreferences sp = context.getSharedPreferences("PrimeTombstones", Context.MODE_PRIVATE);
+            String userKey = getHistoryStorageKey(context, targetUsername);
+            sp.edit().remove("deleted_ids_" + userKey).apply();
+        } catch (Exception ignored) {}
+    }
+
+    public static void recordChatDeletedTombstone(Context context, String targetUsername) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return;
+        try {
+            SharedPreferences sp = context.getSharedPreferences("PrimeTombstones", Context.MODE_PRIVATE);
+            String userKey = getHistoryStorageKey(context, targetUsername);
+            sp.edit().putBoolean("chat_deleted_" + userKey, true).apply();
+        } catch (Exception ignored) {}
+    }
+
+    public static boolean isChatDeletedTombstone(Context context, String targetUsername) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return false;
+        try {
+            SharedPreferences sp = context.getSharedPreferences("PrimeTombstones", Context.MODE_PRIVATE);
+            String userKey = getHistoryStorageKey(context, targetUsername);
+            return sp.getBoolean("chat_deleted_" + userKey, false);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public static void clearChatDeletedTombstone(Context context, String targetUsername) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return;
+        try {
+            SharedPreferences sp = context.getSharedPreferences("PrimeTombstones", Context.MODE_PRIVATE);
+            String userKey = getHistoryStorageKey(context, targetUsername);
+            sp.edit().remove("chat_deleted_" + userKey).apply();
+        } catch (Exception ignored) {}
+    }
+
     public static void deleteHistory(Context context, String targetUsername) {
         deleteHistoryCompletely(context, targetUsername, null);
     }
@@ -224,6 +286,9 @@ public class ChatHistoryManager {
     public static void deleteHistoryCompletely(Context context, String targetUsername, String deviceAddress) {
         if (context == null) return;
         Context appContext = context.getApplicationContext();
+        if (targetUsername != null && !targetUsername.isEmpty()) {
+            recordChatDeletedTombstone(appContext, targetUsername);
+        }
 
         List<String> keysToDelete = new ArrayList<>();
         if (targetUsername != null && !targetUsername.trim().isEmpty()) {
@@ -503,6 +568,8 @@ public class ChatHistoryManager {
         Context appContext = context.getApplicationContext();
         String userKey = getHistoryStorageKey(appContext, targetUsername);
         String cleanId = messageId.trim();
+
+        recordDeletedMessageTombstone(appContext, targetUsername, cleanId);
 
         synchronized (memoryCache) {
             List<ChatMessage> history = memoryCache.get(userKey);

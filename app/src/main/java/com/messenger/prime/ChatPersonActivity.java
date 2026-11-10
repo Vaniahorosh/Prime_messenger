@@ -220,6 +220,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private static final byte TYPE_FILE = 0x0E;
     private kotlin.jvm.functions.Function2<Byte, byte[], kotlin.Unit> companionPacketListener;
     private static final byte TYPE_PROFILE_UPDATE = 0x0F;
+    private static final byte TYPE_SYNC_DELETIONS = 0x10;
 
     private static class PendingMessage {
         byte type;
@@ -2049,6 +2050,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         sendLocalAvatar();
                         flushPendingMessages();
                         sendReadReceiptsForUnreadMessages();
+                        syncDeletionsWithPeer();
                         break;
                     case MESSAGE_TYPING:
                         String stateStr = (msg.obj instanceof String) ? (String) msg.obj : null;
@@ -4743,6 +4745,28 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
     }
 
+    private void syncDeletionsWithPeer() {
+        ioExecutor.execute(() -> {
+            try {
+                if (ChatHistoryManager.isChatDeletedTombstone(this, targetUsername) || 
+                    (deviceAddress != null && ChatHistoryManager.isChatDeletedTombstone(this, deviceAddress))) {
+                    sendPacket(TYPE_CHAT_DELETED, targetUsername.getBytes(StandardCharsets.UTF_8));
+                    return;
+                }
+                Set<String> deletedIds = ChatHistoryManager.getDeletedMessageTombstones(this, targetUsername);
+                if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                    deletedIds.addAll(ChatHistoryManager.getDeletedMessageTombstones(this, deviceAddress));
+                }
+                if (!deletedIds.isEmpty()) {
+                    String payloadStr = String.join(",", deletedIds);
+                    sendPacket(TYPE_SYNC_DELETIONS, payloadStr.getBytes(StandardCharsets.UTF_8));
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to sync deletions with peer", e);
+            }
+        });
+    }
+
     private void sendText(String text) {
         if (text == null || text.trim().isEmpty()) return;
         if (!isConnectionActive()) {
@@ -5838,6 +5862,23 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 case TYPE_DELETE_MSG:
                     String deletedMsgId = new String(payload, StandardCharsets.UTF_8);
                     handler.obtainMessage(MESSAGE_DELETE_SINGLE, -1, -1, deletedMsgId).sendToTarget();
+                    break;
+
+                case TYPE_SYNC_DELETIONS:
+                    String syncData = new String(payload, StandardCharsets.UTF_8);
+                    if (!syncData.isEmpty()) {
+                        String[] ids = syncData.split(",");
+                        for (String id : ids) {
+                            if (id != null && !id.trim().isEmpty()) {
+                                String delId = id.trim();
+                                ChatHistoryManager.deleteSingleMessage(getApplicationContext(), targetUsername, delId);
+                                if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                                    ChatHistoryManager.deleteSingleMessage(getApplicationContext(), deviceAddress, delId);
+                                }
+                                handler.obtainMessage(MESSAGE_DELETE_SINGLE, -1, -1, delId).sendToTarget();
+                            }
+                        }
+                    }
                     break;
 
                 case TYPE_PRESENCE:

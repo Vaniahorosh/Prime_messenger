@@ -710,6 +710,22 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             } else if (type == 0x0B) { // TYPE_DELETE_MSG
                 String deletedMsgId = new String(payload, StandardCharsets.UTF_8);
                 ChatHistoryManager.deleteSingleMessage(this, displayName, deletedMsgId);
+                if (fromAddress != null && !fromAddress.isEmpty()) {
+                    ChatHistoryManager.deleteSingleMessage(this, fromAddress, deletedMsgId);
+                }
+            } else if (type == 0x10) { // TYPE_SYNC_DELETIONS
+                String syncPayload = new String(payload, StandardCharsets.UTF_8);
+                if (!syncPayload.isEmpty()) {
+                    String[] ids = syncPayload.split(",");
+                    for (String id : ids) {
+                        if (id != null && !id.trim().isEmpty()) {
+                            ChatHistoryManager.deleteSingleMessage(this, displayName, id.trim());
+                            if (fromAddress != null && !fromAddress.isEmpty()) {
+                                ChatHistoryManager.deleteSingleMessage(this, fromAddress, id.trim());
+                            }
+                        }
+                    }
+                }
             } else if (type == 0x0C) { // TYPE_PRESENCE
                 String pData = new String(payload, StandardCharsets.UTF_8);
                 saveBackgroundPresenceToChatList(displayName, fromAddress, pData.startsWith("ONLINE"));
