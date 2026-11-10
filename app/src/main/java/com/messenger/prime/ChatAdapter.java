@@ -1796,24 +1796,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private void animateExpandVideoNoteContainer(View vnContainer, boolean isOutgoing) {
         if (vnContainer == null) return;
-        disableParentClipping(vnContainer);
         vnContainer.bringToFront();
-        if (vnContainer.getParent() != null && vnContainer.getParent() instanceof View) {
-            ((View) vnContainer.getParent()).bringToFront();
-        }
         vnContainer.animate().cancel();
         vnContainer.setPivotX(vnContainer.getWidth() / 2f);
         vnContainer.setPivotY(vnContainer.getHeight() / 2f);
-        vnContainer.setHasTransientState(true);
-        vnContainer.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         float density = vnContainer.getContext().getResources().getDisplayMetrics().density;
         
         vnContainer.animate()
-            .scaleX(1.22f)
-            .scaleY(1.22f)
-            .translationZ(16f * density)
-            .setDuration(280)
-            .setInterpolator(new android.view.animation.OvershootInterpolator(1.1f))
+            .scaleX(1.18f)
+            .scaleY(1.18f)
+            .translationZ(12f * density)
+            .setDuration(220)
+            .setInterpolator(new android.view.animation.DecelerateInterpolator())
             .start();
     }
 
@@ -1825,12 +1819,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             .scaleY(1.0f)
             .translationX(0f)
             .translationZ(0f)
-            .setDuration(300)
-            .setInterpolator(androidx.core.view.animation.PathInterpolatorCompat.create(0.2f, 0.0f, 0.0f, 1.0f))
-            .withEndAction(() -> {
-                vnContainer.setLayerType(View.LAYER_TYPE_NONE, null);
-                vnContainer.setHasTransientState(false);
-            })
+            .setDuration(180)
+            .setInterpolator(new android.view.animation.AccelerateInterpolator())
             .start();
     }
 
