@@ -627,6 +627,7 @@ public class ChatHistoryManager {
 
         Context appContext = context.getApplicationContext();
         unmarkDeviceForgotten(appContext, targetUsername);
+        clearChatDeletedTombstone(appContext, targetUsername);
         String userKey = getHistoryStorageKey(appContext, targetUsername);
 
         if (message.getImageBitmap() != null && (message.getImagePath() == null || message.getImagePath().isEmpty())) {
