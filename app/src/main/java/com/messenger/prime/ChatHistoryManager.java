@@ -803,15 +803,16 @@ public class ChatHistoryManager {
                 mappedName = AvatarManager.getContactDisplayName(context, clean, clean, null);
             }
             if (mappedName != null && !mappedName.trim().isEmpty() && !BluetoothAdapter.checkBluetoothAddress(mappedName.trim()) && !"Собеседник".equals(mappedName.trim())) {
-                String oldStorageKey = mappedName.trim();
+                String canonicalName = mappedName.trim();
                 try {
                     String prefix = currentUser != null && !currentUser.trim().isEmpty() ? currentUser.trim() + "_" : "";
-                    File oldFile = new File(context.getFilesDir(), "history_" + prefix + oldStorageKey + ".json");
-                    File newFile = new File(context.getFilesDir(), "history_" + prefix + clean + ".json");
-                    if (oldFile.exists() && !newFile.exists()) {
-                        oldFile.renameTo(newFile);
+                    File macFile = new File(context.getFilesDir(), "history_" + prefix + clean + ".json");
+                    File nameFile = new File(context.getFilesDir(), "history_" + prefix + canonicalName + ".json");
+                    if (macFile.exists() && !nameFile.exists()) {
+                        macFile.renameTo(nameFile);
                     }
                 } catch (Exception ignored) {}
+                return canonicalName;
             }
         }
         return clean;
@@ -1069,31 +1070,64 @@ public class ChatHistoryManager {
         return deduplicateMessagesList(list);
     }
 
+    public static boolean isSameMessage(ChatMessage m1, ChatMessage m2) {
+        if (m1 == m2) return true;
+        if (m1 == null || m2 == null) return false;
+
+        // 1. Direct ID match
+        String id1 = m1.getMessageId();
+        String id2 = m2.getMessageId();
+        if (id1 != null && !id1.trim().isEmpty() && id2 != null && !id2.trim().isEmpty()) {
+            if (id1.trim().equalsIgnoreCase(id2.trim())) return true;
+        }
+
+        // 2. Sender + Content + Timestamp window (within 2 seconds)
+        String sender1 = m1.getSenderLogin() != null ? m1.getSenderLogin().trim() : "";
+        String sender2 = m2.getSenderLogin() != null ? m2.getSenderLogin().trim() : "";
+        if (java.util.Objects.equals(sender1, sender2)) {
+            long ts1 = m1.getTimestamp();
+            long ts2 = m2.getTimestamp();
+            long diff = Math.abs(ts1 - ts2);
+
+            String text1 = m1.getText() != null ? m1.getText().trim() : "";
+            String text2 = m2.getText() != null ? m2.getText().trim() : "";
+
+            if (!text1.isEmpty() && java.util.Objects.equals(text1, text2) && diff <= 2000L) {
+                return true;
+            }
+
+            // Media item path check
+            String img1 = m1.getImagePath() != null ? m1.getImagePath().trim() : "";
+            String img2 = m2.getImagePath() != null ? m2.getImagePath().trim() : "";
+            if (!img1.isEmpty() && java.util.Objects.equals(img1, img2) && diff <= 5000L) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static List<ChatMessage> deduplicateMessagesList(List<ChatMessage> rawList) {
         if (rawList == null || rawList.isEmpty()) return new ArrayList<>();
         List<ChatMessage> result = new ArrayList<>();
-        Set<String> seenIds = new HashSet<>();
-        Set<String> seenSigs = new HashSet<>();
 
         for (ChatMessage msg : rawList) {
             if (msg == null) continue;
-            String msgId = msg.getMessageId();
-            if (msgId != null && !msgId.trim().isEmpty()) {
-                String cleanId = msgId.trim();
-                if (seenIds.contains(cleanId)) {
-                    continue;
+            boolean duplicate = false;
+            for (int i = 0; i < result.size(); i++) {
+                ChatMessage existing = result.get(i);
+                if (isSameMessage(msg, existing)) {
+                    duplicate = true;
+                    if ((existing.getMessageId() == null || existing.getMessageId().trim().isEmpty()) && 
+                        (msg.getMessageId() != null && !msg.getMessageId().trim().isEmpty())) {
+                        result.set(i, msg);
+                    }
+                    break;
                 }
-                seenIds.add(cleanId);
-            } else {
-                String text = msg.getText() != null ? msg.getText() : "";
-                String sender = msg.getSenderLogin() != null ? msg.getSenderLogin() : "";
-                String sig = msg.getTimestamp() + "_" + sender + "_" + text;
-                if (seenSigs.contains(sig)) {
-                    continue;
-                }
-                seenSigs.add(sig);
             }
-            result.add(msg);
+            if (!duplicate) {
+                result.add(msg);
+            }
         }
         return result;
     }

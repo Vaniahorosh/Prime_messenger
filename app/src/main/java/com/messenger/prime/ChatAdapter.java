@@ -309,28 +309,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public void addMessageAnimated(ChatMessage message) {
         if (message == null) return;
-        String msgId = message.getMessageId();
-        if (msgId != null && !msgId.trim().isEmpty()) {
-            int pos = findPositionByMessageId(msgId.trim());
-            if (pos != -1) {
-                messages.set(pos, message);
-                notifyItemChanged(pos);
+        for (int i = 0; i < messages.size(); i++) {
+            ChatMessage m = messages.get(i);
+            if (ChatHistoryManager.isSameMessage(message, m)) {
+                messages.set(i, message);
+                notifyItemChanged(i);
                 return;
-            }
-        } else {
-            for (int i = 0; i < messages.size(); i++) {
-                ChatMessage m = messages.get(i);
-                if (m != null && m.getTimestamp() == message.getTimestamp() &&
-                    Objects.equals(m.getSenderLogin(), message.getSenderLogin()) &&
-                    Objects.equals(m.getText(), message.getText())) {
-                    messages.set(i, message);
-                    notifyItemChanged(i);
-                    return;
-                }
             }
         }
         messages.add(message);
-        newlyAnimatedMessageId = msgId;
+        newlyAnimatedMessageId = message.getMessageId();
         notifyItemInserted(messages.size() - 1);
     }
 
