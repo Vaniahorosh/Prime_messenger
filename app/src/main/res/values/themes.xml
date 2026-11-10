@@ -42,6 +42,9 @@
         <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Material3.Expressive.Medium</item>
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Material3.Expressive.Small</item>
 
+        <item name="materialSwitchStyle">@style/Widget.Material3.CompoundButton.MaterialSwitch</item>
+        <item name="sliderStyle">@style/Widget.Material3.Slider</item>
+
         <item name="materialAlertDialogTheme">@style/Theme.Prime.AlertDialog</item>
         <item name="popupMenuStyle">@style/Widget.Prime.PopupMenu</item>
         <item name="android:popupMenuStyle">@style/Widget.Prime.PopupMenu</item>
