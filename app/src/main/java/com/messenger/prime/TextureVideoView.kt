@@ -367,6 +367,13 @@ class TextureVideoView @JvmOverloads constructor(
         val videoAspect = realWidth / realHeight
         val viewAspect = viewWidth / viewHeight
 
+        // Если соотношение сторон видео почти совпадает со спеком представления (1:1 круг/квадрат), сбрасываем матрицу для исключения искажений!
+        if (Math.abs(videoAspect - viewAspect) < 0.05f) {
+            setTransform(null)
+            invalidate()
+            return
+        }
+
         val scaleX: Float
         val scaleY: Float
 
@@ -379,8 +386,7 @@ class TextureVideoView @JvmOverloads constructor(
         }
 
         val cx = viewWidth / 2f
-        // Позиционируем точку масштабирования чуть выше центра (38%), чтобы лицо в видео-кружке не обрезалось сверху
-        val cy = if (videoAspect < viewAspect) (viewHeight * 0.38f) else (viewHeight / 2f)
+        val cy = viewHeight / 2f
 
         val matrix = Matrix()
         matrix.setScale(scaleX, scaleY, cx, cy)

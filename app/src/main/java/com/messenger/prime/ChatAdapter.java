@@ -1803,22 +1803,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private void animateExpandVideoNoteContainer(View vnContainer, boolean isOutgoing) {
         if (vnContainer == null) return;
-        disableParentClipping(vnContainer);
         vnContainer.animate().cancel();
-        vnContainer.setPivotX(vnContainer.getWidth() / 2f);
-        vnContainer.setPivotY(vnContainer.getHeight() / 2f);
-        vnContainer.setHasTransientState(true);
-        vnContainer.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-        float density = vnContainer.getContext().getResources().getDisplayMetrics().density;
-        
-        vnContainer.animate()
-            .scaleX(1.15f)
-            .scaleY(1.15f)
-            .translationX(0f)
-            .translationZ(12f * density)
-            .setDuration(300)
-            .setInterpolator(new android.view.animation.OvershootInterpolator(1.1f))
-            .start();
+        vnContainer.setScaleX(1.0f);
+        vnContainer.setScaleY(1.0f);
+        vnContainer.setTranslationX(0f);
+        vnContainer.setTranslationY(0f);
+        vnContainer.setTranslationZ(0f);
     }
 
     private void animateShrinkVideoNoteContainer(View vnContainer) {
@@ -2327,7 +2317,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         SharedPreferences sharedPrefs = container.getContext().getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
         int sizeDp = sharedPrefs.getInt("video_message_size_dp", 180);
 
-        int radiusPercent = sharedPrefs.getInt("video_message_corner_radius", 50);
+        int radiusPercent = 50; // По умолчанию идеальный круг
         if (shape != null && !shape.isEmpty()) {
             try {
                 radiusPercent = Integer.parseInt(shape.trim());
@@ -2338,6 +2328,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     radiusPercent = 35;
                 } else if ("prime".equalsIgnoreCase(shape)) {
                     radiusPercent = 25;
+                } else if ("circle".equalsIgnoreCase(shape)) {
+                    radiusPercent = 50;
                 }
             }
         }
@@ -2352,12 +2344,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             container.setLayoutParams(lp);
         }
 
-        final float cornerRadiusPx = sizePx * (radiusPercent / 100f);
-
+        final int targetPercent = radiusPercent;
         android.view.ViewOutlineProvider provider = new android.view.ViewOutlineProvider() {
             @Override
             public void getOutline(View view, android.graphics.Outline outline) {
-                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), cornerRadiusPx);
+                int w = view.getWidth() > 0 ? view.getWidth() : sizePx;
+                int h = view.getHeight() > 0 ? view.getHeight() : sizePx;
+                float cornerRadiusPx = Math.min(w, h) * (targetPercent / 100f);
+                outline.setRoundRect(0, 0, w, h, cornerRadiusPx);
             }
         };
 
