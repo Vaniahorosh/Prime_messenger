@@ -87,7 +87,11 @@
                 android:clipChildren="false"
                 android:clipToPadding="false"
                 android:orientation="vertical"
+                android:layerType="hardware"
                 android:elevation="0dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
                 android:padding="12dp">
 
         <!-- Бесшовный фигурный контейнер для кружков (без фона пузыря) -->

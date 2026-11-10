@@ -20,9 +20,14 @@ object AiChatStorage {
 
     private const val FILE_NAME = "ai_chat_sessions.json"
     private const val PREF_KEY_ACTIVE_SESSION = "ai_active_session_id"
+    
+    private var cachedSessions: MutableList<AiChatSession>? = null
+    private val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     @Synchronized
     fun getAllSessions(context: Context): MutableList<AiChatSession> {
+        cachedSessions?.let { return ArrayList(it) }
+        
         val file = File(context.filesDir, FILE_NAME)
         if (!file.exists()) return mutableListOf()
 
@@ -68,10 +73,14 @@ object AiChatStorage {
                     )
                 )
             }
+            list.sortByDescending { it.updatedAt }
+            cachedSessions = ArrayList(list)
+            return list
         } catch (e: Exception) {
             e.printStackTrace()
         }
         list.sortByDescending { it.updatedAt }
+        cachedSessions = ArrayList(list)
         return list
     }
 
@@ -124,31 +133,39 @@ object AiChatStorage {
 
     @Synchronized
     private fun saveAllSessions(context: Context, sessions: List<AiChatSession>) {
-        val jsonArr = JSONArray()
-        for (s in sessions) {
-            val sObj = JSONObject().apply {
-                put("id", s.id)
-                put("title", s.title)
-                put("createdAt", s.createdAt)
-                put("updatedAt", s.updatedAt)
-                put("modelName", s.modelName)
-                put("tokensUsed", s.tokensUsed)
+        cachedSessions = ArrayList(sessions)
+        
+        // Save to disk asynchronously
+        val appContext = context.applicationContext
+        val sessionsCopy = ArrayList(sessions)
+        
+        executor.execute {
+            val jsonArr = JSONArray()
+            for (s in sessionsCopy) {
+                val sObj = JSONObject().apply {
+                    put("id", s.id)
+                    put("title", s.title)
+                    put("createdAt", s.createdAt)
+                    put("updatedAt", s.updatedAt)
+                    put("modelName", s.modelName)
+                    put("tokensUsed", s.tokensUsed)
 
-                val mArr = JSONArray()
-                for (m in s.messages) {
-                    mArr.put(JSONObject().apply {
-                        put("text", m.text)
-                        put("isUser", m.isUser)
-                        put("time", m.time)
-                    })
+                    val mArr = JSONArray()
+                    for (m in s.messages) {
+                        mArr.put(JSONObject().apply {
+                            put("text", m.text)
+                            put("isUser", m.isUser)
+                            put("time", m.time)
+                        })
+                    }
+                    put("messages", mArr)
                 }
-                put("messages", mArr)
+                jsonArr.put(sObj)
             }
-            jsonArr.put(sObj)
-        }
 
-        val file = File(context.filesDir, FILE_NAME)
-        file.writeText(jsonArr.toString(), Charsets.UTF_8)
+            val file = File(appContext.filesDir, FILE_NAME)
+            file.writeText(jsonArr.toString(), Charsets.UTF_8)
+        }
     }
 
     fun getActiveSessionId(context: Context): String {

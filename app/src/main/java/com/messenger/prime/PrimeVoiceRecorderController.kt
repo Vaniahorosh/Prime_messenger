@@ -94,11 +94,21 @@ class PrimeVoiceRecorderController(
         PrimePredictiveBack.isGestureLocked = true
         listener.onRecordingStateChanged(true)
 
-        // Show record bar UI & hide input bar + attach button
-        etMessage.visibility = View.GONE
-        btnAttach?.visibility = View.GONE
+        // Show record bar UI with animation
+        etMessage.animate().alpha(0f).translationX(-50f).setDuration(200).withEndAction {
+            etMessage.visibility = View.GONE
+        }.start()
+        
+        btnAttach?.animate()?.alpha(0f)?.translationX(-50f)?.setDuration(200)?.withEndAction {
+            btnAttach.visibility = View.GONE
+        }?.start()
+        
         recordBar.visibility = View.VISIBLE
         recordBar.bringToFront()
+        recordBar.alpha = 0f
+        recordBar.translationX = 100f
+        recordBar.animate().alpha(1f).translationX(0f).setDuration(250).start()
+        
         liveWaveform.visibility = View.VISIBLE
         liveWaveform.setWaveform(emptyList())
         tvTimer.text = "0:00"
@@ -167,11 +177,18 @@ class PrimeVoiceRecorderController(
     }
 
     fun resetUI() {
-        recordBar.visibility = View.GONE
-        etMessage.visibility = View.VISIBLE
-        btnAttach?.visibility = View.VISIBLE
-        liveWaveform.visibility = View.GONE
+        recordBar.animate().alpha(0f).translationX(100f).setDuration(200).withEndAction {
+            recordBar.visibility = View.GONE
+            recordBar.translationX = 0f
+            liveWaveform.visibility = View.GONE
+            
+            etMessage.visibility = View.VISIBLE
+            etMessage.animate().alpha(1f).translationX(0f).setDuration(200).start()
+            
+            btnAttach?.visibility = View.VISIBLE
+            btnAttach?.animate()?.alpha(1f)?.translationX(0f)?.setDuration(200)?.start()
+        }.start()
+        
         liveWaveform.setWaveform(emptyList())
-        PrimePredictiveBack.isGestureLocked = false
     }
 }

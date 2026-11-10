@@ -93,7 +93,7 @@ class MediaPlayerActivity : AppCompatActivity() {
     private var tvMediaCounterBadge: TextView? = null
     private lateinit var tvSenderName: TextView
     private lateinit var tvTimestamp: TextView
-    private lateinit var btnPlayPause: ImageButton
+    private lateinit var btnPlayPause: com.google.android.material.floatingactionbutton.FloatingActionButton
     private lateinit var btnFullscreen: ImageButton
     private lateinit var bottomOverlay: View
     private lateinit var tvCaption: TextView

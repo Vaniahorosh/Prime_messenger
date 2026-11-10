@@ -176,8 +176,14 @@ object PrimeNotification {
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
-                params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                params.bottomMargin = inputBottomOffset
+                params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                // Add some top margin to avoid status bar overlap
+                val statusBarHeight = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    rootLayout.rootWindowInsets?.getInsets(android.view.WindowInsets.Type.statusBars())?.top ?: (32 * density).toInt()
+                } else {
+                    (32 * density).toInt()
+                }
+                params.topMargin = statusBarHeight + (8 * density).toInt()
                 notificationView.layoutParams = params
 
                 rootLayout.addView(notificationView)
@@ -192,7 +198,7 @@ object PrimeNotification {
                 notificationView.alpha = 0f
                 notificationView.scaleX = 0.92f
                 notificationView.scaleY = 0.92f
-                notificationView.translationY = 60f
+                notificationView.translationY = -60f
                 notificationView.animate()
                     .alpha(1f)
                     .scaleX(1.0f)

@@ -153,24 +153,23 @@
         tools:alpha="1"
         tools:translationY="0dp" />
 
-    <!-- 2. Кнопка Play/Pause в самом центре -->
-    <ImageButton
+    <!-- 2. Кнопка Play/Pause в самом центре (Material 3) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/btnPlayPause"
-        android:layout_width="64dp"
-        android:layout_height="64dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:alpha="0"
-        android:background="@drawable/bg_floating_island"
+        app:elevation="12dp"
         android:contentDescription="Воспроизвести или пауза"
-        android:elevation="12dp"
-        android:padding="12dp"
-        android:scaleType="fitCenter"
-        android:src="@drawable/ic_media_play"
+        app:srcCompat="@drawable/ic_media_play"
         android:visibility="gone"
+        app:tint="@color/white"
+        app:backgroundTint="@color/prime_brand"
+        app:shapeAppearance="@style/ShapeAppearance.Material3.Expressive.Large"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:tint="@color/prime_text_primary" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <!-- 3. Нижний оверлей управления -->
     <eightbitlab.com.blurview.BlurView

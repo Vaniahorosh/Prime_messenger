@@ -654,6 +654,11 @@ class PrimeVideoMessageRecorder(
 
         overlayView.bringToFront()
         overlayView.visibility = View.VISIBLE
+        overlayView.alpha = 0f
+        overlayView.scaleX = 0.5f
+        overlayView.scaleY = 0.5f
+        overlayView.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(250).setInterpolator(android.view.animation.OvershootInterpolator()).start()
+        
         blurView?.setBlurAutoUpdate(true)
 
         videoPlaybackView?.visibility = View.GONE
@@ -934,7 +939,12 @@ class PrimeVideoMessageRecorder(
             visibility = View.GONE
         }
         blurView?.setBlurAutoUpdate(false)
-        overlayView.visibility = View.GONE
+        overlayView.animate().alpha(0f).scaleX(0.5f).scaleY(0.5f).setDuration(200).withEndAction {
+            overlayView.visibility = View.GONE
+            overlayView.alpha = 1f
+            overlayView.scaleX = 1f
+            overlayView.scaleY = 1f
+        }.start()
         layoutVideoLockIndicator?.visibility = View.GONE
         layoutVideoCancelContainer?.visibility = View.GONE
         layoutVideoCenterControls?.visibility = View.GONE

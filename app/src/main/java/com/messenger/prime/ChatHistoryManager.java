@@ -34,6 +34,10 @@ public class ChatHistoryManager {
     private static final String PREF_NAME = "PrimeChatHistory";
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
     private static final Map<String, List<ChatMessage>> memoryCache = new java.util.concurrent.ConcurrentHashMap<>();
+    
+    // Throttling for saving history
+    private static final Map<String, Runnable> pendingSaves = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final android.os.Handler saveHandler = new android.os.Handler(android.os.Looper.getMainLooper());
 
     public static byte[] readFileToBytes(File file) {
         if (file == null || !file.exists()) return null;
@@ -1096,7 +1100,27 @@ public class ChatHistoryManager {
 
     public static void saveHistoryList(Context context, String targetUsername, List<ChatMessage> history) {
         if (context == null || targetUsername == null || targetUsername.isEmpty()) return;
-        history = deduplicateMessagesList(history);
+        List<ChatMessage> deduplicatedHistory = deduplicateMessagesList(history);
+        String userKey = getHistoryStorageKey(context, targetUsername);
+        
+        // Быстро обновляем кэш
+        memoryCache.put(userKey, new ArrayList<>(deduplicatedHistory));
+        
+        // Откладываем запись на диск
+        Runnable saveTask = () -> {
+            flushHistoryToDisk(context, targetUsername, deduplicatedHistory);
+        };
+        
+        Runnable existing = pendingSaves.get(userKey);
+        if (existing != null) {
+            saveHandler.removeCallbacks(existing);
+        }
+        
+        pendingSaves.put(userKey, saveTask);
+        saveHandler.postDelayed(saveTask, 1500); // 1.5 seconds debounce
+    }
+
+    private static void flushHistoryToDisk(Context context, String targetUsername, List<ChatMessage> history) {
         String userKey = getHistoryStorageKey(context, targetUsername);
         String baseKey = getStorageKey(context, targetUsername);
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);

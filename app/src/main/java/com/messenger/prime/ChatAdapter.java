@@ -1819,12 +1819,17 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         vnContainer.setHasTransientState(true);
         vnContainer.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         float density = vnContainer.getContext().getResources().getDisplayMetrics().density;
+        
+        // Сдвигаем внутрь экрана, чтобы кружок не обрезался краями при увеличении
+        float shiftX = isOutgoing ? -20f * density : 20f * density;
+        
         vnContainer.animate()
-            .scaleX(1.32f)
-            .scaleY(1.32f)
-            .translationZ(16f * density)
-            .setDuration(320)
-            .setInterpolator(new android.view.animation.OvershootInterpolator(1.2f))
+            .scaleX(1.4f)
+            .scaleY(1.4f)
+            .translationX(shiftX)
+            .translationZ(24f * density)
+            .setDuration(400)
+            .setInterpolator(new android.view.animation.OvershootInterpolator(0.8f))
             .start();
     }
 
@@ -1834,9 +1839,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         vnContainer.animate()
             .scaleX(1.0f)
             .scaleY(1.0f)
+            .translationX(0f)
             .translationZ(0f)
-            .setDuration(250)
-            .setInterpolator(new android.view.animation.DecelerateInterpolator())
+            .setDuration(300)
+            .setInterpolator(androidx.core.view.animation.PathInterpolatorCompat.create(0.2f, 0.0f, 0.0f, 1.0f))
             .withEndAction(() -> {
                 vnContainer.setLayerType(View.LAYER_TYPE_NONE, null);
                 vnContainer.setHasTransientState(false);
@@ -2173,12 +2179,17 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         currentlyPlayingVideoNote = null;
                         currentlyPlayingPosition = -1;
                     } else {
-                        if (ivImg != null) ivImg.setVisibility(View.GONE);
+                        // Показываем плеер, но пока не скрываем картинку-превью, чтобы избежать черной вспышки
                         vvPlayer.setVisibility(View.VISIBLE);
                         if (ivPlayIcon != null) ivPlayIcon.setVisibility(View.GONE);
 
                         animateExpandVideoNoteContainer(vnContainer, isOutgoing);
                         vvPlayer.setVideoPath(videoPath);
+                        vvPlayer.setOnFirstFrameRenderedListener(() -> {
+                            if (ivImg != null && currentlyPlayingVideoNote == message) {
+                                ivImg.setVisibility(View.GONE);
+                            }
+                        });
                         vvPlayer.setOnPreparedListener(mp -> {
                             mp.setLooping(false);
                             requestAudioFocusForVideoNote(itemView.getContext());
