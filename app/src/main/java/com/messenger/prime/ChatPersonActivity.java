@@ -4748,18 +4748,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void syncDeletionsWithPeer() {
         ioExecutor.execute(() -> {
             try {
-                boolean localHistoryEmpty = ChatHistoryManager.loadMessages(this, targetUsername).isEmpty();
-                if (localHistoryEmpty && (ChatHistoryManager.isChatDeletedTombstone(this, targetUsername) || 
-                    (deviceAddress != null && ChatHistoryManager.isChatDeletedTombstone(this, deviceAddress)))) {
-                    sendPacket(TYPE_CHAT_DELETED, targetUsername.getBytes(StandardCharsets.UTF_8));
-                    return;
-                }
-                
-                if (!localHistoryEmpty) {
-                    ChatHistoryManager.clearChatDeletedTombstone(this, targetUsername);
-                    if (deviceAddress != null) ChatHistoryManager.clearChatDeletedTombstone(this, deviceAddress);
-                }
-
                 Set<String> deletedIds = ChatHistoryManager.getDeletedMessageTombstones(this, targetUsername);
                 if (deviceAddress != null && !deviceAddress.isEmpty()) {
                     deletedIds.addAll(ChatHistoryManager.getDeletedMessageTombstones(this, deviceAddress));
