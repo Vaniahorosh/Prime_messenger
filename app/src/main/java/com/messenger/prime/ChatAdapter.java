@@ -1025,13 +1025,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 vvNote.setVisibility(View.GONE);
             } catch (Exception ignored) {}
         }
-
-        try {
-            ImageView iv = holder.itemView.findViewById(R.id.ivMessageImage);
-            if (iv != null) {
-                Glide.with(holder.itemView.getContext()).clear(iv);
-            }
-        } catch (Exception ignored) {}
     }
 
     public void cleanup() {
@@ -1803,12 +1796,25 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private void animateExpandVideoNoteContainer(View vnContainer, boolean isOutgoing) {
         if (vnContainer == null) return;
+        disableParentClipping(vnContainer);
+        vnContainer.bringToFront();
+        if (vnContainer.getParent() != null && vnContainer.getParent() instanceof View) {
+            ((View) vnContainer.getParent()).bringToFront();
+        }
         vnContainer.animate().cancel();
-        vnContainer.setScaleX(1.0f);
-        vnContainer.setScaleY(1.0f);
-        vnContainer.setTranslationX(0f);
-        vnContainer.setTranslationY(0f);
-        vnContainer.setTranslationZ(0f);
+        vnContainer.setPivotX(vnContainer.getWidth() / 2f);
+        vnContainer.setPivotY(vnContainer.getHeight() / 2f);
+        vnContainer.setHasTransientState(true);
+        vnContainer.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        float density = vnContainer.getContext().getResources().getDisplayMetrics().density;
+        
+        vnContainer.animate()
+            .scaleX(1.22f)
+            .scaleY(1.22f)
+            .translationZ(16f * density)
+            .setDuration(280)
+            .setInterpolator(new android.view.animation.OvershootInterpolator(1.1f))
+            .start();
     }
 
     private void animateShrinkVideoNoteContainer(View vnContainer) {
