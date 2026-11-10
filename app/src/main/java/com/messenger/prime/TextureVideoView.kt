@@ -359,7 +359,7 @@ class TextureVideoView @JvmOverloads constructor(
         }
 
         val rotation = getRotationDegrees()
-        val isSwapped = (rotation == 90 || rotation == 270) && (rawVideoWidth > rawVideoHeight)
+        val isSwapped = (rotation == 90 || rotation == 270)
 
         val realWidth = if (isSwapped) rawVideoHeight.toFloat() else rawVideoWidth.toFloat()
         val realHeight = if (isSwapped) rawVideoWidth.toFloat() else rawVideoHeight.toFloat()
@@ -379,7 +379,8 @@ class TextureVideoView @JvmOverloads constructor(
         }
 
         val cx = viewWidth / 2f
-        val cy = viewHeight / 2f
+        // Позиционируем точку масштабирования чуть выше центра (38%), чтобы лицо в видео-кружке не обрезалось сверху
+        val cy = if (videoAspect < viewAspect) (viewHeight * 0.38f) else (viewHeight / 2f)
 
         val matrix = Matrix()
         matrix.setScale(scaleX, scaleY, cx, cy)

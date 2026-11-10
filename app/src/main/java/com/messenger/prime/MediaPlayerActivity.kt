@@ -77,7 +77,14 @@ class MediaPlayerActivity : AppCompatActivity() {
         @JvmStatic
         fun setSharedMediaList(list: List<ChatMessage>, startIndex: Int) {
             val filteredList = list.filterNot { msg ->
-                msg.isVideoNote || (msg.text != null && msg.text.startsWith("VIDEO_NOTE:")) || (msg.imagePath != null && msg.imagePath.contains("video_notes"))
+                msg.isVideoNote || 
+                (msg.text != null && msg.text.startsWith("VIDEO_NOTE:")) || 
+                (msg.imagePath != null && msg.imagePath.contains("video_notes")) ||
+                msg.messageType == ChatMessage.MessageType.VOICE ||
+                msg.messageType == ChatMessage.MessageType.MUSIC ||
+                msg.isMusic ||
+                msg.isVoiceMessage ||
+                (msg.imagePath != null && (msg.imagePath.contains("/voices/") || msg.imagePath.contains("voice_") || msg.imagePath.endsWith(".aac") || msg.imagePath.endsWith(".ogg") || msg.imagePath.endsWith(".mp3") || msg.imagePath.endsWith(".wav")))
             }
             sharedMediaList = filteredList
             sharedStartIndex = startIndex.coerceIn(0, (filteredList.size - 1).coerceAtLeast(0))

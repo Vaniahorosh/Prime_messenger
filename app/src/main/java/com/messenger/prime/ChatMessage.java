@@ -264,6 +264,18 @@ public class ChatMessage {
         return list;
     }
 
+    public boolean isVoiceMessage() {
+        if (messageType == MessageType.VOICE) return true;
+        if (text != null && (text.startsWith("VOICE:") || text.startsWith("voice_") || text.startsWith("vn_voice_"))) return true;
+        if (imagePath != null) {
+            String lower = imagePath.toLowerCase(Locale.US);
+            if (lower.contains("/voices/") || lower.contains("voice_") || lower.endsWith(".aac") || lower.endsWith(".ogg") || lower.endsWith(".opus") || lower.endsWith(".amr")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public boolean isMusic() {
         if (messageType == MessageType.VOICE) return false;
         if (messageType == MessageType.MUSIC) return true;

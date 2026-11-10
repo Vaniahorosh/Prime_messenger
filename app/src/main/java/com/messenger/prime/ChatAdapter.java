@@ -1212,11 +1212,15 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         int offset = (selectedMediaIndex >= 0 && selectedMediaIndex < items.size()) ? selectedMediaIndex : 0;
                         startIndex = baseIndex + offset;
                     }
-                } else if (msg.getMessageType() == ChatMessage.MessageType.IMAGE || 
-                           msg.getMessageType() == ChatMessage.MessageType.VIDEO || 
-                           msg.isVideo() || 
-                           msg.getImageBitmap() != null || 
-                           (msg.getImagePath() != null && !msg.getImagePath().isEmpty())) {
+                } else if (!msg.isVoiceMessage() && !msg.isMusic() &&
+                           msg.getMessageType() != ChatMessage.MessageType.VOICE &&
+                           msg.getMessageType() != ChatMessage.MessageType.MUSIC &&
+                           !msg.isVideoNote() &&
+                           (msg.getMessageType() == ChatMessage.MessageType.IMAGE || 
+                            msg.getMessageType() == ChatMessage.MessageType.VIDEO || 
+                            msg.isVideo() || 
+                            msg.getImageBitmap() != null || 
+                            (msg.getImagePath() != null && !msg.getImagePath().isEmpty()))) {
                     
                     if (msg.getMessageType() == ChatMessage.MessageType.TEXT || msg.getMessageType() == ChatMessage.MessageType.FILE) {
                         msg.setMessageType(msg.isVideo() ? ChatMessage.MessageType.VIDEO : ChatMessage.MessageType.IMAGE);
