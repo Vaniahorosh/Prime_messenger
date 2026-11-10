@@ -500,6 +500,7 @@ class ChatListActivity : AppCompatActivity() {
     private val isFoundDeviceDialogVisible = mutableStateOf(false)
     private var foundDeviceName: String = ""
     private var foundDeviceMac: String = ""
+    private var hasAskedDiscoverableThisSession = false
 
     var currentSearchQuery: String = ""
         private set
@@ -4871,8 +4872,9 @@ class ChatListActivity : AppCompatActivity() {
 
         performDiscovery()
 
-        // Only prompt for discoverability if not already discoverable to avoid loop of system prompts
-        if (bluetoothAdapter?.scanMode != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
+        // Железобетонное правило: системный запрос видимости Bluetooth вызывается максимум 1 раз за сессию, чтобы не спамить диалогами
+        if (!hasAskedDiscoverableThisSession && bluetoothAdapter?.scanMode != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
+            hasAskedDiscoverableThisSession = true
             try {
                 val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
                     putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120)
