@@ -249,7 +249,8 @@ class PrimeWaterLoadingView @JvmOverloads constructor(
     }
 
     private fun drawBorderProgress(canvas: Canvas, w: Float, h: Float) {
-        val radius = min(w, h) * 0.45f
+        val strokeHalf = (8f * resources.displayMetrics.density) / 2f
+        val radius = (min(w, h) / 2f) - strokeHalf
         reusableNativePath.rewind()
 
         val density = resources.displayMetrics.density

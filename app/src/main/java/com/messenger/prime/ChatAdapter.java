@@ -2351,30 +2351,28 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
 
         final int targetPercent = radiusPercent;
-        android.view.ViewOutlineProvider provider = new android.view.ViewOutlineProvider() {
-            @Override
-            public void getOutline(View view, android.graphics.Outline outline) {
-                int w = view.getWidth() > 0 ? view.getWidth() : sizePx;
-                int h = view.getHeight() > 0 ? view.getHeight() : sizePx;
-                float cornerRadiusPx = Math.min(w, h) * (targetPercent / 100f);
-                outline.setRoundRect(0, 0, w, h, cornerRadiusPx);
-            }
-        };
+        final float cornerRadiusPx = (targetPercent >= 50) ? (sizePx / 2f) : (sizePx * (targetPercent / 100f));
 
-        container.setOutlineProvider(provider);
-        container.setClipToOutline(true);
-        container.invalidateOutline();
+        if (container instanceof com.google.android.material.card.MaterialCardView) {
+            com.google.android.material.card.MaterialCardView card = (com.google.android.material.card.MaterialCardView) container;
+            card.setRadius(cornerRadiusPx);
+        } else {
+            android.view.ViewOutlineProvider provider = new android.view.ViewOutlineProvider() {
+                @Override
+                public void getOutline(View view, android.graphics.Outline outline) {
+                    int w = view.getWidth() > 0 ? view.getWidth() : sizePx;
+                    int h = view.getHeight() > 0 ? view.getHeight() : sizePx;
+                    float r = (targetPercent >= 50) ? (Math.min(w, h) / 2f) : (Math.min(w, h) * (targetPercent / 100f));
+                    outline.setRoundRect(0, 0, w, h, r);
+                }
+            };
+            container.setOutlineProvider(provider);
+            container.setClipToOutline(true);
+            container.invalidateOutline();
+        }
 
         if (img != null) {
-            img.setOutlineProvider(provider);
-            img.setClipToOutline(true);
             img.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            img.invalidateOutline();
-        }
-        if (vv != null) {
-            vv.setOutlineProvider(provider);
-            vv.setClipToOutline(true);
-            vv.invalidateOutline();
         }
     }
 
