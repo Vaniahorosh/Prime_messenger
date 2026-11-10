@@ -502,15 +502,19 @@ public class ChatHistoryManager {
         if (targetUsername == null || targetUsername.isEmpty() || messageId == null || messageId.isEmpty()) return;
         Context appContext = context.getApplicationContext();
         String userKey = getHistoryStorageKey(appContext, targetUsername);
+        String cleanId = messageId.trim();
 
         synchronized (memoryCache) {
             List<ChatMessage> history = memoryCache.get(userKey);
             if (history == null) {
                 history = loadMessagesFromDisk(appContext, targetUsername);
             }
+            boolean removed = false;
             for (int i = 0; i < history.size(); i++) {
-                if (messageId.equals(history.get(i).getMessageId())) {
+                ChatMessage m = history.get(i);
+                if (m != null && m.getMessageId() != null && cleanId.equalsIgnoreCase(m.getMessageId().trim())) {
                     ChatMessage msg = history.remove(i);
+                    removed = true;
                     if (msg.getImagePath() != null && !msg.getImagePath().isEmpty()) {
                         try {
                             File file = new File(msg.getImagePath());
@@ -518,6 +522,21 @@ public class ChatHistoryManager {
                         } catch (Exception ignored) {}
                     }
                     break;
+                }
+            }
+            if (!removed) {
+                for (int i = 0; i < history.size(); i++) {
+                    ChatMessage m = history.get(i);
+                    if (m != null && m.getMessageId() != null && (m.getMessageId().contains(cleanId) || cleanId.contains(m.getMessageId()))) {
+                        ChatMessage msg = history.remove(i);
+                        if (msg.getImagePath() != null && !msg.getImagePath().isEmpty()) {
+                            try {
+                                File file = new File(msg.getImagePath());
+                                if (file.exists()) file.delete();
+                            } catch (Exception ignored) {}
+                        }
+                        break;
+                    }
                 }
             }
             memoryCache.put(userKey, new ArrayList<>(history));

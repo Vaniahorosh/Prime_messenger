@@ -1793,7 +1793,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 ((android.view.ViewGroup) p).setClipChildren(false);
                 ((android.view.ViewGroup) p).setClipToPadding(false);
             }
-            if (p instanceof androidx.recyclerview.widget.RecyclerView) break;
             p = p.getParent();
         }
     }
@@ -1808,16 +1807,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         vnContainer.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         float density = vnContainer.getContext().getResources().getDisplayMetrics().density;
         
-        // Сдвигаем внутрь экрана, чтобы кружок не обрезался краями при увеличении
-        float shiftX = isOutgoing ? -20f * density : 20f * density;
-        
         vnContainer.animate()
-            .scaleX(1.4f)
-            .scaleY(1.4f)
-            .translationX(shiftX)
-            .translationZ(24f * density)
-            .setDuration(400)
-            .setInterpolator(new android.view.animation.OvershootInterpolator(0.8f))
+            .scaleX(1.15f)
+            .scaleY(1.15f)
+            .translationX(0f)
+            .translationZ(12f * density)
+            .setDuration(300)
+            .setInterpolator(new android.view.animation.OvershootInterpolator(1.1f))
             .start();
     }
 
@@ -2167,21 +2163,31 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         currentlyPlayingVideoNote = null;
                         currentlyPlayingPosition = -1;
                     } else {
-                        // Показываем плеер, но пока не скрываем картинку-превью, чтобы избежать черной вспышки
                         vvPlayer.setVisibility(View.VISIBLE);
                         if (ivPlayIcon != null) ivPlayIcon.setVisibility(View.GONE);
 
                         animateExpandVideoNoteContainer(vnContainer, isOutgoing);
                         vvPlayer.setVideoPath(videoPath);
                         vvPlayer.setOnFirstFrameRenderedListener(() -> {
-                            if (ivImg != null && currentlyPlayingVideoNote == message) {
-                                ivImg.setVisibility(View.GONE);
+                            if (ivImg != null) {
+                                ivImg.animate().alpha(0f).setDuration(150).withEndAction(() -> {
+                                    ivImg.setVisibility(View.GONE);
+                                    ivImg.setAlpha(1f);
+                                }).start();
                             }
                         });
                         vvPlayer.setOnPreparedListener(mp -> {
                             mp.setLooping(false);
                             requestAudioFocusForVideoNote(itemView.getContext());
                             mp.start();
+                            // Резервный вызов скрытия картинки, если первая рамка не сработала
+                            if (ivImg != null) {
+                                ivImg.postDelayed(() -> {
+                                    if (vvPlayer.isPlaying()) {
+                                        ivImg.setVisibility(View.GONE);
+                                    }
+                                }, 100);
+                            }
                             startVideoProgressAnimation(vvPlayer, pbFrame);
                             currentlyPlayingVideoNote = message;
                             currentlyPlayingPosition = position;
