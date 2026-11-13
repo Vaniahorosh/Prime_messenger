@@ -49,13 +49,17 @@ import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.widget.CheckBox
 import android.widget.CompoundButton
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.TextView
+import org.json.JSONArray
+import org.json.JSONObject
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -291,17 +295,17 @@ class SettingsActivity : AppCompatActivity() {
         ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
         
-        setContentView(R.layout.activity_settings)
+        val b = ActivitySettingsContentBinding.inflate(layoutInflater)
+        binding = b
+        setContentView(b.root)
 
         UpdateChecker.checkForUpdates(this)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
 
-        // PrimePredictiveBack is now attached centrally in PrimeApplication
-
-        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        setupEdgeToEdge(isDarkIcons = !isDark)
+        val darkTheme = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        setupEdgeToEdge(isDarkIcons = !darkTheme)
 
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
@@ -320,192 +324,100 @@ class SettingsActivity : AppCompatActivity() {
         currentAvatarUri = savedAvatarUri
         avatarUriState.value = savedAvatarUri
 
-        findViewById<ComposeView>(R.id.composeRoot).setContent {
-            val darkTheme = isSystemInDarkTheme()
-            val isThemeVisible = isThemeDialogVisible.value
-            val density = LocalDensity.current
-            val statusBarTopPx = WindowInsets.statusBars.getTop(density)
-            val navBarBottomPx = WindowInsets.navigationBars.getBottom(density)
-            
-            PrimeTheme(darkTheme = darkTheme) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    LavaBackgroundState.onActivityResumed()
+        // Сброс смещений при инициализации
+        b.layoutSettingsBodyContainer.translationY = 0f
 
-                    AndroidView(
-                        factory = { _ ->
-                            val view = layoutInflater.inflate(R.layout.activity_settings_content, null)
-                            val b = ActivitySettingsContentBinding.bind(view)
-                            binding = b
+        b.tvUserNameStatic.text = savedName
+        b.tvUserNameWP.text = savedName
+        b.tvUserNameWP.isSelected = true
+        b.etSettingsName.setText(savedName)
+        b.etSettingsLogin.setText(currentUser)
+        b.etSettingsPassword.setText(currentPassInDB)
+        b.tvAccountHeaderSummary.text = savedName
+        val versionName = try {
+            val pInfo = packageManager.getPackageInfo(packageName, 0)
+            val vName = pInfo.versionName ?: "1.0"
+            val vCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                pInfo.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                pInfo.versionCode.toLong()
+            }
+            "Prime $vName (build $vCode)"
+        } catch (e: Exception) {
+            "Prime ${BuildConfig.VERSION_NAME}"
+        }
+        b.tvAppVersion.text = versionName
 
-                            // Сброс смещений при инициализации
-                            b.layoutSettingsBodyContainer.translationY = 0f
+        setupAccountCollapsible(b)
+        setupComposePhoto(b)
+        setupListeners(b)
+        applyAvatarState(savedAvatarUri)
 
-                            b.tvUserNameStatic.text = savedName
-                            b.tvUserNameWP.text = savedName
-                            b.tvUserNameWP.isSelected = true
-                            b.etSettingsName.setText(savedName)
-                            b.etSettingsLogin.setText(currentUser)
-                            b.etSettingsPassword.setText(currentPassInDB)
-                            b.tvAccountHeaderSummary.text = savedName
-                            val versionName = try {
-                                val pInfo = packageManager.getPackageInfo(packageName, 0)
-                                val vName = pInfo.versionName ?: "1.0"
-                                val vCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                                    pInfo.longVersionCode
-                                } else {
-                                    @Suppress("DEPRECATION")
-                                    pInfo.versionCode.toLong()
-                                }
-                                "Prime $vName (build $vCode)"
-                            } catch (e: Exception) {
-                                "Prime ${BuildConfig.VERSION_NAME}"
-                            }
-                            b.tvAppVersion.text = versionName
-
-                            val isExpanded = sharedPrefs.getBoolean("settings_account_expanded", false)
-                            b.layoutAccountCollapsible.visibility = if (isExpanded) View.VISIBLE else View.GONE
-                            b.ivAccountArrow.rotation = if (isExpanded) -90f else 90f
-
-                            setupComposePhoto(b)
-                            setupListeners(b)
-                            applyAvatarState(savedAvatarUri)
-
-                            // Инициализация живого фона в шапке
-                            b.composeHeaderBackground.apply {
-                                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-                                setContent {
-                                    PrimeTheme(darkTheme = darkTheme) {
-                                        AnimatedBackground(
-                                            darkTheme = darkTheme,
-                                            ignoreSettingsToggle = false
-                                        )
-                                    }
-                                }
-                            }
-
-                            b.nestedScrollView.setBackgroundColor(ContextCompat.getColor(this@SettingsActivity, R.color.prime_base))
-                            b.headerStaticBlock.clipChildren = true
-
-                            val sysDensity = resources.displayMetrics.density
-                            val initialExtraPadding = (12 * sysDensity).toInt()
-                            val initialTopInset = if (statusBarTopPx > 0) statusBarTopPx else getStatusBarHeight()
-
-                            b.headerStaticBlock.updatePadding(top = 0)
-                            b.layoutWithPhoto.updatePadding(
-                                top = initialTopInset + initialExtraPadding,
-                                bottom = initialExtraPadding
-                            )
-                            b.layoutNoPhoto.updatePadding(
-                                top = initialTopInset + initialExtraPadding,
-                                bottom = initialExtraPadding
-                            )
-
-                            ViewCompat.setOnApplyWindowInsetsListener(view) { _, insets ->
-                                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                                val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
-                                val sDensity = resources.displayMetrics.density
-                                val extraPadding = (12 * sDensity).toInt()
-                                val topInset = if (systemBars.top > 0) systemBars.top else getStatusBarHeight()
-
-                                b.root.setPadding(cutout.left, 0, cutout.right, 0)
-
-                                b.headerStaticBlock.updatePadding(top = 0)
-                                b.layoutWithPhoto.updatePadding(
-                                    top = maxOf(topInset, cutout.top) + extraPadding,
-                                    bottom = extraPadding
-                                )
-                                b.layoutNoPhoto.updatePadding(
-                                    top = maxOf(topInset, cutout.top) + extraPadding,
-                                    bottom = extraPadding
-                                )
-                                
-                                b.nestedScrollView.updatePadding(bottom = maxOf(systemBars.bottom, cutout.bottom))
-                                insets
-                            }
-                            ViewCompat.requestApplyInsets(view)
-
-                            val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-                            windowInsetsController.isAppearanceLightStatusBars = !darkTheme
-
-                            // Инициализация кнопок с эффектом BlurView
-                            setupBlurButtons(b, darkTheme)
-                            setupStickyBlurToolbar(b, darkTheme)
-
-                            b.headerStaticBlock.translationZ = 4f
-                            b.photoCard.translationZ = 8f
-
-                            view
-                        },
-                        update = { _ ->
-                            val b = binding ?: return@AndroidView
-                            val sysDensity = resources.displayMetrics.density
-                            val extraPadding = (12 * sysDensity).toInt()
-                            val topInset = if (statusBarTopPx > 0) statusBarTopPx else getStatusBarHeight()
-
-                            b.headerStaticBlock.updatePadding(top = 0)
-                            b.layoutWithPhoto.updatePadding(
-                                top = topInset + extraPadding,
-                                bottom = extraPadding
-                            )
-                            b.layoutNoPhoto.updatePadding(
-                                top = topInset + extraPadding,
-                                bottom = extraPadding
-                            )
-                            
-                            if (navBarBottomPx > 0) {
-                                b.nestedScrollView.updatePadding(bottom = navBarBottomPx)
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
+        // Инициализация живого фона в шапке
+        b.composeHeaderBackground.apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                PrimeTheme(darkTheme = darkTheme) {
+                    AnimatedBackground(
+                        darkTheme = darkTheme,
+                        ignoreSettingsToggle = false
                     )
-
-                    // Кастомное окно выбора темы с эффектом BlurView
-                    if (isThemeVisible) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(ComposeColor.Black.copy(alpha = 0.4f))
-                                .clickable { isThemeDialogVisible.value = false },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            GlassCard(
-                                modifier = Modifier
-                                    .padding(32.dp)
-                                    .fillMaxWidth()
-                                    .clickable(enabled = false) { } 
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    androidx.compose.material3.Text(
-                                        text = "Тема оформления",
-                                        color = ComposeColor.White,
-                                        style = androidx.compose.material3.MaterialTheme.typography.titleLarge,
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                    )
-                                    
-                                    Spacer(modifier = Modifier.height(24.dp))
-                                    
-                                    val currentTheme = sharedPrefs.getString("app_theme", "system")
-                                    
-                                    ThemeOptionItem("Системная (Рекомендуется)", "system", currentTheme == "system") {
-                                        applyThemeChange("system")
-                                    }
-                                    ThemeOptionItem("Светлая", "light", currentTheme == "light") {
-                                        applyThemeChange("light")
-                                    }
-                                    ThemeOptionItem("Темная", "dark", currentTheme == "dark") {
-                                        applyThemeChange("dark")
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
 
+        b.nestedScrollView.setBackgroundColor(ContextCompat.getColor(this@SettingsActivity, R.color.prime_base))
+        b.headerStaticBlock.clipChildren = true
+
+        val sysDensity = resources.displayMetrics.density
+        val initialExtraPadding = (12 * sysDensity).toInt()
+        val initialTopInset = getStatusBarHeight()
+
+        b.headerStaticBlock.updatePadding(top = 0)
+        b.layoutWithPhoto.updatePadding(
+            top = initialTopInset + initialExtraPadding,
+            bottom = initialExtraPadding
+        )
+        b.layoutNoPhoto.updatePadding(
+            top = initialTopInset + initialExtraPadding,
+            bottom = initialExtraPadding
+        )
+
+        ViewCompat.setOnApplyWindowInsetsListener(b.root) { _, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            val sDensity = resources.displayMetrics.density
+            val extraPadding = (12 * sDensity).toInt()
+            val topInset = if (systemBars.top > 0) systemBars.top else getStatusBarHeight()
+
+            b.root.setPadding(cutout.left, 0, cutout.right, 0)
+
+            b.headerStaticBlock.updatePadding(top = 0)
+            b.layoutWithPhoto.updatePadding(
+                top = maxOf(topInset, cutout.top) + extraPadding,
+                bottom = extraPadding
+            )
+            b.layoutNoPhoto.updatePadding(
+                top = maxOf(topInset, cutout.top) + extraPadding,
+                bottom = extraPadding
+            )
+            
+            b.nestedScrollView.updatePadding(bottom = maxOf(systemBars.bottom, cutout.bottom))
+            insets
+        }
+        ViewCompat.requestApplyInsets(b.root)
+
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController.isAppearanceLightStatusBars = !darkTheme
+
+        // Инициализация кнопок с эффектом BlurView
+        setupBlurButtons(b, darkTheme)
+        setupStickyBlurToolbar(b, darkTheme)
+        setupM3ECardsAndSections(b)
+
+        b.headerStaticBlock.translationZ = 4f
+        b.photoCard.translationZ = 8f
 
         onBackPressedDispatcher.addCallback(this, backCallback)
     }
@@ -547,8 +459,7 @@ class SettingsActivity : AppCompatActivity() {
                             val h = AvatarHistoryManager.getMyAvatarHistory(this@SettingsActivity)
                             if (currentAvatarIndex in h.indices) {
                                 val selectedUri = h[currentAvatarIndex]
-                                AvatarHistoryManager.addMyAvatar(this@SettingsActivity, selectedUri)
-                                currentAvatarIndex = 0
+                                AvatarHistoryManager.setActiveMyAvatar(this@SettingsActivity, selectedUri)
                                 currentAvatarUri = selectedUri
                                 avatarUriState.value = selectedUri
                                 applyAvatarState(selectedUri)
@@ -688,6 +599,56 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         dialog.show()
+    }
+
+    private fun setupM3ECardsAndSections(b: ActivitySettingsContentBinding) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            updateAccentUi(b)
+            
+            // Postpone heavy button shape initialization so it doesn't freeze the entrance animation
+            b.nestedScrollView.postDelayed({
+                val buttons = listOf(
+                    b.btnBackWP, b.btnChangePhotoWP, b.btnLogoutWP, b.btnExtraSettingsWP,
+                    b.btnBackNP, b.btnChangePhotoNP, b.btnLogoutNP, b.btnExtraSettingsNP
+                )
+                
+                val shapes = listOf(
+                    com.messenger.prime.shapes.M3EShapes.cookie6Sided,
+                    com.messenger.prime.shapes.M3EShapes.flower,
+                    com.messenger.prime.shapes.M3EShapes.verySunny,
+                    com.messenger.prime.shapes.M3EShapes.cookie7Sided,
+                    com.messenger.prime.shapes.M3EShapes.circle
+                )
+                
+                val btnBgColor = ContextCompat.getColor(this, R.color.glass_white_20)
+                
+                for ((index, btn) in buttons.withIndex()) {
+                    if (btn == null) continue
+                    
+                    // Use safe drawable background instead of buggy OutlineProvider
+                    btn.outlineProvider = null
+                    btn.clipToOutline = false
+                    btn.elevation = 0f
+                    btn.background = com.messenger.prime.shapes.M3EDrawable(shapes.random(), btnBgColor)
+                    
+                    // Beautiful entrance animation
+                    btn.scaleX = 0.5f
+                    btn.scaleY = 0.5f
+                    btn.alpha = 0f
+                    btn.animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .alpha(1f)
+                        .setDuration(350)
+                        .setStartDelay((index % 4) * 40L) // Delay per row/group
+                        .setInterpolator(android.view.animation.OvershootInterpolator(1.2f))
+                        .start()
+                }
+            }, 100) // Small delay allows the Activity transition to finish smoothly
+        }
+        
+        // Removed drawing cache optimizations - they cause OOM and ANRs on huge NestedScrollViews
+        b.nestedScrollView.isDrawingCacheEnabled = false
     }
 
     private fun setupBlurButtons(b: ActivitySettingsContentBinding, darkTheme: Boolean) {
@@ -1367,14 +1328,6 @@ class SettingsActivity : AppCompatActivity() {
         val expressRadiusPx = 28f * density
 
         try {
-            b.photoCard?.addBounceTouchEffect()
-            b.btnBackNP.addBounceTouchEffect()
-            b.btnLogoutNP.addBounceTouchEffect()
-            b.btnChangePhotoNP.addBounceTouchEffect()
-            b.btnExtraSettingsNP.addBounceTouchEffect()
-            b.cardGithub.addBounceTouchEffect()
-            b.cardThanks.addBounceTouchEffect()
-
             val cardsToStyle = arrayOf(
                 b.cardTheme,
                 b.cardNavStyleSection,
@@ -1396,7 +1349,6 @@ class SettingsActivity : AppCompatActivity() {
                     if (it is com.google.android.material.card.MaterialCardView) {
                         it.radius = expressRadiusPx
                     }
-                    it.addBounceTouchEffect()
                 }
             }
         } catch (e: Exception) {
@@ -1497,8 +1449,6 @@ class SettingsActivity : AppCompatActivity() {
         b.switchLavaBg.setOnCheckedChangeListener(null)
         val isLavaOn = sharedPrefs.getBoolean("settings_lava_bg", true)
         b.switchLavaBg.isChecked = isLavaOn
-        updateLavaPreview(isLavaOn)
-
         b.btnResetLava?.visibility = if (!isLavaOn) View.VISIBLE else View.GONE
         b.btnResetLava?.setOnClickListener {
             b.switchLavaBg.isChecked = true
@@ -1517,18 +1467,27 @@ class SettingsActivity : AppCompatActivity() {
             com.messenger.prime.browser.AppBrowserManager.openUrl(this, "https://github.com/Vaniahorosh/Prime_messenger")
         }
 
-        setupThanksCard(b)
-        setupStorageSection(b)
-        setupBrowserSection(b)
-        setupWallpaperSection(b)
         setupNavStyleSection(b)
-        setupBubbleRadiusSection(b)
-        setupAvatarRadiusSection(b)
-        setupChatStyleSection(b)
-        setupPartnerInfoSection(b)
-        setupBottomBarRadiusSection(b)
-        setupVideoMessageSection(b)
-        setupDisableAnimationsSection(b)
+
+        b.root.post {
+            if (!isFinishing && !isDestroyed) {
+                if (isLavaOn) {
+                    updateLavaPreview(true)
+                }
+                setupThanksCard(b)
+                setupStorageSection(b)
+                setupBrowserSection(b)
+                setupWallpaperSection(b)
+                setupBubbleRadiusSection(b)
+                setupAvatarRadiusSection(b)
+                setupChatStyleSection(b)
+                setupPartnerInfoSection(b)
+                setupM3EShapesChatSection(b)
+                setupBottomBarRadiusSection(b)
+                setupVideoMessageSection(b)
+                setupDisableAnimationsSection(b)
+            }
+        }
     }
 
     private fun setupBrowserSection(b: ActivitySettingsContentBinding) {
@@ -1670,6 +1629,16 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupM3EShapesChatSection(b: ActivitySettingsContentBinding) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val isEnabled = sharedPrefs.getBoolean("m3e_shapes_chat_enabled", true)
+        b.switchM3EShapesChat?.isChecked = isEnabled
+
+        b.switchM3EShapesChat?.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("m3e_shapes_chat_enabled", isChecked).apply()
+        }
+    }
+
     private fun setupBottomBarRadiusSection(b: ActivitySettingsContentBinding) {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentRadius = sharedPrefs.getInt("settings_chat_ui_radius_dp", sharedPrefs.getInt("settings_bottom_bar_radius_dp", 24))
@@ -1767,14 +1736,16 @@ class SettingsActivity : AppCompatActivity() {
             b.rbStyleIsland.performClick()
         }
         
-        val updateNavStyleUi = {
+        val updateNavStyleUi = { animate: Boolean ->
             val isIsland = currentNavStyle == "island"
             b.rbStyleIsland.isChecked = isIsland
             b.rbStyleBottomBar.isChecked = !isIsland
 
             btnResetNavStyle?.visibility = if (!isIsland) View.VISIBLE else View.GONE
 
-            TransitionManager.beginDelayedTransition(b.cardNavStyleSection, android.transition.AutoTransition().apply { duration = 200 })
+            if (animate) {
+                TransitionManager.beginDelayedTransition(b.cardNavStyleSection, android.transition.AutoTransition().apply { duration = 200 })
+            }
             if (layoutNavOrder != null) {
                 layoutNavOrder.visibility = if (!isIsland) View.VISIBLE else View.GONE
             }
@@ -1817,6 +1788,32 @@ class SettingsActivity : AppCompatActivity() {
             sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
         }
 
+        val switchNavShowLabels = b.root.findViewWithTag<com.google.android.material.materialswitch.MaterialSwitch>("switchNavShowLabels")
+        switchNavShowLabels?.setOnCheckedChangeListener(null)
+        switchNavShowLabels?.isChecked = sharedPrefs.getBoolean("nav_show_labels", false)
+        switchNavShowLabels?.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("nav_show_labels", isChecked).apply()
+            sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+        }
+
+        val switchCategoryChips = b.root.findViewWithTag<com.google.android.material.materialswitch.MaterialSwitch>("switchCategoryChips")
+        val switchNotesChat = b.root.findViewWithTag<com.google.android.material.materialswitch.MaterialSwitch>("switchNotesChat")
+        val btnAddCustomCategory = b.root.findViewWithTag<com.google.android.material.button.MaterialButton>("btnAddCustomCategory")
+
+        switchCategoryChips?.setOnCheckedChangeListener(null)
+        switchCategoryChips?.isChecked = sharedPrefs.getBoolean("category_chips_enabled", true)
+        switchCategoryChips?.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("category_chips_enabled", isChecked).apply()
+            sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+        }
+
+        switchNotesChat?.setOnCheckedChangeListener(null)
+        switchNotesChat?.isChecked = sharedPrefs.getBoolean("notes_chat_enabled", true)
+        switchNotesChat?.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("notes_chat_enabled", isChecked).apply()
+            sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+        }
+
         b.switchIslandPullToSettings?.setOnCheckedChangeListener(null)
         b.switchIslandPullToSettings?.isChecked = sharedPrefs.getBoolean("island_pull_to_settings_enabled", true)
         b.switchIslandPullToSettings?.setOnCheckedChangeListener { _, isChecked ->
@@ -1824,13 +1821,18 @@ class SettingsActivity : AppCompatActivity() {
             sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
         }
 
-        updateNavStyleUi()
+        btnAddCustomCategory?.setOnClickListener {
+            showAddCustomCategoryDialog()
+        }
+        renderCategoriesList()
+
+        updateNavStyleUi(false)
 
         val setStyle = { style: String ->
             if (currentNavStyle != style) {
                 currentNavStyle = style
                 sharedPrefs.edit().putString("navigation_style", style).apply()
-                updateNavStyleUi()
+                updateNavStyleUi(true)
                 sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
             }
         }
@@ -2102,6 +2104,8 @@ class SettingsActivity : AppCompatActivity() {
         val ivNavSearchIcon = navView.findViewById<ImageView>(R.id.ivNavSearchIcon)
         val ivNavDownloadsIcon = navView.findViewById<ImageView>(R.id.ivNavDownloadsIcon)
 
+        applyBottomNavLabelsVisibility(navView, sharedPrefs.getBoolean("nav_show_labels", false))
+
         updateM3TabState(false, vNavChatsIndicator, ivNavChatsIcon, accentColor)
         updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, accentColor)
         updateM3TabState(false, vNavAiIndicator, ivNavAiIcon, accentColor)
@@ -2124,6 +2128,10 @@ class SettingsActivity : AppCompatActivity() {
                 ?: (window.decorView.findViewById<ViewGroup>(android.R.id.content))
                 ?: (window.decorView as ViewGroup)
             blurNavView.setupBlur(targetRootView, 18f, overlayColor, window.decorView.background)
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                blurNavView.applyM3EPathProvider(com.messenger.prime.shapes.M3EShapes::pill)
+            }
         }
 
         btnNavChats?.setOnClickListener {
@@ -3001,15 +3009,32 @@ class SettingsActivity : AppCompatActivity() {
         // Tint sticky progress line
         b.pbStickyScrollProgress.progressTintList = colorStateList
 
-        // Tint all card header icons
-        b.ivIconTheme.imageTintList = colorStateList
-        b.ivIconNavStyle.imageTintList = colorStateList
-        b.ivIconAccent.imageTintList = colorStateList
-        b.ivIconLava.imageTintList = colorStateList
-        b.ivIconDisableAnimations?.imageTintList = colorStateList
-        b.ivIconWallpaper.imageTintList = colorStateList
-        b.ivIconStorage.imageTintList = colorStateList
-        b.ivThanksIcon.imageTintList = colorStateList
+        // Tint all card header icons with fresh M3EDrawables
+        val isNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val iconBgAlpha = if (isNight) 60 else 35
+        val iconBgColor = androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, iconBgAlpha)
+
+        val headerIcons = listOfNotNull(
+            b.ivIconTheme,
+            b.ivIconNavStyle,
+            b.ivIconCategoriesAndNotes,
+            b.ivIconAccent,
+            b.ivIconLava,
+            b.ivIconDisableAnimations,
+            b.ivIconWallpaper,
+            b.ivIconStorage,
+            b.ivThanksIcon
+        )
+
+        val iconPadding = (8 * resources.displayMetrics.density).toInt()
+        for (icon in headerIcons) {
+            icon.imageTintList = colorStateList
+            icon.background = com.messenger.prime.shapes.M3EDrawable(
+                shape = com.messenger.prime.shapes.M3EShapes.cookie6Sided,
+                color = iconBgColor
+            )
+            icon.setPadding(iconPadding, iconPadding, iconPadding, iconPadding)
+        }
 
         // Tint all sliders (thumb, active track, inactive track, halo)
         val sliders = listOfNotNull(
@@ -3034,6 +3059,8 @@ class SettingsActivity : AppCompatActivity() {
         b.pbStickyScrollProgress.progressBackgroundTintList = ColorStateList.valueOf(androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 40))
 
         // Spectrum button
+        b.btnCustomPicker.tag = "do_not_tint"
+        b.btnCustomPicker.backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
         b.btnCustomPicker.setTextColor(accentColor)
         b.btnCustomPicker.strokeColor = colorStateList
         b.btnCustomPicker.iconTint = colorStateList
@@ -3100,6 +3127,7 @@ class SettingsActivity : AppCompatActivity() {
         val accentType = ColorAccentManager.getAccentType(this)
         val dp36 = (36 * resources.displayMetrics.density).toInt()
         val dp8 = (8 * resources.displayMetrics.density).toInt()
+        b.layoutSwatches.tag = "do_not_tint"
         b.layoutSwatches.removeAllViews()
 
         ColorAccentManager.PRESET_COLORS.forEachIndexed { index, preset ->
@@ -3112,6 +3140,7 @@ class SettingsActivity : AppCompatActivity() {
             }
 
             val btn = com.google.android.material.button.MaterialButton(this).apply {
+                tag = "do_not_tint"
                 layoutParams = LinearLayout.LayoutParams(dp36, dp36).apply {
                     marginEnd = dp8
                 }
@@ -3495,6 +3524,12 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupAccountCollapsible(b: ActivitySettingsContentBinding) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        val isExpanded = sharedPrefs.getBoolean("settings_account_expanded", false)
+        b.layoutAccountCollapsible.visibility = if (isExpanded) View.VISIBLE else View.GONE
+        b.ivAccountArrow.visibility = View.VISIBLE
+        b.ivAccountArrow.rotation = if (isExpanded) -90f else 90f
+
         b.layoutAccountHeader.setOnClickListener {
             toggleAccountCollapsible(b)
         }
@@ -3733,7 +3768,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun handlePhotoDeletionWithUndo(uriToDelete: String?) {
         if (!uriToDelete.isNullOrEmpty()) {
-            AvatarHistoryManager.removeMyAvatar(this, uriToDelete)
+            AvatarHistoryManager.removeMyAvatar(this, uriToDelete, deleteFile = false)
         }
 
         val history = AvatarHistoryManager.getMyAvatarHistory(this)
@@ -4056,6 +4091,7 @@ class SettingsActivity : AppCompatActivity() {
                 updateThemeSelectionUI(b, newTheme)
                 updateThemeChatPreview(b, newTheme)
                 setupSwatches(b)
+                updateAccentUi(b)
             }
             sendBroadcast(Intent("com.messenger.prime.THEME_CHANGED").setPackage(packageName))
         }
@@ -4250,6 +4286,379 @@ class SettingsActivity : AppCompatActivity() {
             }
             true
         }
+    }
+
+    private fun renderCategoriesList() {
+        val container = binding?.root?.findViewWithTag<LinearLayout>("containerCategoriesList") ?: return
+        container.removeAllViews()
+
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val jsonStr = sharedPrefs.getString("custom_categories_json", "[]") ?: "[]"
+        val customCats = mutableListOf<Triple<String, String, List<String>>>()
+        try {
+            val array = JSONArray(jsonStr)
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val id = obj.optString("id", "")
+                val name = obj.optString("name", "")
+                val chatsArr = obj.optJSONArray("chats")
+                val chatsList = mutableListOf<String>()
+                if (chatsArr != null) {
+                    for (j in 0 until chatsArr.length()) {
+                        chatsList.add(chatsArr.optString(j))
+                    }
+                }
+                if (id.isNotEmpty() && name.isNotEmpty()) {
+                    customCats.add(Triple(id, name, chatsList))
+                }
+            }
+        } catch (_: Exception) {}
+
+        if (customCats.isEmpty()) {
+            val tvEmpty = TextView(this).apply {
+                text = "Свои категории не созданы"
+                setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.prime_text_secondary))
+                textSize = 12f
+                setPadding(0, 4, 0, 4)
+            }
+            container.addView(tvEmpty)
+            return
+        }
+
+        for (index in customCats.indices) {
+            val (catId, catName, catChats) = customCats[index]
+
+            val itemRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                val p = (8 * resources.displayMetrics.density).toInt()
+                setPadding(0, p, 0, p)
+            }
+
+            val textLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            }
+
+            val tvTitle = TextView(this).apply {
+                text = catName
+                setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.prime_text_primary))
+                textSize = 14f
+                setTypeface(null, Typeface.BOLD)
+            }
+
+            val chatsSummary = if (catChats.isEmpty()) "Без чатов" else "Чаты: ${catChats.joinToString(", ")}"
+            val tvSubtitle = TextView(this).apply {
+                text = chatsSummary
+                setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.prime_text_secondary))
+                textSize = 11f
+            }
+
+            textLayout.addView(tvTitle)
+            textLayout.addView(tvSubtitle)
+            itemRow.addView(textLayout)
+
+            // Button: Edit chats
+            val btnEdit = ImageButton(this).apply {
+                setImageResource(R.drawable.ic_edit)
+                setBackgroundResource(android.R.color.transparent)
+                imageTintList = ColorStateList.valueOf(ContextCompat.getColor(this@SettingsActivity, R.color.prime_brand))
+                setPadding(8, 8, 8, 8)
+                setOnClickListener { showEditCustomCategoryDialog(catId, catName, catChats) }
+            }
+            itemRow.addView(btnEdit)
+
+            // Button: Move Up
+            if (index > 0) {
+                val btnUp = ImageButton(this).apply {
+                    setImageResource(R.drawable.ic_arrow_up)
+                    setBackgroundResource(android.R.color.transparent)
+                    imageTintList = ColorStateList.valueOf(ContextCompat.getColor(this@SettingsActivity, R.color.prime_brand))
+                    setPadding(8, 8, 8, 8)
+                    setOnClickListener { moveCategory(index, index - 1) }
+                }
+                itemRow.addView(btnUp)
+            }
+
+            // Button: Move Down
+            if (index < customCats.size - 1) {
+                val btnDown = ImageButton(this).apply {
+                    setImageResource(R.drawable.ic_expand_more)
+                    setBackgroundResource(android.R.color.transparent)
+                    imageTintList = ColorStateList.valueOf(ContextCompat.getColor(this@SettingsActivity, R.color.prime_brand))
+                    setPadding(8, 8, 8, 8)
+                    setOnClickListener { moveCategory(index, index + 1) }
+                }
+                itemRow.addView(btnDown)
+            }
+
+            // Button: Delete
+            val btnDelete = ImageButton(this).apply {
+                setImageResource(R.drawable.ic_trash)
+                setBackgroundResource(android.R.color.transparent)
+                imageTintList = ColorStateList.valueOf(ContextCompat.getColor(this@SettingsActivity, R.color.prime_danger))
+                setPadding(8, 8, 8, 8)
+                setOnClickListener {
+                    deleteCustomCategory(catId)
+                    renderCategoriesList()
+                    PrimeNotification.show(this@SettingsActivity, "Категория «$catName» удалена")
+                    sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+                }
+            }
+            itemRow.addView(btnDelete)
+
+            container.addView(itemRow)
+        }
+    }
+
+    private fun moveCategory(fromIdx: Int, toIdx: Int) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val jsonStr = sharedPrefs.getString("custom_categories_json", "[]") ?: "[]"
+        try {
+            val array = JSONArray(jsonStr)
+            if (fromIdx in 0 until array.length() && toIdx in 0 until array.length()) {
+                val list = mutableListOf<JSONObject>()
+                for (i in 0 until array.length()) {
+                    list.add(array.getJSONObject(i))
+                }
+                val moved = list.removeAt(fromIdx)
+                list.add(toIdx, moved)
+                val newArray = JSONArray()
+                list.forEach { newArray.put(it) }
+                sharedPrefs.edit().putString("custom_categories_json", newArray.toString()).apply()
+                renderCategoriesList()
+                sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun showEditCustomCategoryDialog(catId: String, currentName: String, currentChats: List<String>) {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val p = (16 * resources.displayMetrics.density).toInt()
+            setPadding(p, p, p, p)
+        }
+
+        val inputName = EditText(this).apply {
+            hint = "Название категории"
+            setText(currentName)
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.parseColor("#80FFFFFF"))
+        }
+        container.addView(inputName)
+
+        val jsonChats = ChatHistoryManager.getPersistedChatsJson(this)
+        val chatNames = mutableListOf<String>()
+        try {
+            val array = JSONArray(jsonChats)
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val name = obj.optString("name", "")
+                if (name.isNotEmpty() && name != "Заметки" && name != "AI Prime Chat" && !chatNames.contains(name)) {
+                    chatNames.add(name)
+                }
+            }
+        } catch (_: Exception) {}
+
+        val selectedChats = currentChats.toMutableSet()
+        if (chatNames.isNotEmpty()) {
+            val tvLabel = TextView(this).apply {
+                text = "Выберите чаты для категории:"
+                setTextColor(Color.parseColor("#CCCCCC"))
+                textSize = 13f
+                setPadding(0, (12 * resources.displayMetrics.density).toInt(), 0, (6 * resources.displayMetrics.density).toInt())
+            }
+            container.addView(tvLabel)
+
+            for (chatName in chatNames) {
+                val cb = CheckBox(this).apply {
+                    text = chatName
+                    setTextColor(Color.WHITE)
+                    isChecked = selectedChats.contains(chatName)
+                    setOnCheckedChangeListener { _, isChecked ->
+                        if (isChecked) selectedChats.add(chatName) else selectedChats.remove(chatName)
+                    }
+                }
+                container.addView(cb)
+            }
+        }
+
+        PrimeBlurDialog.show(
+            activity = this,
+            title = "Редактировать категорию",
+            message = null,
+            positiveText = "Сохранить",
+            negativeText = "Отмена",
+            customView = container,
+            onPositive = {
+                val categoryName = inputName.text.toString().trim()
+                if (categoryName.isNotEmpty()) {
+                    updateCustomCategory(catId, categoryName, selectedChats.toList())
+                    renderCategoriesList()
+                    PrimeNotification.show(this, "Категория обновлена")
+                    sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+                }
+            }
+        )
+    }
+
+    private fun updateCustomCategory(id: String, name: String, chats: List<String>) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val jsonStr = sharedPrefs.getString("custom_categories_json", "[]") ?: "[]"
+        try {
+            val array = JSONArray(jsonStr)
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                if (obj.optString("id") == id) {
+                    obj.put("name", name)
+                    val chatsArray = JSONArray()
+                    chats.forEach { chatsArray.put(it) }
+                    obj.put("chats", chatsArray)
+                    break
+                }
+            }
+            sharedPrefs.edit().putString("custom_categories_json", array.toString()).apply()
+        } catch (_: Exception) {}
+    }
+
+    private fun showManageCategoriesDialog() {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val jsonStr = sharedPrefs.getString("custom_categories_json", "[]") ?: "[]"
+        val customCats = mutableListOf<Pair<String, String>>()
+        try {
+            val array = JSONArray(jsonStr)
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val id = obj.optString("id", "")
+                val name = obj.optString("name", "")
+                if (id.isNotEmpty() && name.isNotEmpty()) {
+                    customCats.add(Pair(id, name))
+                }
+            }
+        } catch (_: Exception) {}
+
+        if (customCats.isEmpty()) {
+            showAddCustomCategoryDialog()
+            return
+        }
+
+        val options = mutableListOf<String>()
+        customCats.forEach { options.add("🗑 Удалить категорию «${it.second}»") }
+        options.add("➕ Добавить новую категорию")
+
+        PrimeBlurDialog.showList(
+            activity = this,
+            title = "Управление категориями",
+            items = options.toTypedArray()
+        ) { index, _ ->
+            if (index < customCats.size) {
+                val catToDelete = customCats[index]
+                deleteCustomCategory(catToDelete.first)
+                PrimeNotification.show(this, "Категория «${catToDelete.second}» удалена")
+                sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+            } else {
+                showAddCustomCategoryDialog()
+            }
+        }
+    }
+
+    private fun showAddCustomCategoryDialog() {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val p = (16 * resources.displayMetrics.density).toInt()
+            setPadding(p, p, p, p)
+        }
+
+        val inputName = EditText(this).apply {
+            hint = "Название категории (напр. Работа)"
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.parseColor("#80FFFFFF"))
+        }
+        container.addView(inputName)
+
+        val jsonChats = ChatHistoryManager.getPersistedChatsJson(this)
+        val chatNames = mutableListOf<String>()
+        try {
+            val array = JSONArray(jsonChats)
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val name = obj.optString("name", "")
+                if (name.isNotEmpty() && name != "Заметки" && name != "AI Prime Chat" && !chatNames.contains(name)) {
+                    chatNames.add(name)
+                }
+            }
+        } catch (_: Exception) {}
+
+        val selectedChats = mutableSetOf<String>()
+        if (chatNames.isNotEmpty()) {
+            val tvLabel = TextView(this).apply {
+                text = "Выберите чаты для этой категории:"
+                setTextColor(Color.parseColor("#CCCCCC"))
+                textSize = 13f
+                setPadding(0, (12 * resources.displayMetrics.density).toInt(), 0, (6 * resources.displayMetrics.density).toInt())
+            }
+            container.addView(tvLabel)
+
+            for (chatName in chatNames) {
+                val cb = CheckBox(this).apply {
+                    text = chatName
+                    setTextColor(Color.WHITE)
+                    setOnCheckedChangeListener { _, isChecked ->
+                        if (isChecked) selectedChats.add(chatName) else selectedChats.remove(chatName)
+                    }
+                }
+                container.addView(cb)
+            }
+        }
+
+        PrimeBlurDialog.show(
+            activity = this,
+            title = "Создать категорию",
+            message = null,
+            positiveText = "Сохранить",
+            negativeText = "Отмена",
+            customView = container,
+            onPositive = {
+                val categoryName = inputName.text.toString().trim()
+                if (categoryName.isNotEmpty()) {
+                    saveCustomCategory(categoryName, selectedChats.toList())
+                    PrimeNotification.show(this, "Категория «$categoryName» создана")
+                    sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
+                }
+            }
+        )
+    }
+
+    private fun saveCustomCategory(name: String, chats: List<String>) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val jsonStr = sharedPrefs.getString("custom_categories_json", "[]") ?: "[]"
+        val array = try { JSONArray(jsonStr) } catch (_: Exception) { JSONArray() }
+
+        val newObj = JSONObject().apply {
+            put("id", "cat_${System.currentTimeMillis()}")
+            put("name", name)
+            val chatsArray = JSONArray()
+            chats.forEach { chatsArray.put(it) }
+            put("chats", chatsArray)
+        }
+        array.put(newObj)
+        sharedPrefs.edit().putString("custom_categories_json", array.toString()).apply()
+    }
+
+    private fun deleteCustomCategory(id: String) {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val jsonStr = sharedPrefs.getString("custom_categories_json", "[]") ?: "[]"
+        try {
+            val array = JSONArray(jsonStr)
+            val newArray = JSONArray()
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                if (obj.optString("id") != id) {
+                    newArray.put(obj)
+                }
+            }
+            sharedPrefs.edit().putString("custom_categories_json", newArray.toString()).apply()
+        } catch (_: Exception) {}
     }
 }
 

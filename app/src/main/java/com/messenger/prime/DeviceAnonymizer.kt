@@ -49,15 +49,11 @@ object DeviceAnonymizer {
             !isMacAddress(candidate) && 
             candidate != "Собеседник" && 
             candidate != "Prime Собеседник" &&
-            !candidate.startsWith("Устройство #") && 
-            !candidate.startsWith("Собеседник #")) {
+            candidate != "Bluetooth-устройство") {
             return sanitizeDisplayName(candidate, macAddress)
         }
 
-        val seed = (macAddress ?: candidate ?: "DEVICE").trim().uppercase(Locale.US)
-        val hash = Math.abs(seed.hashCode())
-        val code = (hash % 9000) + 1000
-        return "Собеседник #"
+        return "Bluetooth-устройство"
     }
 
     @JvmStatic

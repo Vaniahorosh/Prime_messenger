@@ -570,6 +570,21 @@ class PersonInformationActivity : AppCompatActivity() {
                 }
                 it.addBounceTouchEffect()
             }
+
+            // Apply M3E shape to section header icon
+            val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+            val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val iconBgAlpha = if (isNight) 50 else 30
+            val iconBgColor = androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, iconBgAlpha)
+            val iconPadding = (6 * density).toInt()
+
+            binding.ivSectionHeaderIcon?.let { icon ->
+                icon.background = com.messenger.prime.shapes.M3EDrawable(
+                    shape = com.messenger.prime.shapes.M3EShapes.cookie6Sided,
+                    color = iconBgColor
+                )
+                icon.setPadding(iconPadding, iconPadding, iconPadding, iconPadding)
+            }
         } catch (e: Exception) {
             android.util.Log.e("PersonInfoM3", "Error applying M3 Expressive design", e)
         }
@@ -796,6 +811,44 @@ class PersonInformationActivity : AppCompatActivity() {
         binding.btnViewPhoto.addBounceTouchEffect()
         binding.btnReaderMode.addBounceTouchEffect()
         binding.btnDeleteChat.addBounceTouchEffect()
+
+        // Apply dynamic M3E shapes and pop-in animation to left column buttons
+        val leftButtons = listOf(
+            binding.btnBack,
+            binding.btnViewPhoto,
+            binding.btnReaderMode,
+            binding.btnDeleteChat
+        )
+        val shapes = listOf(
+            com.messenger.prime.shapes.M3EShapes.cookie6Sided,
+            com.messenger.prime.shapes.M3EShapes.flower,
+            com.messenger.prime.shapes.M3EShapes.verySunny,
+            com.messenger.prime.shapes.M3EShapes.cookie7Sided,
+            com.messenger.prime.shapes.M3EShapes.circle
+        )
+        val btnBgColor = ContextCompat.getColor(this, R.color.glass_white_20)
+
+        for ((index, btn) in leftButtons.withIndex()) {
+            btn.outlineProvider = null
+            btn.clipToOutline = false
+            btn.elevation = 0f
+            btn.background = com.messenger.prime.shapes.M3EDrawable(
+                shape = shapes.random(),
+                color = btnBgColor
+            )
+
+            btn.scaleX = 0.5f
+            btn.scaleY = 0.5f
+            btn.alpha = 0f
+            btn.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .alpha(1f)
+                .setDuration(350)
+                .setStartDelay((index % 4) * 40L)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.2f))
+                .start()
+        }
 
         // 1. Назад
         binding.btnBack.setOnClickListener {

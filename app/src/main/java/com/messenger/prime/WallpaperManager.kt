@@ -78,7 +78,7 @@ object WallpaperManager {
                 val isAnimated = obj.optBoolean("isAnimated", true)
                 val createdAt = obj.optLong("createdAt", System.currentTimeMillis())
 
-                if (id.isNotBlank() && name.isNotBlank()) {
+                if (id.isNotBlank() && name.isNotBlank() && list.none { it.id == id }) {
                     list.add(ChatWallpaper(id, name, type, imagePath, patternType, customEmojis, backgroundColor, layoutOrientation, scale, offsetX, offsetY, rotation, dimOpacity, animationEffect, isAnimated, createdAt))
                 }
             }
@@ -112,6 +112,20 @@ object WallpaperManager {
         } else {
             sp.edit().putString(KEY_GLOBAL_ACTIVE_WALLPAPER, wallpaperId).apply()
         }
+    }
+
+    @JvmStatic
+    fun removeContactWallpaper(context: Context, contactKey: String?) {
+        if (contactKey.isNullOrBlank()) return
+        val sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        sp.edit().remove("${KEY_PER_CONTACT_WALLPAPER_PREFIX}${contactKey.lowercase()}").apply()
+    }
+
+    @JvmStatic
+    fun hasCustomWallpaperForContact(context: Context, contactKey: String?): Boolean {
+        if (contactKey.isNullOrBlank()) return false
+        val sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return sp.contains("${KEY_PER_CONTACT_WALLPAPER_PREFIX}${contactKey.lowercase()}")
     }
 
     @JvmStatic

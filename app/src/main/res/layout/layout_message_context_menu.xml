@@ -223,6 +223,36 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Закрепить -->
+        <LinearLayout
+            android:id="@+id/btnMenuPin"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="12dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:id="@+id/ivMenuPinIcon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_pin"
+                app:tint="@color/prime_text_primary" />
+
+            <TextView
+                android:id="@+id/tvMenuPinText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:text="Закрепить"
+                android:textColor="@color/prime_text_primary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
         <!-- 4. Редактировать (Только свои) -->
         <LinearLayout
             android:id="@+id/btnMenuEdit"
@@ -241,15 +271,15 @@
                 android:src="@drawable/ic_edit"
                 app:tint="@color/prime_text_primary" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:text="Редактировать"
-            android:textColor="@color/prime_text_primary"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-    </LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:text="Редактировать"
+                android:textColor="@color/prime_text_primary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
         <!-- 5. Удалить (Только свои) -->
         <LinearLayout
@@ -266,7 +296,7 @@
             <ImageView
                 android:layout_width="20dp"
                 android:layout_height="20dp"
-                android:src="@drawable/bg_chat_item_delete"
+                android:src="@drawable/ic_trash"
                 app:tint="@color/prime_danger" />
 
             <TextView

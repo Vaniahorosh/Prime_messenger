@@ -325,6 +325,8 @@ class GlobalSearchActivity : AppCompatActivity() {
         val ivNavSearchIcon = navView.findViewById<ImageView>(R.id.ivNavSearchIcon)
         val ivNavDownloadsIcon = navView.findViewById<ImageView>(R.id.ivNavDownloadsIcon)
 
+        applyBottomNavLabelsVisibility(navView, sharedPrefs.getBoolean("nav_show_labels", false))
+
         updateM3TabState(false, vNavChatsIndicator, ivNavChatsIcon, accentColor)
         updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, accentColor)
         updateM3TabState(false, vNavAiIndicator, ivNavAiIcon, accentColor)

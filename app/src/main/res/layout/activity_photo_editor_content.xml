@@ -100,6 +100,7 @@
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="64dp">
+
             <ImageButton
                 android:id="@+id/btnBack"
                 android:layout_width="48dp"
@@ -112,16 +113,33 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:tint="@color/white" />
 
-            <TextSwitcher
-                android:id="@+id/tsEditorTitle"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:inAnimation="@anim/slide_in_top_alpha"
-                android:outAnimation="@anim/slide_out_bottom"
+                android:gravity="center"
+                android:orientation="vertical"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintTop_toTopOf="parent">
+
+                <TextSwitcher
+                    android:id="@+id/tsEditorTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:inAnimation="@anim/slide_in_top_alpha"
+                    android:outAnimation="@anim/slide_out_bottom" />
+
+                <TextView
+                    android:id="@+id/tvMediaInfo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#A0FFFFFF"
+                    android:textSize="11sp"
+                    android:visibility="gone"
+                    tools:text="1080x1080 • ~1.2 МБ"
+                    tools:visibility="visible" />
+            </LinearLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <LinearLayout
@@ -166,7 +184,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        app:layout_constraintBottom_toTopOf="@+id/toolsLayout"
+        app:layout_constraintBottom_toTopOf="@+id/groupSlidersContainer"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
@@ -225,7 +243,7 @@
         android:padding="16dp"
         android:background="#66000000"
         android:visibility="gone"
-        app:layout_constraintBottom_toTopOf="@+id/toolsLayout">
+        app:layout_constraintBottom_toTopOf="@+id/bottomEditorContainer">
 
         <!-- Группа 1: Свет -->
         <LinearLayout
@@ -359,46 +377,128 @@
         </LinearLayout>
     </FrameLayout>
 
-    <!-- Панель инструментов (горизонтальная) -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/toolsLayout"
+    <!-- Панель ввода подписи и быстрой обработки -->
+    <LinearLayout
+        android:id="@+id/bottomEditorContainer"
         android:layout_width="match_parent"
-        android:layout_height="80dp"
-        android:background="#88000000"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="12dp"
+        android:paddingBottom="12dp"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <HorizontalScrollView
-            android:id="@+id/toolsScroll"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:scrollbars="none"
-            android:fillViewport="true"
-            app:layout_constraintEnd_toStartOf="@+id/btnDone"
-            app:layout_constraintStart_toStartOf="parent">
+        <!-- Поле подписи -->
+        <FrameLayout
+            android:id="@+id/layoutCaptionContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/bg_date_bubble"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="4dp">
 
-            <LinearLayout
-                android:layout_width="wrap_content"
+            <EditText
+                android:id="@+id/etCaption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@android:color/transparent"
+                android:hint="Добавить подпись..."
+                android:textColorHint="#90FFFFFF"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                android:maxLines="3"
+                android:inputType="textCapSentences|textMultiLine"
+                android:imeOptions="actionDone" />
+        </FrameLayout>
+
+        <!-- Панель инструментов (горизонтальная) -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/toolsLayout"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:background="#88000000">
+
+            <HorizontalScrollView
+                android:id="@+id/toolsScroll"
+                android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:orientation="horizontal"
-                android:paddingHorizontal="8dp"
-                android:gravity="center">
+                android:scrollbars="none"
+                android:fillViewport="true"
+                app:layout_constraintEnd_toStartOf="@+id/btnDone"
+                app:layout_constraintStart_toStartOf="parent">
 
-                <ImageButton android:id="@+id/toolLight" style="@style/EditorToolButton" android:src="@drawable/sun_icon" app:tint="@color/white" />
-                <ImageButton android:id="@+id/toolGeometry" style="@style/EditorToolButton" android:src="@drawable/perspect_icon" app:tint="@color/white" />
-                <ImageButton android:id="@+id/toolBrushGroup" style="@style/EditorToolButton" android:src="@drawable/ic_pipette" app:tint="@color/white" />
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp"
+                    android:gravity="center_vertical">
 
-            </LinearLayout>
-        </HorizontalScrollView>
+                    <!-- 1. Авто-улучшение -->
+                    <ImageButton
+                        android:id="@+id/toolAutoEnhance"
+                        style="@style/EditorToolButton"
+                        android:src="@drawable/ic_prime_ai"
+                        app:tint="@color/white"
+                        android:contentDescription="Авто-улучшение" />
 
-        <ImageButton
-            android:id="@+id/btnDone"
-            android:layout_width="80dp"
-            android:layout_height="match_parent"
-            android:background="@color/white"
-            android:src="@drawable/ic_arrow_forward"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:tint="@color/prime_background_blue" />
+                    <!-- 2. Освещение и фильтры -->
+                    <ImageButton
+                        android:id="@+id/toolLight"
+                        style="@style/EditorToolButton"
+                        android:layout_marginStart="8dp"
+                        android:src="@drawable/sun_icon"
+                        app:tint="@color/white"
+                        android:contentDescription="Освещение" />
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+                    <!-- 3. Кадрирование -->
+                    <ImageButton
+                        android:id="@+id/toolGeometry"
+                        style="@style/EditorToolButton"
+                        android:layout_marginStart="8dp"
+                        android:src="@drawable/perspect_icon"
+                        app:tint="@color/white"
+                        android:contentDescription="Кадрирование" />
+
+                    <!-- 4. Кисть -->
+                    <ImageButton
+                        android:id="@+id/toolBrushGroup"
+                        style="@style/EditorToolButton"
+                        android:layout_marginStart="8dp"
+                        android:src="@drawable/ic_pipette"
+                        app:tint="@color/white"
+                        android:contentDescription="Кисть" />
+
+                    <!-- 5. Переключатель качества HD / SD -->
+                    <TextView
+                        android:id="@+id/btnHdQualityToggle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="28dp"
+                        android:layout_marginStart="12dp"
+                        android:background="@drawable/bg_circular_mode_active"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:paddingHorizontal="10dp"
+                        android:text="HD"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <ImageButton
+                android:id="@+id/btnDone"
+                android:layout_width="72dp"
+                android:layout_height="match_parent"
+                android:background="@color/white"
+                android:src="@drawable/ic_arrow_forward"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:tint="@color/prime_background_blue"
+                android:contentDescription="Отправить" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

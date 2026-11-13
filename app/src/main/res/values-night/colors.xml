@@ -32,7 +32,7 @@
     <color name="chat_bubble_outgoing_end">#154B87</color>
     <color name="chat_bubble_outgoing_text">#FFFFFF</color>
     <color name="chat_bubble_outgoing_time">#D1E2FF</color>
-    <color name="chat_island_bg">#D9151A23</color>
+    <color name="chat_island_bg">#CC1E293B</color>
     <color name="chat_island_stroke">#00000000</color>
     <color name="chat_date_bubble_bg">#4D000000</color>
     <color name="chat_date_bubble_stroke">#00000000</color>

@@ -37,10 +37,12 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextSwitcher
 import android.widget.TextView
+import android.graphics.drawable.GradientDrawable
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.IconCompat
 import eightbitlab.com.blurview.BlurView as EightBitBlurView
 import java.io.File
@@ -86,9 +88,108 @@ object PrimeNotification {
     private var activeNotificationRef: WeakReference<View>? = null
     private var activeTimerAnimator: ValueAnimator? = null
 
+    private fun resolveNotificationIconAndTint(
+        context: Context,
+        message: String,
+        customIconRes: Int = 0,
+        customIconTint: Int? = null
+    ): Pair<Int, Int> {
+        val brandColor = ContextCompat.getColor(context, R.color.prime_brand)
+        val errorColor = Color.parseColor("#FF5252")
+        val warningColor = Color.parseColor("#FFA726")
+        val aiColor = Color.parseColor("#AB47BC")
+
+        if (customIconRes != 0) {
+            val tint = customIconTint ?: brandColor
+            return Pair(customIconRes, tint)
+        }
+
+        val msgLower = message.lowercase(Locale.ROOT)
+
+        return when {
+            // Удаление / Очистка
+            msgLower.contains("удал") || msgLower.contains("очищ") -> Pair(R.drawable.ic_trash, errorColor)
+
+            // Ошибки / Сбои / Отмена
+            msgLower.contains("ошибк") || msgLower.contains("не удалос") || msgLower.contains("не найден") ||
+            msgLower.contains("отменен") || msgLower.contains("отключен") || msgLower.contains("сбой") -> Pair(R.drawable.ic_error, errorColor)
+
+            // Предупреждения / Лимиты / Ограничения / Разрешения
+            msgLower.contains("необходим") || msgLower.contains("включит") || msgLower.contains("требуют") ||
+            msgLower.contains("нельзя") || msgLower.contains("не поддерж") || msgLower.contains("превышен") ||
+            msgLower.contains("лимит") || msgLower.contains("максимум") || msgLower.contains("пуст") ||
+            msgLower.contains("сначала") || msgLower.contains("внимание") -> Pair(R.drawable.ic_error, warningColor)
+
+            // Копирование
+            msgLower.contains("скопиров") || msgLower.contains("буфер") -> Pair(R.drawable.ic_copy, brandColor)
+
+            // Редактирование / Изменение
+            msgLower.contains("измен") || msgLower.contains("обновл") || msgLower.contains("редакт") -> Pair(R.drawable.ic_edit, brandColor)
+
+            // Открепление (проверяем ДО закрепления)
+            msgLower.contains("откреп") -> Pair(R.drawable.ic_unpin, brandColor)
+
+            // Закрепление
+            msgLower.contains("закреп") -> Pair(R.drawable.ic_pin, brandColor)
+
+            // Прочитано
+            msgLower.contains("прочитан") -> Pair(R.drawable.ic_done_all, brandColor)
+
+            // Уведомления отключены / Звук выключен
+            msgLower.contains("отключ") || msgLower.contains("выключ") -> Pair(R.drawable.ic_notifications_off, warningColor)
+
+            // Уведомления включены
+            msgLower.contains("уведомлен") -> Pair(R.drawable.ic_notifications, brandColor)
+
+            // Переподключение / Загрузка / Поиск
+            msgLower.contains("попытк") || msgLower.contains("загрузк") || msgLower.contains("поиск") -> Pair(R.drawable.ic_refresh, brandColor)
+
+            // Пересылка
+            msgLower.contains("пересла") || msgLower.contains("пересылк") -> Pair(R.drawable.ic_forward, brandColor)
+
+            // AI / Плагины / Модели
+            msgLower.contains("ai") || msgLower.contains("плагин") || msgLower.contains("модель") || msgLower.contains("⚡") -> Pair(R.drawable.ic_prime_ai, aiColor)
+
+            // Режим читателя
+            msgLower.contains("читател") -> Pair(R.drawable.ic_book, brandColor)
+
+            // Сеть / Bluetooth / Устройства
+            msgLower.contains("сети") || msgLower.contains("bluetooth") || msgLower.contains("устройств") -> Pair(R.drawable.ic_nav_devices, brandColor)
+
+            // Обои / Темы / Цвет / Качество / Аватар
+            msgLower.contains("обои") || msgLower.contains("цвет") || msgLower.contains("тем") ||
+            msgLower.contains("акцент") || msgLower.contains("качеств") || msgLower.contains("аватар") ||
+            msgLower.contains("фото") || msgLower.contains("gif") -> Pair(R.drawable.ic_live_fon, brandColor)
+
+            // По умолчанию (Успех / Готово)
+            else -> Pair(R.drawable.ic_done, brandColor)
+        }
+    }
+
+    @JvmStatic
+    fun show(activity: Activity?, message: String, onUndo: (() -> Unit)?) {
+        showInternal(activity, message, 0, null, onUndo)
+    }
+
     @JvmStatic
     @JvmOverloads
-    fun show(activity: Activity?, message: String, onUndo: (() -> Unit)? = null) {
+    fun show(
+        activity: Activity?,
+        message: String,
+        iconRes: Int = 0,
+        iconTint: Int? = null,
+        onUndo: (() -> Unit)? = null
+    ) {
+        showInternal(activity, message, iconRes, iconTint, onUndo)
+    }
+
+    private fun showInternal(
+        activity: Activity?,
+        message: String,
+        customIconRes: Int,
+        customIconTint: Int?,
+        onUndo: (() -> Unit)?
+    ) {
         if (activity == null || activity.isFinishing || activity.isDestroyed) return
         activity.runOnUiThread {
             try {
@@ -107,12 +208,24 @@ object PrimeNotification {
 
                 val textView = notificationView.findViewById<TextView>(R.id.tvNotificationText)
                 val ivIcon = notificationView.findViewById<ImageView>(R.id.ivNotificationIcon)
+                val layoutIconContainer = notificationView.findViewById<FrameLayout>(R.id.layoutIconContainer)
                 val layoutTimer = notificationView.findViewById<View>(R.id.layoutTimer)
                 val pbTimer = notificationView.findViewById<ProgressBar>(R.id.pbTimer)
                 val tsSeconds = notificationView.findViewById<TextSwitcher>(R.id.tsTimerSeconds)
                 val btnUndo = notificationView.findViewById<View>(R.id.btnUndo)
 
                 textView.text = message
+
+                // Динамическая иконка и подложка M3E в зависимости от ситуации
+                val (resolvedIconRes, resolvedTint) = resolveNotificationIconAndTint(activity, message, customIconRes, customIconTint)
+                ivIcon.setImageResource(resolvedIconRes)
+                ivIcon.setColorFilter(resolvedTint)
+
+                val iconBgDrawable = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(ColorUtils.setAlphaComponent(resolvedTint, 38))
+                }
+                layoutIconContainer.background = iconBgDrawable
 
                 // --- НАСТРОЙКА BlurView ---
                 val blurView = notificationView as? EightBitBlurView
@@ -176,14 +289,8 @@ object PrimeNotification {
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
-                params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                // Add some top margin to avoid status bar overlap
-                val statusBarHeight = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    rootLayout.rootWindowInsets?.getInsets(android.view.WindowInsets.Type.statusBars())?.top ?: (32 * density).toInt()
-                } else {
-                    (32 * density).toInt()
-                }
-                params.topMargin = statusBarHeight + (8 * density).toInt()
+                params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                params.bottomMargin = inputBottomOffset
                 notificationView.layoutParams = params
 
                 rootLayout.addView(notificationView)
@@ -198,7 +305,7 @@ object PrimeNotification {
                 notificationView.alpha = 0f
                 notificationView.scaleX = 0.92f
                 notificationView.scaleY = 0.92f
-                notificationView.translationY = -60f
+                notificationView.translationY = 60f
                 notificationView.animate()
                     .alpha(1f)
                     .scaleX(1.0f)
@@ -399,18 +506,6 @@ object PrimeNotification {
         }
         if (displaySenderName.isNullOrEmpty() || android.bluetooth.BluetoothAdapter.checkBluetoothAddress(displaySenderName)) {
             displaySenderName = "Prime Собеседник"
-        }
-
-        // Если приложение открыто, показываем внутреннее snackbar-уведомление вместо системного
-        if (PrimeApplication.isAppInForeground) {
-            val act = PrimeApplication.getCurrentActivity()
-            if (act != null) {
-                act.runOnUiThread {
-                    val preview = if (!messageText.isNullOrEmpty()) messageText else "Отправил(а) вложение"
-                    show(act, "💬 $displaySenderName: $preview", null)
-                }
-            }
-            return
         }
 
         try {

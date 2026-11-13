@@ -16,8 +16,8 @@ public class ChatMessage {
 
     public static String getSummaryDescription(ChatMessage msg) {
         if (msg == null) return "";
-        if (msg.isVideoNote() || (msg.getText() != null && msg.getText().startsWith("VIDEO_NOTE:"))) {
-            return "📹 Видеосообщение";
+        if (msg.isVideoNote() || (msg.getText() != null && (msg.getText().startsWith("VIDEO_NOTE:") || msg.getText().startsWith("vn_") || msg.getText().contains("Видеосообщение")))) {
+            return "Видеосообщение";
         }
         if (msg.isMultiMedia()) {
             List<MediaItem> items = msg.getMediaItems();
@@ -31,24 +31,45 @@ public class ChatMessage {
                     allVideo = false;
                 }
             }
-            if (allVideo) return "Видео (" + count + ")";
-            if (allPhoto) return "Фото (" + count + ")";
-            return "Коллаж (" + count + ")";
+            if (allVideo) return "Видео";
+            if (allPhoto) return "Фото";
+            return "Коллаж";
         }
         MessageType type = msg.getMessageType();
         if (type == MessageType.MUSIC) {
             String title = msg.getTrackTitle();
             String artist = msg.getArtistName();
             if (title != null && !title.isEmpty()) {
-                return "🎵 " + (artist != null && !artist.isEmpty() ? artist + " - " : "") + title;
+                return (artist != null && !artist.isEmpty() ? artist + " - " : "") + title;
             }
-            return "🎵 Аудиозапись";
+            return "Аудиозапись";
         }
         if (type == MessageType.VIDEO) return "Видео";
         if (type == MessageType.FILE) return "Файл";
-        if (type == MessageType.IMAGE) return "Фотография";
-        if (type == MessageType.VOICE) return "🎤 Голосовое сообщение";
-        return msg.getText() != null ? msg.getText() : "";
+        if (type == MessageType.IMAGE) return "Фото";
+        if (type == MessageType.VOICE) return "Голосовое сообщение";
+        return formatSummaryText(msg.getText());
+    }
+
+    public static String formatSummaryText(String text) {
+        if (text == null) return "";
+        String trimmed = text.trim();
+        if (trimmed.startsWith("VIDEO_NOTE:") || trimmed.startsWith("vn_") || trimmed.contains("Видеосообщение")) {
+            return "Видеосообщение";
+        }
+        if (trimmed.startsWith("VOICE:") || trimmed.startsWith("voice_") || trimmed.contains("Голосовое сообщение")) {
+            return "Голосовое сообщение";
+        }
+        if (trimmed.startsWith("Видео:") || trimmed.startsWith("Видео ") || trimmed.equalsIgnoreCase("Видео") || trimmed.equals("📹 Видео")) {
+            return "Видео";
+        }
+        if (trimmed.startsWith("Файл:") || trimmed.startsWith("Файл ") || trimmed.equalsIgnoreCase("Файл")) {
+            return "Файл";
+        }
+        if (trimmed.startsWith("Фотография") || trimmed.startsWith("Фото:") || trimmed.startsWith("Фото ") || trimmed.equalsIgnoreCase("Фото")) {
+            return "Фото";
+        }
+        return trimmed;
     }
 
     public static class MediaItem {
@@ -572,11 +593,29 @@ public class ChatMessage {
         this.isRichFormatted = richFormatted;
     }
 
+    public String getColorHex() {
+        if (text == null) return null;
+        if (text.startsWith("[COLOR:#")) {
+            int end = text.indexOf("]");
+            if (end > 7) {
+                return text.substring(7, end);
+            }
+        }
+        return null;
+    }
+
     public String getCleanText() {
         if (text == null) return "";
-        if (text.startsWith("[RICH]")) {
-            return text.substring(6);
+        String res = text;
+        if (res.startsWith("[RICH]")) {
+            res = res.substring(6);
         }
-        return text;
+        if (res.startsWith("[COLOR:#")) {
+            int end = res.indexOf("]");
+            if (end != -1) {
+                res = res.substring(end + 1).trim();
+            }
+        }
+        return res;
     }
 }

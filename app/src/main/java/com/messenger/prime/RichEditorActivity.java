@@ -295,23 +295,15 @@ public class RichEditorActivity extends AppCompatActivity {
 
     private void showColorMenu() {
         if (webViewRich == null) return;
-        android.widget.PopupMenu popupMenu = new android.widget.PopupMenu(this, findViewById(R.id.btnColor));
-        popupMenu.getMenu().add(0, 1, 0, "Красный");
-        popupMenu.getMenu().add(0, 2, 0, "Синий");
-        popupMenu.getMenu().add(0, 3, 0, "Зеленый");
-        popupMenu.getMenu().add(0, 4, 0, "Желтый");
-        popupMenu.getMenu().add(0, 5, 0, "Сбросить цвет");
-        popupMenu.setOnMenuItemClickListener(item -> {
-            switch (item.getItemId()) {
-                case 1: webViewRich.evaluateJavascript("document.execCommand('foreColor', false, '#FF5252');", null); break;
-                case 2: webViewRich.evaluateJavascript("document.execCommand('foreColor', false, '#448AFF');", null); break;
-                case 3: webViewRich.evaluateJavascript("document.execCommand('foreColor', false, '#69F0AE');", null); break;
-                case 4: webViewRich.evaluateJavascript("document.execCommand('foreColor', false, '#FFD700');", null); break;
-                case 5: webViewRich.evaluateJavascript("document.execCommand('removeFormat', false, null);", null); break;
-            }
-            return true;
-        });
-        popupMenu.show();
+        View anchor = findViewById(R.id.btnColor);
+        if (anchor == null) return;
+        PrimePopupMenu.create(this, anchor)
+                .addItem("Красный", R.drawable.ic_format_color, false, () -> { webViewRich.evaluateJavascript("document.execCommand('foreColor', false, '#FF5252');", null); return kotlin.Unit.INSTANCE; })
+                .addItem("Синий", R.drawable.ic_format_color, false, () -> { webViewRich.evaluateJavascript("document.execCommand('foreColor', false, '#448AFF');", null); return kotlin.Unit.INSTANCE; })
+                .addItem("Зеленый", R.drawable.ic_format_color, false, () -> { webViewRich.evaluateJavascript("document.execCommand('foreColor', false, '#69F0AE');", null); return kotlin.Unit.INSTANCE; })
+                .addItem("Желтый", R.drawable.ic_format_color, false, () -> { webViewRich.evaluateJavascript("document.execCommand('foreColor', false, '#FFD700');", null); return kotlin.Unit.INSTANCE; })
+                .addItem("Сбросить цвет", R.drawable.ic_cancel, false, () -> { webViewRich.evaluateJavascript("document.execCommand('removeFormat', false, null);", null); return kotlin.Unit.INSTANCE; })
+                .show();
     }
 
     private void showImageSizeDialog(Uri uri) {
@@ -355,76 +347,55 @@ public class RichEditorActivity extends AppCompatActivity {
 
     private void insertHeading() {
         if (webViewRich == null) return;
-        android.widget.PopupMenu popupMenu = new android.widget.PopupMenu(this, findViewById(R.id.btnHeading));
-        popupMenu.getMenu().add(0, 1, 0, "Заголовок 1 (Крупный)");
-        popupMenu.getMenu().add(0, 2, 0, "Заголовок 2");
-        popupMenu.getMenu().add(0, 3, 0, "Заголовок 3 (Средний)");
-        popupMenu.getMenu().add(0, 4, 0, "Заголовок 4 (Мелкий)");
-        popupMenu.setOnMenuItemClickListener(item -> {
-            String command = "document.execCommand('formatBlock', false, 'H" + item.getItemId() + "');";
-            webViewRich.evaluateJavascript(command, null);
-            return true;
-        });
-        popupMenu.show();
+        View anchor = findViewById(R.id.btnHeading);
+        if (anchor == null) return;
+        PrimePopupMenu.create(this, anchor)
+                .addItem("Заголовок 1 (Крупный)", R.drawable.ic_format_heading, false, () -> { webViewRich.evaluateJavascript("document.execCommand('formatBlock', false, 'H1');", null); return kotlin.Unit.INSTANCE; })
+                .addItem("Заголовок 2", R.drawable.ic_format_heading, false, () -> { webViewRich.evaluateJavascript("document.execCommand('formatBlock', false, 'H2');", null); return kotlin.Unit.INSTANCE; })
+                .addItem("Заголовок 3 (Средний)", R.drawable.ic_format_heading, false, () -> { webViewRich.evaluateJavascript("document.execCommand('formatBlock', false, 'H3');", null); return kotlin.Unit.INSTANCE; })
+                .addItem("Заголовок 4 (Мелкий)", R.drawable.ic_format_heading, false, () -> { webViewRich.evaluateJavascript("document.execCommand('formatBlock', false, 'H4');", null); return kotlin.Unit.INSTANCE; })
+                .show();
     }
 
     private void showTextStylesMenu() {
-        android.widget.PopupMenu popupMenu = new android.widget.PopupMenu(this, findViewById(R.id.btnBold));
-        popupMenu.getMenu().add(0, 1, 0, "Жирный");
-        popupMenu.getMenu().add(0, 2, 0, "Курсив");
-        popupMenu.getMenu().add(0, 3, 0, "Зачеркнутый");
-        popupMenu.getMenu().add(0, 4, 0, "Код (Моноширинный)");
-        popupMenu.setOnMenuItemClickListener(item -> {
-            switch (item.getItemId()) {
-                case 1: webViewRich.evaluateJavascript("document.execCommand('bold', false, null);", null); break;
-                case 2: webViewRich.evaluateJavascript("document.execCommand('italic', false, null);", null); break;
-                case 3: webViewRich.evaluateJavascript("document.execCommand('strikeThrough', false, null);", null); break;
-                case 4: webViewRich.evaluateJavascript("document.execCommand('formatBlock', false, 'PRE');", null); break;
-            }
-            return true;
-        });
-        popupMenu.show();
+        if (webViewRich == null) return;
+        View anchor = findViewById(R.id.btnBold);
+        if (anchor == null) return;
+        PrimePopupMenu.create(this, anchor)
+                .addItem("Жирный", R.drawable.ic_format_bold, false, () -> { webViewRich.evaluateJavascript("document.execCommand('bold', false, null);", null); return kotlin.Unit.INSTANCE; })
+                .addItem("Курсив", R.drawable.ic_format_extended, false, () -> { webViewRich.evaluateJavascript("document.execCommand('italic', false, null);", null); return kotlin.Unit.INSTANCE; })
+                .addItem("Зачеркнутый", R.drawable.ic_format_extended, false, () -> { webViewRich.evaluateJavascript("document.execCommand('strikeThrough', false, null);", null); return kotlin.Unit.INSTANCE; })
+                .addItem("Код (Моноширинный)", R.drawable.ic_file, false, () -> { webViewRich.evaluateJavascript("document.execCommand('formatBlock', false, 'PRE');", null); return kotlin.Unit.INSTANCE; })
+                .show();
     }
 
     private void showListMenu() {
-        android.widget.PopupMenu popupMenu = new android.widget.PopupMenu(this, findViewById(R.id.btnList));
-        popupMenu.getMenu().add(0, 1, 0, "Маркированный список");
-        popupMenu.getMenu().add(0, 2, 0, "Нумерованный список");
-        popupMenu.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == 1) {
-                webViewRich.evaluateJavascript("document.execCommand('insertUnorderedList', false, null);", null);
-            } else {
-                webViewRich.evaluateJavascript("document.execCommand('insertOrderedList', false, null);", null);
-            }
-            return true;
-        });
-        popupMenu.show();
+        if (webViewRich == null) return;
+        View anchor = findViewById(R.id.btnList);
+        if (anchor == null) return;
+        PrimePopupMenu.create(this, anchor)
+                .addItem("Маркированный список", R.drawable.ic_format_list_bulleted, false, () -> { webViewRich.evaluateJavascript("document.execCommand('insertUnorderedList', false, null);", null); return kotlin.Unit.INSTANCE; })
+                .addItem("Нумерованный список", R.drawable.ic_format_list_bulleted, false, () -> { webViewRich.evaluateJavascript("document.execCommand('insertOrderedList', false, null);", null); return kotlin.Unit.INSTANCE; })
+                .show();
     }
 
     private void showAlignMenu() {
-        android.widget.PopupMenu popupMenu = new android.widget.PopupMenu(this, findViewById(R.id.btnAlign));
-        popupMenu.getMenu().add(0, 1, 0, "По левому краю");
-        popupMenu.getMenu().add(0, 2, 0, "По центру");
-        popupMenu.getMenu().add(0, 3, 0, "По правому краю");
-        popupMenu.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == 1) webViewRich.evaluateJavascript("document.execCommand('justifyLeft', false, null);", null);
-            else if (item.getItemId() == 2) webViewRich.evaluateJavascript("document.execCommand('justifyCenter', false, null);", null);
-            else if (item.getItemId() == 3) webViewRich.evaluateJavascript("document.execCommand('justifyRight', false, null);", null);
-            return true;
-        });
-        popupMenu.show();
+        if (webViewRich == null) return;
+        View anchor = findViewById(R.id.btnAlign);
+        if (anchor == null) return;
+        PrimePopupMenu.create(this, anchor)
+                .addItem("По левому краю", R.drawable.ic_format_align_left, false, () -> { webViewRich.evaluateJavascript("document.execCommand('justifyLeft', false, null);", null); return kotlin.Unit.INSTANCE; })
+                .addItem("По центру", R.drawable.ic_format_align_left, false, () -> { webViewRich.evaluateJavascript("document.execCommand('justifyCenter', false, null);", null); return kotlin.Unit.INSTANCE; })
+                .addItem("По правому краю", R.drawable.ic_format_align_left, false, () -> { webViewRich.evaluateJavascript("document.execCommand('justifyRight', false, null);", null); return kotlin.Unit.INSTANCE; })
+                .show();
     }
 
     private void showTableMenu() {
-        android.widget.PopupMenu popupMenu = new android.widget.PopupMenu(this, findViewById(R.id.btnTable));
-        popupMenu.getMenu().add(0, 1, 0, "Создать таблицу (Выбор размера)");
-        popupMenu.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == 1) {
-                insertTable();
-            }
-            return true;
-        });
-        popupMenu.show();
+        View anchor = findViewById(R.id.btnTable);
+        if (anchor == null) return;
+        PrimePopupMenu.create(this, anchor)
+                .addItem("Создать таблицу", R.drawable.ic_format_table, false, () -> { insertTable(); return kotlin.Unit.INSTANCE; })
+                .show();
     }
 
     private void insertTable() {

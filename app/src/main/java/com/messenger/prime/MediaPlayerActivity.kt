@@ -40,7 +40,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -465,19 +467,16 @@ class MediaPlayerActivity : AppCompatActivity() {
         setupEdgeToEdge()
         ViewCompat.setOnApplyWindowInsetsListener(topOverlay) { view, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val density = resources.displayMetrics.density
-            val statusBarTop = if (insets.top > 0) insets.top else getStatusBarHeight()
             val lp = view.layoutParams as ViewGroup.MarginLayoutParams
-            lp.topMargin = statusBarTop + (12 * density).toInt()
+            lp.topMargin = insets.top + (8 * resources.displayMetrics.density).toInt()
             view.layoutParams = lp
             windowInsets
         }
 
         ViewCompat.setOnApplyWindowInsetsListener(bottomOverlay) { view, windowInsets ->
-            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val density = resources.displayMetrics.density
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             val lp = view.layoutParams as ViewGroup.MarginLayoutParams
-            lp.bottomMargin = insets.bottom + (12 * density).toInt()
+            lp.bottomMargin = insets.bottom + (8 * resources.displayMetrics.density).toInt()
             view.layoutParams = lp
             windowInsets
         }
@@ -853,7 +852,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         val uriStr = item.imagePath ?: return
         val (_, file) = parseAvatarModelAndFile(uriStr)
         if (file != null && file.exists()) {
-            Executors.newSingleThreadExecutor().execute {
+            frameExecutor.execute {
                 val isVid = item.isVideo || item.messageType == ChatMessage.MessageType.VIDEO
                 val success = MediaSaveUtils.saveToGallery(this, Uri.fromFile(file), isVid)
                 runOnUiThread {
@@ -1126,8 +1125,19 @@ class MediaPlayerActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateSystemBarsVisibility(visible: Boolean) {
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView) ?: return
+        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (visible) {
+            windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
+        } else {
+            windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
     private fun showControls() {
         handler.removeCallbacks(autoHideControlsRunnable)
+        updateSystemBarsVisibility(true)
         if (!areControlsVisible) {
             areControlsVisible = true
 
@@ -1170,6 +1180,7 @@ class MediaPlayerActivity : AppCompatActivity() {
 
     private fun hideControls() {
         handler.removeCallbacks(autoHideControlsRunnable)
+        updateSystemBarsVisibility(false)
         if (areControlsVisible) {
             areControlsVisible = false
 
@@ -1241,6 +1252,8 @@ class MediaPlayerActivity : AppCompatActivity() {
         } catch (_: Exception) {}
 
         handler.removeCallbacksAndMessages(null)
+        frameExecutor.shutdownNow()
+        frameCache.evictAll()
 
         if (!isChangingConfigurations) {
             sharedMediaList = null

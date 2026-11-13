@@ -11,7 +11,7 @@
     <View
         android:id="@+id/vTopFog"
         android:layout_width="match_parent"
-        android:layout_height="120dp"
+        android:layout_height="140dp"
         android:background="@drawable/bg_top_fog_dark"
         app:layout_constraintTop_toTopOf="parent" />
 
@@ -19,19 +19,19 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutHeaderIsland"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="52dp"
         android:layout_marginHorizontal="16dp"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="38dp"
         android:background="@drawable/bg_island_brand"
-        android:paddingHorizontal="8dp"
-        android:elevation="4dp"
+        android:paddingHorizontal="6dp"
+        android:elevation="6dp"
         app:layout_constraintTop_toTopOf="parent">
 
         <!-- Back Button -->
         <ImageButton
             android:id="@+id/btnBack"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_arrow_back"
             app:tint="@color/white"
@@ -45,7 +45,7 @@
             android:id="@+id/layoutHeaderCenterContainer"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_marginHorizontal="8dp"
+            android:layout_marginHorizontal="6dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@+id/layoutHeaderActionsContainer"
             app:layout_constraintStart_toEndOf="@+id/btnBack"
@@ -64,17 +64,16 @@
                     android:layout_height="wrap_content"
                     android:text="Центр загрузок"
                     android:textColor="@color/white"
-                    android:textSize="17sp"
+                    android:textSize="16sp"
                     android:fontFamily="sans-serif-medium" />
 
                 <TextView
                     android:id="@+id/tvStorageUsage"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="1dp"
                     android:textColor="#CCFFFFFF"
                     android:textSize="11sp"
-                    tools:text="Собеседники и браузер • 24 МБ" />
+                    tools:text="24.5 МБ • 12 файлов" />
             </LinearLayout>
 
             <EditText
@@ -92,7 +91,7 @@
                 android:paddingVertical="0dp"
                 android:textColor="@color/white"
                 android:textColorHint="#80FFFFFF"
-                android:textSize="15sp"
+                android:textSize="14.5sp"
                 android:visibility="gone" />
         </FrameLayout>
 
@@ -100,7 +99,7 @@
         <LinearLayout
             android:id="@+id/layoutHeaderActionsContainer"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
+            android:layout_height="38dp"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -109,8 +108,8 @@
 
             <ImageButton
                 android:id="@+id/btnToggleViewMode"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_format_table"
                 app:tint="@color/white"
@@ -118,8 +117,8 @@
 
             <ImageButton
                 android:id="@+id/btnHeaderSearch"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_search"
                 app:tint="@color/white"
@@ -127,13 +126,22 @@
 
             <ImageButton
                 android:id="@+id/btnHeaderSearchClear"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_cancel"
                 android:visibility="gone"
                 app:tint="@color/white"
                 android:contentDescription="Закрыть поиск" />
+
+            <ImageButton
+                android:id="@+id/btnHeaderMore"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_more_vert"
+                app:tint="@color/white"
+                android:contentDescription="Опции" />
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -142,7 +150,7 @@
         android:id="@+id/scrollCategoryFilter"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="8dp"
         android:clipToPadding="false"
         android:paddingHorizontal="16dp"
         android:scrollbars="none"
@@ -157,62 +165,159 @@
                 android:id="@+id/chipAll"
                 style="@style/Widget.Material3.Button.TonalButton"
                 android:layout_width="wrap_content"
-                android:layout_height="38dp"
+                android:layout_height="34dp"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
                 android:text="Все"
                 android:textSize="13sp"
-                app:cornerRadius="19dp" />
+                app:cornerRadius="17dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/chipMedia"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="38dp"
-                android:layout_marginStart="8dp"
+                android:layout_height="34dp"
+                android:layout_marginStart="6dp"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
                 android:text="Медиа"
                 android:textSize="13sp"
-                app:cornerRadius="19dp" />
+                app:cornerRadius="17dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/chipDocs"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="38dp"
-                android:layout_marginStart="8dp"
+                android:layout_height="34dp"
+                android:layout_marginStart="6dp"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
                 android:text="Документы"
                 android:textSize="13sp"
-                app:cornerRadius="19dp" />
+                app:cornerRadius="17dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/chipMusic"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="38dp"
-                android:layout_marginStart="8dp"
+                android:layout_height="34dp"
+                android:layout_marginStart="6dp"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
                 android:text="Музыка"
                 android:textSize="13sp"
-                app:cornerRadius="19dp" />
+                app:cornerRadius="17dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/chipUpdates"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="38dp"
-                android:layout_marginStart="8dp"
+                android:layout_height="34dp"
+                android:layout_marginStart="6dp"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
                 android:text="Обновления"
                 android:textSize="13sp"
-                app:cornerRadius="19dp" />
+                app:cornerRadius="17dp" />
         </LinearLayout>
     </HorizontalScrollView>
+
+    <!-- Compact M3 Storage Info Strip -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardStorageSummary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        android:clickable="true"
+        android:focusable="true"
+        app:cardBackgroundColor="@color/prime_surface"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="1dp"
+        app:strokeColor="#1FFFFFFF"
+        app:strokeWidth="1dp"
+        app:layout_constraintTop_toBottomOf="@+id/scrollCategoryFilter">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="12dp">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_download"
+                app:tint="@color/prime_brand" />
+
+            <ProgressBar
+                android:id="@+id/pbStorageBar"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="60dp"
+                android:layout_height="6dp"
+                android:layout_marginStart="8dp"
+                android:max="100"
+                android:progress="0"
+                android:progressDrawable="@drawable/bg_storage_progress" />
+
+            <TextView
+                android:id="@+id/tvStorageDetails"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/prime_text_primary"
+                android:textSize="12sp"
+                tools:text="Занято: 0 Б • 0 файлов" />
+
+            <TextView
+                android:id="@+id/btnClearDownloads"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="4dp"
+                android:text="Очистить"
+                android:textColor="#EF4444"
+                android:textSize="11.5sp"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- Active Transfers List -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvActiveTransfers"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="6dp"
         android:nestedScrollingEnabled="false"
         android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@+id/scrollCategoryFilter"
+        app:layout_constraintTop_toBottomOf="@+id/cardStorageSummary"
         tools:listitem="@layout/item_active_transfer"
         tools:visibility="visible" />
 
@@ -221,25 +326,67 @@
         android:id="@+id/rvDownloads"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="6dp"
         android:clipToPadding="false"
         android:paddingBottom="24dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/rvActiveTransfers"
         tools:listitem="@layout/item_download_file_grid" />
 
-    <!-- Empty State -->
-    <TextView
-        android:id="@+id/tvEmptyState"
+    <!-- Empty State Container (Centered) -->
+    <LinearLayout
+        android:id="@+id/layoutEmptyState"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Загруженных файлов не найдено"
-        android:textColor="@color/prime_text_secondary"
-        android:textSize="15sp"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="24dp"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/scrollCategoryFilter" />
+        app:layout_constraintTop_toBottomOf="@+id/cardStorageSummary"
+        tools:visibility="visible">
+
+        <ImageView
+            android:id="@+id/ivEmptyIcon"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:src="@drawable/ic_download"
+            app:tint="@color/prime_text_secondary"
+            android:alpha="0.4" />
+
+        <TextView
+            android:id="@+id/tvEmptyState"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Загруженных файлов нет"
+            android:textColor="@color/prime_text_primary"
+            android:textSize="15sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/tvEmptyDescription"
+            android:layout_width="240dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:text="Файлы из чатов и браузера появятся здесь"
+            android:textColor="@color/prime_text_secondary"
+            android:textSize="12.5sp" />
+    </LinearLayout>
+
+    <!-- Bottom Navigation Bar Panel -->
+    <include
+        android:id="@+id/blurBottomNav"
+        layout="@layout/layout_bottom_navigation"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

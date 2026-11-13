@@ -7,6 +7,8 @@ import java.io.File
 
 object AvatarHistoryManager {
 
+    private const val MAX_AVATAR_HISTORY_SIZE = 25
+
     private fun isSameAvatarPath(path1: String?, path2: String?): Boolean {
         if (path1.isNullOrBlank() || path2.isNullOrBlank()) return false
         if (path1 == path2 || path1.trim() == path2.trim()) return true
@@ -84,15 +86,29 @@ object AvatarHistoryManager {
         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         val historyKey = if (currentUser.isNotEmpty()) "my_avatar_history_$currentUser" else "my_avatar_history"
+
+        val limitedHistory = if (history.size > MAX_AVATAR_HISTORY_SIZE) {
+            val pruned = history.drop(MAX_AVATAR_HISTORY_SIZE)
+            pruned.forEach { uriStr ->
+                val (_, file) = parseAvatarModelAndFile(uriStr)
+                if (file != null && file.exists() && file.parentFile == context.filesDir && !file.name.contains("default")) {
+                    try { file.delete() } catch (_: Exception) {}
+                }
+            }
+            history.take(MAX_AVATAR_HISTORY_SIZE)
+        } else {
+            history
+        }
+
         val array = JSONArray()
-        history.forEach { array.put(it) }
+        limitedHistory.forEach { array.put(it) }
 
         val editor = sharedPrefs.edit()
             .putString(historyKey, array.toString())
             .putString("my_avatar_history", array.toString())
 
-        if (history.isNotEmpty()) {
-            val active = history.first()
+        if (limitedHistory.isNotEmpty()) {
+            val active = limitedHistory.first()
             editor.putString("my_avatar", active)
                 .putString("my_local_avatar", active)
                 .putString("my_avatar_uri", active)
@@ -113,13 +129,31 @@ object AvatarHistoryManager {
         saveMyAvatarHistory(context, current)
     }
 
-    fun removeMyAvatar(context: Context, targetUri: String): String? {
+    fun setActiveMyAvatar(context: Context, activeUri: String) {
+        val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val currentUser = sharedPrefs.getString("current_user", "") ?: ""
+        val editor = sharedPrefs.edit()
+            .putString("my_avatar", activeUri)
+            .putString("my_local_avatar", activeUri)
+            .putString("my_avatar_uri", activeUri)
+        if (currentUser.isNotEmpty()) {
+            editor.putString("${currentUser}_avatar", activeUri)
+                .putString("${currentUser}_avatarUri", activeUri)
+        }
+        editor.apply()
+        AvatarManager.invalidateAvatarFileCache()
+    }
+
+    @JvmOverloads
+    fun removeMyAvatar(context: Context, targetUri: String, deleteFile: Boolean = true): String? {
         val current = getMyAvatarHistory(context).toMutableList()
         current.removeAll { isSameAvatarPath(it, targetUri) }
 
-        val (_, file) = parseAvatarModelAndFile(targetUri)
-        if (file != null && file.exists() && !file.name.contains("default")) {
-            try { file.delete() } catch (_: Exception) {}
+        if (deleteFile) {
+            val (_, file) = parseAvatarModelAndFile(targetUri)
+            if (file != null && file.exists() && !file.name.contains("default")) {
+                try { file.delete() } catch (_: Exception) {}
+            }
         }
         saveMyAvatarHistory(context, current)
         return current.firstOrNull()
@@ -223,14 +257,27 @@ object AvatarHistoryManager {
 
         if (isLocal || isGeneric) return
 
+        val limitedHistory = if (history.size > MAX_AVATAR_HISTORY_SIZE) {
+            val pruned = history.drop(MAX_AVATAR_HISTORY_SIZE)
+            pruned.forEach { uriStr ->
+                val (_, file) = parseAvatarModelAndFile(uriStr)
+                if (file != null && file.exists() && file.parentFile == context.filesDir && !file.name.contains("default")) {
+                    try { file.delete() } catch (_: Exception) {}
+                }
+            }
+            history.take(MAX_AVATAR_HISTORY_SIZE)
+        } else {
+            history
+        }
+
         val array = JSONArray()
-        history.forEach { array.put(it) }
+        limitedHistory.forEach { array.put(it) }
 
         val historyKey = if (currentUser.isNotEmpty()) "contact_avatar_history_${currentUser}_$addressOrName" else "contact_avatar_history_$addressOrName"
         val editor = sharedPrefs.edit().putString(historyKey, array.toString())
 
-        if (history.isNotEmpty()) {
-            val active = history.first()
+        if (limitedHistory.isNotEmpty()) {
+            val active = limitedHistory.first()
             if (currentUser.isNotEmpty()) {
                 editor.putString("contact_avatar_${currentUser}_$addressOrName", active)
             } else {
@@ -251,14 +298,17 @@ object AvatarHistoryManager {
         saveContactAvatarHistory(context, addressOrName, current)
     }
 
-    fun removeContactAvatar(context: Context, addressOrName: String, targetUri: String): String? {
+    @JvmOverloads
+    fun removeContactAvatar(context: Context, addressOrName: String, targetUri: String, deleteFile: Boolean = true): String? {
         if (addressOrName.isBlank()) return null
         val current = getContactAvatarHistory(context, addressOrName).toMutableList()
         current.removeAll { isSameAvatarPath(it, targetUri) }
 
-        val (_, file) = parseAvatarModelAndFile(targetUri)
-        if (file != null && file.exists()) {
-            try { file.delete() } catch (_: Exception) {}
+        if (deleteFile) {
+            val (_, file) = parseAvatarModelAndFile(targetUri)
+            if (file != null && file.exists()) {
+                try { file.delete() } catch (_: Exception) {}
+            }
         }
         saveContactAvatarHistory(context, addressOrName, current)
         return current.firstOrNull()

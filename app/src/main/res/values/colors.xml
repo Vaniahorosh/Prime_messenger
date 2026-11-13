@@ -30,7 +30,7 @@
     <color name="chat_bubble_outgoing_end">#1D4ED8</color>
     <color name="chat_bubble_outgoing_text">#FFFFFF</color>
     <color name="chat_bubble_outgoing_time">#DBEAFE</color>
-    <color name="chat_island_bg">#E6FFFFFF</color>
+    <color name="chat_island_bg">#CCF8FAFC</color>
     <color name="chat_date_bubble_bg">#F1F5F9</color>
 
     <!-- Legacy / Other Prime Colors -->

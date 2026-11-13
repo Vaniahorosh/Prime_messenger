@@ -31,9 +31,100 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.doOnPreDraw
+import androidx.core.view.doOnLayout
 import eightbitlab.com.blurview.BlurView as EightBitBlurView
 import eightbitlab.com.blurview.RenderEffectBlur
 import eightbitlab.com.blurview.RenderScriptBlur
+import com.messenger.prime.shapes.PolygonShape
+import com.messenger.prime.shapes.PathShape
+import android.graphics.Outline
+import android.graphics.Path
+import android.graphics.RectF
+import android.graphics.Canvas
+import androidx.graphics.shapes.RoundedPolygon
+import androidx.graphics.shapes.toPath
+import com.messenger.prime.shapes.M3EShapes
+
+fun View.applyM3EShape(shape: RoundedPolygon) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        this.elevation = 0f // CRITICAL: Prevent Mali/Lenovo GPU ANR from concave shadow casting
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            this.outlineAmbientShadowColor = android.graphics.Color.TRANSPARENT
+            this.outlineSpotShadowColor = android.graphics.Color.TRANSPARENT
+        }
+        this.clipToOutline = true
+        this.outlineProvider = object : ViewOutlineProvider() {
+            private val cachedPath = Path()
+            private var lastWidth = 0
+            private var lastHeight = 0
+
+            override fun getOutline(view: View, outline: Outline) {
+                if (view.width <= 0 || view.height <= 0) return
+                if (view.width != lastWidth || view.height != lastHeight) {
+                    lastWidth = view.width
+                    lastHeight = view.height
+                    
+                    val androidPath = shape.toPath()
+                    val bounds = RectF()
+                    androidPath.computeBounds(bounds, true)
+                    
+                    if (bounds.width() <= 0f || bounds.height() <= 0f) return
+
+                    val scaleX = view.width.toFloat() / bounds.width()
+                    val scaleY = view.height.toFloat() / bounds.height()
+                    val matrix = android.graphics.Matrix()
+                    matrix.postTranslate(-bounds.left, -bounds.top)
+                    matrix.postScale(scaleX, scaleY)
+                    androidPath.transform(matrix)
+                    
+                    cachedPath.rewind()
+                    cachedPath.addPath(androidPath)
+                }
+                if (!cachedPath.isEmpty) {
+                    outline.setPath(cachedPath)
+                }
+            }
+        }
+        this.invalidateOutline()
+        this.doOnLayout { it.invalidateOutline() }
+        this.post { this.invalidateOutline() }
+    }
+}
+
+fun View.applyM3EPathProvider(pathProvider: (width: Float, height: Float) -> Path) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        this.elevation = 0f // CRITICAL: Prevent Mali/Lenovo GPU ANR from concave shadow casting
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            this.outlineAmbientShadowColor = android.graphics.Color.TRANSPARENT
+            this.outlineSpotShadowColor = android.graphics.Color.TRANSPARENT
+        }
+        this.clipToOutline = true
+        this.outlineProvider = object : ViewOutlineProvider() {
+            private val cachedPath = Path()
+            private var lastWidth = 0
+            private var lastHeight = 0
+
+            override fun getOutline(view: View, outline: Outline) {
+                if (view.width <= 0 || view.height <= 0) return
+                if (view.width != lastWidth || view.height != lastHeight) {
+                    lastWidth = view.width
+                    lastHeight = view.height
+                    cachedPath.rewind()
+                    val newPath = pathProvider(view.width.toFloat(), view.height.toFloat())
+                    if (newPath != null && !newPath.isEmpty) {
+                        cachedPath.addPath(newPath)
+                    }
+                }
+                if (!cachedPath.isEmpty) {
+                    outline.setPath(cachedPath)
+                }
+            }
+        }
+        this.invalidateOutline()
+        this.doOnLayout { it.invalidateOutline() }
+        this.post { this.invalidateOutline() }
+    }
+}
 
 fun getDefaultBlurOverlayColor(context: Context): Int {
     val isDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
@@ -143,16 +234,48 @@ private fun findActivity(context: Context): Activity? {
 /**
  * Расширение для настройки eightbitlab.com.blurview.BlurView в XML-разметках Activity.
  */
+@JvmOverloads
 fun EightBitBlurView.setupBlur(
     rootView: ViewGroup,
     blurRadius: Float = 16f,
     tintColor: Int? = null,
-    frameClearDrawable: Drawable? = null
+    frameClearDrawable: Drawable? = null,
+    m3eShape: RoundedPolygon? = null,
+    m3ePathProvider: ((width: Float, height: Float) -> Path)? = null
 ) {
     val actualTintColor = tintColor ?: getDefaultBlurOverlayColor(context)
     
-    outlineProvider = ViewOutlineProvider.BACKGROUND
-    clipToOutline = true
+    // Custom clip path for API < 33 if needed, or ViewOutlineProvider for API 33+
+    if (m3eShape != null || m3ePathProvider != null) {
+        clipToOutline = true
+        outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val path = if (m3eShape != null) {
+                        val androidPath = m3eShape.toPath()
+                        val bounds = RectF()
+                        androidPath.computeBounds(bounds, true)
+                        val scaleX = view.width / bounds.width()
+                        val scaleY = view.height / bounds.height()
+                        val matrix = android.graphics.Matrix()
+                        matrix.postTranslate(-bounds.left, -bounds.top)
+                        matrix.postScale(scaleX, scaleY)
+                        androidPath.transform(matrix)
+                        androidPath
+                    } else {
+                        m3ePathProvider!!.invoke(view.width.toFloat(), view.height.toFloat())
+                    }
+                    outline.setPath(path)
+                } else {
+                    // Fallback for older APIs: set bounds outline and we'll clip on draw if necessary
+                    outline.setRect(0, 0, view.width, view.height)
+                }
+            }
+        }
+    } else {
+        outlineProvider = ViewOutlineProvider.BACKGROUND
+        clipToOutline = true
+    }
 
     val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
     val isLowRam = activityManager?.isLowRamDevice == true

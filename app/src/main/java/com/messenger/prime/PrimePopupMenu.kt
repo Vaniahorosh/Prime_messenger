@@ -1,13 +1,18 @@
 package com.messenger.prime
 
+import android.app.Activity
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.text.TextUtils
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
@@ -15,8 +20,11 @@ import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.annotation.DrawableRes
-import androidx.core.view.marginEnd
+import eightbitlab.com.blurview.BlurView as EightBitBlurView
 
+/**
+ * Глобальное универсальное выпадающее меню в стиле M3 Expressive с поддержкой настоящего BlurView.
+ */
 class PrimePopupMenu private constructor(
     private val context: Context,
     private val anchorView: View
@@ -59,35 +67,48 @@ class PrimePopupMenu private constructor(
 
         val density = context.resources.displayMetrics.density
         val accentColor = ColorAccentManager.getCurrentAccentColor(context)
-        val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val isDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
-        val cardBgColor = if (isDark) Color.parseColor("#EE0F172A") else Color.parseColor("#FAFAFA")
-        val strokeColor = if (isDark) Color.parseColor("#30FFFFFF") else Color.parseColor("#20000000")
+        val blurBgColor = if (isDark) Color.parseColor("#450F172A") else Color.parseColor("#45154B87")
+        val strokeColor = if (isDark) Color.parseColor("#33FFFFFF") else Color.parseColor("#20FFFFFF")
         val itemUnselectedBg = if (isDark) Color.parseColor("#15FFFFFF") else Color.parseColor("#0F000000")
-        val itemTextColor = if (isDark) Color.parseColor("#E2E8F0") else Color.parseColor("#1E293B")
+        val itemTextColor = if (isDark) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
 
-        // Outer layout card
-        val cardBackground = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 20f * density
-            setColor(cardBgColor)
-            setStroke((1 * density).toInt(), strokeColor)
-        }
-
-        val cardLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            background = cardBackground
-            elevation = 24f * density
-            setPadding((6 * density).toInt(), (8 * density).toInt(), (6 * density).toInt(), (8 * density).toInt())
+        // Root Blur Card Container
+        val blurCard = EightBitBlurView(context).apply {
+            val bgDrawable = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 20f * density
+                setColor(blurBgColor)
+                setStroke((1 * density).toInt(), strokeColor)
+            }
+            background = bgDrawable
+            outlineProvider = ViewOutlineProvider.BACKGROUND
             clipToOutline = true
+            elevation = 20f * density
+            setPadding((6 * density).toInt(), (6 * density).toInt(), (6 * density).toInt(), (6 * density).toInt())
         }
 
-        // Items container
+        // Blur setup over parent window decorView
+        val activity = (context as? Activity) ?: (anchorView.context as? Activity)
+        if (activity != null) {
+            try {
+                val rootView = (activity.window.decorView.findViewById<ViewGroup>(android.R.id.content))
+                    ?: (activity.window.decorView as ViewGroup)
+                val windowBg = activity.window.decorView.background
+                val overlayColor = getDefaultBlurOverlayColor(activity)
+                blurCard.setupBlur(rootView, 20f, overlayColor, windowBg)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // Items container layout
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
 
@@ -98,33 +119,34 @@ class PrimePopupMenu private constructor(
                 gravity = Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    (38 * density).toInt()
+                    (42 * density).toInt()
                 ).apply {
                     setMargins(0, (2 * density).toInt(), 0, (2 * density).toInt())
                 }
-                setPadding((12 * density).toInt(), 0, (12 * density).toInt(), 0)
+                setPadding((14 * density).toInt(), 0, (14 * density).toInt(), 0)
 
-                val shapeDrawable = GradientDrawable().apply {
+                val itemBg = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE
-                    cornerRadius = 12f * density
+                    cornerRadius = 14f * density
                     if (item.isSelected) {
                         setColor(accentColor)
                     } else {
                         setColor(itemUnselectedBg)
                     }
                 }
-                background = shapeDrawable
+                background = itemBg
 
-                if (item.iconResId != null) {
+                if (item.iconResId != null && item.iconResId != 0) {
                     val iconIv = ImageView(context).apply {
                         layoutParams = LinearLayout.LayoutParams(
-                            (18 * density).toInt(),
-                            (18 * density).toInt()
+                            (20 * density).toInt(),
+                            (20 * density).toInt()
                         ).apply {
-                            setMargins(0, 0, (10 * density).toInt(), 0)
+                            setMargins(0, 0, (12 * density).toInt(), 0)
                         }
                         setImageResource(item.iconResId)
-                        setColorFilter(if (item.isSelected) Color.WHITE else itemTextColor)
+                        val iconColor = if (item.isSelected) Color.WHITE else accentColor
+                        setColorFilter(iconColor)
                     }
                     addView(iconIv)
                 }
@@ -136,11 +158,25 @@ class PrimePopupMenu private constructor(
                         1f
                     )
                     text = item.title
-                    textSize = 13f
+                    textSize = 13.5f
                     typeface = Typeface.DEFAULT_BOLD
                     setTextColor(if (item.isSelected) Color.WHITE else itemTextColor)
+                    setSingleLine()
+                    ellipsize = TextUtils.TruncateAt.END
                 }
                 addView(tv)
+
+                setOnTouchListener { v, event ->
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            v.animate().scaleX(0.97f).scaleY(0.97f).setDuration(80).start()
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).setInterpolator(OvershootInterpolator(1.1f)).start()
+                        }
+                    }
+                    false
+                }
 
                 setOnClickListener {
                     dismissAnimated {
@@ -151,25 +187,25 @@ class PrimePopupMenu private constructor(
             container.addView(itemView)
         }
 
-        cardLayout.addView(container)
+        blurCard.addView(container)
 
         // Measure card dimensions
-        cardLayout.measure(
+        blurCard.measure(
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
         )
 
         val minWidth = (180 * density).toInt()
-        val popupWidth = Math.max(cardLayout.measuredWidth, minWidth)
-        val popupHeight = cardLayout.measuredHeight
+        val popupWidth = Math.max(blurCard.measuredWidth, minWidth)
+        val popupHeight = blurCard.measuredHeight
 
         popupWindow = PopupWindow(
-            cardLayout,
+            blurCard,
             popupWidth,
             ViewGroup.LayoutParams.WRAP_CONTENT,
             true
         ).apply {
-            elevation = 24f * density
+            elevation = 20f * density
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             isOutsideTouchable = true
             isFocusable = true
@@ -203,20 +239,20 @@ class PrimePopupMenu private constructor(
         val pivotX = if (x + (popupWidth / 2) > anchorX + (anchorWidth / 2)) 0f else popupWidth.toFloat()
         val pivotY = if (isAbove) popupHeight.toFloat() else 0f
 
-        cardLayout.pivotX = pivotX
-        cardLayout.pivotY = pivotY
-        cardLayout.scaleX = 0.2f
-        cardLayout.scaleY = 0.2f
-        cardLayout.alpha = 0f
+        blurCard.pivotX = pivotX
+        blurCard.pivotY = pivotY
+        blurCard.scaleX = 0.85f
+        blurCard.scaleY = 0.85f
+        blurCard.alpha = 0f
 
         popupWindow?.showAtLocation(anchorView, Gravity.NO_GRAVITY, x, y)
 
         // Card scale animation
-        cardLayout.animate()
+        blurCard.animate()
             .scaleX(1.0f)
             .scaleY(1.0f)
             .alpha(1.0f)
-            .setDuration(280)
+            .setDuration(260)
             .setInterpolator(OvershootInterpolator(1.2f))
             .start()
 
@@ -224,12 +260,12 @@ class PrimePopupMenu private constructor(
         for (i in 0 until container.childCount) {
             val child = container.getChildAt(i)
             child.alpha = 0f
-            child.translationY = if (isAbove) (20f * density) else (-20f * density)
+            child.translationY = if (isAbove) (16f * density) else (-16f * density)
             child.animate()
                 .alpha(1.0f)
                 .translationY(0f)
-                .setDuration(200)
-                .setStartDelay(i * 25L)
+                .setDuration(180)
+                .setStartDelay(i * 20L)
                 .setInterpolator(DecelerateInterpolator())
                 .start()
         }
@@ -248,13 +284,13 @@ class PrimePopupMenu private constructor(
             return
         }
 
-        val cardLayout = popup.contentView as? ViewGroup ?: run {
+        val blurCard = popup.contentView as? ViewGroup ?: run {
             popup.dismiss()
             onComplete?.invoke()
             return
         }
 
-        val container = cardLayout.getChildAt(0) as? ViewGroup
+        val container = blurCard.getChildAt(0) as? ViewGroup
         val density = context.resources.displayMetrics.density
 
         if (container != null) {
@@ -263,18 +299,18 @@ class PrimePopupMenu private constructor(
                 child.animate().cancel()
                 child.animate()
                     .alpha(0f)
-                    .translationY(-15f * density)
-                    .setDuration(150)
+                    .translationY(-10f * density)
+                    .setDuration(120)
                     .start()
             }
         }
 
-        cardLayout.animate().cancel()
-        cardLayout.animate()
-            .scaleX(0.8f)
-            .scaleY(0.8f)
+        blurCard.animate().cancel()
+        blurCard.animate()
+            .scaleX(0.85f)
+            .scaleY(0.85f)
             .alpha(0f)
-            .setDuration(180)
+            .setDuration(160)
             .withEndAction {
                 try {
                     popup.dismiss()

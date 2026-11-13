@@ -5,8 +5,8 @@
         android:endColor="@color/chat_bubble_outgoing_end"
         android:angle="135" />
     <corners
-        android:topLeftRadius="18dp"
-        android:topRightRadius="18dp"
-        android:bottomRightRadius="4dp"
-        android:bottomLeftRadius="18dp" />
+        android:topLeftRadius="22dp"
+        android:topRightRadius="22dp"
+        android:bottomRightRadius="6dp"
+        android:bottomLeftRadius="22dp" />
 </shape>

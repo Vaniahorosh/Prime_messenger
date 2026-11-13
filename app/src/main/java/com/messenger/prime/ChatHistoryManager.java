@@ -516,7 +516,7 @@ public class ChatHistoryManager {
             boolean updated = false;
 
             String timeStr = lastMsg != null && lastMsg.getTime() != null ? lastMsg.getTime() : new java.text.SimpleDateFormat("HH:mm", Locale.getDefault()).format(new java.util.Date());
-            String textStr = lastMsg != null ? (lastMsg.getText() != null && !lastMsg.getText().isEmpty() ? lastMsg.getText() : ChatMessage.getSummaryDescription(lastMsg)) : "";
+            String textStr = lastMsg != null ? ChatMessage.getSummaryDescription(lastMsg) : "";
             long timestamp = lastMsg != null ? lastMsg.getTimestamp() : System.currentTimeMillis();
             String msgStatus = lastMsg != null && lastMsg.getMessageStatus() != null ? lastMsg.getMessageStatus().name() : "SENT";
 
@@ -1334,5 +1334,216 @@ public class ChatHistoryManager {
         }
 
         return null;
+    }
+
+    public static class PinnedMessageItem {
+        public String id;
+        public String text;
+        public long timestamp;
+
+        public PinnedMessageItem(String id, String text, long timestamp) {
+            this.id = id;
+            this.text = text;
+            this.timestamp = timestamp;
+        }
+    }
+
+    private static String getNormalizedPinnedUserKey(String targetUser) {
+        if (targetUser == null || targetUser.trim().isEmpty()) return "";
+        String key = targetUser.trim().toLowerCase(java.util.Locale.US);
+        if ("заметки".equals(key) || "notes_chat_item".equals(key)) {
+            return "notes_chat_item";
+        }
+        return key;
+    }
+
+    public static List<PinnedMessageItem> getPinnedMessages(Context context, String targetUser) {
+        return getPinnedMessages(context, targetUser, null);
+    }
+
+    public static List<PinnedMessageItem> getPinnedMessages(Context context, String targetUser, String deviceAddress) {
+        List<PinnedMessageItem> list = new ArrayList<>();
+        if (context == null) return list;
+        
+        String key = getNormalizedPinnedUserKey(targetUser);
+        if (key.isEmpty() && deviceAddress != null) {
+            key = getNormalizedPinnedUserKey(deviceAddress);
+        }
+        if (key.isEmpty()) return list;
+
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        String jsonStr = sp.getString("pinned_messages_json_" + key, null);
+        
+        if ((jsonStr == null || jsonStr.isEmpty()) && deviceAddress != null && !deviceAddress.isEmpty()) {
+            String altKey = getNormalizedPinnedUserKey(deviceAddress);
+            if (!altKey.equals(key)) {
+                jsonStr = sp.getString("pinned_messages_json_" + altKey, null);
+            }
+        }
+
+        if (jsonStr != null && !jsonStr.isEmpty()) {
+            try {
+                org.json.JSONArray array = new org.json.JSONArray(jsonStr);
+                for (int i = 0; i < array.length(); i++) {
+                    org.json.JSONObject obj = array.getJSONObject(i);
+                    String id = obj.optString("id", "");
+                    String text = obj.optString("text", "");
+                    long ts = obj.optLong("timestamp", System.currentTimeMillis());
+                    if (!id.isEmpty()) {
+                        list.add(new PinnedMessageItem(id, text, ts));
+                    }
+                }
+            } catch (Exception e) {
+                Log.e("ChatHistoryManager", "Failed to parse pinned messages", e);
+            }
+        } else {
+            String oldId = sp.getString("pinned_msg_id_" + key, null);
+            String oldText = sp.getString("pinned_msg_text_" + key, null);
+            if (oldId != null && !oldId.isEmpty()) {
+                list.add(new PinnedMessageItem(oldId, oldText != null ? oldText : "Сообщение", System.currentTimeMillis()));
+            }
+        }
+        return list;
+    }
+
+    public static void addPinnedMessage(Context context, String targetUser, String msgId, String msgText) {
+        addPinnedMessage(context, targetUser, null, msgId, msgText);
+    }
+
+    public static void addPinnedMessage(Context context, String targetUser, String deviceAddress, String msgId, String msgText) {
+        if (context == null || msgId == null || msgId.isEmpty()) return;
+        List<PinnedMessageItem> list = getPinnedMessages(context, targetUser, deviceAddress);
+        for (PinnedMessageItem item : list) {
+            if (java.util.Objects.equals(item.id, msgId)) return;
+        }
+        list.add(new PinnedMessageItem(msgId, msgText != null ? msgText : "Сообщение", System.currentTimeMillis()));
+        savePinnedMessagesList(context, targetUser, deviceAddress, list);
+    }
+
+    public static void removePinnedMessage(Context context, String targetUser, String msgId) {
+        removePinnedMessage(context, targetUser, null, msgId);
+    }
+
+    public static void removePinnedMessage(Context context, String targetUser, String deviceAddress, String msgId) {
+        if (context == null || msgId == null || msgId.isEmpty()) return;
+        List<PinnedMessageItem> list = getPinnedMessages(context, targetUser, deviceAddress);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            list.removeIf(item -> java.util.Objects.equals(item.id, msgId));
+        } else {
+            Iterator<PinnedMessageItem> it = list.iterator();
+            while (it.hasNext()) {
+                if (java.util.Objects.equals(it.next().id, msgId)) {
+                    it.remove();
+                }
+            }
+        }
+        savePinnedMessagesList(context, targetUser, deviceAddress, list);
+    }
+
+    public static boolean isMessagePinned(Context context, String targetUser, String msgId) {
+        return isMessagePinned(context, targetUser, null, msgId);
+    }
+
+    public static boolean isMessagePinned(Context context, String targetUser, String deviceAddress, String msgId) {
+        if (context == null || msgId == null || msgId.isEmpty()) return false;
+        List<PinnedMessageItem> list = getPinnedMessages(context, targetUser, deviceAddress);
+        for (PinnedMessageItem item : list) {
+            if (java.util.Objects.equals(item.id, msgId)) return true;
+        }
+        return false;
+    }
+
+    private static void savePinnedMessagesList(Context context, String targetUser, String deviceAddress, List<PinnedMessageItem> list) {
+        if (context == null) return;
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        org.json.JSONArray array = new org.json.JSONArray();
+        for (PinnedMessageItem item : list) {
+            try {
+                org.json.JSONObject obj = new org.json.JSONObject();
+                obj.put("id", item.id);
+                obj.put("text", item.text);
+                obj.put("timestamp", item.timestamp);
+                array.put(obj);
+            } catch (Exception ignored) {}
+        }
+        SharedPreferences.Editor editor = sp.edit();
+        String jsonStr = array.toString();
+
+        String key1 = getNormalizedPinnedUserKey(targetUser);
+        if (!key1.isEmpty()) {
+            editor.putString("pinned_messages_json_" + key1, jsonStr);
+        }
+
+        String key2 = getNormalizedPinnedUserKey(deviceAddress);
+        if (!key2.isEmpty() && !key2.equals(key1)) {
+            editor.putString("pinned_messages_json_" + key2, jsonStr);
+        }
+
+        editor.apply();
+    }
+
+    public static boolean isPinnedBarHidden(Context context, String targetUser, String deviceAddress) {
+        if (context == null) return false;
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        String key1 = getNormalizedPinnedUserKey(targetUser);
+        if (!key1.isEmpty() && sp.getBoolean("pinned_bar_hidden_" + key1, false)) return true;
+        String key2 = getNormalizedPinnedUserKey(deviceAddress);
+        if (!key2.isEmpty() && sp.getBoolean("pinned_bar_hidden_" + key2, false)) return true;
+        return false;
+    }
+
+    public static void setPinnedBarHidden(Context context, String targetUser, String deviceAddress, boolean hidden) {
+        if (context == null) return;
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = sp.edit();
+        String key1 = getNormalizedPinnedUserKey(targetUser);
+        if (!key1.isEmpty()) editor.putBoolean("pinned_bar_hidden_" + key1, hidden);
+        String key2 = getNormalizedPinnedUserKey(deviceAddress);
+        if (!key2.isEmpty()) editor.putBoolean("pinned_bar_hidden_" + key2, hidden);
+        editor.apply();
+    }
+
+    public static void setPinnedMessage(Context context, String targetUser, String msgId, String msgText) {
+        addPinnedMessage(context, targetUser, msgId, msgText);
+    }
+
+    public static String getPinnedMessageId(Context context, String targetUser) {
+        List<PinnedMessageItem> list = getPinnedMessages(context, targetUser);
+        return !list.isEmpty() ? list.get(0).id : null;
+    }
+
+    public static String getPinnedMessageText(Context context, String targetUser) {
+        List<PinnedMessageItem> list = getPinnedMessages(context, targetUser);
+        return !list.isEmpty() ? list.get(0).text : null;
+    }
+
+    public static void clearPinnedMessage(Context context, String targetUser) {
+        if (context == null || targetUser == null || targetUser.isEmpty()) return;
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        sp.edit()
+                .remove("pinned_messages_json_" + targetUser.toLowerCase(java.util.Locale.US))
+                .remove("pinned_msg_id_" + targetUser.toLowerCase(java.util.Locale.US))
+                .remove("pinned_msg_text_" + targetUser.toLowerCase(java.util.Locale.US))
+                .apply();
+    }
+
+    public static void saveDraft(Context context, String targetUser, String draftText) {
+        if (context == null || targetUser == null || targetUser.isEmpty()) return;
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        if (draftText == null || draftText.trim().isEmpty()) {
+            sp.edit().remove("draft_text_" + targetUser.toLowerCase(java.util.Locale.US)).apply();
+        } else {
+            sp.edit().putString("draft_text_" + targetUser.toLowerCase(java.util.Locale.US), draftText.trim()).apply();
+        }
+    }
+
+    public static String getDraft(Context context, String targetUser) {
+        if (context == null || targetUser == null || targetUser.isEmpty()) return null;
+        SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        return sp.getString("draft_text_" + targetUser.toLowerCase(java.util.Locale.US), null);
+    }
+
+    public static void clearDraft(Context context, String targetUser) {
+        saveDraft(context, targetUser, null);
     }
 }

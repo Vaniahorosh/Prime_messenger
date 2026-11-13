@@ -38,12 +38,23 @@ fun View.addBounceTouchEffect() {
                     .setDuration(220)
                     .setInterpolator(overshoot)
                     .start()
-                if (event.action == MotionEvent.ACTION_UP) {
-                    v.performClick()
-                }
             }
         }
-        true
+        false
+    }
+}
+
+fun applyBottomNavLabelsVisibility(navView: View, showLabels: Boolean) {
+    val labels = listOfNotNull(
+        navView.findViewById<TextView>(R.id.tvNavChatsLabel),
+        navView.findViewById<TextView>(R.id.tvNavDevicesLabel),
+        navView.findViewById<TextView>(R.id.tvNavAiLabel),
+        navView.findViewById<TextView>(R.id.tvNavSearchLabel),
+        navView.findViewById<TextView>(R.id.tvNavDownloadsLabel),
+        navView.findViewById<TextView>(R.id.tvNavProfileLabel)
+    )
+    labels.forEach { label ->
+        label.visibility = if (showLabels) View.VISIBLE else View.GONE
     }
 }
 

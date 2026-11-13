@@ -405,13 +405,18 @@ fun RadarAnimation() {
 fun CachedAvatarView(name: String, macAddress: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
 
+    val isGeneric = AvatarManager.isGenericIdentity(name) || name.startsWith("Собеседник #") || name == "Prime Собеседник"
     val avatarUriStr = remember(name, macAddress) {
-        AvatarManager.getContactAvatarUriOrFile(context, name, name, macAddress)
+        if (isGeneric) null else AvatarManager.getContactAvatarUriOrFile(context, name, name, macAddress)
     }
 
     var bitmap by remember(name, macAddress, avatarUriStr) { mutableStateOf<ImageBitmap?>(null) }
 
     LaunchedEffect(name, macAddress, avatarUriStr) {
+        if (isGeneric) {
+            bitmap = null
+            return@LaunchedEffect
+        }
         withContext(Dispatchers.IO) {
             val resolved = avatarUriStr ?: AvatarManager.getContactAvatarUriOrFile(context, name, name, macAddress)
             if (!resolved.isNullOrEmpty()) {
@@ -1090,33 +1095,43 @@ class ChatListActivity : AppCompatActivity() {
             val savedName = AvatarManager.getContactDisplayName(activity, deviceAddress, targetUsername, targetUsername)
             val displayContactName = if (BluetoothAdapter.checkBluetoothAddress(savedName)) "Собеседник" else savedName
 
-            b.tvChatName.text = displayContactName
+            val isNotes = targetUsername.equals("Заметки", ignoreCase = true) || targetUsername.equals("notes_chat_item", ignoreCase = true)
+            val isConnected = if (isNotes) true else (BluetoothConnectionManager.getInstance().isConnected(targetAddr) ||
+                BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername))
 
-            val isConnected = BluetoothConnectionManager.getInstance().isConnected(targetAddr) ||
-                BluetoothSocketHolder.isConnectedWith(deviceAddress, targetUsername)
-            updateInputState(isConnected)
-
-            val avatarUri = AvatarManager.getContactAvatarUriOrFile(activity, targetUsername, savedName, deviceAddress)
-
-            if (!avatarUri.isNullOrEmpty()) {
-                val (_, file) = parseAvatarModelAndFile(avatarUri)
-                if (file != null && file.exists()) {
-                    Glide.with(activity).load(file).into(b.ivChatAvatar)
-                } else {
-                    Glide.with(activity).load(avatarUri).into(b.ivChatAvatar)
-                }
+            if (isNotes) {
+                b.tvChatName.text = "Заметки"
+                b.tvChatStatus.text = "Личное пространство"
+                b.ivChatAvatar.setImageResource(R.drawable.ic_book)
+                updateInputState(true)
+                b.layoutHeader.setOnClickListener(null)
+                b.layoutHeader.setOnLongClickListener(null)
             } else {
-                b.ivChatAvatar.setImageResource(R.drawable.ic_person)
-            }
+                b.tvChatName.text = displayContactName
+                updateInputState(isConnected)
 
-            b.layoutHeader.setOnClickListener {
-                val intent = Intent(activity, PersonInformationActivity::class.java).apply {
-                    putExtra("EXTRA_CHAT_NAME", targetUsername)
-                    if (!deviceAddress.isNullOrEmpty()) putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress)
-                    if (!avatarUri.isNullOrEmpty()) putExtra("EXTRA_AVATAR_URI", avatarUri)
-                    putExtra("EXTRA_IS_ONLINE", isConnected)
+                val avatarUri = AvatarManager.getContactAvatarUriOrFile(activity, targetUsername, savedName, deviceAddress)
+
+                if (!avatarUri.isNullOrEmpty()) {
+                    val (_, file) = parseAvatarModelAndFile(avatarUri)
+                    if (file != null && file.exists()) {
+                        Glide.with(activity).load(file).into(b.ivChatAvatar)
+                    } else {
+                        Glide.with(activity).load(avatarUri).into(b.ivChatAvatar)
+                    }
+                } else {
+                    b.ivChatAvatar.setImageResource(R.drawable.ic_person)
                 }
-                PrimeTransitions.startActivityWithTransition(activity, intent)
+
+                b.layoutHeader.setOnClickListener {
+                    val intent = Intent(activity, PersonInformationActivity::class.java).apply {
+                        putExtra("EXTRA_CHAT_NAME", targetUsername)
+                        if (!deviceAddress.isNullOrEmpty()) putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress)
+                        if (!avatarUri.isNullOrEmpty()) putExtra("EXTRA_AVATAR_URI", avatarUri)
+                        putExtra("EXTRA_IS_ONLINE", isConnected)
+                    }
+                    PrimeTransitions.startActivityWithTransition(activity, intent)
+                }
             }
 
             b.layoutHeader.setOnLongClickListener {
@@ -2129,6 +2144,42 @@ class ChatListActivity : AppCompatActivity() {
             }
         }
 
+        override fun onPinMessage(message: ChatMessage?, position: Int) {
+            if (message == null) return
+            val user = activeTargetUsername ?: return
+            val textPreview = if (!message.text.isNullOrBlank()) message.text else if (!message.imagePath.isNullOrEmpty()) "Медиафайл" else "Сообщение"
+            ChatHistoryManager.addPinnedMessage(activity, user, message.messageId, textPreview)
+            PrimeNotification.show(activity, "Сообщение закреплено")
+        }
+
+        override fun onUnpinMessage(message: ChatMessage?, position: Int) {
+            if (message == null) return
+            val user = activeTargetUsername ?: return
+            var textPreview = message.text ?: "Сообщение"
+            if (textPreview.length > 30) {
+                textPreview = textPreview.substring(0, 30) + "..."
+            }
+            val dialogMsg = "Открепить сообщение «$textPreview» из верха чата?"
+            PrimeBlurDialog.show(
+                activity = activity,
+                title = "Открепить сообщение?",
+                message = dialogMsg,
+                positiveText = "Открепить",
+                negativeText = "Отмена",
+                isPositiveDanger = true,
+                onPositive = {
+                    ChatHistoryManager.removePinnedMessage(activity, user, message.messageId)
+                    PrimeNotification.show(activity, "Сообщение откреплено")
+                }
+            )
+        }
+
+        override fun onShowPinnedBar() {
+            val user = activeTargetUsername ?: return
+            ChatHistoryManager.setPinnedBarHidden(activity, user, activeDeviceAddress, false)
+            PrimeNotification.show(activity, "Закрепленные сообщения восстановлены")
+        }
+
         private fun forwardMessageToTarget(messageToForward: ChatMessage, targetName: String) {
             val timestamp = System.currentTimeMillis()
             val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
@@ -2495,6 +2546,7 @@ class ChatListActivity : AppCompatActivity() {
                     
                     binding.layoutIslandHeader.root.translationY = pullDist
                     binding.recyclerViewChats.translationY = pullDist
+                    binding.layoutCategoryChips.translationY = pullDist
                     return true
                 }
             }
@@ -2527,6 +2579,11 @@ class ChatListActivity : AppCompatActivity() {
             .setDuration(280)
             .setInterpolator(decelerate)
             .start()
+        binding.layoutCategoryChips.animate()
+            .translationY(0f)
+            .setDuration(280)
+            .setInterpolator(decelerate)
+            .start()
         binding.recyclerViewChats.animate()
             .translationY(0f)
             .setDuration(280)
@@ -2541,8 +2598,10 @@ class ChatListActivity : AppCompatActivity() {
     private fun resetPullUiInstant() {
         if (!::binding.isInitialized) return
         binding.layoutIslandHeader.root.animate().cancel()
+        binding.layoutCategoryChips.animate().cancel()
         binding.recyclerViewChats.animate().cancel()
         binding.layoutIslandHeader.root.translationY = 0f
+        binding.layoutCategoryChips.translationY = 0f
         binding.recyclerViewChats.translationY = 0f
         isPulling = false
         isThresholdCrossed = false
@@ -2670,6 +2729,7 @@ class ChatListActivity : AppCompatActivity() {
                     }
                     updateBackCallbackState()
                 } else {
+                    applySelectionModeStyling()
                     if (navStyle == "island") {
                         if (binding.layoutIslandHeader.layoutHeaderSelectionMode.visibility != View.VISIBLE) {
                             val island = binding.layoutIslandHeader.islandHeaderItem
@@ -2735,6 +2795,32 @@ class ChatListActivity : AppCompatActivity() {
                         binding.recyclerViewChats.setHasFixedSize(true)
                         binding.recyclerViewChats.adapter = adapter
                         (binding.recyclerViewChats.itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
+
+                        binding.recyclerViewChats.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+                            override fun onScrolled(recyclerView: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+                                super.onScrolled(recyclerView, dx, dy)
+                                val navView = findViewById<View>(R.id.blurBottomNav) ?: return
+                                val navStyle = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+                                    .getString("navigation_style", "bottom_bar") ?: "bottom_bar"
+                                if (navStyle != "bottom_bar") return
+
+                                if (dy > 12) {
+                                    navView.animate().cancel()
+                                    navView.animate()
+                                        .translationY(navView.height.toFloat() + (32 * resources.displayMetrics.density))
+                                        .setDuration(220)
+                                        .setInterpolator(android.view.animation.AccelerateInterpolator())
+                                        .start()
+                                } else if (dy < -12) {
+                                    navView.animate().cancel()
+                                    navView.animate()
+                                        .translationY(0f)
+                                        .setDuration(220)
+                                        .setInterpolator(android.view.animation.DecelerateInterpolator())
+                                        .start()
+                                }
+                            }
+                        })
                         
                         setupIslandHeaderView()
                         setupSwipeToDelete()
@@ -3677,7 +3763,7 @@ class ChatListActivity : AppCompatActivity() {
                     if (adapter.isSearchActive && currentSearchQuery.isNotEmpty()) {
                         performSearchQuery(currentSearchQuery)
                     } else {
-                        adapter.updateList(allChats)
+                        applyCategoryFilter()
                     }
                 }
                 updateEmptyState()
@@ -3839,6 +3925,7 @@ class ChatListActivity : AppCompatActivity() {
             )
 
             setupBottomNav()
+            setupCategoryChips()
         } else {
             binding.layoutIslandHeader.root.visibility = View.VISIBLE
             navView.visibility = View.GONE
@@ -3857,7 +3944,223 @@ class ChatListActivity : AppCompatActivity() {
                 binding.recyclerViewChats.paddingRight,
                 bottomPadding
             )
+            setupCategoryChips()
         }
+    }
+
+    private var activeCategoryFilter: String = "ALL"
+
+    private fun getAlphaColor(color: Int, alphaRatio: Float): Int {
+        val alpha = (alphaRatio * 255).toInt().coerceIn(0, 255)
+        return android.graphics.Color.argb(alpha, android.graphics.Color.red(color), android.graphics.Color.green(color), android.graphics.Color.blue(color))
+    }
+
+    private fun getCategoryIconRes(name: String): Int {
+        val lower = name.lowercase(java.util.Locale.getDefault())
+        return when {
+            lower.contains("замет") || lower.contains("note") -> R.drawable.ic_book
+            lower.contains("избран") || lower.contains("fav") || lower.contains("star") -> R.drawable.ic_heart
+            lower.contains("ai") || lower.contains("ии") || lower.contains("бот") -> R.drawable.ic_prime_ai
+            lower.contains("раб") || lower.contains("work") || lower.contains("офис") -> R.drawable.ic_file
+            lower.contains("семь") || lower.contains("дом") -> R.drawable.ic_person
+            lower.contains("муз") || lower.contains("аудио") -> R.drawable.ic_music
+            lower.contains("видео") || lower.contains("фильм") -> R.drawable.ic_video
+            else -> R.drawable.ic_file
+        }
+    }
+
+    private fun setupCategoryChips() {
+        if (!::binding.isInitialized) return
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val enabled = sharedPrefs.getBoolean("category_chips_enabled", true)
+        val navStyle = sharedPrefs.getString("navigation_style", "bottom_bar") ?: "bottom_bar"
+        val density = resources.displayMetrics.density
+
+        binding.layoutCategoryChips.visibility = if (enabled) View.VISIBLE else View.GONE
+
+        val chipsLp = binding.layoutCategoryChips.layoutParams as? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+        if (chipsLp != null) {
+            if (navStyle == "island") {
+                chipsLp.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                chipsLp.topToBottom = R.id.layoutIslandHeader
+                chipsLp.topMargin = (8 * density).toInt()
+            } else {
+                chipsLp.topToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                chipsLp.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                chipsLp.topMargin = getSystemStatusBarHeight(this) + (8 * density).toInt()
+            }
+            binding.layoutCategoryChips.layoutParams = chipsLp
+        }
+
+        val rvLp = binding.recyclerViewChats.layoutParams as? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+        if (rvLp != null) {
+            if (enabled) {
+                rvLp.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                rvLp.topToBottom = R.id.layoutCategoryChips
+            } else {
+                if (navStyle == "island") {
+                    rvLp.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                    rvLp.topToBottom = R.id.layoutIslandHeader
+                } else {
+                    rvLp.topToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                    rvLp.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                }
+            }
+            binding.recyclerViewChats.layoutParams = rvLp
+        }
+
+        val computedTopPadding = if (enabled) {
+            (4 * density).toInt()
+        } else {
+            if (navStyle == "island") (8 * density).toInt() else topInsetPx + (12 * density).toInt()
+        }
+        val bottomPadding = bottomInsetPx + (if (navStyle == "bottom_bar") (88 * density).toInt() else (24 * density).toInt())
+
+        binding.recyclerViewChats.setPadding(
+            binding.recyclerViewChats.paddingLeft,
+            computedTopPadding,
+            binding.recyclerViewChats.paddingRight,
+            bottomPadding
+        )
+
+        if (!enabled) return
+
+        binding.chipGroupCategories.removeAllViews()
+
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val textPrimaryColor = if (isNight) android.graphics.Color.WHITE else android.graphics.Color.parseColor("#0F172A")
+        val textSecondaryColor = if (isNight) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
+        val activeBgColor = ColorStateList.valueOf(getAlphaColor(accentColor, 0.15f))
+        val inactiveBgColor = ColorStateList.valueOf(if (isNight) android.graphics.Color.parseColor("#1E293B") else android.graphics.Color.parseColor("#F1F5F9"))
+
+        val chipAll = com.google.android.material.chip.Chip(this).apply {
+            id = View.generateViewId()
+            text = "Все"
+            isCheckable = true
+            isChecked = (activeCategoryFilter == "ALL")
+            chipIcon = ContextCompat.getDrawable(this@ChatListActivity, R.drawable.ic_nav_chats)
+            isChipIconVisible = true
+            chipIconTint = ColorStateList.valueOf(if (isChecked) accentColor else textSecondaryColor)
+            setChipBackgroundColor(if (isChecked) activeBgColor else inactiveBgColor)
+            setTextColor(if (isChecked) accentColor else textPrimaryColor)
+            chipCornerRadius = 18 * density
+            chipStrokeWidth = if (isChecked) (1.5f * density) else 0f
+            chipStrokeColor = ColorStateList.valueOf(accentColor)
+        }
+        binding.chipGroupCategories.addView(chipAll)
+
+        val customCatsJson = sharedPrefs.getString("custom_categories_json", "[]") ?: "[]"
+        val customCategoriesList = mutableListOf<Pair<String, List<String>>>()
+        try {
+            val array = org.json.JSONArray(customCatsJson)
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val catName = obj.optString("name", "")
+                val chatsArr = obj.optJSONArray("chats")
+                val chatsList = mutableListOf<String>()
+                if (chatsArr != null) {
+                    for (j in 0 until chatsArr.length()) {
+                        chatsList.add(chatsArr.optString(j))
+                    }
+                }
+                if (catName.isNotEmpty()) {
+                    customCategoriesList.add(Pair(catName, chatsList))
+                }
+            }
+        } catch (_: Exception) {}
+
+        for (cat in customCategoriesList) {
+            val chipCustom = com.google.android.material.chip.Chip(this).apply {
+                id = View.generateViewId()
+                text = cat.first
+                isCheckable = true
+                isChecked = (activeCategoryFilter == cat.first)
+                val iconRes = getCategoryIconRes(cat.first)
+                chipIcon = ContextCompat.getDrawable(this@ChatListActivity, iconRes)
+                isChipIconVisible = true
+                chipIconTint = ColorStateList.valueOf(if (isChecked) accentColor else textSecondaryColor)
+                setChipBackgroundColor(if (isChecked) activeBgColor else inactiveBgColor)
+                setTextColor(if (isChecked) accentColor else textPrimaryColor)
+                chipCornerRadius = 18 * density
+                chipStrokeWidth = if (isChecked) (1.5f * density) else 0f
+                chipStrokeColor = ColorStateList.valueOf(accentColor)
+            }
+            binding.chipGroupCategories.addView(chipCustom)
+        }
+
+        binding.chipGroupCategories.setOnCheckedStateChangeListener { group, checkedIds ->
+            if (checkedIds.isEmpty()) return@setOnCheckedStateChangeListener
+            val selectedChip = group.findViewById<com.google.android.material.chip.Chip>(checkedIds.first())
+            val selectedTitle = selectedChip?.text?.toString() ?: "Все"
+            activeCategoryFilter = if (selectedTitle == "Все") "ALL" else selectedTitle
+            updateChipsVisuals()
+            applyCategoryFilter()
+        }
+        updateChipsVisuals()
+    }
+
+    private fun updateChipsVisuals() {
+        if (!::binding.isInitialized) return
+        val group = binding.chipGroupCategories
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val textPrimaryColor = if (isNight) android.graphics.Color.WHITE else android.graphics.Color.parseColor("#0F172A")
+        val textSecondaryColor = if (isNight) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
+        val activeBgColor = ColorStateList.valueOf(getAlphaColor(accentColor, 0.15f))
+        val inactiveBgColor = ColorStateList.valueOf(if (isNight) android.graphics.Color.parseColor("#1E293B") else android.graphics.Color.parseColor("#F1F5F9"))
+        val density = resources.displayMetrics.density
+
+        for (i in 0 until group.childCount) {
+            val chip = group.getChildAt(i) as? com.google.android.material.chip.Chip ?: continue
+            val chipTitle = chip.text?.toString() ?: ""
+            val isChecked = (activeCategoryFilter == "ALL" && chipTitle == "Все") || (activeCategoryFilter == chipTitle)
+            
+            chip.isChecked = isChecked
+            chip.chipIconTint = ColorStateList.valueOf(if (isChecked) accentColor else textSecondaryColor)
+            chip.setChipBackgroundColor(if (isChecked) activeBgColor else inactiveBgColor)
+            chip.setTextColor(if (isChecked) accentColor else textPrimaryColor)
+            chip.chipStrokeWidth = if (isChecked) (1.5f * density) else 0f
+            chip.chipStrokeColor = ColorStateList.valueOf(accentColor)
+        }
+    }
+
+    private fun applyCategoryFilter() {
+        if (!::adapter.isInitialized) return
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val customCatsJson = sharedPrefs.getString("custom_categories_json", "[]") ?: "[]"
+
+        val filtered = if (activeCategoryFilter == "ALL") {
+            allChats
+        } else {
+            var targetChats = listOf<String>()
+            try {
+                val array = org.json.JSONArray(customCatsJson)
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val catName = obj.optString("name", "")
+                    if (catName.equals(activeCategoryFilter, ignoreCase = true)) {
+                        val chatsArr = obj.optJSONArray("chats")
+                        if (chatsArr != null) {
+                            val list = mutableListOf<String>()
+                            for (j in 0 until chatsArr.length()) {
+                                list.add(chatsArr.optString(j))
+                            }
+                            targetChats = list
+                        }
+                        break
+                    }
+                }
+            } catch (_: Exception) {}
+
+            allChats.filter { chat ->
+                targetChats.any { target ->
+                    chat.name.equals(target, ignoreCase = true) || chat.id.equals(target, ignoreCase = true)
+                }
+            }
+        }
+        adapter.updateList(filtered)
+        updateEmptyState()
     }
 
     private fun setupBottomNav() {
@@ -3926,6 +4229,9 @@ class ChatListActivity : AppCompatActivity() {
             }
         }
 
+        val showLabels = sharedPrefs.getBoolean("nav_show_labels", false)
+        applyBottomNavLabelsVisibility(navView, showLabels)
+
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
         val secondaryColor = ContextCompat.getColor(this, R.color.prime_text_secondary)
 
@@ -3966,23 +4272,67 @@ class ChatListActivity : AppCompatActivity() {
             blurNavView.setupBlur(targetRootView, 18f, overlayColor, window.decorView.background)
         }
 
-        btnNavChats?.setOnClickListener {
+        val hapticTap = { view: View ->
+            try {
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+            } catch (_: Exception) {}
+        }
+
+        btnNavChats?.setOnClickListener { v ->
+            hapticTap(v)
             binding.recyclerViewChats.smoothScrollToPosition(0)
         }
-
-        btnNavDevices?.setOnClickListener {
-            onStartChatClicked()
+        btnNavChats?.setOnLongClickListener { v ->
+            hapticTap(v)
+            PrimePopupMenu.create(this, v)
+                .addItem("В начало списка", R.drawable.ic_arrow_up) {
+                    binding.recyclerViewChats.smoothScrollToPosition(0)
+                }
+                .addItem("Поиск", R.drawable.ic_search) {
+                    openHeaderSearch()
+                }
+                .show()
+            true
         }
 
-        btnNavAi?.setOnClickListener {
+        btnNavDevices?.setOnClickListener { v ->
+            hapticTap(v)
+            onStartChatClicked()
+        }
+        btnNavDevices?.setOnLongClickListener { v ->
+            hapticTap(v)
+            PrimePopupMenu.create(this, v)
+                .addItem("Поиск устройств", R.drawable.ic_refresh) {
+                    onStartChatClicked()
+                }
+                .show()
+            true
+        }
+
+        btnNavAi?.setOnClickListener { v ->
+            hapticTap(v)
             val intent = Intent(this, AiChatActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
             startActivity(intent)
             PrimeTransitions.applyOpenTransition(this)
         }
+        btnNavAi?.setOnLongClickListener { v ->
+            hapticTap(v)
+            PrimePopupMenu.create(this, v)
+                .addItem("Открыть AI Чат", R.drawable.ic_prime_ai) {
+                    val intent = Intent(this, AiChatActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    }
+                    startActivity(intent)
+                    PrimeTransitions.applyOpenTransition(this)
+                }
+                .show()
+            true
+        }
 
-        btnNavSearch?.setOnClickListener {
+        btnNavSearch?.setOnClickListener { v ->
+            hapticTap(v)
             val intent = Intent(this, GlobalSearchActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
@@ -3990,16 +4340,31 @@ class ChatListActivity : AppCompatActivity() {
             PrimeTransitions.applyPageFlipTransition(this, isForward = true)
         }
 
-        btnNavDownloads?.setOnClickListener {
+        btnNavDownloads?.setOnClickListener { v ->
+            hapticTap(v)
             DownloadsActivity.openWithPermissionCheck(this)
         }
 
-        btnNavProfile?.setOnClickListener {
+        btnNavProfile?.setOnClickListener { v ->
+            hapticTap(v)
             val intent = Intent(this, SettingsActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
             startActivity(intent)
             PrimeTransitions.applyPageFlipTransition(this, isForward = true)
+        }
+        btnNavProfile?.setOnLongClickListener { v ->
+            hapticTap(v)
+            PrimePopupMenu.create(this, v)
+                .addItem("Настройки навигации", R.drawable.ic_settings) {
+                    val intent = Intent(this, SettingsActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    }
+                    startActivity(intent)
+                    PrimeTransitions.applyPageFlipTransition(this, isForward = true)
+                }
+                .show()
+            true
         }
     }
 
@@ -4122,7 +4487,12 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         binding.layoutIslandHeader.btnHeaderSelectionPin.setOnClickListener {
-            val selected = adapter.selectedItems.toList()
+            val selected = adapter.selectedItems.filter { !isSystemChat(it) }
+            if (selected.isEmpty()) {
+                PrimeNotification.show(this, "Служебные чаты нельзя закрепить")
+                adapter.clearSelection()
+                return@setOnClickListener
+            }
             val sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
             val editor = sp.edit()
             var anyPinned = false
@@ -4151,7 +4521,12 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         binding.layoutIslandHeader.btnHeaderSelectionMute.setOnClickListener {
-            val selected = adapter.selectedItems.toList()
+            val selected = adapter.selectedItems.filter { !isSystemChat(it) }
+            if (selected.isEmpty()) {
+                PrimeNotification.show(this, "Уведомления для служебного чата изменить нельзя")
+                adapter.clearSelection()
+                return@setOnClickListener
+            }
             val sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
             val editor = sp.edit()
             val now = System.currentTimeMillis()
@@ -4176,7 +4551,12 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         binding.layoutIslandHeader.btnHeaderSelectionDelete.setOnClickListener {
-            val selected = adapter.selectedItems.toList()
+            val selected = adapter.selectedItems.filter { !isSystemChat(it) }
+            if (selected.isEmpty()) {
+                PrimeNotification.show(this, "Служебный чат нельзя удалить")
+                adapter.clearSelection()
+                return@setOnClickListener
+            }
             PrimeBlurDialog.show(
                 activity = this,
                 title = "Удалить чаты",
@@ -4196,11 +4576,9 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         binding.layoutIslandHeader.btnHeaderSelectionMore.setOnClickListener { view ->
-            val popup = android.widget.PopupMenu(this, view)
-            popup.menu.add(0, 1, 0, "Прочитать всё")
-            popup.setOnMenuItemClickListener { item ->
-                if (item.itemId == 1) {
-                    val selected = adapter.selectedItems.toList()
+            PrimePopupMenu.create(this, view)
+                .addItem("Прочитать всё", R.drawable.ic_done_all) {
+                    val selected = adapter.selectedItems.filter { !isSystemChat(it) }
                     selected.forEach { id ->
                         ChatHistoryManager.markIncomingMessagesAsRead(this, id, id)
                     }
@@ -4214,12 +4592,37 @@ class ChatListActivity : AppCompatActivity() {
                     adapter.clearSelection()
                     updateBackCallbackState()
                 }
-                true
-            }
-            popup.show()
+                .show()
         }
 
         setupBottomSelectionView()
+    }
+
+    private fun isSystemChat(id: String): Boolean {
+        if (id == "ai_prime_chat" || id == "notes_chat_item") return true
+        val chat = allChats.find { it.id == id }
+        if (chat != null && (chat.name.equals("Заметки", ignoreCase = true) || chat.name.equals("Prime AI", ignoreCase = true))) return true
+        return false
+    }
+
+    private fun applySelectionModeStyling() {
+        if (!::binding.isInitialized) return
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val density = resources.displayMetrics.density
+
+        val islandBg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 24f * density
+            setColor(accentColor)
+        }
+        binding.layoutIslandHeader.layoutHeaderSelectionMode.background = islandBg
+
+        val accentStateList = ColorStateList.valueOf(accentColor)
+        binding.btnBottomSelectionCancel.imageTintList = accentStateList
+        binding.btnBottomSelectionPin.imageTintList = accentStateList
+        binding.btnBottomSelectionMute.imageTintList = accentStateList
+        binding.btnBottomSelectionMore.imageTintList = accentStateList
+        binding.btnBottomSelectionDelete.imageTintList = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.prime_danger))
     }
 
     private fun setupBottomSelectionView() {
@@ -4241,20 +4644,36 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         binding.btnBottomSelectionPin.setOnClickListener {
+            val selected = adapter.selectedItems.filter { !isSystemChat(it) }
+            if (selected.isEmpty()) {
+                PrimeNotification.show(this, "Служебные чаты нельзя закрепить")
+                adapter.clearSelection()
+                return@setOnClickListener
+            }
             PrimeNotification.show(this, "Закрепление скоро появится")
             adapter.clearSelection()
         }
 
         binding.btnBottomSelectionMute.setOnClickListener {
-            val selected = adapter.selectedItems.toList()
+            val selected = adapter.selectedItems.filter { !isSystemChat(it) }
+            if (selected.isEmpty()) {
+                PrimeNotification.show(this, "Уведомления для служебного чата изменить нельзя")
+                adapter.clearSelection()
+                return@setOnClickListener
+            }
             val sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
             val editor = sp.edit()
+            val now = System.currentTimeMillis()
+            var anyMuted = false
             selected.forEach { id ->
-                val currentMuted = sp.getBoolean("chat_muted_$id", false)
-                editor.putBoolean("chat_muted_$id", !currentMuted)
+                val isMuted = sp.getLong("mute_until_$id", 0L) > now
+                if (isMuted) anyMuted = true
+            }
+            selected.forEach { id ->
+                editor.putLong("mute_until_$id", if (anyMuted) 0L else Long.MAX_VALUE)
             }
             editor.apply()
-            PrimeNotification.show(this, "Звук изменен для ${selected.size} чатов")
+            PrimeNotification.show(this, if (!anyMuted) "Уведомления отключены" else "Уведомления включены")
 
             val initialChats = loadContacts()
             chatListState.clear()
@@ -4266,7 +4685,12 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         binding.btnBottomSelectionDelete.setOnClickListener {
-            val selected = adapter.selectedItems.toList()
+            val selected = adapter.selectedItems.filter { !isSystemChat(it) }
+            if (selected.isEmpty()) {
+                PrimeNotification.show(this, "Служебный чат нельзя удалить")
+                adapter.clearSelection()
+                return@setOnClickListener
+            }
             PrimeBlurDialog.show(
                 activity = this,
                 title = "Удалить чаты",
@@ -4286,10 +4710,8 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         binding.btnBottomSelectionMore.setOnClickListener { view ->
-            val popup = android.widget.PopupMenu(this, view)
-            popup.menu.add(0, 1, 0, "Прочитать всё")
-            popup.setOnMenuItemClickListener { item ->
-                if (item.itemId == 1) {
+            PrimePopupMenu.create(this, view)
+                .addItem("Прочитать всё", R.drawable.ic_done_all) {
                     val selected = adapter.selectedItems.toList()
                     selected.forEach { id ->
                         ChatHistoryManager.markIncomingMessagesAsRead(this, id, id)
@@ -4304,9 +4726,7 @@ class ChatListActivity : AppCompatActivity() {
                     adapter.clearSelection()
                     updateBackCallbackState()
                 }
-                true
-            }
-            popup.show()
+                .show()
         }
     }
 
@@ -4705,10 +5125,13 @@ class ChatListActivity : AppCompatActivity() {
                             val isPinned = sharedPrefs.getBoolean("is_pinned_$idStr", false) || sharedPrefs.getBoolean("is_pinned_$nameStr", false)
                             val pinOrder = if (sharedPrefs.contains("pinned_order_$idStr")) sharedPrefs.getInt("pinned_order_$idStr", 0) else sharedPrefs.getInt("pinned_order_$nameStr", 0)
 
+                            val draftText = ChatHistoryManager.getDraft(this@ChatListActivity, finalName)
+                            val displayLastMsg = if (!draftText.isNullOrBlank()) "Черновик: $draftText" else finalLastMsg
+
                             val chat = ChatModel(
                                 idStr,
                                 finalName,
-                                finalLastMsg,
+                                displayLastMsg,
                                 finalTime,
                                 if (finalAvatar.isNullOrEmpty()) null else finalAvatar,
                                 if (resolvedMediaPreview.isNullOrEmpty()) null else resolvedMediaPreview,
@@ -4829,6 +5252,25 @@ class ChatListActivity : AppCompatActivity() {
                 onlineStatus = OnlineStatus.ONLINE
             )
             resultList.add(0, aiContact)
+        }
+
+        val notesChatEnabled = sp.getBoolean("notes_chat_enabled", true)
+        resultList.removeAll { it.name.equals("Заметки", ignoreCase = true) || it.id.equals("notes_chat_item", ignoreCase = true) }
+        if (notesChatEnabled) {
+            val notesHistory = ChatHistoryManager.loadMessages(this, "Заметки")
+            val lastMsg = notesHistory?.lastOrNull()
+            val lastMsgText = lastMsg?.text.takeIf { !it.isNullOrBlank() } ?: "Ваши личные мысли, задачи и файлы"
+            val lastTime = lastMsg?.time ?: ""
+            val notesContact = ChatModel(
+                id = "notes_chat_item",
+                name = "Заметки",
+                lastMessage = lastMsgText,
+                time = lastTime,
+                avatarUri = "android.resource://${packageName}/drawable/ic_book",
+                isPinned = true,
+                pinOrder = -100
+            )
+            resultList.add(0, notesContact)
         }
 
         return resultList

@@ -106,7 +106,7 @@
             android:name=".MediaPlayerActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
-            android:theme="@style/Theme.Prime" />
+            android:theme="@style/Theme.Prime.Swipe" />
 
         <activity
             android:name=".PhotoEditorActivity"

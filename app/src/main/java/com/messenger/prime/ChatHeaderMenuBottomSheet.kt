@@ -19,13 +19,16 @@ class ChatHeaderMenuBottomSheet(
     private val contactName: String,
     private val isConnected: Boolean,
     private val isReaderMode: Boolean,
+    private val isMuted: Boolean = false,
+    private val canShowPinned: Boolean = false,
     private val onProfileClick: () -> Unit,
     private val onToTopClick: () -> Unit,
     private val onSearchClick: () -> Unit,
     private val onWallpaperClick: () -> Unit,
     private val onMuteClick: () -> Unit,
     private val onReaderModeToggle: () -> Unit,
-    private val onDeleteClick: () -> Unit
+    private val onDeleteClick: () -> Unit,
+    private val onShowPinnedClick: (() -> Unit)? = null
 ) {
     private var dialog: BottomSheetDialog? = null
 
@@ -35,7 +38,6 @@ class ChatHeaderMenuBottomSheet(
         val d = BottomSheetDialog(activity, R.style.Theme_Prime_BottomSheetDialog)
         d.setContentView(view)
 
-        // Make background transparent for floating islands
         (view.parent as? View)?.setBackgroundColor(Color.TRANSPARENT)
 
         d.setOnShowListener {
@@ -51,7 +53,6 @@ class ChatHeaderMenuBottomSheet(
         d.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         d.window?.setDimAmount(0.45f)
 
-        // Setup BlurViews
         val rootView = activity.window.decorView.findViewById<ViewGroup>(android.R.id.content)
             ?: (activity.window.decorView as ViewGroup)
         val windowBg = activity.window.decorView.background
@@ -60,7 +61,6 @@ class ChatHeaderMenuBottomSheet(
         view.findViewById<BlurView>(R.id.blurHeaderMenu)?.setupBlur(rootView, 16f, overlayColor, windowBg)
         view.findViewById<BlurView>(R.id.blurHeaderMenuCancel)?.setupBlur(rootView, 16f, overlayColor, windowBg)
 
-        // Initialize UI
         val tvMenuTitle = view.findViewById<TextView>(R.id.tvMenuTitle)
         tvMenuTitle.text = contactName
 
@@ -70,8 +70,20 @@ class ChatHeaderMenuBottomSheet(
         val btnWallpaper = view.findViewById<View>(R.id.btnMenuWallpaper)
         val btnMute = view.findViewById<View>(R.id.btnMenuMute)
         val btnReaderMode = view.findViewById<View>(R.id.btnMenuReaderMode)
+        val btnShowPinned = view.findViewById<View>(R.id.btnMenuShowPinned)
         val btnDelete = view.findViewById<View>(R.id.btnMenuDelete)
         val btnCancel = view.findViewById<View>(R.id.btnMenuCancel)
+
+        val tvMuteText = view.findViewById<TextView>(R.id.tvMuteText)
+        val ivMuteIcon = view.findViewById<ImageView>(R.id.ivMuteIcon)
+
+        if (isMuted) {
+            tvMuteText?.text = "Включить звук"
+            ivMuteIcon?.setImageResource(R.drawable.ic_done)
+        } else {
+            tvMuteText?.text = "Отключить звук"
+            ivMuteIcon?.setImageResource(R.drawable.ic_notifications_off)
+        }
 
         val tvReaderModeText = view.findViewById<TextView>(R.id.tvReaderModeText)
         val ivReaderModeIcon = view.findViewById<ImageView>(R.id.ivReaderModeIcon)
@@ -84,20 +96,21 @@ class ChatHeaderMenuBottomSheet(
             ivReaderModeIcon.setImageResource(R.drawable.ic_book)
         }
 
-        // Apply theme color
-        val accentColor = ColorAccentManager.getCurrentAccentColor(activity)
+        if (canShowPinned && btnShowPinned != null) {
+            btnShowPinned.visibility = View.VISIBLE
+            btnShowPinned.setOnClickListener { d.dismiss(); onShowPinnedClick?.invoke() }
+        } else if (btnShowPinned != null) {
+            btnShowPinned.visibility = View.GONE
+        }
 
+        val accentColor = ColorAccentManager.getCurrentAccentColor(activity)
         ColorAccentManager.tintViewTree(view, accentColor)
 
-        // Some functions unavailable if not connected
         if (!isConnected && !isReaderMode) {
             btnMute.alpha = 0.5f
             btnMute.isEnabled = false
-            btnWallpaper.alpha = 0.5f
-            btnWallpaper.isEnabled = false
         }
 
-        // Click listeners
         btnProfile.setOnClickListener { d.dismiss(); onProfileClick() }
         btnToTop.setOnClickListener { d.dismiss(); onToTopClick() }
         btnSearch.setOnClickListener { d.dismiss(); onSearchClick() }

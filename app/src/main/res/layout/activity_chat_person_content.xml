@@ -215,9 +215,12 @@
                         android:id="@+id/tvChatName"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="10dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginEnd="8dp"
                         android:ellipsize="end"
                         android:maxLines="1"
+                        android:gravity="center"
+                        android:textAlignment="center"
                         tools:text="Имя контакта"
                         android:textColor="@color/prime_text_primary"
                         android:textSize="17sp"
@@ -232,9 +235,12 @@
                         android:id="@+id/tvChatStatus"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="10dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginEnd="8dp"
                         android:ellipsize="end"
                         android:maxLines="1"
+                        android:gravity="center"
+                        android:textAlignment="center"
                         tools:text="Ожидание подключения..."
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="12.5sp"
@@ -316,7 +322,7 @@
                             android:layout_marginStart="2dp"
                             android:background="?attr/selectableItemBackgroundBorderless"
                             android:contentDescription="Удалить выбранное"
-                            android:src="@drawable/bg_chat_item_delete"
+                            android:src="@drawable/ic_trash"
                             app:tint="@color/prime_danger" />
                     </LinearLayout>
 
@@ -324,6 +330,174 @@
             </FrameLayout>
         </eightbitlab.com.blurview.BlurView>
     </LinearLayout>
+
+    <!-- Островок закрепленного сообщения -->
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/layoutPinnedMessageBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="12dp"
+        android:background="@drawable/bg_floating_island"
+        android:outlineProvider="background"
+        android:clipToOutline="true"
+        android:elevation="6dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layoutHeader">
+
+        <LinearLayout
+            android:id="@+id/layoutPinnedContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="6dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_pin"
+                app:tint="@color/prime_brand"
+                android:contentDescription="Закрепленное сообщение" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvPinnedMessageTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Закрепленное сообщение"
+                    android:textColor="@color/prime_brand"
+                    android:textSize="12sp"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:id="@+id/tvPinnedMessagePreview"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textColor="@color/prime_text_primary"
+                    android:textSize="13sp"
+                    tools:text="Текст зафиксированного сообщения..." />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/btnUnpinMessage"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_unpin"
+                app:tint="@color/prime_text_secondary"
+                android:contentDescription="Открепить" />
+
+            <ImageButton
+                android:id="@+id/btnClosePinnedBar"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_close"
+                app:tint="@color/prime_text_secondary"
+                android:contentDescription="Закрыть закрепы" />
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
+
+    <!-- Островок поиска по сообщениям чата -->
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/layoutInChatSearchBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="12dp"
+        android:background="@drawable/bg_floating_island"
+        android:outlineProvider="background"
+        android:clipToOutline="true"
+        android:elevation="7dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layoutHeader">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="6dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_search"
+                app:tint="@color/prime_brand"
+                android:contentDescription="Поиск" />
+
+            <EditText
+                android:id="@+id/etInChatSearch"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:background="@null"
+                android:hint="Поиск в чате..."
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:singleLine="true"
+                android:textColor="@color/prime_text_primary"
+                android:textColorHint="@color/prime_text_secondary"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tvInChatSearchCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:textColor="@color/prime_text_secondary"
+                android:textSize="12sp"
+                tools:text="0/0" />
+
+            <ImageButton
+                android:id="@+id/btnInChatSearchPrev"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_arrow_up"
+                app:tint="@color/prime_text_primary"
+                android:contentDescription="Предыдущее" />
+
+            <ImageButton
+                android:id="@+id/btnInChatSearchNext"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_arrow_down"
+                app:tint="@color/prime_text_primary"
+                android:contentDescription="Следующее" />
+
+            <ImageButton
+                android:id="@+id/btnCloseInChatSearch"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_cancel"
+                app:tint="@color/prime_text_secondary"
+                android:contentDescription="Закрыть поиск" />
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
 
     <!-- Островок информации о версии и музыки (вылетает из-под шапки) -->
     <eightbitlab.com.blurview.BlurView
@@ -785,30 +959,57 @@
                     app:strokeWidth="1dp" />
             </LinearLayout>
 
-            <!-- Плавающая панель режима ответа -->
+            <!-- Плавающая панель режима ответа (Убрана сверху) -->
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
+
+    <!-- 4. Нижний парящий контейнер (Floating Glass Footer) -->
+    <LinearLayout
+        android:id="@+id/bottomContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="12dp"
+        android:elevation="8dp"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <!-- Плавающая панель режима ответа (Внизу над строкой ввода) -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/layoutReplyBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/bg_floating_island"
+            android:outlineProvider="background"
+            android:clipToOutline="true"
+            android:elevation="6dp"
+            android:visibility="gone">
+
             <LinearLayout
-                android:id="@+id/layoutReplyBar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="8dp"
-                android:paddingTop="2dp"
-                android:paddingEnd="8dp"
-                android:paddingBottom="2dp"
-                android:visibility="gone">
+                android:paddingStart="12dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="10dp"
+                android:paddingBottom="8dp">
 
                 <ImageView
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:contentDescription="Панель"
-                    android:src="@drawable/ic_undo"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:contentDescription="Ответ"
+                    android:src="@drawable/ic_reply"
                     app:tint="@color/prime_brand" />
 
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="10dp"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -827,39 +1028,48 @@
                         android:layout_height="wrap_content"
                         android:ellipsize="end"
                         android:maxLines="1"
-                        android:textColor="@color/prime_text_secondary"
-                        android:textSize="11sp"
+                        android:textColor="@color/prime_text_primary"
+                        android:textSize="13sp"
                         tools:text="Текст сообщения..." />
                 </LinearLayout>
 
                 <ImageButton
                     android:id="@+id/btnCloseReplyBar"
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Отменить ответ"
-                    android:src="@drawable/ic_cancel"
-                    tools:ignore="HardcodedText"
-                    app:tint="@color/prime_danger" />
+                    android:src="@drawable/ic_close"
+                    app:tint="@color/prime_text_secondary" />
             </LinearLayout>
+        </eightbitlab.com.blurview.BlurView>
 
-            <!-- Плавающая панель режима редактирования -->
+        <!-- Плавающая панель режима редактирования (Внизу над строкой ввода) -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/layoutEditBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/bg_floating_island"
+            android:outlineProvider="background"
+            android:clipToOutline="true"
+            android:elevation="6dp"
+            android:visibility="gone">
+
             <LinearLayout
-                android:id="@+id/layoutEditBar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="8dp"
-                android:paddingTop="2dp"
-                android:paddingEnd="8dp"
-                android:paddingBottom="2dp"
-                android:visibility="gone">
+                android:paddingStart="12dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="10dp"
+                android:paddingBottom="8dp">
 
                 <ImageView
                     android:id="@+id/ivEditIcon"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:src="@drawable/ic_edit"
                     app:tint="@color/prime_brand" />
 
@@ -867,39 +1077,23 @@
                     android:id="@+id/tvEditBarTitle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="10dp"
                     android:layout_weight="1"
                     android:textColor="@color/prime_brand"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:fontFamily="sans-serif-medium"
                     tools:text="Редактирование сообщения" />
 
                 <ImageButton
                     android:id="@+id/btnCloseEditBar"
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Отменить редактирование"
-                    android:src="@drawable/ic_cancel"
-                    tools:ignore="HardcodedText"
-                    app:tint="@color/prime_danger" />
+                    android:src="@drawable/ic_close"
+                    app:tint="@color/prime_text_secondary" />
             </LinearLayout>
-        </LinearLayout>
-    </eightbitlab.com.blurview.BlurView>
-
-    <!-- 4. Нижний парящий контейнер (Floating Glass Footer) -->
-    <LinearLayout
-        android:id="@+id/bottomContainer"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="12dp"
-        android:layout_marginBottom="12dp"
-        android:elevation="8dp"
-        android:orientation="vertical"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        </eightbitlab.com.blurview.BlurView>
 
         <!-- Строка ввода -->
         <LinearLayout

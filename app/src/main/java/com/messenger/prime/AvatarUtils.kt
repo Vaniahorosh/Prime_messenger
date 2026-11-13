@@ -500,6 +500,13 @@ fun loadAvatarIntoView(
     imageView: ImageView,
     fallbackName: String = ""
 ) {
+    val activity = when (context) {
+        is android.app.Activity -> context
+        is ContextWrapper -> context.baseContext as? android.app.Activity
+        else -> null
+    }
+    if (activity != null && (activity.isFinishing || activity.isDestroyed)) return
+
     try {
         Glide.with(context).clear(imageView)
     } catch (_: Exception) {}
@@ -516,6 +523,7 @@ fun loadAvatarIntoView(
         getAvatarCornerRadiusPx(context, viewSizePx)
     }
 
+    val isShapeable = imageView is com.google.android.material.imageview.ShapeableImageView
     if (imageView is com.google.android.material.imageview.ShapeableImageView) {
         imageView.shapeAppearanceModel = imageView.shapeAppearanceModel.toBuilder()
             .setAllCornerSizes(radiusPx.toFloat())
@@ -541,6 +549,14 @@ fun loadAvatarIntoView(
                 if (isGif) {
                     Glide.with(context)
                         .asGif()
+                        .load(model)
+                        .centerCrop()
+                        .signature(signatureKey)
+                        .placeholder(R.drawable.ic_person)
+                        .into(imageView)
+                } else if (isShapeable) {
+                    // ShapeableImageView handles its own corner clipping cleanly
+                    Glide.with(context)
                         .load(model)
                         .centerCrop()
                         .signature(signatureKey)

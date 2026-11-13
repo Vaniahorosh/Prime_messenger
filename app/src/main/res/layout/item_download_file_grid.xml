@@ -4,10 +4,10 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="6dp"
+    android:layout_margin="4dp"
     app:cardBackgroundColor="@color/prime_surface"
-    app:cardCornerRadius="18dp"
-    app:cardElevation="2dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="1dp"
     app:strokeColor="#1FFFFFFF"
     app:strokeWidth="1dp">
 
@@ -18,8 +18,9 @@
 
         <!-- Top Thumbnail / Preview Container -->
         <FrameLayout
+            android:id="@+id/layoutIconHolder"
             android:layout_width="match_parent"
-            android:layout_height="110dp"
+            android:layout_height="90dp"
             android:background="@drawable/bg_glass_card">
 
             <ImageView
@@ -32,12 +33,12 @@
 
             <ImageView
                 android:id="@+id/ivFileIcon"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
                 android:layout_gravity="center"
                 android:src="@drawable/ic_file"
-                app:tint="@color/white"
-                android:contentDescription="Иконка файла" />
+                app:tint="@color/prime_brand"
+                android:contentDescription="Иконка типа файла" />
 
             <!-- Source Badge Overlaid Top Left -->
             <TextView
@@ -45,14 +46,25 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="top|start"
-                android:layout_margin="8dp"
+                android:layout_margin="6dp"
                 android:background="@drawable/bg_emoji_chip"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="3dp"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
                 android:textColor="@color/white"
-                android:textSize="10sp"
+                android:textSize="9.5sp"
                 android:fontFamily="sans-serif-medium"
-                tools:text="Из браузера" />
+                tools:text="Браузер" />
+
+            <ImageButton
+                android:id="@+id/btnMore"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_more_vert"
+                app:tint="@color/white"
+                android:contentDescription="Еще" />
         </FrameLayout>
 
         <!-- Bottom Details Container -->
@@ -60,17 +72,16 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="10dp">
+            android:padding="8dp">
 
             <TextView
                 android:id="@+id/tvFileName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
-                android:maxLines="2"
-                android:minLines="2"
+                android:maxLines="1"
                 android:textColor="@color/prime_text_primary"
-                android:textSize="13sp"
+                android:textSize="12.5sp"
                 android:fontFamily="sans-serif-medium"
                 tools:text="prime_update_v2.4.apk" />
 
@@ -78,16 +89,16 @@
                 android:id="@+id/tvFileMeta"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="2dp"
                 android:textColor="@color/prime_text_secondary"
-                android:textSize="11sp"
+                android:textSize="10.5sp"
                 tools:text="14.2 МБ • 24 мая" />
 
             <!-- Quick Action Row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="6dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -95,32 +106,22 @@
                     android:id="@+id/btnOpenFile"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp"
-                    android:layout_height="32dp"
+                    android:layout_height="28dp"
                     android:layout_weight="1"
                     android:paddingHorizontal="4dp"
                     android:text="Открыть"
-                    android:textSize="11sp"
-                    app:cornerRadius="16dp" />
+                    android:textSize="10.5sp"
+                    app:cornerRadius="14dp" />
 
                 <ImageButton
                     android:id="@+id/btnShareFile"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_marginStart="4dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="2dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@drawable/ic_share"
                     app:tint="@color/prime_text_secondary"
                     android:contentDescription="Поделиться" />
-
-                <ImageButton
-                    android:id="@+id/btnDeleteFile"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_marginStart="2dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:src="@drawable/ic_trash"
-                    app:tint="#EF4444"
-                    android:contentDescription="Удалить" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

@@ -60,15 +60,16 @@ object ColorAccentManager {
 
     @JvmStatic
     fun getCurrentAccentColor(context: Context): Int {
-        cachedAccentColor?.let { return it }
         val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val type = sp.getString("accent_type", ACCENT_TYPE_DEFAULT) ?: ACCENT_TYPE_DEFAULT
+        val isDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
-        val color = when (type) {
+        return when (type) {
             ACCENT_TYPE_SYSTEM -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     try {
-                        context.getColor(android.R.color.system_accent1_600)
+                        val colorRes = if (isDark) android.R.color.system_accent1_300 else android.R.color.system_accent1_600
+                        context.getColor(colorRes)
                     } catch (_: Exception) {
                         getDefaultColor(context)
                     }
@@ -77,12 +78,16 @@ object ColorAccentManager {
                 }
             }
             ACCENT_TYPE_CUSTOM -> {
-                sp.getInt("accent_custom_color", getDefaultColor(context))
+                val savedColor = sp.getInt("accent_custom_color", getDefaultColor(context))
+                val matchedPreset = PRESET_COLORS.find { it.lightColor == savedColor || it.darkColor == savedColor }
+                if (matchedPreset != null) {
+                    if (isDark) matchedPreset.darkColor else matchedPreset.lightColor
+                } else {
+                    savedColor
+                }
             }
             else -> getDefaultColor(context)
         }
-        cachedAccentColor = color
-        return color
     }
 
     @JvmStatic
@@ -205,6 +210,7 @@ object ColorAccentManager {
     @JvmStatic
     fun tintViewTree(view: View?, accentColor: Int) {
         if (view == null) return
+        if ("do_not_tint" == view.tag) return
         val colorStateList = ColorStateList.valueOf(accentColor)
 
         if (view is ViewGroup) {
@@ -319,26 +325,27 @@ object ColorAccentManager {
 
     @JvmStatic
     fun createOutgoingBubbleDrawable(context: Context): GradientDrawable {
-        val radiusPx = getBubbleCornerRadiusPx(context)
-        val accentColor = getCurrentAccentColor(context)
-        val hsv = FloatArray(3)
-        Color.colorToHSV(accentColor, hsv)
-        hsv[2] = (hsv[2] * 1.15f).coerceAtMost(1.0f)
-
+        val prefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val percent = prefs.getInt("settings_bubble_radius_percent", 100)
+        
         val density = context.resources.displayMetrics.density
-        val tailRadius = 4 * density
+        val maxRadiusPx = 28f * density
+        val radiusPx = maxRadiusPx * (percent / 100f)
+        val tailRadius = 4f * density
+
+        val accentColor = getCurrentAccentColor(context)
+        
         val radii = floatArrayOf(
-            radiusPx, radiusPx,
-            radiusPx, radiusPx,
-            tailRadius, tailRadius,
-            radiusPx, radiusPx
+            radiusPx, radiusPx, // top-left
+            radiusPx, radiusPx, // top-right
+            tailRadius, tailRadius, // bottom-right (tail)
+            radiusPx, radiusPx  // bottom-left
         )
 
-        return GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(Color.HSVToColor(hsv), accentColor)
-        ).apply {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
             cornerRadii = radii
+            setColor(accentColor)
         }
     }
 }

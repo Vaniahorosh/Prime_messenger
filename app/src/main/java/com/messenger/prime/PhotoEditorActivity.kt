@@ -213,6 +213,26 @@ class PhotoEditorActivity : AppCompatActivity() {
                         setupAspectSelector(b)
 
                         val isProfilePhoto = intent.getBooleanExtra("IS_PROFILE_PHOTO", false)
+                        val contactName = intent.getStringExtra("EXTRA_CONTACT_NAME")
+                        val initialCaption = intent.getStringExtra("EXTRA_CAPTION")
+
+                        if (isProfilePhoto) {
+                            b.tsEditorTitle.setText("Аватар профиля")
+                            b.layoutCaptionContainer.visibility = View.GONE
+                            b.btnHdQualityToggle.visibility = View.GONE
+                            b.aspectSelectorContainer.visibility = View.GONE
+                        } else {
+                            if (!contactName.isNullOrBlank()) {
+                                b.tsEditorTitle.setText(contactName)
+                            } else {
+                                b.tsEditorTitle.setText("Редактор")
+                            }
+                            b.layoutCaptionContainer.visibility = View.VISIBLE
+                            b.btnHdQualityToggle.visibility = View.VISIBLE
+                            if (!initialCaption.isNullOrBlank()) {
+                                b.etCaption.setText(initialCaption)
+                            }
+                        }
 
                         if (uriString != null) {
                             val uri = Uri.parse(uriString)
@@ -265,6 +285,13 @@ class PhotoEditorActivity : AppCompatActivity() {
                                 try {
                                     originalBitmap = loadOptimizedBitmap(uri)
                                     if (originalBitmap != null) {
+                                        val w = originalBitmap!!.width
+                                        val h = originalBitmap!!.height
+                                        val fileSize = uri?.let { getFileSizeFromUri(it) } ?: 0L
+                                        val sizeStr = formatFileSize(fileSize)
+                                        b.tvMediaInfo.text = "${w}x${h} • ~$sizeStr"
+                                        b.tvMediaInfo.visibility = View.VISIBLE
+
                                         b.ivEditorPreview.setImageBitmap(originalBitmap)
                                         b.ivEditorPreview.post {
                                             if (b.ivEditorPreview.width > 0 && b.ivEditorPreview.height > 0) {
@@ -427,14 +454,17 @@ class PhotoEditorActivity : AppCompatActivity() {
 
     private fun centerImage(b: ActivityPhotoEditorContentBinding) {
         val bitmap = originalBitmap ?: return
-        val viewWidth = b.ivEditorPreview.width.toFloat()
-        val viewHeight = b.ivEditorPreview.height.toFloat()
-        if (viewWidth == 0f || viewHeight == 0f) return
+        var viewWidth = b.ivEditorPreview.width.toFloat()
+        var viewHeight = b.ivEditorPreview.height.toFloat()
+        if (viewWidth <= 0f || viewHeight <= 0f) {
+            viewWidth = resources.displayMetrics.widthPixels.toFloat()
+            viewHeight = resources.displayMetrics.heightPixels.toFloat()
+        }
         val cropWidth = b.cropFrame.width.toFloat().takeIf { it > 0 } ?: (300 * resources.displayMetrics.density)
         val cropHeight = b.cropFrame.height.toFloat().takeIf { it > 0 } ?: (300 * resources.displayMetrics.density)
         val scale = Math.max(cropWidth / bitmap.width, cropHeight / bitmap.height)
         mainMatrix.setScale(scale, scale)
-        mainMatrix.postTranslate((viewWidth - bitmap.width * scale) / 2, (viewHeight - bitmap.height * scale) / 2)
+        mainMatrix.postTranslate((viewWidth - bitmap.width * scale) / 2f, (viewHeight - bitmap.height * scale) / 2f)
         updatePreview(b)
     }
 
@@ -451,9 +481,54 @@ class PhotoEditorActivity : AppCompatActivity() {
             hideOriginalLayoutWithTimer(b) { }
         }
 
+        b.toolAutoEnhance.setOnClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+            brightness = 12f
+            contrast = 1.18f
+            saturation = 1.15f
+            temperature = 3f
+            tint = 0f
+            updatePreview(b)
+            b.sliderBrightness.value = brightness
+            b.sliderContrast.value = contrast
+            b.sliderSaturation.value = saturation
+            b.sliderTemperature.value = temperature
+            b.sliderTint.value = tint
+            PrimeNotification.show(this, "✨ Авто-улучшение применено!")
+        }
+
         b.toolLight.setOnClickListener { toggleToolGroup(b, b.layoutGroupLight, "Освещение") }
         b.toolGeometry.setOnClickListener { toggleToolGroup(b, b.layoutGroupGeometry, "Геометрия") }
         b.toolBrushGroup.setOnClickListener { toggleToolGroup(b, b.layoutGroupBrush, "Рисование") }
+
+        var isHdQuality = intent.getBooleanExtra("IS_HD_QUALITY", true)
+        val updateHdQualityUi = {
+            if (isHdQuality) {
+                b.btnHdQualityToggle.text = "HD"
+                b.btnHdQualityToggle.setBackgroundResource(R.drawable.bg_circular_mode_active)
+            } else {
+                b.btnHdQualityToggle.text = "SD 480p"
+                b.btnHdQualityToggle.setBackgroundResource(R.drawable.bg_circular_mode_idle)
+            }
+        }
+        updateHdQualityUi()
+
+        b.btnHdQualityToggle.setOnClickListener {
+            isHdQuality = !isHdQuality
+            updateHdQualityUi()
+            PrimeNotification.show(this, if (isHdQuality) "Высокое качество (HD)" else "Стандартное качество (SD)")
+        }
+
+        val initialTool = intent.getIntExtra("EXTRA_INITIAL_TOOL_GROUP", -1)
+        if (initialTool >= 0) {
+            b.root.post {
+                when (initialTool) {
+                    0 -> toggleToolGroup(b, b.layoutGroupLight, "Освещение")
+                    1 -> toggleToolGroup(b, b.layoutGroupGeometry, "Геометрия")
+                    2 -> toggleToolGroup(b, b.layoutGroupBrush, "Рисование")
+                }
+            }
+        }
 
         b.sliderBrightness.addOnChangeListener { _, value, _ -> brightness = value; updatePreview(b) }
         b.sliderContrast.addOnChangeListener { _, value, _ -> contrast = value; updatePreview(b) }
@@ -725,7 +800,7 @@ class PhotoEditorActivity : AppCompatActivity() {
 
             val inputStream = try {
                 contentResolver.openInputStream(uri)
-            } catch (_: Exception) { null }
+            } catch (_: Throwable) { null }
                 ?: if (uri.scheme == "file" && uri.path != null) FileInputStream(File(uri.path!!))
                    else FileInputStream(File(uri.toString().removePrefix("file://")))
 
@@ -736,15 +811,17 @@ class PhotoEditorActivity : AppCompatActivity() {
             }
 
             val gifUriStr = Uri.fromFile(tempFile).toString()
+            val captionText = binding?.etCaption?.text?.toString()?.trim() ?: ""
             val resultIntent = Intent().apply {
                 putExtra("EDITED_IMAGE_URI", gifUriStr)
                 putExtra("EXTRA_IMAGE_URI", gifUriStr)
+                putExtra("EXTRA_CAPTION", captionText)
             }
             setResult(RESULT_OK, resultIntent)
             finish()
             PrimeTransitions.applyCloseTransition(this)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (t: Throwable) {
+            t.printStackTrace()
             finish()
         }
     }
@@ -757,6 +834,7 @@ class PhotoEditorActivity : AppCompatActivity() {
             }
         }
         val bitmap = originalBitmap
+        val captionText = binding?.etCaption?.text?.toString()?.trim() ?: ""
         if (bitmap != null) {
             java.util.concurrent.Executors.newSingleThreadExecutor().execute {
                 val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
@@ -769,6 +847,7 @@ class PhotoEditorActivity : AppCompatActivity() {
                     val resultIntent = Intent().apply {
                         putExtra("EDITED_IMAGE_URI", uriStr)
                         putExtra("EXTRA_IMAGE_URI", uriStr)
+                        putExtra("EXTRA_CAPTION", captionText)
                         setData(Uri.parse(uriStr))
                     }
                     runOnUiThread {
@@ -776,8 +855,8 @@ class PhotoEditorActivity : AppCompatActivity() {
                         finish()
                         PrimeTransitions.applyCloseTransition(this@PhotoEditorActivity)
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                } catch (t: Throwable) {
+                    t.printStackTrace()
                     runOnUiThread {
                         finishFallback()
                     }
@@ -789,11 +868,13 @@ class PhotoEditorActivity : AppCompatActivity() {
     }
 
     private fun finishFallback() {
-        val fallbackUriStr = originalUri?.toString() ?: intent.getStringExtra("EXTRA_IMAGE_URI")
+        val fallbackUriStr = originalUri?.toString() ?: intent.getStringExtra("EXTRA_IMAGE_URI") ?: intent.dataString
+        val captionText = binding?.etCaption?.text?.toString()?.trim() ?: ""
         if (!fallbackUriStr.isNullOrEmpty()) {
             val resultIntent = Intent().apply {
                 putExtra("EDITED_IMAGE_URI", fallbackUriStr)
                 putExtra("EXTRA_IMAGE_URI", fallbackUriStr)
+                putExtra("EXTRA_CAPTION", captionText)
                 setData(Uri.parse(fallbackUriStr))
             }
             setResult(RESULT_OK, resultIntent)
@@ -1007,6 +1088,30 @@ class PhotoEditorActivity : AppCompatActivity() {
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else (48 * resources.displayMetrics.density).toInt()
     }
 
+    private fun getFileSizeFromUri(uri: Uri): Long {
+        if ("file".equals(uri.scheme, ignoreCase = true)) {
+            val p = uri.path
+            if (p != null) return File(p).length()
+        }
+        try {
+            contentResolver.query(uri, arrayOf(android.provider.MediaStore.MediaColumns.SIZE), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val col = cursor.getColumnIndex(android.provider.MediaStore.MediaColumns.SIZE)
+                    if (col != -1) return cursor.getLong(col)
+                }
+            }
+        } catch (_: Exception) {}
+        return 0L
+    }
+
+    private fun formatFileSize(size: Long): String {
+        if (size <= 0) return "0 КБ"
+        val kb = size / 1024.0
+        if (kb < 1024) return String.format(java.util.Locale.getDefault(), "%.1f КБ", kb)
+        val mb = kb / 1024.0
+        return String.format(java.util.Locale.getDefault(), "%.1f МБ", mb)
+    }
+
     private fun saveAndFinish(b: ActivityPhotoEditorContentBinding) {
         val gifUri = originalUri
         if (isGifMode && gifUri != null) {
@@ -1025,9 +1130,13 @@ class PhotoEditorActivity : AppCompatActivity() {
             return
         }
 
+        val captionText = b.etCaption.text?.toString()?.trim() ?: ""
         val drawingBitmap = b.drawingView.getResultBitmap()
         val rect = Rect()
-        b.cropFrame.getGlobalVisibleRect(rect)
+        val isCropVisible = b.cropFrame.visibility == View.VISIBLE
+        if (isCropVisible) {
+            b.cropFrame.getGlobalVisibleRect(rect)
+        }
         val viewRect = Rect()
         b.ivEditorPreview.getGlobalVisibleRect(viewRect)
         val currentMatrix = getCurrentColorMatrix()
@@ -1046,16 +1155,24 @@ class PhotoEditorActivity : AppCompatActivity() {
 
                 drawingBitmap?.let { db ->
                     canvas.drawBitmap(db, 0f, 0f, null)
+                    try { if (!db.isRecycled) db.recycle() } catch (_: Throwable) {}
                 }
 
-                val left = (rect.left - viewRect.left).coerceIn(0, resultBitmap.width - 1)
-                val top = (rect.top - viewRect.top).coerceIn(0, resultBitmap.height - 1)
-                val width = rect.width().coerceAtMost(resultBitmap.width - left)
-                val height = rect.height().coerceAtMost(resultBitmap.height - top)
-                val outputBitmap = if (width > 0 && height > 0) {
-                    Bitmap.createBitmap(resultBitmap, left, top, width, height)
-                } else {
-                    resultBitmap
+                var outputBitmap = resultBitmap
+                if (isCropVisible && rect.width() > 0 && rect.height() > 0 && viewRect.width() > 0 && viewRect.height() > 0) {
+                    val cropLeft = (rect.left - viewRect.left).coerceIn(0, resultBitmap.width - 1)
+                    val cropTop = (rect.top - viewRect.top).coerceIn(0, resultBitmap.height - 1)
+                    val cropRight = (rect.right - viewRect.left).coerceIn(cropLeft + 1, resultBitmap.width)
+                    val cropBottom = (rect.bottom - viewRect.top).coerceIn(cropTop + 1, resultBitmap.height)
+                    val width = cropRight - cropLeft
+                    val height = cropBottom - cropTop
+
+                    if (width > 0 && height > 0 && (width < resultBitmap.width || height < resultBitmap.height)) {
+                        val cropped = Bitmap.createBitmap(resultBitmap, cropLeft, cropTop, width, height)
+                        if (cropped != resultBitmap) {
+                            outputBitmap = cropped
+                        }
+                    }
                 }
 
                 val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
@@ -1063,10 +1180,19 @@ class PhotoEditorActivity : AppCompatActivity() {
                     outputBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
                     out.flush()
                 }
+
+                if (outputBitmap != resultBitmap && !resultBitmap.isRecycled) {
+                    try { resultBitmap.recycle() } catch (_: Throwable) {}
+                }
+                if (!outputBitmap.isRecycled) {
+                    try { outputBitmap.recycle() } catch (_: Throwable) {}
+                }
+
                 val uriStr = Uri.fromFile(file).toString()
                 val resultIntent = Intent().apply {
                     putExtra("EDITED_IMAGE_URI", uriStr)
                     putExtra("EXTRA_IMAGE_URI", uriStr)
+                    putExtra("EXTRA_CAPTION", captionText)
                     setData(Uri.parse(uriStr))
                 }
                 runOnUiThread {
@@ -1074,8 +1200,8 @@ class PhotoEditorActivity : AppCompatActivity() {
                     finish()
                     PrimeTransitions.applyCloseTransition(this@PhotoEditorActivity)
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
+            } catch (t: Throwable) {
+                t.printStackTrace()
                 runOnUiThread { setOriginalAndFinish() }
             }
         }
@@ -1157,18 +1283,24 @@ class PhotoEditorActivity : AppCompatActivity() {
     private fun loadOptimizedBitmap(uri: Uri): Bitmap? {
         return try {
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            contentResolver.openInputStream(uri)?.use { stream ->
-                BitmapFactory.decodeStream(stream, null, options)
-            }
+            var decodedHeader = false
 
-            if (options.outWidth <= 0 || options.outHeight <= 0) {
-                if (uri.scheme == "file" || uri.path != null) {
-                    val filePath = uri.path ?: uri.toString().removePrefix("file://")
-                    BitmapFactory.decodeFile(filePath, options)
+            try {
+                contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, options)
+                    if (options.outWidth > 0 && options.outHeight > 0) decodedHeader = true
+                }
+            } catch (_: Throwable) {}
+
+            if (!decodedHeader) {
+                val rawPath = uri.path ?: uri.toString().removePrefix("file://")
+                if (File(rawPath).exists()) {
+                    BitmapFactory.decodeFile(rawPath, options)
+                    if (options.outWidth > 0 && options.outHeight > 0) decodedHeader = true
                 }
             }
 
-            if (options.outWidth <= 0 || options.outHeight <= 0) return null
+            if (!decodedHeader || options.outWidth <= 0 || options.outHeight <= 0) return null
 
             val screenWidth = resources.displayMetrics.widthPixels
             val screenHeight = resources.displayMetrics.heightPixels
@@ -1187,19 +1319,23 @@ class PhotoEditorActivity : AppCompatActivity() {
                 inMutable = true
             }
             
-            var decodedBitmap = contentResolver.openInputStream(uri)?.use { stream ->
-                BitmapFactory.decodeStream(stream, null, finalOptions)
-            }
+            var decodedBitmap: Bitmap? = try {
+                contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, finalOptions)
+                }
+            } catch (_: Throwable) { null }
 
-            if (decodedBitmap == null && (uri.scheme == "file" || uri.path != null)) {
-                val filePath = uri.path ?: uri.toString().removePrefix("file://")
-                decodedBitmap = BitmapFactory.decodeFile(filePath, finalOptions)
+            if (decodedBitmap == null) {
+                val rawPath = uri.path ?: uri.toString().removePrefix("file://")
+                if (File(rawPath).exists()) {
+                    decodedBitmap = BitmapFactory.decodeFile(rawPath, finalOptions)
+                }
             }
 
             if (decodedBitmap == null) return null
 
             val rotation = getExifRotation(uri)
-            if (rotation != 0) {
+            return if (rotation != 0) {
                 val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
                 Bitmap.createBitmap(decodedBitmap, 0, 0, decodedBitmap.width, decodedBitmap.height, matrix, true)
             } else {
@@ -1207,14 +1343,7 @@ class PhotoEditorActivity : AppCompatActivity() {
             }
         } catch (t: Throwable) {
             t.printStackTrace()
-            try {
-                val options = BitmapFactory.Options().apply { inSampleSize = 4 }
-                contentResolver.openInputStream(uri)?.use { stream ->
-                    BitmapFactory.decodeStream(stream, null, options)
-                }
-            } catch (e: Exception) {
-                null
-            }
+            null
         }
     }
 

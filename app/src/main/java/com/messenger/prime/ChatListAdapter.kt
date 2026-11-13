@@ -1,6 +1,7 @@
 package com.messenger.prime
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.res.ColorStateList
@@ -121,6 +122,12 @@ class ChatListAdapter(
 
     val selectedItems = mutableSetOf<String>()
     var onSelectionChanged: ((Set<String>) -> Unit)? = null
+
+    private fun isSystemChat(chat: ChatModel): Boolean {
+        if (chat.id == "ai_prime_chat" || chat.id == "notes_chat_item") return true
+        if ("Заметки".equals(chat.name, ignoreCase = true) || "Prime AI".equals(chat.name, ignoreCase = true)) return true
+        return false
+    }
 
     fun swapItems(fromPos: Int, toPos: Int) {
         if (fromPos in chatList.indices && toPos in chatList.indices) {
@@ -661,7 +668,11 @@ class ChatListAdapter(
 
                 binding.layoutContent.setOnClickListener {
                     if (isSelectionMode) {
-                        toggleSelection(chat.id)
+                        if (isSystemChat(chat)) {
+                            PrimeNotification.show(context as? Activity, "Служебный чат нельзя выбрать")
+                        } else {
+                            toggleSelection(chat.id)
+                        }
                     } else if (holder.isRevealed) {
                         animateHideDelete(holder)
                     } else {
@@ -670,17 +681,11 @@ class ChatListAdapter(
                 }
 
                 binding.layoutContent.setOnLongClickListener {
-                    if (chat.id == "ai_prime_chat") {
-                        // Ignore long press on AI Chat
+                    if (isSystemChat(chat)) {
+                        // Ignore long press on system chats (AI Chat, Notes)
                     } else if (!isSelectionMode) {
                         it.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-                        val navStyle = sp.getString("navigation_style", "bottom_bar") ?: "bottom_bar"
-                        if (navStyle == "island") {
-                            enterSelectionMode(chat.id)
-                        } else {
-                            enterSelectionMode(chat.id)
-                        }
+                        enterSelectionMode(chat.id)
                     }
                     true
                 }
@@ -690,21 +695,26 @@ class ChatListAdapter(
                     holder.resetReveal()
                 }
 
-                when (chat.onlineStatus) {
-                    OnlineStatus.ONLINE -> {
-                        binding.viewOnlineStatus.visibility = View.VISIBLE
-                        val bg = (binding.viewOnlineStatus.background as? GradientDrawable) ?: GradientDrawable().apply { shape = GradientDrawable.OVAL }
-                        bg.setColor(ContextCompat.getColor(context, R.color.prime_success))
-                        binding.viewOnlineStatus.background = bg
-                    }
-                    OnlineStatus.BLOCKED -> {
-                        binding.viewOnlineStatus.visibility = View.VISIBLE
-                        val bg = (binding.viewOnlineStatus.background as? GradientDrawable) ?: GradientDrawable().apply { shape = GradientDrawable.OVAL }
-                        bg.setColor(ContextCompat.getColor(context, R.color.prime_danger))
-                        binding.viewOnlineStatus.background = bg
-                    }
-                    OnlineStatus.OFFLINE -> {
-                        binding.viewOnlineStatus.visibility = View.GONE
+                if (chat.id == "notes_chat_item" || chat.name == "Заметки") {
+                    binding.viewOnlineStatus.visibility = View.GONE
+                } else {
+                    when (chat.onlineStatus) {
+                        OnlineStatus.ONLINE -> {
+                            binding.viewOnlineStatus.visibility = View.VISIBLE
+                            binding.viewOnlineStatus.setBackgroundResource(R.drawable.bg_online_dot_m3)
+                        }
+                        OnlineStatus.BLOCKED -> {
+                            binding.viewOnlineStatus.visibility = View.VISIBLE
+                            val bg = GradientDrawable().apply {
+                                shape = GradientDrawable.OVAL
+                                setColor(ContextCompat.getColor(context, R.color.prime_danger))
+                                setStroke((2.5f * context.resources.displayMetrics.density).toInt(), ContextCompat.getColor(context, R.color.prime_surface))
+                            }
+                            binding.viewOnlineStatus.background = bg
+                        }
+                        OnlineStatus.OFFLINE -> {
+                            binding.viewOnlineStatus.visibility = View.GONE
+                        }
                     }
                 }
 
@@ -731,7 +741,9 @@ class ChatListAdapter(
                 }
 
                 binding.ivMuteStatus.visibility = if (chat.isMuted) View.VISIBLE else View.GONE
-            binding.ivPinStatus.visibility = if (chat.isPinned) View.VISIBLE else View.GONE
+                binding.ivPinStatus.visibility = if (chat.isPinned) View.VISIBLE else View.GONE
+
+                bindMediaPreview(holder, chat)
 
                 if (chat.unreadCount > 0) {
                     binding.tvUnreadCounter.visibility = View.VISIBLE

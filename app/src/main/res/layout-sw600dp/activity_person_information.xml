@@ -209,7 +209,7 @@
                                 android:insetRight="0dp"
                                 android:insetBottom="0dp"
                                 app:cornerRadius="16dp"
-                                app:icon="@drawable/bg_chat_item_delete"
+                                app:icon="@drawable/ic_trash"
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
                                 app:iconSize="24dp"

@@ -232,4 +232,26 @@ object PrimeBlurDialog {
 
         return alertDialog
     }
+
+    @JvmStatic
+    @JvmOverloads
+    fun showConfirmation(
+        activity: Activity,
+        title: String,
+        message: String,
+        positiveText: String = "Да",
+        negativeText: String = "Отмена",
+        isPositiveDanger: Boolean = false,
+        onPositive: Runnable? = null
+    ): AlertDialog? {
+        return show(
+            activity = activity,
+            title = title,
+            message = message,
+            positiveText = positiveText,
+            negativeText = negativeText,
+            isPositiveDanger = isPositiveDanger,
+            onPositive = { onPositive?.run() }
+        )
+    }
 }

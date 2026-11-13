@@ -1528,15 +1528,36 @@
                                         android:layout_height="wrap_content"
                                         android:nestedScrollingEnabled="false"
                                         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:orientation="horizontal"
+                                        android:gravity="center_vertical"
+                                        android:layout_marginTop="12dp">
+
+                                        <TextView
+                                            android:layout_width="0dp"
+                                            android:layout_height="wrap_content"
+                                            android:layout_weight="1"
+                                            android:text="Отображать подписи к кнопкам"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textSize="14sp" />
+
+                                        <com.google.android.material.materialswitch.MaterialSwitch
+                                            android:tag="switchNavShowLabels"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content" />
+                                    </LinearLayout>
                                 </LinearLayout>
 
-                                <!-- Island Style Configuration -->
+                                <!-- Island-Only Navigation Switches (Hidden in Panel Mode) -->
                                 <LinearLayout
                                     android:id="@+id/layoutNavIslandConfig"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:orientation="vertical"
-                                    android:layout_marginTop="16dp"
+                                    android:layout_marginTop="12dp"
                                     android:visibility="gone">
 
                                     <!-- Switch 1: AI Contact -->
@@ -1564,7 +1585,7 @@
                                                 android:layout_width="wrap_content"
                                                 android:layout_height="wrap_content"
                                                 android:layout_marginTop="2dp"
-                                                android:text="Отображать AI-контакт в списке чатов"
+                                                android:text="Отображать AI-контакт в острове"
                                                 android:textColor="@color/prime_text_secondary"
                                                 android:textSize="12sp" />
                                         </LinearLayout>
@@ -1613,6 +1634,181 @@
                                             android:layout_height="wrap_content"
                                             android:checked="true" />
                                     </LinearLayout>
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <!-- Невидимая полоса разделения -->
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:layout_marginTop="16dp"
+                                android:layout_marginBottom="16dp"
+                                android:background="@color/prime_divider"
+                                android:alpha="0.0" />
+
+                            <!-- Карточка настройки категорий чатов (Отдельный независимый блок) -->
+                            <LinearLayout
+                                android:id="@+id/cardCategoriesAndNotes"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal"
+                                    android:paddingBottom="12dp">
+
+                                    <ImageView
+                                        android:id="@+id/ivIconCategoriesAndNotes"
+                                        android:layout_width="32dp"
+                                        android:layout_height="32dp"
+                                        android:layout_marginEnd="16dp"
+                                        android:src="@drawable/ic_file"
+                                        app:tint="@color/prime_brand" />
+
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="Категории и Заметки"
+                                            android:textColor="@color/prime_brand"
+                                            android:textSize="15sp"
+                                            android:fontFamily="sans-serif-medium" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="Управление полосой категорий и личным чатом Заметки"
+                                            android:textColor="@color/prime_text_secondary"
+                                            android:textSize="12sp" />
+                                    </LinearLayout>
+                                </LinearLayout>
+
+                                <!-- Switch: Category Chips Bar -->
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical">
+
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="Панель категорий чатов"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textSize="14sp"
+                                            android:fontFamily="sans-serif-medium" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="Отображать полосу категорий над списком"
+                                            android:textColor="@color/prime_text_secondary"
+                                            android:textSize="12sp" />
+                                    </LinearLayout>
+
+                                    <com.google.android.material.materialswitch.MaterialSwitch
+                                        android:tag="switchCategoryChips"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:checked="true" />
+                                </LinearLayout>
+
+                                <!-- Switch: Notes Chat -->
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical"
+                                    android:layout_marginTop="12dp">
+
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="Чат Заметки"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textSize="14sp"
+                                            android:fontFamily="sans-serif-medium" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="Закрепить личный чат Заметки"
+                                            android:textColor="@color/prime_text_secondary"
+                                            android:textSize="12sp" />
+                                    </LinearLayout>
+
+                                    <com.google.android.material.materialswitch.MaterialSwitch
+                                        android:tag="switchNotesChat"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:checked="true" />
+                                </LinearLayout>
+
+                                <!-- Category Customization Management Section -->
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="vertical"
+                                    android:layout_marginTop="16dp">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Управление категориями чатов"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp"
+                                        android:fontFamily="sans-serif-medium" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:layout_marginBottom="8dp"
+                                        android:text="Создавайте свои категории, меняйте состав чатов или удаляйте их"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="12sp" />
+
+                                    <!-- Dynamic list of user-created categories -->
+                                    <LinearLayout
+                                        android:tag="containerCategoriesList"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:orientation="vertical"
+                                        android:layout_marginTop="8dp"
+                                        android:layout_marginBottom="8dp" />
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:tag="btnAddCustomCategory"
+                                        style="@style/Widget.Material3.Button.OutlinedButton"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="Добавить свою категорию"
+                                        app:icon="@drawable/ic_add"
+                                        android:textColor="@color/prime_brand"
+                                        app:iconTint="@color/prime_brand" />
                                 </LinearLayout>
                             </LinearLayout>
 
@@ -2497,6 +2693,45 @@
 
                                 <com.google.android.material.materialswitch.MaterialSwitch
                                     android:id="@+id/switchPartnerInfo"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="12dp"
+                                    android:checked="true" />
+                            </LinearLayout>
+
+                            <!-- Секция: M3E формы на кнопках в чате -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:layout_marginTop="16dp">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="M3E формы кнопок в чате"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="14sp"
+                                        android:fontFamily="sans-serif-medium" />
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Применять выразительные фигуры к кнопкам Назад, Медиа и Отправка в чате"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+
+                                <com.google.android.material.materialswitch.MaterialSwitch
+                                    android:id="@+id/switchM3EShapesChat"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:layout_marginStart="12dp"

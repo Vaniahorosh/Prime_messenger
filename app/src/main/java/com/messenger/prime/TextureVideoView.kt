@@ -367,14 +367,6 @@ class TextureVideoView @JvmOverloads constructor(
         val videoAspect = realWidth / realHeight
         val viewAspect = viewWidth / viewHeight
 
-        // При одинаковых соотношениях сторон (например, 1:1) сбрасываем матрицу, чтобы не было никаких искажений
-        if (Math.abs(videoAspect - viewAspect) < 0.02f) {
-            setTransform(null)
-            invalidate()
-            return
-        }
-
-        // Вычисляем корректное центральное кадрирование (Center Crop) без искажения пропорций лица
         val scaleX: Float
         val scaleY: Float
 
@@ -391,6 +383,9 @@ class TextureVideoView @JvmOverloads constructor(
 
         val matrix = Matrix()
         matrix.setScale(scaleX, scaleY, cx, cy)
+        if (rotation != 0) {
+            matrix.postRotate(rotation.toFloat(), cx, cy)
+        }
 
         setTransform(matrix)
         invalidate()

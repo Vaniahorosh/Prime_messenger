@@ -372,6 +372,8 @@ class AiChatActivity : AppCompatActivity() {
         val ivNavSearchIcon = navView.findViewById<ImageView>(R.id.ivNavSearchIcon)
         val ivNavDownloadsIcon = navView.findViewById<ImageView>(R.id.ivNavDownloadsIcon)
 
+        applyBottomNavLabelsVisibility(navView, sharedPrefs.getBoolean("nav_show_labels", false))
+
         updateM3TabState(false, vNavChatsIndicator, ivNavChatsIcon, accentColor)
         updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, accentColor)
         updateM3TabState(true, vNavAiIndicator, ivNavAiIcon, accentColor)
@@ -540,14 +542,7 @@ class AiChatActivity : AppCompatActivity() {
 
     private fun setupListeners() {
         binding.btnAiBack.setOnClickListener {
-            if (isTaskRoot) {
-                val intent = Intent(this, ChatListActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                }
-                startActivity(intent)
-            }
-            finish()
-            PrimeTransitions.applyCloseTransition(this)
+            onBackPressedDispatcher.onBackPressed()
         }
 
         // Open BlurView History Bottom Sheet

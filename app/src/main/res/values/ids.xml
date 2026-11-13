@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="containerCategoriesList" type="id" />
+    <item name="switchCategoryChips" type="id" />
+    <item name="switchNotesChat" type="id" />
+    <item name="btnAddCustomCategory" type="id" />
+    <item name="btnClosePinnedBar" type="id" />
+</resources>

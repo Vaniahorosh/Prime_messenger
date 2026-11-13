@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="20dp">
+    android:padding="16dp">
 
     <eightbitlab.com.blurview.BlurView
         android:id="@+id/blurDialogCard"
@@ -20,12 +20,12 @@
             android:layout_height="wrap_content"
             android:gravity="center_horizontal"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:padding="20dp">
 
             <ImageView
                 android:id="@+id/ivDialogIcon"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
                 android:contentDescription="Иконка диалога"
                 android:visibility="gone"
                 android:src="@drawable/ic_person"
@@ -37,31 +37,45 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:textColor="@color/dialog_title_color"
-                android:textSize="20sp"
+                android:textSize="18sp"
                 android:textStyle="bold"
                 tools:text="Заголовок" />
 
-            <TextView
-                android:id="@+id/tvDialogMessage"
+            <ScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:gravity="center"
-                android:textColor="@color/dialog_body_color"
-                android:textSize="14sp"
-                tools:text="Текст сообщения диалога" />
+                android:layout_marginTop="8dp"
+                android:maxHeight="320dp"
+                android:scrollbars="vertical">
 
-            <FrameLayout
-                android:id="@+id/dialogCustomViewContainer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:visibility="gone" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvDialogMessage"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="start|center_vertical"
+                        android:textColor="@color/dialog_body_color"
+                        android:textSize="13.5sp"
+                        android:lineSpacingExtra="3dp"
+                        tools:text="Текст сообщения диалога" />
+
+                    <FrameLayout
+                        android:id="@+id/dialogCustomViewContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </ScrollView>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="18dp"
                 android:gravity="center"
                 android:orientation="horizontal">
 
@@ -69,24 +83,24 @@
                     android:id="@+id/btnDialogNegative"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="44dp"
                     android:layout_weight="1"
-                    android:layout_marginEnd="8dp"
+                    android:layout_marginEnd="6dp"
                     android:text="Нет"
                     android:textColor="@color/dialog_button_cancel_text"
-                    app:cornerRadius="16dp"
+                    app:cornerRadius="14dp"
                     app:strokeColor="@color/dialog_button_cancel_stroke" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnDialogPositive"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="44dp"
                     android:layout_weight="1"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="6dp"
                     android:backgroundTint="@color/prime_brand"
                     android:text="Да"
                     android:textColor="@color/white"
-                    app:cornerRadius="16dp" />
+                    app:cornerRadius="14dp" />
             </LinearLayout>
         </LinearLayout>
     </eightbitlab.com.blurview.BlurView>

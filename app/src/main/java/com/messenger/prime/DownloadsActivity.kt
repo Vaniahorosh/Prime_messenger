@@ -1,7 +1,10 @@
 package com.messenger.prime
 
+import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -16,8 +19,11 @@ import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageButton
@@ -28,9 +34,12 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.recyclerview.widget.DefaultItemAnimator
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -45,9 +54,12 @@ class DownloadsActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDownloadsBinding
     private lateinit var adapter: DownloadsAdapter
     private lateinit var activeTransfersAdapter: ActiveTransfersAdapter
+
     private var allDownloadsList = listOf<DownloadItem>()
     private var activeCategoryFilter: String = "ALL" // ALL, MEDIA, DOCS, MUSIC, UPDATES
+    private var currentSortMode: String = "DATE_DESC" // DATE_DESC, DATE_ASC, SIZE_DESC, SIZE_ASC, NAME_ASC, NAME_DESC
     private var searchQuery: String = ""
+    private var isGridMode = true
 
     private val transferListener = object : TransferListener {
         override fun onTransferUpdated(transfers: List<ActiveTransfer>) {
@@ -114,6 +126,7 @@ class DownloadsActivity : AppCompatActivity() {
             if (intent?.action == "com.messenger.prime.ACCENT_CHANGED") {
                 applyIslandHeaderColor()
                 setupFilterChips()
+                setupBottomNav()
             }
         }
     }
@@ -132,6 +145,8 @@ class DownloadsActivity : AppCompatActivity() {
         setupHeaderAndSearch()
         setupFilterChips()
         setupRecyclerView()
+        setupStorageSummaryActions()
+        setupBottomNav()
 
         loadDownloadsData()
 
@@ -144,6 +159,7 @@ class DownloadsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         applyIslandHeaderColor()
+        setupBottomNav()
         loadDownloadsData()
     }
 
@@ -169,20 +185,37 @@ class DownloadsActivity : AppCompatActivity() {
             val density = resources.displayMetrics.density
 
             val lpHeader = binding.layoutHeaderIsland.layoutParams as ViewGroup.MarginLayoutParams
-            lpHeader.topMargin = systemBars.top + (8 * density).toInt()
-            binding.layoutHeaderIsland.layoutParams = lpHeader
+            val targetHeaderTop = systemBars.top + (10 * density).toInt()
+            if (lpHeader.topMargin != targetHeaderTop) {
+                lpHeader.topMargin = targetHeaderTop
+                binding.layoutHeaderIsland.layoutParams = lpHeader
+            }
+
+            val navView = findViewById<View>(R.id.blurBottomNav)
+            if (navView != null && navView.visibility == View.VISIBLE) {
+                val lpNav = navView.layoutParams as? ViewGroup.MarginLayoutParams
+                if (lpNav != null) {
+                    val targetNavBottom = systemBars.bottom + (16 * density).toInt()
+                    if (lpNav.bottomMargin != targetNavBottom) {
+                        lpNav.bottomMargin = targetNavBottom
+                        navView.layoutParams = lpNav
+                    }
+                }
+            }
+
+            val hasBottomNav = navView != null && navView.visibility == View.VISIBLE
+            val bottomPadding = systemBars.bottom + ((if (hasBottomNav) 88 else 24) * density).toInt()
 
             binding.rvDownloads.setPadding(
                 binding.rvDownloads.paddingLeft,
                 binding.rvDownloads.paddingTop,
                 binding.rvDownloads.paddingRight,
-                systemBars.bottom + (16 * density).toInt()
+                bottomPadding
             )
             insets
         }
+        ViewCompat.requestApplyInsets(binding.layoutDownloadsRoot)
     }
-
-    private var isGridMode = true
 
     private fun setupHeaderAndSearch() {
         val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
@@ -191,6 +224,7 @@ class DownloadsActivity : AppCompatActivity() {
         updateViewModeLayout()
 
         binding.btnToggleViewMode.setOnClickListener {
+            it.animate().rotationBy(180f).setDuration(220).start()
             isGridMode = !isGridMode
             sp.edit().putBoolean("downloads_view_mode_grid", isGridMode).apply()
             updateViewModeLayout()
@@ -208,6 +242,7 @@ class DownloadsActivity : AppCompatActivity() {
             PrimeTransitions.applyCloseTransition(this)
         }
 
+        binding.btnHeaderMore.setOnClickListener { showOptionsMenu(it) }
         binding.btnHeaderSearch.setOnClickListener { openHeaderSearch() }
         binding.btnHeaderSearchClear.setOnClickListener { closeHeaderSearch() }
 
@@ -225,7 +260,7 @@ class DownloadsActivity : AppCompatActivity() {
         if (isGridMode) {
             binding.btnToggleViewMode.setImageResource(R.drawable.ic_format_list_bulleted)
             binding.btnToggleViewMode.contentDescription = "Показать списком"
-            binding.rvDownloads.layoutManager = androidx.recyclerview.widget.GridLayoutManager(this, 2)
+            binding.rvDownloads.layoutManager = GridLayoutManager(this, 2)
         } else {
             binding.btnToggleViewMode.setImageResource(R.drawable.ic_format_table)
             binding.btnToggleViewMode.contentDescription = "Показать сеткой"
@@ -238,24 +273,26 @@ class DownloadsActivity : AppCompatActivity() {
         binding.etHeaderSearch.animate().cancel()
         binding.btnHeaderSearch.animate().cancel()
         binding.btnToggleViewMode.animate().cancel()
+        binding.btnHeaderMore.animate().cancel()
 
         binding.layoutTitleContainer.visibility = View.GONE
         binding.btnHeaderSearch.visibility = View.GONE
         binding.btnToggleViewMode.visibility = View.GONE
+        binding.btnHeaderMore.visibility = View.GONE
 
         binding.etHeaderSearch.alpha = 0f
+        binding.etHeaderSearch.translationX = 30f
         binding.etHeaderSearch.visibility = View.VISIBLE
         binding.etHeaderSearch.animate()
             .alpha(1f)
-            .setDuration(180)
+            .translationX(0f)
+            .setDuration(200)
+            .setInterpolator(DecelerateInterpolator())
             .start()
 
         binding.btnHeaderSearchClear.alpha = 0f
         binding.btnHeaderSearchClear.visibility = View.VISIBLE
-        binding.btnHeaderSearchClear.animate()
-            .alpha(1f)
-            .setDuration(180)
-            .start()
+        binding.btnHeaderSearchClear.animate().alpha(1f).setDuration(200).start()
 
         binding.etHeaderSearch.requestFocus()
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
@@ -286,6 +323,10 @@ class DownloadsActivity : AppCompatActivity() {
         binding.btnToggleViewMode.visibility = View.VISIBLE
         binding.btnToggleViewMode.animate().alpha(1f).setDuration(180).start()
 
+        binding.btnHeaderMore.alpha = 0f
+        binding.btnHeaderMore.visibility = View.VISIBLE
+        binding.btnHeaderMore.animate().alpha(1f).setDuration(180).start()
+
         filterAndRenderDownloads()
     }
 
@@ -293,7 +334,7 @@ class DownloadsActivity : AppCompatActivity() {
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
 
         val updateChipStyles = {
-            val chips = listOf<Pair<MaterialButton, String>>(
+            val chips = listOf(
                 binding.chipAll to "ALL",
                 binding.chipMedia to "MEDIA",
                 binding.chipDocs to "DOCS",
@@ -315,13 +356,31 @@ class DownloadsActivity : AppCompatActivity() {
             }
         }
 
-        binding.chipAll.setOnClickListener { activeCategoryFilter = "ALL"; updateChipStyles(); filterAndRenderDownloads() }
-        binding.chipMedia.setOnClickListener { activeCategoryFilter = "MEDIA"; updateChipStyles(); filterAndRenderDownloads() }
-        binding.chipDocs.setOnClickListener { activeCategoryFilter = "DOCS"; updateChipStyles(); filterAndRenderDownloads() }
-        binding.chipMusic.setOnClickListener { activeCategoryFilter = "MUSIC"; updateChipStyles(); filterAndRenderDownloads() }
-        binding.chipUpdates.setOnClickListener { activeCategoryFilter = "UPDATES"; updateChipStyles(); filterAndRenderDownloads() }
+        val onChipClicked = { btn: MaterialButton, category: String ->
+            btn.animate().scaleX(0.92f).scaleY(0.92f).setDuration(80).withEndAction {
+                btn.animate().scaleX(1.0f).scaleY(1.0f).setDuration(160).setInterpolator(OvershootInterpolator(1.2f)).start()
+            }.start()
+            activeCategoryFilter = category
+            updateChipStyles()
+            filterAndRenderDownloads()
+        }
+
+        binding.chipAll.setOnClickListener { onChipClicked(binding.chipAll, "ALL") }
+        binding.chipMedia.setOnClickListener { onChipClicked(binding.chipMedia, "MEDIA") }
+        binding.chipDocs.setOnClickListener { onChipClicked(binding.chipDocs, "DOCS") }
+        binding.chipMusic.setOnClickListener { onChipClicked(binding.chipMusic, "MUSIC") }
+        binding.chipUpdates.setOnClickListener { onChipClicked(binding.chipUpdates, "UPDATES") }
 
         updateChipStyles()
+    }
+
+    private fun setupStorageSummaryActions() {
+        binding.cardStorageSummary.setOnClickListener {
+            showStorageDetailsDialog()
+        }
+        binding.btnClearDownloads.setOnClickListener {
+            showClearDownloadsDialog()
+        }
     }
 
     override fun onStart() {
@@ -337,7 +396,7 @@ class DownloadsActivity : AppCompatActivity() {
     private fun setupRecyclerView() {
         activeTransfersAdapter = ActiveTransfersAdapter { item ->
             TransferManager.cancelTransfer(item.id)
-            Toast.makeText(this, "Передача отменена", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(this, "Передача файла отменена")
         }
         binding.rvActiveTransfers.layoutManager = LinearLayoutManager(this)
         binding.rvActiveTransfers.adapter = activeTransfersAdapter
@@ -345,19 +404,37 @@ class DownloadsActivity : AppCompatActivity() {
         adapter = DownloadsAdapter(
             onOpenItem = { item -> openFile(item) },
             onShareItem = { item -> shareFile(item) },
-            onDeleteItem = { item -> deleteFileItem(item) }
+            onMoreOptions = { view, item -> showItemOptionsMenu(view, item) }
         )
+        binding.rvDownloads.itemAnimator = DefaultItemAnimator().apply {
+            addDuration = 200
+            removeDuration = 180
+        }
         updateViewModeLayout()
         binding.rvDownloads.adapter = adapter
     }
 
     private fun loadDownloadsData() {
-        val currentUser = DownloadsManager.getCurrentUser(this)
         allDownloadsList = DownloadsManager.getDownloadsForCurrentUser(this)
 
         val totalSize = allDownloadsList.sumOf { it.fileSize }
         val formattedSize = DownloadsManager.formatFileSize(totalSize)
-        binding.tvStorageUsage.text = "Собеседники и браузер • Занято $formattedSize"
+        binding.tvStorageUsage.text = "$formattedSize • ${allDownloadsList.size} ф."
+
+        binding.tvStorageDetails.text = "Занято: $formattedSize • ${allDownloadsList.size} файлов"
+
+        // Smoothly animate progress bar
+        val maxScale = 1000L * 1024L * 1024L // 1 GB scale reference
+        val targetProgress = ((totalSize.toDouble() / maxScale.toDouble()) * 100).toInt().coerceIn(4, 100)
+
+        ValueAnimator.ofInt(binding.pbStorageBar.progress, targetProgress).apply {
+            duration = 400
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                binding.pbStorageBar.progress = anim.animatedValue as Int
+            }
+            start()
+        }
 
         filterAndRenderDownloads()
     }
@@ -366,7 +443,7 @@ class DownloadsActivity : AppCompatActivity() {
         val query = searchQuery.lowercase(Locale.ROOT).trim()
         val queryTokens = query.split("\\s+".toRegex()).filter { it.isNotEmpty() }
 
-        val filtered = allDownloadsList.filter { item ->
+        var filtered = allDownloadsList.filter { item ->
             val matchesCategory = when (activeCategoryFilter) {
                 "MEDIA" -> item.mimeType.startsWith("image") || item.mimeType.startsWith("video") || item.fileName.endsWith(".gif")
                 "DOCS" -> !item.mimeType.startsWith("image") && !item.mimeType.startsWith("video") && !item.mimeType.startsWith("audio") && !item.fileName.endsWith(".apk")
@@ -398,14 +475,229 @@ class DownloadsActivity : AppCompatActivity() {
             matchesCategory && matchesSearch
         }
 
+        filtered = when (currentSortMode) {
+            "DATE_ASC" -> filtered.sortedBy { it.timestamp }
+            "SIZE_DESC" -> filtered.sortedByDescending { it.fileSize }
+            "SIZE_ASC" -> filtered.sortedBy { it.fileSize }
+            "NAME_ASC" -> filtered.sortedBy { it.fileName.lowercase(Locale.ROOT) }
+            "NAME_DESC" -> filtered.sortedByDescending { it.fileName.lowercase(Locale.ROOT) }
+            else -> filtered.sortedByDescending { it.timestamp }
+        }
+
         adapter.setItems(filtered, isGridMode)
-        binding.tvEmptyState.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
+
+        if (filtered.isEmpty()) {
+            if (binding.layoutEmptyState.visibility != View.VISIBLE) {
+                binding.layoutEmptyState.alpha = 0f
+                binding.layoutEmptyState.scaleX = 0.9f
+                binding.layoutEmptyState.scaleY = 0.9f
+                binding.layoutEmptyState.visibility = View.VISIBLE
+                binding.layoutEmptyState.animate()
+                    .alpha(1f)
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(260)
+                    .setInterpolator(OvershootInterpolator(1.1f))
+                    .start()
+            }
+        } else {
+            binding.layoutEmptyState.visibility = View.GONE
+        }
+    }
+
+    private fun showSortMenu(view: View) {
+        PrimePopupMenu.create(this, view)
+            .addItem("По дате (сначала новые)", R.drawable.ic_clock) {
+                currentSortMode = "DATE_DESC"
+                filterAndRenderDownloads()
+            }
+            .addItem("По дате (сначала старые)", R.drawable.ic_clock) {
+                currentSortMode = "DATE_ASC"
+                filterAndRenderDownloads()
+            }
+            .addItem("По размеру (крупные сначала)", R.drawable.ic_file) {
+                currentSortMode = "SIZE_DESC"
+                filterAndRenderDownloads()
+            }
+            .addItem("По размеру (мелкие сначала)", R.drawable.ic_file) {
+                currentSortMode = "SIZE_ASC"
+                filterAndRenderDownloads()
+            }
+            .addItem("По имени (А - Я)", R.drawable.ic_format_align_left) {
+                currentSortMode = "NAME_ASC"
+                filterAndRenderDownloads()
+            }
+            .addItem("По имени (Я - А)", R.drawable.ic_format_align_left) {
+                currentSortMode = "NAME_DESC"
+                filterAndRenderDownloads()
+            }
+            .show()
+    }
+
+    private fun showOptionsMenu(view: View) {
+        PrimePopupMenu.create(this, view)
+            .addItem("Сортировка файлов", R.drawable.ic_sort) { showSortMenu(view) }
+            .addItem(if (isGridMode) "Сменить на список" else "Сменить на сетку", if (isGridMode) R.drawable.ic_format_list_bulleted else R.drawable.ic_format_table) {
+                binding.btnToggleViewMode.animate().rotationBy(180f).setDuration(220).start()
+                isGridMode = !isGridMode
+                getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).edit().putBoolean("downloads_view_mode_grid", isGridMode).apply()
+                updateViewModeLayout()
+                filterAndRenderDownloads()
+            }
+            .addItem("Сведения о хранилище", R.drawable.ic_download) { showStorageDetailsDialog() }
+            .addItem("Очистить список загрузок", R.drawable.ic_trash) { showClearDownloadsDialog() }
+            .show()
+    }
+
+    private fun showStorageDetailsDialog() {
+        val totalSize = allDownloadsList.sumOf { it.fileSize }
+        val mediaSize = allDownloadsList.filter { it.mimeType.startsWith("image") || it.mimeType.startsWith("video") || it.fileName.endsWith(".gif") }.sumOf { it.fileSize }
+        val docsSize = allDownloadsList.filter { !it.mimeType.startsWith("image") && !it.mimeType.startsWith("video") && !it.mimeType.startsWith("audio") && !it.fileName.endsWith(".apk") }.sumOf { it.fileSize }
+        val musicSize = allDownloadsList.filter { it.mimeType.startsWith("audio") || it.fileName.endsWith(".mp3") || it.fileName.endsWith(".wav") }.sumOf { it.fileSize }
+        val updatesSize = allDownloadsList.filter { it.sourceType == DownloadSourceType.UPDATE || it.fileName.endsWith(".apk") }.sumOf { it.fileSize }
+
+        val density = resources.displayMetrics.density
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * density).toInt(), (8 * density).toInt(), (16 * density).toInt(), (8 * density).toInt())
+        }
+
+        val detailsText = """
+            • Всего файлов: ${allDownloadsList.size} (${DownloadsManager.formatFileSize(totalSize)})
+            
+            • Медиа (фото и видео): ${DownloadsManager.formatFileSize(mediaSize)}
+            • Документы и файлы: ${DownloadsManager.formatFileSize(docsSize)}
+            • Музыка и аудио: ${DownloadsManager.formatFileSize(musicSize)}
+            • Обновления ПО: ${DownloadsManager.formatFileSize(updatesSize)}
+        """.trimIndent()
+
+        val tvInfo = TextView(this).apply {
+            this.text = detailsText
+            textSize = 13.5f
+            setTextColor(ContextCompat.getColor(this@DownloadsActivity, R.color.prime_text_primary))
+            setLineSpacing(0f, 1.3f)
+        }
+        container.addView(tvInfo)
+
+        PrimeBlurDialog.show(
+            activity = this,
+            title = "Сведения о хранилище",
+            customView = container,
+            positiveText = "Очистить список",
+            negativeText = "Закрыть",
+            iconRes = R.drawable.ic_download,
+            onPositive = { showClearDownloadsDialog() }
+        )
+    }
+
+    private fun showClearDownloadsDialog() {
+        val density = resources.displayMetrics.density
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * density).toInt(), (8 * density).toInt(), (16 * density).toInt(), (8 * density).toInt())
+        }
+        val tvText = TextView(this).apply {
+            text = "Выберите вариант очистки загруженных файлов:"
+            textSize = 14f
+            setTextColor(ContextCompat.getColor(this@DownloadsActivity, R.color.prime_text_primary))
+        }
+        container.addView(tvText)
+
+        PrimeBlurDialog.show(
+            activity = this,
+            title = "Очистка загрузок",
+            customView = container,
+            positiveText = "Удалить все файлы",
+            negativeText = "Только очистить список",
+            iconRes = R.drawable.ic_trash,
+            onPositive = {
+                for (item in allDownloadsList) {
+                    DownloadsManager.deleteDownload(this, item)
+                }
+                loadDownloadsData()
+                PrimeNotification.show(this, "Все файлы и история удалены")
+            },
+            onNegative = {
+                val sp = getSharedPreferences("PrimeDownloadsDB", MODE_PRIVATE)
+                sp.edit().putString("downloads_list_v2", "[]").apply()
+                loadDownloadsData()
+                PrimeNotification.show(this, "Список загрузок очищен")
+            }
+        )
+    }
+
+    private fun showItemOptionsMenu(view: View, item: DownloadItem) {
+        PrimePopupMenu.create(this, view)
+            .addItem("Открыть", R.drawable.ic_file) { openFile(item) }
+            .addItem("Поделиться", R.drawable.ic_share) { shareFile(item) }
+            .addItem("Скопировать путь", R.drawable.ic_copy) {
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                clipboard?.setPrimaryClip(ClipData.newPlainText("FilePath", item.filePath))
+                PrimeNotification.show(this, "Путь к файлу скопирован")
+            }
+            .addItem("Сведения о файле", R.drawable.ic_search) { showFileItemDetailsDialog(item) }
+            .addItem("Удалить файл", R.drawable.ic_trash) { deleteFileItemWithUndo(item) }
+            .show()
+    }
+
+    private fun showFileItemDetailsDialog(item: DownloadItem) {
+        val density = resources.displayMetrics.density
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * density).toInt(), (8 * density).toInt(), (16 * density).toInt(), (8 * density).toInt())
+        }
+
+        val detailsStr = """
+            Имя: ${item.fileName}
+            Размер: ${DownloadsManager.formatFileSize(item.fileSize)}
+            Тип: ${item.mimeType}
+            Источник: ${item.sourceName}
+            Дата: ${DownloadsManager.formatDate(item.timestamp)}
+            
+            Путь: ${item.filePath}
+        """.trimIndent()
+
+        val tvDetails = TextView(this).apply {
+            text = detailsStr
+            textSize = 13.5f
+            setTextColor(ContextCompat.getColor(this@DownloadsActivity, R.color.prime_text_primary))
+            setLineSpacing(0f, 1.25f)
+        }
+        container.addView(tvDetails)
+
+        PrimeBlurDialog.show(
+            activity = this,
+            title = "Сведения о файле",
+            customView = container,
+            positiveText = "Открыть",
+            negativeText = "Закрыть",
+            iconRes = R.drawable.ic_file,
+            onPositive = { openFile(item) }
+        )
+    }
+
+    private fun deleteFileItemWithUndo(item: DownloadItem) {
+        DownloadsManager.deleteDownload(this, item)
+        loadDownloadsData()
+
+        PrimeNotification.show(this, "Файл «${item.fileName}» удален", onUndo = {
+            DownloadsManager.addDownload(
+                context = this,
+                fileName = item.fileName,
+                filePath = item.filePath,
+                fileSize = item.fileSize,
+                mimeType = item.mimeType,
+                sourceType = item.sourceType,
+                sourceName = item.sourceName
+            )
+            loadDownloadsData()
+        })
     }
 
     private fun openFile(item: DownloadItem) {
         val file = File(item.filePath)
         if (!file.exists()) {
-            Toast.makeText(this, "Файл не найден на устройстве", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(this, "Файл не найден на устройстве")
             return
         }
 
@@ -425,7 +717,7 @@ class DownloadsActivity : AppCompatActivity() {
                 }
                 startActivity(intent)
             } catch (e: Exception) {
-                Toast.makeText(this, "Не удалось запустить установщик: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                PrimeNotification.show(this, "Ошибка запуска установки: ${e.localizedMessage}")
             }
         } else if (mime.startsWith("image") || mime.startsWith("video") || lowerName.endsWith(".gif")) {
             val intent = Intent(this, MediaPlayerActivity::class.java).apply {
@@ -446,7 +738,7 @@ class DownloadsActivity : AppCompatActivity() {
                 }
                 startActivity(Intent.createChooser(intent, "Открыть файл"))
             } catch (e: Exception) {
-                Toast.makeText(this, "Не удалось открыть файл: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                PrimeNotification.show(this, "Не удалось открыть файл")
             }
         }
     }
@@ -454,7 +746,7 @@ class DownloadsActivity : AppCompatActivity() {
     private fun shareFile(item: DownloadItem) {
         val file = File(item.filePath)
         if (!file.exists()) {
-            Toast.makeText(this, "Файл не найден", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(this, "Файл не найден на устройстве")
             return
         }
         try {
@@ -466,14 +758,255 @@ class DownloadsActivity : AppCompatActivity() {
             }
             startActivity(Intent.createChooser(shareIntent, "Поделиться файлом"))
         } catch (e: Exception) {
-            Toast.makeText(this, "Ошибка: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(this, "Ошибка отправки: ${e.localizedMessage}")
         }
     }
 
-    private fun deleteFileItem(item: DownloadItem) {
-        DownloadsManager.deleteDownload(this, item)
-        Toast.makeText(this, "Файл удален", Toast.LENGTH_SHORT).show()
-        loadDownloadsData()
+    // =========================================================================
+    //                 НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (M3E BOTTOM NAV PANEL)
+    // =========================================================================
+
+    private fun setupBottomNav() {
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        val navStyle = sharedPrefs.getString("navigation_style", "bottom_bar") ?: "bottom_bar"
+        val navView = findViewById<View>(R.id.blurBottomNav) ?: return
+
+        val density = resources.displayMetrics.density
+
+        val isTablet = resources.configuration.smallestScreenWidthDp >= 600
+        val isEmbedded = try {
+            androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this)
+        } catch (_: Exception) {
+            false
+        }
+
+        if (navStyle != "bottom_bar" || isTablet || isEmbedded) {
+            navView.visibility = View.GONE
+            binding.rvDownloads.setPadding(
+                binding.rvDownloads.paddingLeft,
+                binding.rvDownloads.paddingTop,
+                binding.rvDownloads.paddingRight,
+                (24 * density).toInt()
+            )
+            return
+        }
+
+        navView.visibility = View.VISIBLE
+        navView.bringToFront()
+
+        val insets = ViewCompat.getRootWindowInsets(binding.layoutDownloadsRoot) ?: ViewCompat.getRootWindowInsets(window.decorView)
+        val systemBarsBottom = insets?.getInsets(WindowInsetsCompat.Type.systemBars())?.bottom ?: 0
+
+        val lp = navView.layoutParams as? ViewGroup.MarginLayoutParams
+        if (lp != null) {
+            val targetMargin = systemBarsBottom + (16 * density).toInt()
+            if (lp.bottomMargin != targetMargin) {
+                lp.bottomMargin = targetMargin
+                navView.layoutParams = lp
+            }
+        }
+
+        binding.rvDownloads.setPadding(
+            binding.rvDownloads.paddingLeft,
+            binding.rvDownloads.paddingTop,
+            binding.rvDownloads.paddingRight,
+            systemBarsBottom + (88 * density).toInt()
+        )
+
+        val btnNavChats = navView.findViewById<View>(R.id.btnNavChats)
+        val btnNavDevices = navView.findViewById<View>(R.id.btnNavDevices)
+        val btnNavAi = navView.findViewById<View>(R.id.btnNavAi)
+        val btnNavSearch = navView.findViewById<View>(R.id.btnNavSearch)
+        val btnNavDownloads = navView.findViewById<View>(R.id.btnNavDownloads)
+        val btnNavProfile = navView.findViewById<View>(R.id.btnNavProfile)
+
+        val navContainer = (navView as? ViewGroup)?.getChildAt(0) as? ViewGroup
+        if (navContainer != null) {
+            val defaultOrder = "chats,devices,ai,search,downloads,profile"
+            val currentOrderStr = sharedPrefs.getString("nav_buttons_order", defaultOrder) ?: defaultOrder
+            val currentOrder = currentOrderStr.split(",").filter { it.isNotEmpty() }
+
+            navContainer.removeAllViews()
+
+            val allNavIds = listOf("chats", "devices", "ai", "search", "downloads", "profile")
+            val orderToUse = if (currentOrder.containsAll(allNavIds)) currentOrder else defaultOrder.split(",")
+
+            for (id in orderToUse) {
+                val view = when (id) {
+                    "chats" -> btnNavChats
+                    "devices" -> btnNavDevices
+                    "ai" -> btnNavAi
+                    "search" -> btnNavSearch
+                    "downloads" -> btnNavDownloads
+                    "profile" -> btnNavProfile
+                    else -> null
+                }
+                view?.let {
+                    val isVisible = sharedPrefs.getBoolean("nav_button_${id}_visible", true)
+                    it.visibility = if (isVisible || id == "profile") View.VISIBLE else View.GONE
+                    navContainer.addView(it)
+                }
+            }
+        }
+
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+
+        val vNavChatsIndicator = navView.findViewById<View>(R.id.vNavChatsIndicator)
+        val vNavDevicesIndicator = navView.findViewById<View>(R.id.vNavDevicesIndicator)
+        val vNavAiIndicator = navView.findViewById<View>(R.id.vNavAiIndicator)
+        val vNavSearchIndicator = navView.findViewById<View>(R.id.vNavSearchIndicator)
+        val vNavDownloadsIndicator = navView.findViewById<View>(R.id.vNavDownloadsIndicator)
+        val vNavProfileIndicator = navView.findViewById<View>(R.id.vNavProfileIndicator)
+
+        val ivNavChatsIcon = navView.findViewById<ImageView>(R.id.ivNavChatsIcon)
+        val ivNavDevicesIcon = navView.findViewById<ImageView>(R.id.ivNavDevicesIcon)
+        val ivNavAiIcon = navView.findViewById<ImageView>(R.id.ivNavAiIcon)
+        val ivNavSearchIcon = navView.findViewById<ImageView>(R.id.ivNavSearchIcon)
+        val ivNavDownloadsIcon = navView.findViewById<ImageView>(R.id.ivNavDownloadsIcon)
+
+        applyBottomNavLabelsVisibility(navView, sharedPrefs.getBoolean("nav_show_labels", false))
+
+        updateM3TabState(false, vNavChatsIndicator, ivNavChatsIcon, accentColor)
+        updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, accentColor)
+        updateM3TabState(false, vNavAiIndicator, ivNavAiIcon, accentColor)
+        updateM3TabState(false, vNavSearchIndicator, ivNavSearchIcon, accentColor)
+        updateM3TabState(true, vNavDownloadsIndicator, ivNavDownloadsIcon, accentColor)
+        updateM3TabState(false, vNavProfileIndicator, null, accentColor)
+        updateNavUnreadBadge(navView)
+
+        val profileAvatarIv = navView.findViewById<ImageView>(R.id.ivNavProfileAvatar)
+        if (profileAvatarIv != null) {
+            val myAvatar = AvatarManager.getMyAvatarUri(this)
+            val myName = AvatarManager.getMyDisplayName(this)
+            loadAvatarIntoView(this, myAvatar, profileAvatarIv, myName)
+        }
+
+        val blurNavView = navView as? eightbitlab.com.blurview.BlurView
+        if (blurNavView != null) {
+            val overlayColor = com.messenger.prime.getDefaultBlurOverlayColor(this)
+            val targetRootView = (window.decorView.findViewById<ViewGroup>(android.R.id.content))
+                ?: (window.decorView as ViewGroup)
+            blurNavView.setupBlur(targetRootView, 18f, overlayColor, window.decorView.background)
+        }
+
+        val hapticTap = { view: View ->
+            try {
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+            } catch (_: Exception) {}
+        }
+
+        btnNavChats?.setOnClickListener { v ->
+            hapticTap(v)
+            val intent = Intent(this, ChatListActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            PrimeTransitions.applyPageFlipTransition(this, isForward = false)
+            finish()
+        }
+
+        btnNavDevices?.setOnClickListener { v ->
+            hapticTap(v)
+            val intent = Intent(this, ChatListActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra("OPEN_DEVICE_SCAN", true)
+            }
+            startActivity(intent)
+            finish()
+        }
+
+        btnNavAi?.setOnClickListener { v ->
+            hapticTap(v)
+            val intent = Intent(this, AiChatActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            PrimeTransitions.applyOpenTransition(this)
+            finish()
+        }
+
+        btnNavSearch?.setOnClickListener { v ->
+            hapticTap(v)
+            val intent = Intent(this, GlobalSearchActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            PrimeTransitions.applyPageFlipTransition(this, isForward = true)
+            finish()
+        }
+
+        btnNavDownloads?.setOnClickListener { v ->
+            hapticTap(v)
+            binding.rvDownloads.smoothScrollToPosition(0)
+        }
+
+        btnNavProfile?.setOnClickListener { v ->
+            hapticTap(v)
+            val intent = Intent(this, SettingsActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            PrimeTransitions.applyOpenTransition(this)
+            finish()
+        }
+    }
+
+    private fun updateNavUnreadBadge(navView: View) {
+        val tvNavChatsUnreadBadge = navView.findViewById<TextView>(R.id.tvNavChatsUnreadBadge) ?: return
+        var totalUnread = 0
+        try {
+            val json = ChatHistoryManager.getPersistedChatsJson(this)
+            val array = org.json.JSONArray(json)
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                totalUnread += obj.optInt("unreadCount", 0)
+            }
+        } catch (_: Exception) {}
+
+        if (totalUnread > 0) {
+            tvNavChatsUnreadBadge.text = if (totalUnread > 99) "99+" else totalUnread.toString()
+            tvNavChatsUnreadBadge.visibility = View.VISIBLE
+        } else {
+            tvNavChatsUnreadBadge.visibility = View.GONE
+        }
+    }
+
+    private fun updateM3TabState(
+        isActive: Boolean,
+        indicatorView: View?,
+        iconView: ImageView?,
+        accentColor: Int
+    ) {
+        if (indicatorView == null) return
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val activeIconColor = if (isDark) Color.parseColor("#0F172A") else Color.WHITE
+
+        indicatorView.visibility = View.VISIBLE
+
+        if (isActive) {
+            indicatorView.backgroundTintList = ColorStateList.valueOf(accentColor)
+            indicatorView.animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .alpha(1.0f)
+                .setDuration(220)
+                .setInterpolator(OvershootInterpolator(1.2f))
+                .start()
+
+            iconView?.setColorFilter(activeIconColor)
+            iconView?.animate()?.scaleX(1.1f)?.scaleY(1.1f)?.setDuration(180)?.start()
+        } else {
+            indicatorView.backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
+            indicatorView.animate()
+                .scaleX(0.7f)
+                .scaleY(0.7f)
+                .alpha(0f)
+                .setDuration(180)
+                .start()
+
+            iconView?.setColorFilter(if (isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B"))
+            iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
+        }
     }
 
     // Active Transfers RecyclerView Adapter
@@ -523,7 +1056,7 @@ class DownloadsActivity : AppCompatActivity() {
     private class DownloadsAdapter(
         private val onOpenItem: (DownloadItem) -> Unit,
         private val onShareItem: (DownloadItem) -> Unit,
-        private val onDeleteItem: (DownloadItem) -> Unit
+        private val onMoreOptions: (View, DownloadItem) -> Unit
     ) : RecyclerView.Adapter<DownloadsAdapter.ViewHolder>() {
 
         private var items = listOf<DownloadItem>()
@@ -548,56 +1081,99 @@ class DownloadsActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = items[position]
             holder.bind(item)
+
+            holder.itemView.alpha = 0f
+            holder.itemView.translationY = 24f
+            holder.itemView.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(200)
+                .setStartDelay((position * 20L).coerceAtMost(200L))
+                .setInterpolator(DecelerateInterpolator())
+                .start()
         }
 
         override fun getItemCount(): Int = items.size
 
         inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+            private val layoutIconHolder: View? = itemView.findViewById(R.id.layoutIconHolder)
             private val ivFileThumbnail: ImageView? = itemView.findViewById(R.id.ivFileThumbnail)
             private val ivFileIcon: ImageView? = itemView.findViewById(R.id.ivFileIcon)
             private val tvFileName: TextView = itemView.findViewById(R.id.tvFileName)
-            private val tvSourceBadge: TextView = itemView.findViewById(R.id.tvSourceBadge)
             private val tvFileMeta: TextView = itemView.findViewById(R.id.tvFileMeta)
+            private val tvSourceBadge: TextView = itemView.findViewById(R.id.tvSourceBadge)
             private val btnOpenFile: MaterialButton? = itemView.findViewById(R.id.btnOpenFile)
             private val btnShareFile: ImageButton? = itemView.findViewById(R.id.btnShareFile)
-            private val btnDeleteFile: ImageButton? = itemView.findViewById(R.id.btnDeleteFile)
+            private val btnMore: ImageButton? = itemView.findViewById(R.id.btnMore)
 
             fun bind(item: DownloadItem) {
                 tvFileName.text = item.fileName
-                tvSourceBadge.text = item.sourceName
+
                 val formattedSize = DownloadsManager.formatFileSize(item.fileSize)
                 val formattedDate = DownloadsManager.formatDate(item.timestamp)
                 tvFileMeta.text = "$formattedSize • $formattedDate"
 
+                tvSourceBadge.text = item.sourceName
+
                 val file = File(item.filePath)
                 val mime = item.mimeType.lowercase(Locale.ROOT)
+                val lowerName = item.fileName.lowercase(Locale.ROOT)
 
-                if (file.exists() && (mime.startsWith("image") || item.fileName.endsWith(".gif"))) {
+                val context = itemView.context
+                val primaryColor = ColorAccentManager.getCurrentAccentColor(context)
+                val (iconRes, iconColor) = when {
+                    mime.startsWith("image") || lowerName.endsWith(".gif") -> R.drawable.ic_photo to primaryColor
+                    mime.startsWith("video") -> R.drawable.ic_video to Color.parseColor("#3B82F6")
+                    mime.startsWith("audio") || lowerName.endsWith(".mp3") -> R.drawable.ic_music to Color.parseColor("#AB47BC")
+                    lowerName.endsWith(".apk") -> R.drawable.ic_download to Color.parseColor("#10B981")
+                    else -> R.drawable.ic_file to Color.parseColor("#64748B")
+                }
+
+                ivFileIcon?.setImageResource(iconRes)
+                ivFileIcon?.setColorFilter(iconColor)
+
+                if (layoutIconHolder != null) {
+                    val bgDrawable = GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        cornerRadius = (14 * context.resources.displayMetrics.density)
+                        setColor(ColorUtils.setAlphaComponent(iconColor, 35))
+                    }
+                    layoutIconHolder.background = bgDrawable
+                }
+
+                if (file.exists() && (mime.startsWith("image") || mime.startsWith("video") || lowerName.endsWith(".gif"))) {
                     ivFileThumbnail?.visibility = View.VISIBLE
                     ivFileIcon?.visibility = View.GONE
-                    if (ivFileThumbnail != null) {
-                        Glide.with(itemView.context)
-                            .load(file)
-                            .centerCrop()
-                            .into(ivFileThumbnail)
-                    }
+                    Glide.with(itemView.context)
+                        .load(file)
+                        .centerCrop()
+                        .into(ivFileThumbnail!!)
                 } else {
                     ivFileThumbnail?.visibility = View.GONE
                     ivFileIcon?.visibility = View.VISIBLE
+                }
 
-                    val iconRes = when {
-                        mime.startsWith("video") -> R.drawable.ic_video
-                        mime.startsWith("audio") -> R.drawable.ic_music
-                        item.fileName.endsWith(".apk") -> R.drawable.ic_download
-                        else -> R.drawable.ic_file
+                itemView.setOnTouchListener { v, event ->
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            v.animate().scaleX(0.97f).scaleY(0.97f).setDuration(90).start()
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(140).setInterpolator(OvershootInterpolator(1.1f)).start()
+                        }
                     }
-                    ivFileIcon?.setImageResource(iconRes)
+                    false
                 }
 
                 itemView.setOnClickListener { onOpenItem(item) }
+                itemView.setOnLongClickListener {
+                    onMoreOptions(it, item)
+                    true
+                }
+
                 btnOpenFile?.setOnClickListener { onOpenItem(item) }
                 btnShareFile?.setOnClickListener { onShareItem(item) }
-                btnDeleteFile?.setOnClickListener { onDeleteItem(item) }
+                btnMore?.setOnClickListener { onMoreOptions(it, item) }
             }
         }
     }

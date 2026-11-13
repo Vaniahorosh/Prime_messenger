@@ -108,6 +108,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         void onReplyMessage(ChatMessage message, int position);
         void onReplyToSelectedText(ChatMessage message, String selectedText, int position);
         void onForwardMessage(ChatMessage message, int position);
+        void onPinMessage(ChatMessage message, int position);
+        void onUnpinMessage(ChatMessage message, int position);
+        void onShowPinnedBar();
         void onSelectMessage(ChatMessage message, int position);
         void onSelectionChanged(int selectedCount);
         void onExpandReactions(ChatMessage message, View anchorView, int position);
@@ -121,7 +124,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private OnMessageLongClickListener longClickListener;
     private OnMessageActionListener actionListener;
     private String localUsername = "";
+    private String targetUsername = "";
     private boolean isConnectionActive = false;
+
+    public void setTargetUsername(String targetUsername) {
+        this.targetUsername = targetUsername;
+    }
 
     private final Set<String> selectedMessageIds = new java.util.LinkedHashSet<>();
     private boolean isMultiSelectionMode = false;
@@ -1028,6 +1036,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public void cleanup() {
+        stopVideoProgressAnimation();
+        videoProgressHandler.removeCallbacksAndMessages(null);
         if (mRecyclerView != null) {
             for (int i = 0; i < mRecyclerView.getChildCount(); i++) {
                 View child = mRecyclerView.getChildAt(i);
@@ -1035,6 +1045,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 stopVideoPreviewInViewHolder(vh);
             }
         }
+        currentlyPlayingVideoNote = null;
+        currentlyPlayingPosition = -1;
     }
 
     public ChatMessage getMessageAt(int position) {
@@ -1332,7 +1344,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         if (tvLinkPreviewUrl != null && data.domain != null && !data.domain.isEmpty()) {
                             tvLinkPreviewUrl.setText(data.domain);
                         }
-                        if (ivLinkPreviewImage != null && data.imageUrl != null && !data.imageUrl.isEmpty()) {
+                        if (ivLinkPreviewImage != null && data.imageUrl != null && !data.imageUrl.isEmpty() && isActivityValid(itemView.getContext())) {
                             Glide.with(itemView.getContext())
                                     .load(data.imageUrl)
                                     .centerCrop()
@@ -1683,6 +1695,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (mediaItems != null && !mediaItems.isEmpty()) {
                 if (layoutMediaContainer != null) layoutMediaContainer.setVisibility(View.VISIBLE);
 
+                applyMediaBubblePadding(layoutMediaContainer, message);
+
                 View layoutSingleMedia = layoutMediaContainer != null ? layoutMediaContainer.findViewById(R.id.layoutSingleMedia) : null;
                 View layoutGridMedia = layoutMediaContainer != null ? layoutMediaContainer.findViewById(R.id.layoutGridMedia) : null;
                 View layoutSliderMedia = layoutMediaContainer != null ? layoutMediaContainer.findViewById(R.id.layoutSliderMedia) : null;
@@ -1696,11 +1710,35 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
                     ChatMessage.MediaItem single = mediaItems.get(0);
                     bindSingleMediaItem(single, layoutSingleMedia != null ? layoutSingleMedia : layoutMediaContainer, message, ivMessageImage, videoMessagePreview, ivVideoPlayBadge, tvVideoDuration);
-                } else { // 2, 3, 4 ... up to 20 items: swipable slider with counter!
+                } else if (count == 2) {
+                    if (layoutSingleMedia != null) layoutSingleMedia.setVisibility(View.GONE);
+                    if (layoutGridMedia != null) layoutGridMedia.setVisibility(View.VISIBLE);
+                    if (layoutSliderMedia != null) layoutSliderMedia.setVisibility(View.GONE);
+
+                    if (layoutMediaContainer != null) {
+                        float density = layoutMediaContainer.getContext().getResources().getDisplayMetrics().density;
+                        ViewGroup.LayoutParams lpContainer = layoutMediaContainer.getLayoutParams();
+                        if (lpContainer != null) {
+                            lpContainer.width = (int) (260 * density);
+                            lpContainer.height = (int) (150 * density);
+                            layoutMediaContainer.setLayoutParams(lpContainer);
+                        }
+                    }
+                    bindGridMediaItems(mediaItems, layoutGridMedia, message);
+                } else { // 3, 4, 5 ... up to 20 items: swipable slider with counter!
                     if (layoutSingleMedia != null) layoutSingleMedia.setVisibility(View.GONE);
                     if (layoutGridMedia != null) layoutGridMedia.setVisibility(View.GONE);
                     if (layoutSliderMedia != null) layoutSliderMedia.setVisibility(View.VISIBLE);
 
+                    if (layoutMediaContainer != null) {
+                        float density = layoutMediaContainer.getContext().getResources().getDisplayMetrics().density;
+                        ViewGroup.LayoutParams lpContainer = layoutMediaContainer.getLayoutParams();
+                        if (lpContainer != null) {
+                            lpContainer.width = (int) (260 * density);
+                            lpContainer.height = (int) (180 * density);
+                            layoutMediaContainer.setLayoutParams(lpContainer);
+                        }
+                    }
                     bindSliderMediaItems(mediaItems, layoutSliderMedia, message);
                 }
             } else {
@@ -1766,6 +1804,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
         super.onDetachedFromRecyclerView(recyclerView);
         this.mRecyclerView = null;
+        stopVideoProgressAnimation();
     }
 
     private void requestAudioFocusForVideoNote(Context context) {
@@ -1886,31 +1925,47 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private void applyBubbleCornerRadius(View layoutBubble, boolean isOutgoing) {
         if (layoutBubble == null) return;
         SharedPreferences sharedPrefs = layoutBubble.getContext().getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-        int percent = sharedPrefs.getInt("settings_bubble_radius_percent", 50);
+        int percent = sharedPrefs.getInt("settings_bubble_radius_percent", 100); // Default to 100 for MD3 pill shapes
 
         float density = layoutBubble.getContext().getResources().getDisplayMetrics().density;
-        float maxRadiusPx = 22f * density;
+        float maxRadiusPx = 28f * density; // MD3 uses generous radii
         float radiusPx = maxRadiusPx * (percent / 100f);
+        float tailRadiusPx = 4f * density; // Small tail for chat bubbles
 
         int bgColor;
         if (isOutgoing) {
             bgColor = ColorAccentManager.getCurrentAccentColor(layoutBubble.getContext());
         } else {
             boolean isDark = (layoutBubble.getContext().getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-            bgColor = isDark ? Color.parseColor("#1E293B") : Color.parseColor("#E2E8F0");
+            // Use Material 3 Surface Variant or Container color for incoming
+            bgColor = isDark ? Color.parseColor("#334155") : Color.parseColor("#F1F5F9"); 
         }
 
+        android.graphics.drawable.GradientDrawable drawable;
         android.graphics.drawable.Drawable existing = layoutBubble.getBackground();
         if (existing instanceof android.graphics.drawable.GradientDrawable) {
-            android.graphics.drawable.GradientDrawable gd = (android.graphics.drawable.GradientDrawable) existing;
-            gd.setCornerRadius(radiusPx);
-            gd.setColor(bgColor);
+            drawable = (android.graphics.drawable.GradientDrawable) existing;
         } else {
-            android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
+            drawable = new android.graphics.drawable.GradientDrawable();
             drawable.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
-            drawable.setCornerRadius(radiusPx);
-            drawable.setColor(bgColor);
             layoutBubble.setBackground(drawable);
+        }
+
+        drawable.setColor(bgColor);
+        if (isOutgoing) {
+            drawable.setCornerRadii(new float[]{
+                radiusPx, radiusPx,   // top-left
+                radiusPx, radiusPx,   // top-right
+                tailRadiusPx, tailRadiusPx, // bottom-right (tail)
+                radiusPx, radiusPx    // bottom-left
+            });
+        } else {
+            drawable.setCornerRadii(new float[]{
+                radiusPx, radiusPx,   // top-left
+                radiusPx, radiusPx,   // top-right
+                radiusPx, radiusPx,   // bottom-right
+                tailRadiusPx, tailRadiusPx  // bottom-left (tail)
+            });
         }
     }
 
@@ -2453,6 +2508,35 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return new int[]{16, 9};
     }
 
+    private void applyMediaBubblePadding(View layoutMediaContainer, ChatMessage message) {
+        if (layoutMediaContainer == null) return;
+        View bubble = null;
+        View walk = layoutMediaContainer;
+        while (walk != null && walk.getParent() instanceof View) {
+            walk = (View) walk.getParent();
+            if (walk.getId() == R.id.layoutIncomingBubble || walk.getId() == R.id.layoutOutgoingBubble) {
+                bubble = walk;
+                break;
+            }
+        }
+        if (bubble != null) {
+            float density = layoutMediaContainer.getContext().getResources().getDisplayMetrics().density;
+
+            boolean hasCaption = message != null && message.getText() != null && !message.getText().trim().isEmpty()
+                    && !"Фото".equals(message.getText()) && !"Видео".equals(message.getText()) && !"Видеозапись".equals(message.getText())
+                    && !"Фото отправлено".equals(message.getText()) && !"Видео отправлено".equals(message.getText())
+                    && !"Файл".equals(message.getText());
+
+            if (hasCaption) {
+                int padSides = (int) (2 * density);
+                int padBottom = (int) (6 * density);
+                bubble.setPadding(padSides, padSides, padSides, padBottom);
+            } else {
+                bubble.setPadding(0, 0, 0, 0);
+            }
+        }
+    }
+
     private void bindSingleMediaItem(ChatMessage.MediaItem item, View container, ChatMessage message, ImageView ivImage, com.messenger.prime.TextureVideoView vvPreview, ImageView ivPlay, TextView tvDur) {
         if (container == null) return;
 
@@ -2527,20 +2611,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
         }
 
-        // Apply very narrow margins between bubble and media (Telegram style)
-        View bubble = null;
-        View walk = container;
-        while (walk != null && walk.getParent() instanceof View) {
-            walk = (View) walk.getParent();
-            if (walk.getId() == R.id.layoutIncomingBubble || walk.getId() == R.id.layoutOutgoingBubble) {
-                bubble = walk;
-                break;
-            }
-        }
-        if (bubble != null) {
-            int narrowPad = (int) (3.5f * density);
-            bubble.setPadding(narrowPad, narrowPad, narrowPad, narrowPad);
-        }
+        applyMediaBubblePadding(container, message);
 
         if (layoutMediaContainer != null) {
             ViewGroup.MarginLayoutParams mlp = (ViewGroup.MarginLayoutParams) layoutMediaContainer.getLayoutParams();
@@ -2549,7 +2620,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         && !"Фото".equals(message.getText()) && !"Видео".equals(message.getText()) && !"Видеозапись".equals(message.getText())
                         && !"Фото отправлено".equals(message.getText()) && !"Видео отправлено".equals(message.getText())
                         && !"Файл".equals(message.getText());
-                mlp.bottomMargin = (int) ((hasCaption ? 4 : 2) * density);
+                mlp.bottomMargin = (int) ((hasCaption ? 4 : 0) * density);
                 layoutMediaContainer.setLayoutParams(mlp);
             }
         }
@@ -2575,58 +2646,28 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         TextView dur = tvDur != null ? tvDur : container.findViewById(R.id.tvVideoDuration);
 
         if (item.isVideo) {
-            if (play != null) play.setVisibility(View.GONE);
+            if (img != null) {
+                img.setVisibility(View.VISIBLE);
+            }
+            if (play != null) {
+                play.setVisibility(View.GONE);
+            }
             if (dur != null) {
                 dur.setVisibility(View.VISIBLE);
-                dur.setText("0:00");
-            }
-            loadVideoThumbnailIntoView(container.getContext(), item.path, img, null, isScrolling);
-
-            if (vv != null) {
-                String p = item.path;
-                boolean isPlayable = p != null && !p.isEmpty() && (
-                    p.startsWith("content://") || 
-                    p.startsWith("http://") || 
-                    p.startsWith("https://") || 
-                    (p.startsWith("file://") ? new File(p.substring(7)).exists() : new File(p).exists())
-                );
-
-                if (!isScrolling && isPlayable) {
-                    vv.setOutlineProvider(clipProvider);
-                    vv.setClipToOutline(true);
-                    vv.invalidateOutline();
-
-                    vv.isMuted = true;
-                    vv.loopDurationMs = -1;
-                    vv.autoPlayOnPrepared = true;
-                    vv.setOnFirstFrameRenderedListener(() -> {
-                        if (img != null) {
-                            img.setVisibility(View.INVISIBLE);
-                        }
-                    });
-                    vv.setOnProgressUpdateListener((curMs, totalMs) -> {
-                        if (dur != null) {
-                            int curSec = curMs / 1000;
-                            dur.setText(String.format(Locale.getDefault(), "%d:%02d", curSec / 60, curSec % 60));
-                        }
-                    });
-                    vv.setVisibility(View.VISIBLE);
-                    vv.bringToFront();
-                    if (play != null) play.bringToFront();
-                    if (dur != null) dur.bringToFront();
-                    vv.setVideoPath(p);
-                } else {
-                    vv.removeCallbacks(null);
-                    try { vv.stopPlayback(); } catch (Exception ignored) {}
-                    vv.setVisibility(View.GONE);
-                    if (img != null) {
-                        img.setVisibility(View.VISIBLE);
-                    }
-                    if (dur != null) {
-                        dur.setText(item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "0:00");
-                    }
+                dur.setElevation(20f);
+                dur.bringToFront();
+                if (item.durationStr != null && !item.durationStr.isEmpty()) {
+                    dur.setText(item.durationStr);
                 }
             }
+
+            if (vv != null) {
+                vv.removeCallbacks(null);
+                try { vv.stopPlayback(); } catch (Exception ignored) {}
+                vv.setVisibility(View.GONE);
+            }
+
+            loadVideoThumbnailIntoView(container.getContext(), item.path, img, vv, isScrolling);
         } else {
             if (vv != null) {
                 vv.removeCallbacks(null);
@@ -2809,8 +2850,53 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 holder.ivSliderPlayBadge.setVisibility(View.VISIBLE);
                 holder.tvSliderVideoDuration.setVisibility(View.VISIBLE);
                 holder.tvSliderVideoDuration.setText(item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "00:00");
+
+                if (holder.ivSliderImage != null) holder.ivSliderImage.setVisibility(View.VISIBLE);
                 loadVideoThumbnailIntoView(holder.itemView.getContext(), item.path, holder.ivSliderImage, null);
+
+                if (holder.vvSliderVideoPreview != null) {
+                    String p = item.path;
+                    boolean isPlayable = p != null && !p.isEmpty() && (
+                        p.startsWith("content://") || 
+                        p.startsWith("http://") || 
+                        p.startsWith("https://") || 
+                        (p.startsWith("file://") ? new File(p.substring(7)).exists() : new File(p).exists())
+                    );
+
+                    if (isPlayable) {
+                        float density = holder.itemView.getContext().getResources().getDisplayMetrics().density;
+                        float cornerRadiusPx = 14 * density;
+                        android.view.ViewOutlineProvider clipProvider = new android.view.ViewOutlineProvider() {
+                            @Override
+                            public void getOutline(View view, android.graphics.Outline outline) {
+                                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), cornerRadiusPx);
+                            }
+                        };
+                        holder.vvSliderVideoPreview.setOutlineProvider(clipProvider);
+                        holder.vvSliderVideoPreview.setClipToOutline(true);
+                        holder.vvSliderVideoPreview.invalidateOutline();
+
+                        holder.vvSliderVideoPreview.isMuted = true;
+                        holder.vvSliderVideoPreview.loopDurationMs = -1;
+                        holder.vvSliderVideoPreview.autoPlayOnPrepared = true;
+                        holder.vvSliderVideoPreview.setOnFirstFrameRenderedListener(() -> {
+                            if (holder.ivSliderImage != null) {
+                                holder.ivSliderImage.setVisibility(View.INVISIBLE);
+                            }
+                        });
+                        holder.vvSliderVideoPreview.setVisibility(View.VISIBLE);
+                        holder.vvSliderVideoPreview.setVideoPath(p);
+                    } else {
+                        try { holder.vvSliderVideoPreview.stopPlayback(); } catch (Exception ignored) {}
+                        holder.vvSliderVideoPreview.setVisibility(View.GONE);
+                    }
+                }
             } else {
+                if (holder.vvSliderVideoPreview != null) {
+                    try { holder.vvSliderVideoPreview.stopPlayback(); } catch (Exception ignored) {}
+                    holder.vvSliderVideoPreview.setVisibility(View.GONE);
+                }
+                if (holder.ivSliderImage != null) holder.ivSliderImage.setVisibility(View.VISIBLE);
                 holder.ivSliderPlayBadge.setVisibility(View.GONE);
                 holder.tvSliderVideoDuration.setVisibility(View.GONE);
                 loadMediaImageIntoView(holder.itemView.getContext(), item.path, holder.ivSliderImage);
@@ -2818,7 +2904,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
             holder.itemView.setOnClickListener(v -> {
                 if (clickListener != null) {
-                    clickListener.onItemClick(item, position);
+                    int pos = holder.getAdapterPosition();
+                    clickListener.onItemClick(item, pos != RecyclerView.NO_POSITION ? pos : holder.getLayoutPosition());
                 }
             });
         }
@@ -2830,20 +2917,31 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         static class SliderViewHolder extends RecyclerView.ViewHolder {
             ImageView ivSliderImage;
+            com.messenger.prime.TextureVideoView vvSliderVideoPreview;
             ImageView ivSliderPlayBadge;
             TextView tvSliderVideoDuration;
 
             SliderViewHolder(@NonNull View itemView) {
                 super(itemView);
                 ivSliderImage = itemView.findViewById(R.id.ivSliderImage);
+                vvSliderVideoPreview = itemView.findViewById(R.id.vvSliderVideoPreview);
                 ivSliderPlayBadge = itemView.findViewById(R.id.ivSliderPlayBadge);
                 tvSliderVideoDuration = itemView.findViewById(R.id.tvSliderVideoDuration);
             }
         }
     }
 
+    private static boolean isActivityValid(Context context) {
+        if (context == null) return false;
+        if (context instanceof Activity) {
+            Activity act = (Activity) context;
+            return !act.isFinishing() && !act.isDestroyed();
+        }
+        return true;
+    }
+
     public static void loadMediaImageIntoView(Context context, String pathOrUri, ImageView imageView) {
-        if (imageView == null || context == null) return;
+        if (imageView == null || !isActivityValid(context)) return;
         if (pathOrUri == null || pathOrUri.isEmpty()) {
             imageView.setImageResource(R.drawable.ic_photo);
             imageView.setTag(null);
@@ -2876,7 +2974,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public static void loadVideoThumbnailIntoView(Context context, String pathOrUri, ImageView imageView, View videoView, boolean isScrolling) {
-        if (context == null || pathOrUri == null || pathOrUri.isEmpty()) return;
+        if (context == null || pathOrUri == null || pathOrUri.isEmpty() || !isActivityValid(context)) return;
 
         if (videoView != null) {
             videoView.removeCallbacks(null);
@@ -2901,7 +2999,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
             Object loadUri = uri != null ? uri : pathOrUri;
             Glide.with(context)
+                    .asBitmap()
                     .load(loadUri)
+                    .frame(1000000L)
                     .centerCrop()
                     .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
                     .placeholder(imageView.getDrawable())
@@ -3810,15 +3910,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         View btnMenuReply = menuView.findViewById(R.id.btnMenuReply);
         View btnMenuCopy = menuView.findViewById(R.id.btnMenuCopy);
         View btnMenuForward = menuView.findViewById(R.id.btnMenuForward);
+        View btnMenuPin = menuView.findViewById(R.id.btnMenuPin);
         View btnMenuEdit = menuView.findViewById(R.id.btnMenuEdit);
         View btnMenuDelete = menuView.findViewById(R.id.btnMenuDelete);
         View btnMenuSelect = menuView.findViewById(R.id.btnMenuSelect);
+        View btnMenuShowPinned = null;
 
         // Check connection status: when offline/disconnected, only Copy is available
         if (!isConnectionActive) {
             if (layoutReactionsRow != null) layoutReactionsRow.setVisibility(View.GONE);
             if (btnMenuReply != null) btnMenuReply.setVisibility(View.GONE);
             if (btnMenuForward != null) btnMenuForward.setVisibility(View.GONE);
+            if (btnMenuPin != null) btnMenuPin.setVisibility(View.VISIBLE);
             if (btnMenuEdit != null) btnMenuEdit.setVisibility(View.GONE);
             if (btnMenuDelete != null) btnMenuDelete.setVisibility(View.GONE);
             if (btnMenuSelect != null) btnMenuSelect.setVisibility(View.GONE);
@@ -3829,6 +3932,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (btnMenuReply != null) btnMenuReply.setVisibility(View.VISIBLE);
             if (btnMenuCopy != null) btnMenuCopy.setVisibility(View.VISIBLE);
             if (btnMenuForward != null) btnMenuForward.setVisibility(View.VISIBLE);
+            if (btnMenuPin != null) btnMenuPin.setVisibility(View.VISIBLE);
             if (btnMenuSelect != null) btnMenuSelect.setVisibility(View.VISIBLE);
 
             boolean isMyMessage = message.isOutgoing();
@@ -3868,6 +3972,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         View btnSad = menuView.findViewById(R.id.btnReactionSad);
         View btnPray = menuView.findViewById(R.id.btnReactionPray);
         View btnExpand = menuView.findViewById(R.id.btnExpandReactions);
+
+        View[] menuBounceViews = new View[]{
+                btnMenuReply, btnMenuCopy, btnMenuForward, btnMenuPin, btnMenuEdit, btnMenuDelete, btnMenuSelect,
+                btnThumbUp, btnHeart, btnJoy, btnWow, btnSad, btnPray, btnExpand
+        };
+        for (View v : menuBounceViews) {
+            if (v != null) {
+                UIExtensionsKt.addBounceTouchEffect(v);
+            }
+        }
 
         if (btnThumbUp != null) btnThumbUp.setOnClickListener(reactionClick);
         if (btnHeart != null) btnHeart.setOnClickListener(reactionClick);
@@ -3919,17 +4033,17 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
                     // 4. Возвращаем отображение пунктов действий меню
                     View[] allButtons = new View[]{
-                            btnMenuReply, btnMenuCopy, btnMenuForward,
-                            btnMenuEdit, btnMenuDelete, btnMenuSelect
+                            btnMenuReply, btnMenuCopy, btnMenuForward, btnMenuPin,
+                            btnMenuEdit, btnMenuDelete, btnMenuSelect, btnMenuShowPinned
                     };
 
                     for (View btn : allButtons) {
                         if (btn == null) continue;
                         boolean shouldShow = false;
                         if (!isConnectionActive) {
-                            shouldShow = (btn == btnMenuCopy);
+                            shouldShow = (btn == btnMenuCopy || btn == btnMenuPin);
                         } else {
-                            if (btn == btnMenuReply || btn == btnMenuCopy || btn == btnMenuForward || btn == btnMenuSelect) {
+                            if (btn == btnMenuReply || btn == btnMenuCopy || btn == btnMenuForward || btn == btnMenuPin || btn == btnMenuSelect) {
                                 shouldShow = true;
                             } else if (btn == btnMenuEdit) {
                                 boolean isMyMessage = message.isOutgoing();
@@ -3966,8 +4080,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     if (layoutExpandedReactionsContainer != null && gridExpandedReactions != null) {
                         // 2. Скрываем пункты действий меню
                         View[] menuButtons = new View[]{
-                                btnMenuReply, btnMenuCopy, btnMenuForward,
-                                btnMenuEdit, btnMenuDelete, btnMenuSelect
+                                btnMenuReply, btnMenuCopy, btnMenuForward, btnMenuPin,
+                                btnMenuEdit, btnMenuDelete, btnMenuSelect, btnMenuShowPinned
                         };
 
                         for (View btn : menuButtons) {
@@ -4100,6 +4214,48 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     actionListener.onForwardMessage(message, position);
                 }
             });
+        }
+
+        if (btnMenuPin != null) {
+            ImageView ivPinIcon = btnMenuPin.findViewById(R.id.ivMenuPinIcon);
+            TextView tvPinText = btnMenuPin.findViewById(R.id.tvMenuPinText);
+            String chatUser = (targetUsername != null && !targetUsername.trim().isEmpty()) ? targetUsername : localUsername;
+            boolean isPinned = ChatHistoryManager.isMessagePinned(context, chatUser, message.getMessageId())
+                    || (localUsername != null && ChatHistoryManager.isMessagePinned(context, localUsername, message.getMessageId()));
+            if (tvPinText != null) {
+                tvPinText.setText(isPinned ? "Открепить" : "Закрепить");
+            }
+            if (ivPinIcon != null) {
+                ivPinIcon.setImageResource(isPinned ? R.drawable.ic_unpin : R.drawable.ic_pin);
+            }
+            btnMenuPin.setOnClickListener(v -> {
+                popupWindow.dismiss();
+                if (actionListener != null) {
+                    if (isPinned) {
+                        actionListener.onUnpinMessage(message, position);
+                    } else {
+                        actionListener.onPinMessage(message, position);
+                    }
+                }
+            });
+        }
+
+        if (btnMenuShowPinned != null) {
+            String chatUser = (targetUsername != null && !targetUsername.trim().isEmpty()) ? targetUsername : localUsername;
+            boolean isBarHidden = ChatHistoryManager.isPinnedBarHidden(context, chatUser, null);
+            boolean hasPinnedMessages = !ChatHistoryManager.getPinnedMessages(context, chatUser, null).isEmpty();
+
+            if (isBarHidden && hasPinnedMessages) {
+                btnMenuShowPinned.setVisibility(View.VISIBLE);
+                btnMenuShowPinned.setOnClickListener(v -> {
+                    popupWindow.dismiss();
+                    if (actionListener != null) {
+                        actionListener.onShowPinnedBar();
+                    }
+                });
+            } else {
+                btnMenuShowPinned.setVisibility(View.GONE);
+            }
         }
 
         if (btnMenuEdit != null) {
