@@ -66,6 +66,7 @@ class PersonInformationActivity : AppCompatActivity() {
     private var deviceAddress: String? = null
     private var avatarUriStr: String? = null
     private var isOnline: Boolean = false
+    private var isNotes: Boolean = false
 
     private val statusUpdateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -105,6 +106,12 @@ class PersonInformationActivity : AppCompatActivity() {
         binding = ActivityPersonInformationBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        targetUsername = intent.getStringExtra("EXTRA_CHAT_NAME") ?: "Пользователь"
+        deviceAddress = intent.getStringExtra("EXTRA_DEVICE_ADDRESS")
+        avatarUriStr = intent.getStringExtra("EXTRA_AVATAR_URI")
+        isOnline = intent.getBooleanExtra("EXTRA_IS_ONLINE", false)
+        isNotes = intent.getBooleanExtra("EXTRA_IS_NOTES", false) || targetUsername.equals("Заметки", ignoreCase = true)
+
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
@@ -120,27 +127,36 @@ class PersonInformationActivity : AppCompatActivity() {
                 binding.layoutWithPhoto.paddingRight,
                 extraPadding
             )
-            binding.nestedScrollView.setPadding(
-                binding.nestedScrollView.paddingLeft,
-                binding.nestedScrollView.paddingTop,
-                binding.nestedScrollView.paddingRight,
-                maxOf(systemBars.bottom, cutout.bottom)
-            )
+
+            val notesToolbarExtra = if (isNotes) (16 * density).toInt() else 0
+            val toolbarTopPadding = maxOf(topInset, cutout.top) + notesToolbarExtra
+
+            if (isNotes) {
+                val contentTopPadding = toolbarTopPadding + (68 * density).toInt()
+                binding.nestedScrollView.setPadding(
+                    binding.nestedScrollView.paddingLeft,
+                    contentTopPadding,
+                    binding.nestedScrollView.paddingRight,
+                    maxOf(systemBars.bottom, cutout.bottom)
+                )
+            } else {
+                binding.nestedScrollView.setPadding(
+                    binding.nestedScrollView.paddingLeft,
+                    binding.nestedScrollView.paddingTop,
+                    binding.nestedScrollView.paddingRight,
+                    maxOf(systemBars.bottom, cutout.bottom)
+                )
+            }
 
             val lp = binding.blurStickyToolbar.layoutParams as? ViewGroup.MarginLayoutParams
             if (lp != null && lp.topMargin != 0) {
                 lp.topMargin = 0
                 binding.blurStickyToolbar.layoutParams = lp
             }
-            binding.blurStickyToolbar.setPadding(0, maxOf(topInset, cutout.top), 0, 0)
+            binding.blurStickyToolbar.setPadding(0, toolbarTopPadding, 0, (if (isNotes) 8 * density else 0).toInt())
 
             insets
         }
-
-        targetUsername = intent.getStringExtra("EXTRA_CHAT_NAME") ?: "Пользователь"
-        deviceAddress = intent.getStringExtra("EXTRA_DEVICE_ADDRESS")
-        avatarUriStr = intent.getStringExtra("EXTRA_AVATAR_URI")
-        isOnline = intent.getBooleanExtra("EXTRA_IS_ONLINE", false)
 
 
 
@@ -396,12 +412,14 @@ class PersonInformationActivity : AppCompatActivity() {
 
         fun updateToolbarPadding() {
             val topInset = getActualTopInset()
+            val density = resources.displayMetrics.density
+            val notesToolbarExtra = if (isNotes) (16 * density).toInt() else 0
             val lp = binding.blurStickyToolbar.layoutParams as? ViewGroup.MarginLayoutParams
             if (lp != null && lp.topMargin != 0) {
                 lp.topMargin = 0
                 binding.blurStickyToolbar.layoutParams = lp
             }
-            binding.blurStickyToolbar.setPadding(0, topInset, 0, 0)
+            binding.blurStickyToolbar.setPadding(0, topInset + notesToolbarExtra, 0, (if (isNotes) 8 * density else 0).toInt())
         }
 
         updateToolbarPadding()
@@ -428,6 +446,16 @@ class PersonInformationActivity : AppCompatActivity() {
 
         binding.btnStickyBack.setOnClickListener {
             onBackPressedDispatcher.onBackPressed()
+        }
+
+        if (isNotes) {
+            binding.headerStaticBlock.visibility = View.GONE
+            binding.blurStickyToolbar.visibility = View.VISIBLE
+            binding.blurStickyToolbar.alpha = 1f
+            binding.tvStickyName.text = "Заметки"
+            binding.tvStickyStatus.text = "Собранные медиафайлы"
+            binding.tvStickyStatus.setTextColor(ContextCompat.getColor(this, R.color.prime_brand))
+            return
         }
 
         updateStickyHeaderData()
@@ -482,6 +510,11 @@ class PersonInformationActivity : AppCompatActivity() {
 
     private fun updateStickyHeaderData() {
         if (!::binding.isInitialized) return
+        if (isNotes) {
+            binding.tvStickyName.text = "Заметки"
+            binding.tvStickyStatus.text = "Собранные медиафайлы"
+            return
+        }
         binding.tvStickyName.text = binding.tvUserNameWP.text
         binding.tvStickyStatus.animateSlideDownText(binding.tvStatusWP.text)
         binding.tvStickyStatus.setTextColor(binding.tvStatusWP.currentTextColor)
@@ -591,6 +624,14 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     private fun setupHeaderUi() {
+        if (isNotes) {
+            binding.headerStaticBlock.visibility = View.GONE
+            binding.blurStickyToolbar.visibility = View.VISIBLE
+            binding.blurStickyToolbar.alpha = 1f
+            binding.tvStickyName.text = "Заметки"
+            binding.tvStickyStatus.text = "Собранные медиафайлы"
+            return
+        }
         var displayContactName = AvatarManager.getContactDisplayName(this, targetUsername, deviceAddress, targetUsername)
         if (displayContactName.isBlank() || displayContactName == "Пользователь" || displayContactName == "Собеседник") {
             val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
@@ -759,6 +800,14 @@ class PersonInformationActivity : AppCompatActivity() {
     }
 
     private fun updateLiveStatus() {
+        if (isNotes) {
+            binding.headerStaticBlock.visibility = View.GONE
+            binding.blurStickyToolbar.visibility = View.VISIBLE
+            binding.blurStickyToolbar.alpha = 1f
+            binding.tvStickyName.text = "Заметки"
+            binding.tvStickyStatus.text = "Собранные медиафайлы"
+            return
+        }
         val isConnected = (!deviceAddress.isNullOrEmpty() && BluetoothConnectionManager.getInstance().isConnected(deviceAddress))
             || (!targetUsername.isNullOrEmpty() && BluetoothConnectionManager.getInstance().isConnected(targetUsername))
 

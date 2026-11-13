@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Camera
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
@@ -14,12 +13,14 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
-import java.io.File
 import android.util.AttributeSet
 import android.view.View
 import android.view.animation.OvershootInterpolator
 import androidx.core.content.ContextCompat
-import kotlin.math.cos
+import androidx.graphics.shapes.RoundedPolygon
+import androidx.graphics.shapes.toPath
+import com.messenger.prime.shapes.M3EShapes
+import java.io.File
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -30,8 +31,10 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
     private enum class ShapeType {
-        CIRCLE, ROUNDED_SQUARE, TRIANGLE, DIAMOND, RING, PILL,
-        PENTAGON, HEXAGON, STAR_5, STAR_8, CROSS, CONCENTRIC_RINGS, HEART, FLOWER_4,
+        CIRCLE, SQUARE, TRIANGLE, PENTAGON, GEM, CLAMSHELL,
+        SUNNY, VERY_SUNNY, COOKIE_4, COOKIE_6, COOKIE_7, COOKIE_9, COOKIE_12,
+        CLOVER_4, CLOVER_8, BURST, SOFT_BURST, BOOM, SOFT_BOOM,
+        FLOWER, PUFFY, PUFFY_DIAMOND, ARCH, SEMICIRCLE, PILL, SLANTED, HEART,
         BRAND_LOGO
     }
 
@@ -55,11 +58,8 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         strokeWidth = 3.5f
     }
 
-    private val path = Path()
-    private val rectF = RectF()
     private var brandLogoDrawable: Drawable? = null
 
-    private val camera3D = Camera()
     private val matrix3D = Matrix()
     private val waveInterpolator = OvershootInterpolator(1.2f)
 
@@ -80,74 +80,56 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         updateThemeColors()
     }
 
+    private fun Path.normalizeToUnit(): Path {
+        val bounds = RectF()
+        this.computeBounds(bounds, true)
+        val width = bounds.width()
+        val height = bounds.height()
+        val maxDim = maxOf(width, height)
+        if (maxDim <= 0f) return this
+        val scale = 2f / maxDim
+        val centerX = bounds.centerX()
+        val centerY = bounds.centerY()
+
+        val matrix = Matrix()
+        matrix.postTranslate(-centerX, -centerY)
+        matrix.postScale(scale, scale)
+        this.transform(matrix)
+        return this
+    }
+
+    private fun RoundedPolygon.toNormalizedPath(): Path {
+        return this.toPath().normalizeToUnit()
+    }
+
     private fun initUnitPaths() {
-        unitPaths[ShapeType.TRIANGLE] = Path().apply {
-            moveTo(0f, -1f)
-            lineTo(1f, 1f)
-            lineTo(-1f, 1f)
-            close()
-        }
-        unitPaths[ShapeType.DIAMOND] = Path().apply {
-            moveTo(0f, -1f)
-            lineTo(1f, 0f)
-            lineTo(0f, 1f)
-            lineTo(-1f, 0f)
-            close()
-        }
-        unitPaths[ShapeType.PENTAGON] = Path().apply {
-            for (i in 0 until 5) {
-                val angle = (i * 2 * Math.PI / 5 - Math.PI / 2).toFloat()
-                val x = cos(angle)
-                val y = sin(angle)
-                if (i == 0) moveTo(x, y) else lineTo(x, y)
-            }
-            close()
-        }
-        unitPaths[ShapeType.HEXAGON] = Path().apply {
-            for (i in 0 until 6) {
-                val angle = (i * Math.PI / 3 - Math.PI / 2).toFloat()
-                val x = cos(angle).toFloat()
-                val y = sin(angle).toFloat()
-                if (i == 0) moveTo(x, y) else lineTo(x, y)
-            }
-            close()
-        }
-        unitPaths[ShapeType.STAR_5] = Path().apply {
-            for (i in 0 until 10) {
-                val r = if (i % 2 == 0) 1f else 0.45f
-                val angle = (i * Math.PI / 5 - Math.PI / 2).toFloat()
-                val x = (r * cos(angle)).toFloat()
-                val y = (r * sin(angle)).toFloat()
-                if (i == 0) moveTo(x, y) else lineTo(x, y)
-            }
-            close()
-        }
-        unitPaths[ShapeType.STAR_8] = Path().apply {
-            for (i in 0 until 16) {
-                val r = if (i % 2 == 0) 1f else 0.5f
-                val angle = (i * Math.PI / 8).toFloat()
-                val x = (r * cos(angle)).toFloat()
-                val y = (r * sin(angle)).toFloat()
-                if (i == 0) moveTo(x, y) else lineTo(x, y)
-            }
-            close()
-        }
-        unitPaths[ShapeType.CROSS] = Path().apply {
-            val w = 0.35f
-            moveTo(-w, -1f); lineTo(w, -1f)
-            lineTo(w, -w); lineTo(1f, -w)
-            lineTo(1f, w); lineTo(w, w)
-            lineTo(w, 1f); lineTo(-w, 1f)
-            lineTo(-w, w); lineTo(-1f, w)
-            lineTo(-1f, -w); lineTo(-w, -w)
-            close()
-        }
-        unitPaths[ShapeType.HEART] = Path().apply {
-            moveTo(0f, 0.35f)
-            cubicTo(-1f, -0.6f, -0.5f, -1.2f, 0f, -0.4f)
-            cubicTo(0.5f, -1.2f, 1f, -0.6f, 0f, 0.35f)
-            close()
-        }
+        unitPaths[ShapeType.CIRCLE] = M3EShapes.circle.toNormalizedPath()
+        unitPaths[ShapeType.SQUARE] = M3EShapes.square.toNormalizedPath()
+        unitPaths[ShapeType.TRIANGLE] = M3EShapes.triangle.toNormalizedPath()
+        unitPaths[ShapeType.PENTAGON] = M3EShapes.pentagon.toNormalizedPath()
+        unitPaths[ShapeType.GEM] = M3EShapes.gem.toNormalizedPath()
+        unitPaths[ShapeType.CLAMSHELL] = M3EShapes.clamshell.toNormalizedPath()
+        unitPaths[ShapeType.SUNNY] = M3EShapes.sunny.toNormalizedPath()
+        unitPaths[ShapeType.VERY_SUNNY] = M3EShapes.verySunny.toNormalizedPath()
+        unitPaths[ShapeType.COOKIE_4] = M3EShapes.cookie4Sided.toNormalizedPath()
+        unitPaths[ShapeType.COOKIE_6] = M3EShapes.cookie6Sided.toNormalizedPath()
+        unitPaths[ShapeType.COOKIE_7] = M3EShapes.cookie7Sided.toNormalizedPath()
+        unitPaths[ShapeType.COOKIE_9] = M3EShapes.cookie9Sided.toNormalizedPath()
+        unitPaths[ShapeType.COOKIE_12] = M3EShapes.cookie12Sided.toNormalizedPath()
+        unitPaths[ShapeType.CLOVER_4] = M3EShapes.clover4Leaf.toNormalizedPath()
+        unitPaths[ShapeType.CLOVER_8] = M3EShapes.clover8Leaf.toNormalizedPath()
+        unitPaths[ShapeType.BURST] = M3EShapes.burst.toNormalizedPath()
+        unitPaths[ShapeType.SOFT_BURST] = M3EShapes.softBurst.toNormalizedPath()
+        unitPaths[ShapeType.BOOM] = M3EShapes.boom.toNormalizedPath()
+        unitPaths[ShapeType.SOFT_BOOM] = M3EShapes.softBoom.toNormalizedPath()
+        unitPaths[ShapeType.FLOWER] = M3EShapes.flower.toNormalizedPath()
+        unitPaths[ShapeType.PUFFY] = M3EShapes.puffy.toNormalizedPath()
+        unitPaths[ShapeType.PUFFY_DIAMOND] = M3EShapes.puffyDiamond.toNormalizedPath()
+        unitPaths[ShapeType.ARCH] = M3EShapes.arch().normalizeToUnit()
+        unitPaths[ShapeType.SEMICIRCLE] = M3EShapes.semicircle().normalizeToUnit()
+        unitPaths[ShapeType.PILL] = M3EShapes.pill().normalizeToUnit()
+        unitPaths[ShapeType.SLANTED] = M3EShapes.slanted().normalizeToUnit()
+        unitPaths[ShapeType.HEART] = M3EShapes.heart().normalizeToUnit()
     }
 
     private var isLavaEnabled = true
@@ -304,20 +286,28 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                 } else {
                     val types = when (activeWallpaper?.patternType) {
                         "material_geo" -> arrayOf(
-                            ShapeType.ROUNDED_SQUARE, ShapeType.TRIANGLE, ShapeType.DIAMOND,
-                            ShapeType.HEXAGON, ShapeType.PENTAGON, ShapeType.CROSS
+                            ShapeType.SQUARE, ShapeType.TRIANGLE, ShapeType.PENTAGON,
+                            ShapeType.GEM, ShapeType.CLAMSHELL, ShapeType.ARCH,
+                            ShapeType.SEMICIRCLE, ShapeType.SLANTED, ShapeType.PILL
                         )
                         "material_stars" -> arrayOf(
-                            ShapeType.STAR_5, ShapeType.STAR_8, ShapeType.CONCENTRIC_RINGS, ShapeType.DIAMOND
+                            ShapeType.SUNNY, ShapeType.VERY_SUNNY, ShapeType.BURST,
+                            ShapeType.SOFT_BURST, ShapeType.BOOM, ShapeType.SOFT_BOOM,
+                            ShapeType.COOKIE_4, ShapeType.COOKIE_6, ShapeType.COOKIE_7,
+                            ShapeType.COOKIE_12, ShapeType.CLOVER_4, ShapeType.CLOVER_8
                         )
                         "material_waves" -> arrayOf(
-                            ShapeType.RING, ShapeType.PILL, ShapeType.CIRCLE, ShapeType.FLOWER_4
+                            ShapeType.FLOWER, ShapeType.PUFFY, ShapeType.PUFFY_DIAMOND,
+                            ShapeType.CIRCLE, ShapeType.SEMICIRCLE, ShapeType.PILL, ShapeType.HEART
                         )
                         else -> arrayOf(
-                            ShapeType.CIRCLE, ShapeType.ROUNDED_SQUARE, ShapeType.TRIANGLE, ShapeType.DIAMOND,
-                            ShapeType.RING, ShapeType.PILL, ShapeType.PENTAGON, ShapeType.HEXAGON,
-                            ShapeType.STAR_5, ShapeType.STAR_8, ShapeType.CROSS, ShapeType.CONCENTRIC_RINGS,
-                            ShapeType.HEART, ShapeType.FLOWER_4
+                            ShapeType.CIRCLE, ShapeType.SQUARE, ShapeType.TRIANGLE, ShapeType.PENTAGON,
+                            ShapeType.GEM, ShapeType.CLAMSHELL, ShapeType.SUNNY, ShapeType.VERY_SUNNY,
+                            ShapeType.COOKIE_4, ShapeType.COOKIE_6, ShapeType.COOKIE_7, ShapeType.COOKIE_9,
+                            ShapeType.COOKIE_12, ShapeType.CLOVER_4, ShapeType.CLOVER_8, ShapeType.BURST,
+                            ShapeType.SOFT_BURST, ShapeType.BOOM, ShapeType.SOFT_BOOM, ShapeType.FLOWER,
+                            ShapeType.PUFFY, ShapeType.PUFFY_DIAMOND, ShapeType.ARCH, ShapeType.SEMICIRCLE,
+                            ShapeType.PILL, ShapeType.SLANTED, ShapeType.HEART
                         )
                     }
                     types[random.nextInt(types.size)]
@@ -445,7 +435,6 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         if (shapes.isEmpty() || animProgress <= 0f) return
 
         val maxColRow = (maxCols + maxRows).coerceAtLeast(1)
-        val density = resources.displayMetrics.density
 
         for (shape in shapes) {
             val normDistance = (shape.col + shape.row).toFloat() / maxColRow
@@ -475,30 +464,6 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
             canvas.rotate(shape.rotation)
 
             when (shape.type) {
-                ShapeType.CIRCLE -> {
-                    canvas.drawCircle(0f, 0f, radius, paint)
-                }
-                ShapeType.ROUNDED_SQUARE -> {
-                    rectF.set(-radius, -radius, radius, radius)
-                    canvas.drawRoundRect(rectF, radius * 0.35f, radius * 0.35f, paint)
-                }
-                ShapeType.RING -> {
-                    canvas.drawCircle(0f, 0f, radius, strokePaint)
-                }
-                ShapeType.PILL -> {
-                    rectF.set(-radius * 1.2f, -radius * 0.6f, radius * 1.2f, radius * 0.6f)
-                    canvas.drawRoundRect(rectF, radius * 0.6f, radius * 0.6f, paint)
-                }
-                ShapeType.CONCENTRIC_RINGS -> {
-                    canvas.drawCircle(0f, 0f, radius, strokePaint)
-                    canvas.drawCircle(0f, 0f, radius * 0.5f, strokePaint)
-                }
-                ShapeType.FLOWER_4 -> {
-                    canvas.drawCircle(-radius * 0.35f, 0f, radius * 0.5f, paint)
-                    canvas.drawCircle(radius * 0.35f, 0f, radius * 0.5f, paint)
-                    canvas.drawCircle(0f, -radius * 0.35f, radius * 0.5f, paint)
-                    canvas.drawCircle(0f, radius * 0.35f, radius * 0.5f, paint)
-                }
                 ShapeType.BRAND_LOGO -> {
                     brandLogoDrawable?.let { drawable ->
                         val logoSize = (shape.size * 1.2f).toInt()

@@ -185,8 +185,13 @@ class PrimeVoiceRecorderController(
             etMessage.visibility = View.VISIBLE
             etMessage.animate().alpha(1f).translationX(0f).setDuration(200).start()
             
-            btnAttach?.visibility = View.VISIBLE
-            btnAttach?.animate()?.alpha(1f)?.translationX(0f)?.setDuration(200)?.start()
+            val btnCancelEdit = (btnAttach?.parent as? android.view.ViewGroup)?.findViewById<View>(R.id.btnCancelEdit)
+            if (btnCancelEdit == null || btnCancelEdit.visibility != View.VISIBLE) {
+                btnAttach?.visibility = View.VISIBLE
+                btnAttach?.animate()?.alpha(1f)?.translationX(0f)?.setDuration(200)?.start()
+            } else {
+                btnAttach.visibility = View.GONE
+            }
         }.start()
         
         liveWaveform.setWaveform(emptyList())

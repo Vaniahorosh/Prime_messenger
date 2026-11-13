@@ -131,6 +131,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         this.targetUsername = targetUsername;
     }
 
+    public boolean isNotesChat() {
+        return targetUsername != null && (
+                "Заметки".equalsIgnoreCase(targetUsername) ||
+                "notes_chat_item".equalsIgnoreCase(targetUsername) ||
+                "Заметки (Избранное)".equalsIgnoreCase(targetUsername) ||
+                "Notes".equalsIgnoreCase(targetUsername) ||
+                "Избранное".equalsIgnoreCase(targetUsername)
+        );
+    }
+
     private final Set<String> selectedMessageIds = new java.util.LinkedHashSet<>();
     private boolean isMultiSelectionMode = false;
 
@@ -750,34 +760,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         if (message.getMessageId() != null && message.getMessageId().equals(newlyAnimatedMessageId)) {
             newlyAnimatedMessageId = null;
-            
-            View bubble = null;
-            if (holder instanceof OutgoingViewHolder) {
-                bubble = holder.itemView.findViewById(R.id.layoutOutgoingBubble);
-            } else if (holder instanceof IncomingViewHolder) {
-                bubble = holder.itemView.findViewById(R.id.layoutIncomingBubble);
-            }
 
-            if (bubble != null) {
-                float density = v.getResources().getDisplayMetrics().density;
-                bubble.setTranslationY(24f * density);
-                bubble.setAlpha(0f);
-                bubble.animate()
-                        .translationY(0f)
-                        .alpha(1.0f)
-                        .setDuration(260)
-                        .setInterpolator(new DecelerateInterpolator())
-                        .start();
-            } else {
-                v.setTranslationY(24f * v.getResources().getDisplayMetrics().density);
-                v.setAlpha(0f);
-                v.animate()
-                        .translationY(0f)
-                        .alpha(1.0f)
-                        .setDuration(260)
-                        .setInterpolator(new DecelerateInterpolator())
-                        .start();
-            }
+            View bubble = (holder instanceof OutgoingViewHolder) ?
+                    holder.itemView.findViewById(R.id.layoutOutgoingBubble) :
+                    holder.itemView.findViewById(R.id.layoutIncomingBubble);
+            if (bubble == null) bubble = holder.itemView;
+
+            ChatAnimationHelper.animateMessagePopIn(bubble);
         } else {
             v.setAlpha(1f);
             v.setTranslationY(0f);
@@ -3261,9 +3250,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             GestureDetector doubleTapDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
                 @Override
                 public boolean onDoubleTap(@NonNull MotionEvent e) {
-                    if (isConnectionActive && actionListener != null) {
+                    if (isConnectionActive && !isNotesChat() && actionListener != null) {
                         actionListener.onQuickReaction(message, "❤️", position);
-                        itemView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                        View bubble = layoutIncomingBubble != null ? layoutIncomingBubble : itemView;
+                        ChatAnimationHelper.spawnReactionBurst(bubble, "❤️");
+                        ChatAnimationHelper.animateBubbleSpring(bubble);
                         return true;
                     }
                     return false;
@@ -3586,9 +3577,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             GestureDetector doubleTapDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
                 @Override
                 public boolean onDoubleTap(@NonNull MotionEvent e) {
-                    if (isConnectionActive && actionListener != null) {
+                    if (isConnectionActive && !isNotesChat() && actionListener != null) {
                         actionListener.onQuickReaction(message, "❤️", position);
-                        itemView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                        View bubble = layoutOutgoingBubble != null ? layoutOutgoingBubble : itemView;
+                        ChatAnimationHelper.spawnReactionBurst(bubble, "❤️");
+                        ChatAnimationHelper.animateBubbleSpring(bubble);
                         return true;
                     }
                     return false;
@@ -3948,6 +3941,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
         }
 
+        if (isNotesChat()) {
+            if (layoutReactionsRow != null) layoutReactionsRow.setVisibility(View.GONE);
+            if (btnMenuSelect != null) btnMenuSelect.setVisibility(View.GONE);
+        }
+
         // Setup Reactions listeners
         View.OnClickListener reactionClick = v -> {
             popupWindow.dismiss();
@@ -4054,6 +4052,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                             } else if (btn == btnMenuDelete) {
                                 shouldShow = message.isOutgoing();
                             }
+                        }
+                        if (btn == btnMenuSelect && isNotesChat()) {
+                            shouldShow = false;
                         }
                         if (shouldShow) {
                             btn.setVisibility(View.VISIBLE);
@@ -4277,14 +4278,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
 
         if (btnMenuSelect != null) {
-            btnMenuSelect.setOnClickListener(v -> {
-                popupWindow.dismiss();
-                setMultiSelectionMode(true);
-                toggleMessageSelection(message);
-                if (actionListener != null) {
-                    actionListener.onSelectMessage(message, position);
-                }
-            });
+            if (isNotesChat()) {
+                btnMenuSelect.setVisibility(View.GONE);
+            } else {
+                btnMenuSelect.setOnClickListener(v -> {
+                    popupWindow.dismiss();
+                    setMultiSelectionMode(true);
+                    toggleMessageSelection(message);
+                    if (actionListener != null) {
+                        actionListener.onSelectMessage(message, position);
+                    }
+                });
+            }
         }
 
         // Anchor & Position calculation from touch point
@@ -4645,6 +4650,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public void showExpandedReactionsPopup(View anchorView, ChatMessage message, int position) {
+        if (isNotesChat()) return;
         if (anchorView == null || anchorView.getContext() == null) return;
         Context context = anchorView.getContext();
 
@@ -4767,6 +4773,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private void bindReactions(LinearLayout layoutMessageReaction, ChatMessage message, int position) {
         if (layoutMessageReaction == null) return;
 
+        if (isNotesChat()) {
+            layoutMessageReaction.setVisibility(View.GONE);
+            layoutMessageReaction.removeAllViews();
+            return;
+        }
+
         Map<String, String> reactions = message.getReactionsMap();
         if (reactions == null || reactions.isEmpty()) {
             layoutMessageReaction.setVisibility(View.GONE);
@@ -4827,6 +4839,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
             chip.addView(ivAvatar);
             chip.addView(tvEmoji);
+            ChatAnimationHelper.animateReactionChip(chip);
 
             SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
             String currentUser = sp.getString("current_user", "");

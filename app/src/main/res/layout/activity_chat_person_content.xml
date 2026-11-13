@@ -176,6 +176,14 @@
             </FrameLayout>
         </eightbitlab.com.blurview.BlurView>
 
+        <!-- Разделитель для Заметок -->
+        <View
+            android:id="@+id/spacerHeaderNotes"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1"
+            android:visibility="gone" />
+
         <!-- Правый островок: Информация о собеседнике / мультивыбор -->
         <eightbitlab.com.blurview.BlurView
             android:id="@+id/layoutHeaderInfoIsland"
@@ -327,6 +335,35 @@
                     </LinearLayout>
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
+            </FrameLayout>
+        </eightbitlab.com.blurview.BlurView>
+
+        <!-- Правый одиночный островок исключительно для Заметок (Строго одна кнопка справа) -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/layoutHeaderNotesIsland"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_floating_island"
+            android:outlineProvider="background"
+            android:clipToOutline="true"
+            android:elevation="4dp"
+            android:visibility="gone">
+
+            <FrameLayout
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:padding="4dp">
+
+                <ImageButton
+                    android:id="@+id/btnNotesMenu"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="center"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    tools:ignore="HardcodedText"
+                    android:contentDescription="Инфо и медиа заметок"
+                    android:src="@drawable/ic_format_list_bulleted"
+                    app:tint="@color/prime_text_primary" />
             </FrameLayout>
         </eightbitlab.com.blurview.BlurView>
     </LinearLayout>
@@ -1102,7 +1139,6 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="bottom"
-            android:transitionName="transition_input_to_rich"
             android:visibility="gone">
 
             <!-- Attach/Cancel block -->
@@ -1149,7 +1185,8 @@
                 android:layout_weight="1"
                 android:layout_marginEnd="6dp"
                 android:background="@drawable/bg_floating_island"
-                android:outlineProvider="background">
+                android:outlineProvider="background"
+                android:transitionName="transition_input_to_rich">
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

@@ -126,23 +126,6 @@ class MediaPlayerActivity : AppCompatActivity() {
     private var currentPlayer: ExoPlayer? = null
     private var isCurrentVideo = false
 
-    private val photoEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == RESULT_OK && result.data != null) {
-            val editedUriStr = result.data?.getStringExtra("EDITED_IMAGE_URI") ?: result.data?.getStringExtra("EXTRA_IMAGE_URI")
-            if (!editedUriStr.isNullOrEmpty()) {
-                val list = sharedMediaList?.toMutableList()
-                val currentPos = viewPager.currentItem
-                if (list != null && currentPos in list.indices) {
-                    val msg = list[currentPos]
-                    msg.imagePath = editedUriStr
-                    sharedMediaList = list
-                    adapter?.notifyItemChanged(currentPos)
-                    showIslandBadge("Фотография отредактирована")
-                }
-            }
-        }
-    }
-
     private var isScrubbing = false
     private var scrubTargetMs: Long = -1L
     private var isZoomed = false
@@ -691,55 +674,31 @@ class MediaPlayerActivity : AppCompatActivity() {
                 || item.time == "Это вы"
                 || item.time == "В прайме!"
 
-        val editTitle = if (isAvatarPreview) "Установить по умолчанию" else "Редактировать в редакторе"
-        val editIcon = if (isAvatarPreview) R.drawable.ic_done else R.drawable.ic_edit
-
         val popup = PrimePopupMenu.create(this, btnMoreMenu)
             .addItem("Сохранить", R.drawable.ic_download) {
                 saveCurrentMediaToGallery(item)
             }
 
-        if (!isContactAvatarPreview) {
-            popup.addItem(editTitle, editIcon) {
-                if (isAvatarPreview) {
-                    val path = item.imagePath ?: return@addItem
-                    if (item.isOutgoing) {
-                        AvatarHistoryManager.addMyAvatar(this, path)
-                        sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
-                        showIslandBadge("Аватар установлен по умолчанию")
-                        finish()
-                    } else {
-                        val sender = item.senderLogin ?: ""
-                        AvatarHistoryManager.addContactAvatar(this, sender, path)
-                        sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
-                        showIslandBadge("Аватар установлен по умолчанию")
-                        finish()
-                    }
+        if (isAvatarPreview && !isContactAvatarPreview) {
+            popup.addItem("Установить по умолчанию", R.drawable.ic_done) {
+                val path = item.imagePath ?: return@addItem
+                if (item.isOutgoing) {
+                    AvatarHistoryManager.addMyAvatar(this, path)
+                    sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
+                    showIslandBadge("Аватар установлен по умолчанию")
+                    finish()
                 } else {
-                    val path = item.imagePath
-                    if (!path.isNullOrEmpty() && !item.isVideo) {
-                        val uri = Uri.parse(path)
-                        val intent = Intent(this, PhotoEditorActivity::class.java).apply {
-                            setDataAndType(uri, "image/*")
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            putExtra("EXTRA_IMAGE_URI", path)
-                        }
-                        photoEditorLauncher.launch(intent)
-                    } else {
-                        showIslandBadge("Редактирование недоступно")
-                    }
+                    val sender = item.senderLogin ?: ""
+                    AvatarHistoryManager.addContactAvatar(this, sender, path)
+                    sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
+                    showIslandBadge("Аватар установлен по умолчанию")
+                    finish()
                 }
             }
         }
 
         popup.addItem("Информация", R.drawable.ic_clock) {
             showMediaInfoDialog(item)
-        }
-
-        if (!isContactAvatarPreview) {
-            popup.addItem("Удалить", R.drawable.ic_trash) {
-                deleteCurrentMediaItem(pos)
-            }
         }
 
         popup.show()
@@ -800,52 +759,6 @@ class MediaPlayerActivity : AppCompatActivity() {
             onPositive = {},
             onNegative = { shareCurrentMedia(item) }
         )
-    }
-
-    private fun deleteCurrentMediaItem(pos: Int) {
-        val list = sharedMediaList?.toMutableList() ?: return
-        if (pos in list.indices) {
-            val item = list[pos]
-            list.removeAt(pos)
-            sharedMediaList = list
-
-            val path = item.imagePath ?: ""
-            val isAvatarPreview = item.messageId?.contains("avatar") == true
-                    || item.text == "Аватар профиля"
-                    || item.time == "Это вы"
-                    || item.time == "В прайме!"
-                    || item.time?.contains("Активный") == true
-                    || path.lowercase(Locale.US).contains("avatar")
-
-            if (isAvatarPreview && path.isNotEmpty()) {
-                if (item.isOutgoing || item.senderLogin == "Я" || item.time?.contains("вы") == true) {
-                    AvatarHistoryManager.removeMyAvatar(this, path)
-                } else {
-                    val sender = item.senderLogin ?: ""
-                    if (sender.isNotEmpty()) {
-                        AvatarHistoryManager.removeContactAvatar(this, sender, path)
-                    }
-                }
-                sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
-                sendBroadcast(Intent("com.messenger.prime.AVATAR_UPDATED").setPackage(packageName))
-            } else {
-                val (_, file) = parseAvatarModelAndFile(path)
-                if (file != null && file.exists() && !file.name.contains("default")) {
-                    try { file.delete() } catch (_: Exception) {}
-                }
-            }
-
-            if (list.isEmpty()) {
-                showIslandBadge("Медиафайл удален")
-                finish()
-            } else {
-                adapter?.notifyDataSetChanged()
-                val nextPos = pos.coerceAtMost(list.size - 1)
-                viewPager.setCurrentItem(nextPos, false)
-                updateUIForPage(nextPos)
-                showIslandBadge("Медиафайл удален")
-            }
-        }
     }
 
     private fun saveCurrentMediaToGallery(item: ChatMessage) {

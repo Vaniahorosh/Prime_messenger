@@ -19,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asComposePath
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
@@ -26,7 +28,51 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.graphics.shapes.RoundedPolygon
+import androidx.graphics.shapes.toPath
 import kotlinx.coroutines.delay
+
+/**
+ * Класс Compose Shape для отрисовки произвольной фигуры M3E RoundedPolygon.
+ */
+class M3EComposeShape(private val polygon: RoundedPolygon) : androidx.compose.ui.graphics.Shape {
+    override fun createOutline(
+        size: androidx.compose.ui.geometry.Size,
+        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+        density: androidx.compose.ui.unit.Density
+    ): androidx.compose.ui.graphics.Outline {
+        if (size.width <= 0f || size.height <= 0f) {
+            return androidx.compose.ui.graphics.Outline.Rectangle(androidx.compose.ui.geometry.Rect.Zero)
+        }
+        val androidPath = polygon.toPath()
+        val bounds = android.graphics.RectF()
+        androidPath.computeBounds(bounds, true)
+        if (bounds.width() > 0f && bounds.height() > 0f) {
+            val matrix = android.graphics.Matrix()
+            matrix.postTranslate(-bounds.left, -bounds.top)
+            matrix.postScale(size.width / bounds.width(), size.height / bounds.height())
+            androidPath.transform(matrix)
+        }
+        return androidx.compose.ui.graphics.Outline.Generic(androidPath.asComposePath())
+    }
+}
+
+private val m3ePromoShapes = listOf(
+    com.messenger.prime.shapes.M3EShapes.cookie6Sided,
+    com.messenger.prime.shapes.M3EShapes.flower,
+    com.messenger.prime.shapes.M3EShapes.verySunny,
+    com.messenger.prime.shapes.M3EShapes.cookie7Sided,
+    com.messenger.prime.shapes.M3EShapes.clover4Leaf,
+    com.messenger.prime.shapes.M3EShapes.pentagon,
+    com.messenger.prime.shapes.M3EShapes.gem,
+    com.messenger.prime.shapes.M3EShapes.cookie4Sided,
+    com.messenger.prime.shapes.M3EShapes.cookie9Sided,
+    com.messenger.prime.shapes.M3EShapes.cookie12Sided,
+    com.messenger.prime.shapes.M3EShapes.puffy,
+    com.messenger.prime.shapes.M3EShapes.burst,
+    com.messenger.prime.shapes.M3EShapes.clover8Leaf,
+    com.messenger.prime.shapes.M3EShapes.puffyDiamond
+)
 
 /**
  * Модель презентационного слайда возможности Prime Messenger,
@@ -190,32 +236,56 @@ fun PrimeFeaturePromoCard(
                 },
                 label = "SeamlessPromoLoop"
             ) { feature ->
+                val randomShape = remember(feature.id) {
+                    m3ePromoShapes.random()
+                }
+
+                val infiniteTransition = rememberInfiniteTransition(label = "M3ERotation")
+                val rotationAngle by infiniteTransition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 360f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 10000, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "rotationAngle"
+                )
+
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Значок функции или векторный логотип Prime с окрашиванием в акцентный цвет
-                    Surface(
-                        modifier = Modifier.size(52.dp),
-                        shape = CircleShape,
-                        color = feature.accentColor.copy(alpha = 0.25f)
+                    // Контейнер иконки с постоянно вращающейся на месте M3E формой
+                    Box(
+                        modifier = Modifier.size(56.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            if (feature.drawableRes != null) {
-                                Icon(
-                                    painter = painterResource(id = feature.drawableRes),
-                                    contentDescription = feature.title,
-                                    tint = feature.accentColor,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            } else if (feature.icon != null) {
-                                Icon(
-                                    imageVector = feature.icon,
-                                    contentDescription = feature.title,
-                                    tint = feature.accentColor,
-                                    modifier = Modifier.size(26.dp)
-                                )
-                            }
+                        // Фоновая M3E фигура, плавно вращающаяся на месте
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    rotationZ = rotationAngle
+                                }
+                                .clip(M3EComposeShape(randomShape))
+                                .background(feature.accentColor.copy(alpha = 0.28f))
+                        )
+
+                        // Иконка по центру (НЕ вращается)
+                        if (feature.drawableRes != null) {
+                            Icon(
+                                painter = painterResource(id = feature.drawableRes),
+                                contentDescription = feature.title,
+                                tint = feature.accentColor,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        } else if (feature.icon != null) {
+                            Icon(
+                                imageVector = feature.icon,
+                                contentDescription = feature.title,
+                                tint = feature.accentColor,
+                                modifier = Modifier.size(26.dp)
+                            )
                         }
                     }
 

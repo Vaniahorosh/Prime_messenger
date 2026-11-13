@@ -24,6 +24,9 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import android.net.Uri;
+import android.transition.Transition;
+import android.transition.TransitionListenerAdapter;
+import com.google.android.material.shape.ShapeAppearanceModel;
 import com.google.android.material.transition.platform.MaterialContainerTransform;
 
 public class RichEditorActivity extends AppCompatActivity {
@@ -44,43 +47,106 @@ public class RichEditorActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         getWindow().requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS);
         
-        MaterialContainerTransform transform = new MaterialContainerTransform();
-        transform.addTarget(R.id.layoutFloatingBottomIsland);
-        transform.setDuration(280);
-        transform.setInterpolator(new androidx.interpolator.view.animation.FastOutSlowInInterpolator());
-        transform.setAllContainerColors(android.graphics.Color.TRANSPARENT);
-        transform.setScrimColor(android.graphics.Color.TRANSPARENT);
-        transform.setFadeMode(MaterialContainerTransform.FADE_MODE_THROUGH);
+        float density = getResources().getDisplayMetrics().density;
+        ShapeAppearanceModel islandShape = ShapeAppearanceModel.builder()
+                .setAllCornerSizes(28f * density)
+                .build();
+
+        int islandBgColor = ContextCompat.getColor(this, R.color.chat_island_bg);
+
+        MaterialContainerTransform enterTransform = new MaterialContainerTransform();
+        enterTransform.addTarget(R.id.layoutFloatingBottomIsland);
+        enterTransform.setDuration(240);
+        enterTransform.setInterpolator(new androidx.interpolator.view.animation.FastOutSlowInInterpolator());
+        enterTransform.setAllContainerColors(islandBgColor);
+        enterTransform.setScrimColor(android.graphics.Color.TRANSPARENT);
+        enterTransform.setFadeMode(MaterialContainerTransform.FADE_MODE_CROSS);
+        enterTransform.setFitMode(MaterialContainerTransform.FIT_MODE_AUTO);
+        enterTransform.setStartShapeAppearanceModel(islandShape);
+        enterTransform.setEndShapeAppearanceModel(islandShape);
+        enterTransform.setDrawingViewId(android.R.id.content);
+
+        MaterialContainerTransform returnTransform = new MaterialContainerTransform();
+        returnTransform.addTarget(R.id.layoutFloatingBottomIsland);
+        returnTransform.setDuration(200);
+        returnTransform.setInterpolator(new androidx.interpolator.view.animation.FastOutSlowInInterpolator());
+        returnTransform.setAllContainerColors(islandBgColor);
+        returnTransform.setScrimColor(android.graphics.Color.TRANSPARENT);
+        returnTransform.setFadeMode(MaterialContainerTransform.FADE_MODE_CROSS);
+        returnTransform.setFitMode(MaterialContainerTransform.FIT_MODE_AUTO);
+        returnTransform.setStartShapeAppearanceModel(islandShape);
+        returnTransform.setEndShapeAppearanceModel(islandShape);
+        returnTransform.setDrawingViewId(android.R.id.content);
         
-        getWindow().setSharedElementEnterTransition(transform);
-        getWindow().setSharedElementReturnTransition(transform);
+        getWindow().setSharedElementEnterTransition(enterTransform);
+        getWindow().setSharedElementReturnTransition(returnTransform);
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.fragment_rich_editor);
         setupBlurViews();
 
+        eightbitlab.com.blurview.BlurView blurBottomIsland = findViewById(R.id.layoutFloatingBottomIsland);
+        if (blurBottomIsland != null) {
+            enterTransform.addListener(new TransitionListenerAdapter() {
+                @Override
+                public void onTransitionStart(Transition transition) {
+                    blurBottomIsland.setBlurAutoUpdate(false);
+                }
+
+                @Override
+                public void onTransitionEnd(Transition transition) {
+                    blurBottomIsland.setBlurAutoUpdate(true);
+                    blurBottomIsland.invalidate();
+                }
+            });
+
+            returnTransform.addListener(new TransitionListenerAdapter() {
+                @Override
+                public void onTransitionStart(Transition transition) {
+                    blurBottomIsland.setBlurAutoUpdate(false);
+                }
+            });
+        }
+
         boolean isDark = isDarkTheme(this);
         UIExtensionsKt.setupEdgeToEdge(this, !isDark);
 
         View root = findViewById(R.id.layoutRichRoot);
-        View bottomIsland = findViewById(R.id.layoutFloatingBottomIsland);
         if (root != null) {
+            root.setAlpha(0f);
+            root.animate()
+                    .alpha(1f)
+                    .setDuration(180)
+                    .setInterpolator(new androidx.interpolator.view.animation.FastOutSlowInInterpolator())
+                    .start();
+
             ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
                 Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
                 Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
                 v.setPadding(0, systemBars.top, 0, 0);
                 
                 int bottomMargin = Math.max(systemBars.bottom, ime.bottom) + (int)(12 * getResources().getDisplayMetrics().density);
-                if (bottomIsland != null) {
-                    androidx.constraintlayout.widget.ConstraintLayout.LayoutParams lp = (androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) bottomIsland.getLayoutParams();
+                if (blurBottomIsland != null) {
+                    androidx.constraintlayout.widget.ConstraintLayout.LayoutParams lp = (androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) blurBottomIsland.getLayoutParams();
                     lp.bottomMargin = bottomMargin;
-                    bottomIsland.setLayoutParams(lp);
+                    blurBottomIsland.setLayoutParams(lp);
                 }
                 return insets;
             });
         }
 
         webViewRich = findViewById(R.id.webViewRich);
+        if (webViewRich != null) {
+            webViewRich.setAlpha(0f);
+            webViewRich.setTranslationY(16f * getResources().getDisplayMetrics().density);
+            webViewRich.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(220)
+                    .setStartDelay(30)
+                    .setInterpolator(new androidx.interpolator.view.animation.FastOutSlowInInterpolator())
+                    .start();
+        }
         setupWebView();
 
         // Retrieve initial content if any
@@ -121,19 +187,21 @@ public class RichEditorActivity extends AppCompatActivity {
                     toolbarRich.animate().cancel();
                     toolbarRich.animate()
                             .alpha(0f)
-                            .scaleY(0f)
-                            .setDuration(180)
+                            .translationY(-10f * density)
+                            .setDuration(150)
+                            .setInterpolator(new androidx.interpolator.view.animation.FastOutSlowInInterpolator())
                             .withEndAction(() -> toolbarRich.setVisibility(View.GONE))
                             .start();
                 } else {
                     toolbarRich.setVisibility(View.VISIBLE);
                     toolbarRich.setAlpha(0f);
-                    toolbarRich.setScaleY(0f);
+                    toolbarRich.setTranslationY(-10f * density);
                     toolbarRich.animate().cancel();
                     toolbarRich.animate()
                             .alpha(1f)
-                            .scaleY(1f)
-                            .setDuration(200)
+                            .translationY(0f)
+                            .setDuration(180)
+                            .setInterpolator(new androidx.interpolator.view.animation.FastOutSlowInInterpolator())
                             .start();
                 }
             });

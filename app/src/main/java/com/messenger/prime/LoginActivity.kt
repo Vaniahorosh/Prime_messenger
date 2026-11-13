@@ -214,11 +214,10 @@ class LoginActivity : AppCompatActivity() {
                                         if (!savedAvatarUri.isNullOrEmpty()) {
                                             loadAvatarIntoView(this@LoginActivity, savedAvatarUri, b.ivLoginAvatar, name)
                                         } else {
-                                            Glide.with(this@LoginActivity).clear(b.ivLoginAvatar)
-                                            b.ivLoginAvatar.setImageResource(R.drawable.ic_prime_logo_vector)
+                                            loadAvatarIntoView(this@LoginActivity, null, b.ivLoginAvatar, name)
                                         }
                                     } else {
-                                        // User not found
+                                        // User not found -> "Приветствуем!"
                                         setTitleText(b, "Приветствуем!")
                                         b.btnToggleMode.text = "Регистрация"
                                         
@@ -229,7 +228,7 @@ class LoginActivity : AppCompatActivity() {
                                         }
                                         isPasswordState = false
                                         Glide.with(this@LoginActivity).clear(b.ivLoginAvatar)
-                                        b.ivLoginAvatar.setImageResource(R.drawable.ic_prime_logo_vector)
+                                        b.ivLoginAvatar.setImageDrawable(null)
                                     }
                                 }
                                 override fun afterTextChanged(s: android.text.Editable?) {}
@@ -429,7 +428,7 @@ class LoginActivity : AppCompatActivity() {
             // Clear avatar state when exiting registration
             avatarUri = null
             Glide.with(this).clear(b.ivLoginAvatar)
-            b.ivLoginAvatar.setImageResource(R.drawable.ic_prime_logo_vector)
+            b.ivLoginAvatar.setImageDrawable(null)
             
             // Re-trigger login text watcher to restore UI state
             val currentText = b.etLogin.text

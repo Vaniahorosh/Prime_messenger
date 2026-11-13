@@ -100,7 +100,6 @@
                                 android:id="@+id/ivLoginAvatar"
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
-                                android:src="@drawable/ic_prime_logo_vector"
                                 android:scaleType="centerCrop"
                                 android:background="#1AFFFFFF"
                                 app:shapeAppearanceOverlay="@style/RoundedDialogShape" />

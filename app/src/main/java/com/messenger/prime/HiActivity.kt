@@ -94,7 +94,6 @@ class HiActivity : AppCompatActivity() {
     ) { _ ->
         val missing = getMissingPermissions()
         if (missing.isEmpty()) {
-            PrimeNotification.show(this, "Разрешения приняты! Переходим...")
             if (isPendingNavigationAfterPermissions) {
                 isPendingNavigationAfterPermissions = false
                 binding.btnPrime.isEnabled = false
@@ -208,8 +207,9 @@ class HiActivity : AppCompatActivity() {
     private fun getAllRequiredPermissions(): Array<String> {
         val perms = mutableListOf<String>()
         
-        // Камера и Контакты
+        // Камера, Микрофон и Контакты
         perms.add(Manifest.permission.CAMERA)
+        perms.add(Manifest.permission.RECORD_AUDIO)
         perms.add(Manifest.permission.READ_CONTACTS)
 
         // Геолокация (требуется для поиска устройств поблизости по Bluetooth)
@@ -253,14 +253,83 @@ class HiActivity : AppCompatActivity() {
         val btnContinueWithout = dialogView.findViewById<MaterialButton>(R.id.btnContinueWithoutPermissions)
         val btnExitApp = dialogView.findViewById<MaterialButton>(R.id.btnExitApp)
         
-        // Применяем кастомный акцентный цвет ко всем элементам (иконкам, кнопкам) внутри диалога
+        btnAcceptAll?.tag = "do_not_tint"
+        btnContinueWithout?.tag = "do_not_tint"
+        btnExitApp?.tag = "do_not_tint"
+
+        // Применяем кастомный акцентный цвет к фону/заголовкам внутри диалога
         ColorAccentManager.tintViewTree(dialogView, ColorAccentManager.getCurrentAccentColor(this))
 
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
 
+        // Настраиваем уникальные M3E фигуры, цвета и каскадную анимацию появления
+        val bgAlpha = if (isDark) 60 else 45
+
+        data class PermAnimSpec(
+            val shapeViewId: Int,
+            val iconViewId: Int,
+            val color: Int,
+            val shape: androidx.graphics.shapes.RoundedPolygon
+        )
+
+        val specs = listOf(
+            PermAnimSpec(R.id.vPermShapeCamera, R.id.ivPermCamera, Color.parseColor("#38BDF8"), com.messenger.prime.shapes.M3EShapes.cookie6Sided),
+            PermAnimSpec(R.id.vPermShapeMic, R.id.ivPermMic, Color.parseColor("#06B6D4"), com.messenger.prime.shapes.M3EShapes.flower),
+            PermAnimSpec(R.id.vPermShapeContacts, R.id.ivPermContacts, Color.parseColor("#4ADE80"), com.messenger.prime.shapes.M3EShapes.clover4Leaf),
+            PermAnimSpec(R.id.vPermShapeBluetooth, R.id.ivPermBluetooth, Color.parseColor("#EAB308"), com.messenger.prime.shapes.M3EShapes.verySunny),
+            PermAnimSpec(R.id.vPermShapeSearch, R.id.ivPermSearch, Color.parseColor("#3B82F6"), com.messenger.prime.shapes.M3EShapes.pentagon),
+            PermAnimSpec(R.id.vPermShapeNotifications, R.id.ivPermNotifications, Color.parseColor("#F43F5E"), com.messenger.prime.shapes.M3EShapes.cookie4Sided),
+            PermAnimSpec(R.id.vPermShapeMedia, R.id.ivPermMedia, Color.parseColor("#A855F7"), com.messenger.prime.shapes.M3EShapes.gem)
+        )
+
+        specs.forEachIndexed { index, spec ->
+            val vShape = dialogView.findViewById<View>(spec.shapeViewId)
+            val ivIcon = dialogView.findViewById<android.widget.ImageView>(spec.iconViewId)
+
+            if (vShape != null && ivIcon != null) {
+                val bgColor = androidx.core.graphics.ColorUtils.setAlphaComponent(spec.color, bgAlpha)
+                vShape.background = com.messenger.prime.shapes.M3EDrawable(
+                    shape = spec.shape,
+                    color = bgColor
+                )
+                ivIcon.imageTintList = ColorStateList.valueOf(spec.color)
+
+                // 1. Начальное состояние M3E формы: уменьшена, прозрачна и повернута
+                vShape.alpha = 0f
+                vShape.scaleX = 0.15f
+                vShape.scaleY = 0.15f
+                vShape.rotation = -140f
+
+                // 2. Начальное состояние иконки: прозрачна, НЕ крутится (rotation 0f)
+                ivIcon.alpha = 0f
+                ivIcon.rotation = 0f
+
+                val startDelay = 120L + index * 60L
+
+                // Каскадная анимация: форма вращается и растет с эффектом пружины
+                vShape.animate()
+                    .alpha(1f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .rotation(0f)
+                    .setStartDelay(startDelay)
+                    .setDuration(480L)
+                    .setInterpolator(OvershootInterpolator(1.3f))
+                    .start()
+
+                // Иконка параллельно плавно проявляется из тьмы (без вращения)
+                ivIcon.animate()
+                    .alpha(1f)
+                    .setStartDelay(startDelay + 40L)
+                    .setDuration(420L)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+            }
+        }
+
         if (!isDark) {
-            // В светлой теме переводим весь текст в окне выбора разрешений в фирменный цвет
+            // В светлой теме переводим текст вопросов в акцентный цвет, оставляя кнопки независимыми
             fun applyBrandTextColor(view: View) {
                 if (view is ViewGroup) {
                     for (i in 0 until view.childCount) {
@@ -273,8 +342,11 @@ class HiActivity : AppCompatActivity() {
             }
             applyBrandTextColor(dialogView)
 
-            btnContinueWithout?.setTextColor(accentColor)
-            btnContinueWithout?.strokeColor = ColorStateList.valueOf(accentColor)
+            btnContinueWithout?.setTextColor(Color.parseColor("#334155"))
+            btnContinueWithout?.strokeColor = ColorStateList.valueOf(Color.parseColor("#94A3B8"))
+        } else {
+            btnContinueWithout?.setTextColor(Color.WHITE)
+            btnContinueWithout?.strokeColor = ColorStateList.valueOf(Color.parseColor("#80FFFFFF"))
         }
 
         if (blurCard != null) {
@@ -346,7 +418,37 @@ class HiActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    private var hasIntroAnimationFinished = false
+
+    private fun restoreAllViews() {
+        hasIntroAnimationFinished = true
+
+        allViews.forEach { view ->
+            view.animate().cancel()
+            view.visibility = View.VISIBLE
+            view.alpha = 1f
+            view.translationX = 0f
+            view.translationY = 0f
+            view.scaleX = 1f
+            view.scaleY = 1f
+            view.isEnabled = true
+        }
+
+        binding.centerContainer.animate().cancel()
+        binding.centerContainer.visibility = View.VISIBLE
+        binding.centerContainer.alpha = 1f
+        binding.centerContainer.translationX = 0f
+        binding.centerContainer.translationY = 0f
+        binding.centerContainer.scaleX = 1f
+        binding.centerContainer.scaleY = 1f
+    }
+
     private fun runIntroHeroAnimation() {
+        if (hasIntroAnimationFinished) {
+            restoreAllViews()
+            return
+        }
+
         // Изначально гарантируем полную невидимость до начала анимации
         binding.btnExit.visibility = View.INVISIBLE
         binding.btnExit.alpha = 0f
@@ -366,6 +468,8 @@ class HiActivity : AppCompatActivity() {
         binding.ivLogo.scaleY = 0.5f
 
         binding.root.post {
+            if (isFinishing || isDestroyed || hasIntroAnimationFinished) return@post
+
             val screenHeight = resources.displayMetrics.heightPixels.toFloat()
             val logoCenterInTop = binding.ivLogo.top + binding.ivLogo.height / 2f
             val deltaY = (screenHeight / 2f) - logoCenterInTop
@@ -381,6 +485,8 @@ class HiActivity : AppCompatActivity() {
                 .setDuration(550L)
                 .setInterpolator(FastOutSlowInInterpolator())
                 .withEndAction {
+                    if (isFinishing || isDestroyed || hasIntroAnimationFinished) return@withEndAction
+
                     // 2. Плавный отъезд логотипа наверх к стрелке назад
                     binding.ivLogo.animate()
                         .translationY(0f)
@@ -389,6 +495,8 @@ class HiActivity : AppCompatActivity() {
                         .setDuration(750L)
                         .setInterpolator(FastOutSlowInInterpolator())
                         .withEndAction {
+                            if (isFinishing || isDestroyed || hasIntroAnimationFinished) return@withEndAction
+
                             // 3. Выезд остального интерфейса из тени:
                             binding.btnExit.visibility = View.VISIBLE
                             binding.btnExit.animate()
@@ -413,6 +521,9 @@ class HiActivity : AppCompatActivity() {
                                 .setStartDelay(120L)
                                 .setDuration(550L)
                                 .setInterpolator(DecelerateInterpolator())
+                                .withEndAction {
+                                    hasIntroAnimationFinished = true
+                                }
                                 .start()
                         }
                         .start()
@@ -493,10 +604,8 @@ class HiActivity : AppCompatActivity() {
             binding.ivLogo.setColorFilter(if (isDark) ColorAccentManager.getCurrentAccentColor(this) else Color.WHITE)
             
             if (hasIntroRun) {
-                allViews.forEach { view ->
-                    view.animate().cancel()
-                    view.alpha = 1f
-                }
+                // Восстанавливаем полную видимость всех элементов при возврате на экран (например, с LoginActivity)
+                restoreAllViews()
             } else {
                 hasIntroRun = true
             }
@@ -508,6 +617,9 @@ class HiActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        if (::binding.isInitialized) {
+            restoreAllViews()
+        }
         stopDynamicSequence()
     }
 
