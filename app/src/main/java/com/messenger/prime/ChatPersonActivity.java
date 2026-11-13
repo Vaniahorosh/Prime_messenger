@@ -1257,7 +1257,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         View layoutHeader = findViewById(R.id.layoutHeader);
         View layoutHeaderNormal = findViewById(R.id.layoutHeaderNormal);
         
-        View.OnClickListener openPartnerInfoListener = v -> openPersonInformationActivity();
+        View.OnClickListener openPartnerInfoListener = v -> {
+            if (isNotesChat()) {
+                showNotesMenu(v);
+            } else {
+                openPersonInformationActivity();
+            }
+        };
         View.OnLongClickListener searchDialogListener = v -> {
             showSearchDialog();
             return true;
@@ -1428,11 +1434,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             if (spacerHeaderNotes != null) spacerHeaderNotes.setVisibility(View.VISIBLE);
             if (layoutHeaderNotes != null) {
                 layoutHeaderNotes.setVisibility(View.VISIBLE);
-                layoutHeaderNotes.setOnClickListener(v -> openPersonInformationActivity());
+                layoutHeaderNotes.setOnClickListener(v -> showNotesMenu(v));
             }
             View btnNotesMenu = findViewById(R.id.btnNotesMenu);
             if (btnNotesMenu != null) {
-                btnNotesMenu.setOnClickListener(v -> openPersonInformationActivity());
+                btnNotesMenu.setOnClickListener(v -> showNotesMenu(v));
             }
             if (etMessage != null) {
                 etMessage.setHint("Создать заметку...");
@@ -1480,11 +1486,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             if (spacerHeaderNotes != null) spacerHeaderNotes.setVisibility(View.VISIBLE);
             if (layoutHeaderNotes != null) {
                 layoutHeaderNotes.setVisibility(View.VISIBLE);
-                layoutHeaderNotes.setOnClickListener(v -> openPersonInformationActivity());
+                layoutHeaderNotes.setOnClickListener(v -> showNotesMenu(v));
             }
             View btnNotesMenu = findViewById(R.id.btnNotesMenu);
             if (btnNotesMenu != null) {
-                btnNotesMenu.setOnClickListener(v -> openPersonInformationActivity());
+                btnNotesMenu.setOnClickListener(v -> showNotesMenu(v));
             }
         }
 
@@ -4114,6 +4120,16 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             return;
         }
 
+        // Avoid constant twitching/jumping when status updates rapidly (e.g. typing, dots, state updates)
+        if (currentText != null && (
+                (currentText.toString().startsWith("Печатает") && newText.startsWith("Печатает")) ||
+                (currentText.toString().startsWith("Записывает") && newText.startsWith("Записывает")) ||
+                (currentText.toString().startsWith("Отправка") && newText.startsWith("Отправка"))
+        )) {
+            setStatusTextDirect(newText, textColor);
+            return;
+        }
+
         try {
             sendBroadcast(new Intent("com.messenger.prime.STATUS_UPDATED").setPackage(getPackageName()));
         } catch (Exception ignored) {}
@@ -4396,7 +4412,46 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         );
     }
 
+    private void showNotesMenu(View anchor) {
+        if (anchor == null) anchor = findViewById(R.id.layoutHeaderNotesIsland);
+        if (anchor == null) anchor = findViewById(R.id.layoutHeader);
+
+        PrimePopupMenu menu = PrimePopupMenu.create(this, anchor);
+
+        menu.addItem("Больше", R.drawable.ic_more, false, () -> {
+            openPersonInformationActivity();
+            return kotlin.Unit.INSTANCE;
+        });
+
+        menu.addItem("В начало", R.drawable.ic_arrow_up, false, () -> {
+            if (chatAdapter != null && chatAdapter.getItemCount() > 0 && rvMessages != null) {
+                rvMessages.scrollToPosition(0);
+            }
+            return kotlin.Unit.INSTANCE;
+        });
+
+        menu.addItem("Поиск по чату", R.drawable.ic_search, false, () -> {
+            showInChatSearchBar();
+            return kotlin.Unit.INSTANCE;
+        });
+
+        List<ChatHistoryManager.PinnedMessageItem> pinnedList = ChatHistoryManager.getPinnedMessages(this, targetUsername, deviceAddress);
+        if (pinnedList != null && !pinnedList.isEmpty()) {
+            menu.addItem("Показать закреп.", R.drawable.ic_pin, false, () -> {
+                ChatHistoryManager.setPinnedBarHidden(this, targetUsername, deviceAddress, false);
+                setupPinnedMessageBar();
+                return kotlin.Unit.INSTANCE;
+            });
+        }
+
+        menu.show();
+    }
+
     private void showAvatarMenu(View anchor) {
+        if (isNotesChat()) {
+            showNotesMenu(anchor);
+            return;
+        }
         String name = isNotesChat() ? "Заметки" : AvatarManager.getContactDisplayName(this, deviceAddress, targetUsername, targetUsername);
         boolean isBarHidden = ChatHistoryManager.isPinnedBarHidden(this, targetUsername, deviceAddress);
         boolean hasPinned = !ChatHistoryManager.getPinnedMessages(this, targetUsername, deviceAddress).isEmpty();
@@ -4919,13 +4974,24 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void performCompleteChatDeletion() {
         isChatDeleted = true;
-        if (isConnectionActive()) {
-            String deletionPayload = "DELETE_CHAT:login=" + localUsername + ";name=" + localUsername;
-            sendPacket(TYPE_CHAT_DELETED, deletionPayload.getBytes(StandardCharsets.UTF_8));
-            new Handler(Looper.getMainLooper()).postDelayed(this::finalizeChatDeletion, 200);
-        } else {
-            finalizeChatDeletion();
-        }
+        SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        String currentUser = sp.getString("current_user", localUsername);
+        String myDisplayName = sp.getString("my_name", localUsername);
+        String deletionPayload = "DELETE_CHAT:login=" + currentUser + ";name=" + myDisplayName + ";mac=" + (deviceAddress != null ? deviceAddress : "");
+        byte[] payloadBytes = deletionPayload.getBytes(StandardCharsets.UTF_8);
+
+        try {
+            sendPacket(TYPE_CHAT_DELETED, payloadBytes);
+        } catch (Throwable ignored) {}
+
+        try {
+            BluetoothConnectionManager.getInstance().broadcastPacket((byte) 0x08, payloadBytes);
+            if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                BluetoothConnectionManager.getInstance().sendPacket(deviceAddress, (byte) 0x08, payloadBytes);
+            }
+        } catch (Throwable ignored) {}
+
+        new Handler(Looper.getMainLooper()).postDelayed(this::finalizeChatDeletion, 250);
     }
 
     private void finalizeChatDeletion() {

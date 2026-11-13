@@ -20,6 +20,15 @@
             android:orientation="vertical"
             android:padding="24dp">
 
+            <!-- Drag handle -->
+            <View
+                android:layout_width="32dp"
+                android:layout_height="4dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/ic_drag_handle"
+                android:backgroundTint="#40FFFFFF" />
+
             <TextView
                 android:id="@+id/tvColorTitle"
                 android:layout_width="match_parent"
@@ -27,8 +36,8 @@
                 android:gravity="center"
                 android:text="Выбор цвета"
                 android:textColor="@color/dialog_title_color"
-                android:textSize="20sp"
-                android:textStyle="bold" />
+                android:textSize="18sp"
+                android:fontFamily="sans-serif-medium" />
 
             <com.messenger.prime.SpectrumView
                 android:id="@+id/spectrumView"
@@ -46,8 +55,8 @@
 
                 <View
                     android:id="@+id/viewColorPreview"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
                     android:background="@drawable/ic_person"
                     android:backgroundTint="@color/dialog_title_color" />
 
@@ -60,10 +69,12 @@
                     android:id="@+id/btnPipette"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="44dp"
                     android:text="Пипетка"
+                    android:textAllCaps="false"
+                    android:fontFamily="sans-serif-medium"
                     android:textColor="@color/dialog_button_cancel_text"
-                    app:cornerRadius="12dp"
+                    app:cornerRadius="14dp"
                     app:icon="@drawable/ic_pipette"
                     app:iconTint="@color/dialog_button_cancel_text"
                     app:strokeColor="@color/dialog_button_cancel_stroke" />
@@ -76,6 +87,10 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:hint="HEX (#RRGGBB)"
+                app:boxCornerRadiusBottomEnd="16dp"
+                app:boxCornerRadiusBottomStart="16dp"
+                app:boxCornerRadiusTopEnd="16dp"
+                app:boxCornerRadiusTopStart="16dp"
                 app:boxStrokeColor="@color/dialog_box_stroke"
                 app:hintTextColor="@color/dialog_hint_color">
 
@@ -102,6 +117,10 @@
                     android:layout_marginEnd="4dp"
                     android:layout_weight="1"
                     android:hint="R"
+                    app:boxCornerRadiusBottomEnd="14dp"
+                    app:boxCornerRadiusBottomStart="14dp"
+                    app:boxCornerRadiusTopEnd="14dp"
+                    app:boxCornerRadiusTopStart="14dp"
                     app:boxStrokeColor="@color/dialog_box_stroke"
                     app:hintTextColor="@color/dialog_hint_color">
 
@@ -121,6 +140,10 @@
                     android:layout_marginHorizontal="4dp"
                     android:layout_weight="1"
                     android:hint="G"
+                    app:boxCornerRadiusBottomEnd="14dp"
+                    app:boxCornerRadiusBottomStart="14dp"
+                    app:boxCornerRadiusTopEnd="14dp"
+                    app:boxCornerRadiusTopStart="14dp"
                     app:boxStrokeColor="@color/dialog_box_stroke"
                     app:hintTextColor="@color/dialog_hint_color">
 
@@ -140,6 +163,10 @@
                     android:layout_marginStart="4dp"
                     android:layout_weight="1"
                     android:hint="B"
+                    app:boxCornerRadiusBottomEnd="14dp"
+                    app:boxCornerRadiusBottomStart="14dp"
+                    app:boxCornerRadiusTopEnd="14dp"
+                    app:boxCornerRadiusTopStart="14dp"
                     app:boxStrokeColor="@color/dialog_box_stroke"
                     app:hintTextColor="@color/dialog_hint_color">
 
@@ -156,12 +183,12 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnApplyColor"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
+                android:layout_height="48dp"
                 android:layout_marginTop="20dp"
                 android:text="Применить"
                 android:textAllCaps="false"
                 android:textColor="@color/dialog_button_save_text"
-                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
                 app:backgroundTint="@color/dialog_button_save_bg"
                 app:cornerRadius="16dp" />
 

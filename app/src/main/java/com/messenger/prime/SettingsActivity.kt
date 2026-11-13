@@ -1134,6 +1134,7 @@ class SettingsActivity : AppCompatActivity() {
                 val tvSubtitle = row.findViewById<TextView>(R.id.tvPluginSubtitle)
                 val switchEnable = row.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPluginEnable)
                 val btnDelete = row.findViewById<View>(R.id.btnDeletePlugin)
+                val btnRun = row.findViewById<View>(R.id.btnRunPlugin)
 
                 tvName.text = plugin.name
                 val statusStr = if (plugin.isEnabled) "Активен" else "Отключен"
@@ -1143,6 +1144,11 @@ class SettingsActivity : AppCompatActivity() {
                 switchEnable.setOnCheckedChangeListener { _, isChecked ->
                     PluginManager.togglePlugin(this, plugin.id, isChecked)
                     refreshPluginsList()
+                }
+                
+                btnRun?.setOnClickListener {
+                    val execResult = PluginExecutor.executePlugin(this, plugin)
+                    PrimeNotification.show(this, execResult.take(120))
                 }
 
                 btnDelete.setOnClickListener {

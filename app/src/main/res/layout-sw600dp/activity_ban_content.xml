@@ -4,123 +4,140 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/prime_background_blue">
+    android:background="@color/prime_base">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="0dp"
         android:layout_height="match_parent"
         app:layout_constraintWidth_max="480dp"
-        android:padding="24dp"
+        android:paddingHorizontal="32dp"
+        android:paddingVertical="40dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <ImageView
-            android:id="@+id/ivBanIcon"
-            android:layout_width="160dp"
-            android:layout_height="160dp"
-            android:layout_marginTop="80dp"
-            android:src="@drawable/ban_icon"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <TextView
-            android:id="@+id/tvBanTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:gravity="center"
-            android:textColor="@color/white"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/ivBanIcon"
-            tools:text="Дмитрий, ваш аккаунт заблокирован." />
-
-        <TextView
-            android:id="@+id/tvBanReason"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:gravity="center"
-            android:textColor="@color/white"
-            android:textSize="16sp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tvBanTitle"
-            tools:text="Причина: Подозрительная активность" />
-
         <LinearLayout
-            android:id="@+id/layoutBanDuration"
-            android:layout_width="wrap_content"
+            android:id="@+id/cardBanContainer"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:orientation="horizontal"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingVertical="32dp"
+            app:layout_constraintBottom_toTopOf="@+id/layoutBottomActions"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tvBanReason">
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_chainStyle="spread_inside">
+
+            <!-- Icon container -->
+            <FrameLayout
+                android:layout_width="96dp"
+                android:layout_height="96dp"
+                android:background="@drawable/bg_circular_mode_active"
+                android:backgroundTint="@color/prime_surface">
+
+                <ImageView
+                    android:id="@+id/ivBanIcon"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ban_icon"
+                    android:contentDescription="Статус блокировки" />
+            </FrameLayout>
 
             <TextView
-                android:id="@+id/tvBanDurationLabel"
+                android:id="@+id/tvBanTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:text="Срок блокировки: " />
+                android:layout_marginTop="24dp"
+                android:gravity="center"
+                android:textColor="@color/prime_text_primary"
+                android:textSize="22sp"
+                android:fontFamily="sans-serif-medium"
+                tools:text="Дмитрий, аккаунт заблокирован" />
 
-            <TextSwitcher
-                android:id="@+id/tsBanTime"
+            <TextView
+                android:id="@+id/tvBanReason"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:inAnimation="@anim/slide_in_top_alpha"
-                android:outAnimation="@anim/slide_out_bottom" />
+                android:layout_marginTop="8dp"
+                android:gravity="center"
+                android:textColor="@color/prime_text_secondary"
+                android:textSize="14sp"
+                tools:text="Причина: Подозрительная активность" />
+
+            <LinearLayout
+                android:id="@+id/layoutBanDuration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:background="@drawable/bg_m3_active_indicator"
+                android:backgroundTint="@color/prime_surface"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="8dp">
+
+                <TextView
+                    android:id="@+id/tvBanDurationLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/prime_text_secondary"
+                    android:textSize="14sp"
+                    android:text="Срок блокировки: " />
+
+                <TextSwitcher
+                    android:id="@+id/tsBanTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:inAnimation="@anim/slide_in_top_alpha"
+                    android:outAnimation="@anim/slide_out_bottom" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvBanExpiry"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textColor="@color/prime_text_secondary"
+                android:textSize="13sp"
+                tools:text="Блокировка истекает: 31.07.2026 14:00" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvBanExpiry"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:alpha="0.8"
-            android:textColor="@color/white"
-            android:textSize="14sp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/layoutBanDuration"
-            tools:text="Блокировка спадет: 31.07.2026 14:00" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnBanAction"
+        <!-- Bottom Actions -->
+        <LinearLayout
+            android:id="@+id/layoutBottomActions"
             android:layout_width="match_parent"
-            android:layout_height="64dp"
-            android:layout_marginBottom="16dp"
-            android:textAllCaps="false"
-            android:textColor="@color/prime_background_blue"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            app:backgroundTint="@color/prime_danger_light"
-            app:cornerRadius="18dp"
-            app:layout_constraintBottom_toTopOf="@+id/tvDeleteWarning"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            tools:text="Выйти из приложения" />
-
-        <TextView
-            android:id="@+id/tvDeleteWarning"
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="40dp"
-            android:alpha="0.7"
-            android:text="аккаунт будет удален безвозвратно"
-            android:textColor="@color/white"
-            android:textSize="12sp"
-            android:visibility="gone"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            tools:visibility="visible" />
+            app:layout_constraintStart_toStartOf="parent">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnBanAction"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:textAllCaps="false"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                android:fontFamily="sans-serif-medium"
+                app:cornerRadius="16dp"
+                app:backgroundTint="@color/prime_danger_light"
+                tools:text="Выйти из приложения" />
+
+            <TextView
+                android:id="@+id/tvDeleteWarning"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Все данные аккаунта будут удалены"
+                android:textColor="@color/prime_text_secondary"
+                android:textSize="12sp"
+                android:visibility="gone"
+                tools:visibility="visible" />
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

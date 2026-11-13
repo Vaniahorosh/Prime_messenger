@@ -123,16 +123,10 @@ class AiChatActivity : AppCompatActivity() {
         activeSession = session
         messages.clear()
         if (session?.messages?.isEmpty() == true) {
-            val welcomeText = if (apiKey.isEmpty()) {
-                "Привет! Я AI Ассистент Prime. Нажмите на иконку шестеренки (слева внизу), чтобы ввести ваш API ключ. Я автоматически определю модель и настроюсь!"
-            } else {
-                "Привет! Используется модель ${currentModelConfig.model} (${currentModelConfig.provider}). Задайте любой вопрос."
-            }
-            val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-            session.messages.add(AiMessage(welcomeText, isUser = false, time = timeStr))
+            // Do not insert fake welcome messages anymore. We use the unslopped empty state layout.
             AiChatStorage.saveSession(this, session)
         }
-        messages.addAll(session.messages)
+        messages.addAll(session?.messages ?: emptyList())
         adapter.notifyDataSetChanged()
         checkEmptyState()
     }
@@ -202,7 +196,7 @@ class AiChatActivity : AppCompatActivity() {
 
     private fun updateHeaderAndStatus(statusText: String) {
         val session = activeSession
-        val title = session?.title?.ifBlank { "AI Prime Assistant" } ?: "AI Prime Assistant"
+        val title = session?.title?.ifBlank { "Prime AI" } ?: "Prime AI"
         binding.tvAiHeaderTitle.text = title
 
         val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
@@ -212,14 +206,13 @@ class AiChatActivity : AppCompatActivity() {
         val customUrl = sp.getString("ai_custom_url", "") ?: ""
         currentModelConfig = AiModelDetector.detect(apiKey, savedProvider, savedModel, customUrl)
 
-        val statusDot = if (apiKey.isEmpty()) "●" else if (statusText == "Ошибка") "●" else "●"
         val tokens = AiModelDetector.estimateTokens(messages)
         val quotaUsage = AiModelDetector.formatTokenUsage(tokens, currentModelConfig.maxContextTokens)
 
         val subtitle = if (apiKey.isEmpty()) {
-            "● Ключ не настроен • Нажмите ⚙"
+            "Ключ API не настроен • Настройки"
         } else {
-            "$statusDot $statusText • ${currentModelConfig.model} • $quotaUsage"
+            "$statusText • ${currentModelConfig.model} • $quotaUsage"
         }
         binding.tvAiHeaderSubtitle.text = subtitle
     }
@@ -660,17 +653,12 @@ class AiChatActivity : AppCompatActivity() {
 - Создать кнопку с иконкой: ```button:Текст|Действие|иконка``` (иконки: settings, search, music, photo, file, add, done, trash, globe, pipette, prime)
 
 Для написания JS плагинов доступен объект Android:
-- Android.toast(msg), Android.notify(title, msg)
-- Android.openSettings(), Android.openSearch(), Android.openMediaPlayer()
-- Android.openWallpaperEditor(), Android.openProfile(), Android.openChat(address)
-- Android.setAccentColor(hexColor), Android.copyToClipboard(text), Android.openUrl(url)
-- Android.changeTheme(isDark: boolean), Android.vibrate(ms), Android.playSound()
-- Android.showDialog(title, message), Android.openOverlay()
-- Android.httpGet(urlStr) : String
-- Android.getCurrentUser() : String
-- Android.getChatsJson() : String (возвращает JSON массив чатов)
-- Android.deleteChat(address), Android.clearChat(address), Android.deleteAllChats()
-- Android.sendMessage(address, text)
+- UI и Навигация: Android.toast(msg), Android.notify(title, msg), Android.showDialog(title, message), Android.openSettings(), Android.openSearch(), Android.openMediaPlayer(), Android.openWallpaperEditor(), Android.openProfile(), Android.openChat(address), Android.openOverlay(), Android.openUrl(url)
+- Кастомизация: Android.setAccentColor(hexColor), Android.changeTheme(isDark: boolean)
+- Устройство: Android.vibrate(ms), Android.playSound(), Android.copyToClipboard(text), Android.getDeviceModel(), Android.getAndroidVersion(), Android.getAppVersion(), Android.getBatteryLevel()
+- Сеть и IO: Android.httpGet(urlStr), Android.writeFile(fileName, content), Android.readFile(fileName), Android.executeCommand(cmd)
+- Чаты и Пользователь: Android.getCurrentUser(), Android.getChatsJson(), Android.deleteChat(address), Android.clearChat(address), Android.deleteAllChats(), Android.sendMessage(address, text)
+- Интеграция с ОС: Android.shareText(text), Android.makeCall(phone), Android.sendSms(phone, text)
 
 $pluginsSummary
 
@@ -888,58 +876,62 @@ $systemPrompt
             }
 
             // 4. Process Overlay Floating Window Trigger
-            val isOverlayRequest = responseText.contains("```action:open_overlay```") || pLower.contains("открой оверлей") || pLower.contains("плавающее окно")
+            val isOverlayRequest = (responseText.contains("```action:open_overlay```") || pLower.contains("открой оверлей") || pLower.contains("плавающее окно")) && (pLower.contains("открой") || pLower.contains("запусти") || pLower.contains("включи"))
             if (isOverlayRequest) {
                 PrimeOverlayService.toggleOverlayService(this)
             }
 
-            // 5. Process Navigation & Screen Openings
-            val isSettingsRequest = responseText.contains("```action:open_settings```") || pLower.contains("настройк")
-            if (isSettingsRequest) {
-                startActivity(Intent(this, SettingsActivity::class.java))
-                PrimeNotification.show(this, "AI открыл Настройки")
-            }
+            // 5. Process Navigation & Screen Openings ONLY when user explicitly asks in prompt!
+            val userExplicitlyAskedToNavigate = pLower.contains("открой") || pLower.contains("перейди") || pLower.contains("запусти") || pLower.contains("покажи") || pLower.contains("открыть") || pLower.contains("перейти")
 
-            val isSearchRequest = responseText.contains("```action:open_search```") || pLower.contains("открой поиск") || pLower.contains("глобальный поиск")
-            if (isSearchRequest) {
-                startActivity(Intent(this, GlobalSearchActivity::class.java))
-                PrimeNotification.show(this, "AI открыл Глобальный поиск")
-            }
+            if (userExplicitlyAskedToNavigate) {
+                val isSettingsRequest = responseText.contains("```action:open_settings```") || pLower.contains("настройк")
+                if (isSettingsRequest) {
+                    startActivity(Intent(this, SettingsActivity::class.java))
+                    PrimeNotification.show(this, "AI открыл Настройки")
+                }
 
-            val isPlayerRequest = responseText.contains("```action:open_media_player```") || pLower.contains("открой плеер") || pLower.contains("включи плеер") || pLower.contains("открой музыку")
-            if (isPlayerRequest) {
-                startActivity(Intent(this, MediaPlayerActivity::class.java))
-                PrimeNotification.show(this, "AI открыл Медиаплеер")
-            }
+                val isSearchRequest = responseText.contains("```action:open_search```") || pLower.contains("поиск")
+                if (isSearchRequest) {
+                    startActivity(Intent(this, GlobalSearchActivity::class.java))
+                    PrimeNotification.show(this, "AI открыл Глобальный поиск")
+                }
 
-            val isWallpaperRequest = responseText.contains("```action:open_wallpaper_editor```") || pLower.contains("открой обои") || pLower.contains("редактор обоев")
-            if (isWallpaperRequest) {
-                startActivity(Intent(this, WallpaperEditorActivity::class.java))
-                PrimeNotification.show(this, "AI открыл Редактор обоев")
-            }
+                val isPlayerRequest = responseText.contains("```action:open_media_player```") || pLower.contains("плеер") || pLower.contains("музык")
+                if (isPlayerRequest) {
+                    startActivity(Intent(this, MediaPlayerActivity::class.java))
+                    PrimeNotification.show(this, "AI открыл Медиаплеер")
+                }
 
-            val isProfileRequest = responseText.contains("```action:open_profile```") || pLower.contains("открой профиль") || pLower.contains("мой профиль")
-            if (isProfileRequest) {
-                startActivity(Intent(this, PersonInformationActivity::class.java))
-                PrimeNotification.show(this, "AI открыл Профиль")
-            }
+                val isWallpaperRequest = responseText.contains("```action:open_wallpaper_editor```") || pLower.contains("обои") || pLower.contains("редактор обоев")
+                if (isWallpaperRequest) {
+                    startActivity(Intent(this, WallpaperEditorActivity::class.java))
+                    PrimeNotification.show(this, "AI открыл Редактор обоев")
+                }
 
-            val isRichEditorRequest = responseText.contains("```action:open_rich_editor```") || pLower.contains("открой редактор")
-            if (isRichEditorRequest) {
-                startActivity(Intent(this, RichEditorActivity::class.java))
-                PrimeNotification.show(this, "AI открыл Редактор текста")
-            }
+                val isProfileRequest = responseText.contains("```action:open_profile```") || pLower.contains("профиль")
+                if (isProfileRequest) {
+                    startActivity(Intent(this, PersonInformationActivity::class.java))
+                    PrimeNotification.show(this, "AI открыл Профиль")
+                }
 
-            // 6. Process P2P Chat Actions
-            val openP2pRegex = Regex("```action:open_p2p_chat:(.*?)```")
-            openP2pRegex.find(responseText)?.let { match ->
-                val address = match.groupValues[1].trim()
-                val name = ChatHistoryManager.getDisplayNameForAddress(this, address)
-                startActivity(Intent(this, ChatPersonActivity::class.java).apply {
-                    putExtra("device_address", address)
-                    putExtra("device_name", name)
-                })
-                PrimeNotification.show(this, "AI открыл чат с $name")
+                val isRichEditorRequest = responseText.contains("```action:open_rich_editor```") || pLower.contains("редактор текста") || pLower.contains("редактор")
+                if (isRichEditorRequest) {
+                    startActivity(Intent(this, RichEditorActivity::class.java))
+                    PrimeNotification.show(this, "AI открыл Редактор текста")
+                }
+
+                // P2P Chat Actions
+                val openP2pRegex = Regex("```action:open_p2p_chat:(.*?)```")
+                openP2pRegex.find(responseText)?.let { match ->
+                    val address = match.groupValues[1].trim()
+                    val name = ChatHistoryManager.getDisplayNameForAddress(this, address)
+                    startActivity(Intent(this, ChatPersonActivity::class.java).apply {
+                        putExtra("device_address", address)
+                        putExtra("device_name", name)
+                    })
+                    PrimeNotification.show(this, "AI открыл чат с $name")
+                }
             }
 
             val sendP2pRegex = Regex("```action:send_p2p_message:(.*?)\\|([\\s\\S]*?)```")
@@ -985,9 +977,7 @@ $systemPrompt
                 val topic = match.groupValues[1].trim().ifBlank { "Новый чат" }
                 val newSession = AiChatStorage.createNewSession(this, currentModelConfig.model)
                 newSession.title = topic
-                val welcomeText = "Чат '$topic' создан по запросу AI агента."
-                val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-                newSession.messages.add(AiMessage(welcomeText, isUser = false, time = timeStr))
+                // Do not write dummy message anymore.
                 AiChatStorage.saveSession(this, newSession)
                 switchSession(newSession)
                 PrimeNotification.show(this, "AI создал чат: $topic")
@@ -1618,6 +1608,58 @@ class AiMessagesAdapter(private val items: List<AiMessage>) : RecyclerView.Adapt
         }
     }
 
+    private fun createAndAddMessageButton(
+        context: Context,
+        container: LinearLayout,
+        btnLabel: String,
+        btnAction: String,
+        iconRes: Int?,
+        btnIcon: String
+    ) {
+        val density = context.resources.displayMetrics.density
+        val btn = com.google.android.material.button.MaterialButton(context).apply {
+            text = btnLabel
+            textSize = 13.5f
+            setTextColor(Color.WHITE)
+            isAllCaps = false
+            letterSpacing = 0.01f
+            cornerRadius = (20 * density).toInt()
+            backgroundTintList = ColorStateList.valueOf(ColorAccentManager.getCurrentAccentColor(context))
+            insetTop = 0
+            insetBottom = 0
+
+            if (iconRes != null) {
+                setIconResource(iconRes)
+                iconTint = ColorStateList.valueOf(Color.WHITE)
+                iconSize = (18 * density).toInt()
+                iconPadding = (6 * density).toInt()
+            } else if (btnIcon.startsWith("http://") || btnIcon.startsWith("https://")) {
+                com.bumptech.glide.Glide.with(context)
+                    .asDrawable()
+                    .load(btnIcon)
+                    .into(object : com.bumptech.glide.request.target.CustomTarget<android.graphics.drawable.Drawable>() {
+                        override fun onResourceReady(resource: android.graphics.drawable.Drawable, transition: com.bumptech.glide.request.transition.Transition<in android.graphics.drawable.Drawable>?) {
+                            icon = resource
+                            iconTint = null
+                            iconSize = (18 * density).toInt()
+                        }
+                        override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {}
+                    })
+            }
+
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, (4 * density).toInt(), 0, (4 * density).toInt())
+            }
+            setOnClickListener {
+                (context as? AiChatActivity)?.handleButtonAction(btnAction)
+            }
+        }
+        container.addView(btn)
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val context = parent.context
         val scale = context.resources.displayMetrics.density
@@ -1758,67 +1800,52 @@ class AiMessagesAdapter(private val items: List<AiMessage>) : RecyclerView.Adapt
             imagesContainer?.visibility = View.GONE
         }
 
-        // 2. Process Interactive Buttons in Message
+        // 2. Process Interactive Buttons & Action Blocks in Message
         val buttonsContainer = holder.itemView.findViewWithTag<LinearLayout>("ai_buttons_container")
         val buttonRegex = Regex("```button:(.*?)\\|(.*?)(?:\\|(.*?))?```")
-        val matches = buttonRegex.findAll(msg.text).toList()
+        val actionRegex = Regex("```action:([\\w_:]+)```")
 
-        if (matches.isNotEmpty() && !msg.isUser) {
-            val cleanText = buttonRegex.replace(msg.text, "").trim()
+        val buttonMatches = buttonRegex.findAll(msg.text).toList()
+        val actionMatches = actionRegex.findAll(msg.text).toList()
+
+        val hasButtonsOrActions = (buttonMatches.isNotEmpty() || actionMatches.isNotEmpty()) && !msg.isUser
+
+        if (hasButtonsOrActions) {
+            var cleanText = buttonRegex.replace(msg.text, "").trim()
+            cleanText = actionRegex.replace(cleanText, "").trim()
             RichAiMessageParser.formatAndApply(holder.tvText, cleanText)
 
             if (buttonsContainer != null) {
                 buttonsContainer.removeAllViews()
                 buttonsContainer.visibility = View.VISIBLE
 
-                for (match in matches) {
+                // 2a. Add explicit buttons
+                for (match in buttonMatches) {
                     val btnLabel = match.groupValues[1].trim()
                     val btnAction = match.groupValues[2].trim()
                     val btnIcon = if (match.groupValues.size >= 4) match.groupValues[3].trim() else ""
 
                     val iconRes = if (btnIcon.isNotBlank()) resolveButtonIconRes(btnIcon) else null
+                    createAndAddMessageButton(context, buttonsContainer, btnLabel, btnAction, iconRes, btnIcon)
+                }
 
-                    val btn = com.google.android.material.button.MaterialButton(context).apply {
-                        text = btnLabel
-                        textSize = 13.5f
-                        setTextColor(Color.WHITE)
-                        isAllCaps = false
-                        letterSpacing = 0.01f
-                        cornerRadius = (20 * context.resources.displayMetrics.density).toInt()
-                        backgroundTintList = ColorStateList.valueOf(ColorAccentManager.getCurrentAccentColor(context))
-                        insetTop = 0
-                        insetBottom = 0
-
-                        if (iconRes != null) {
-                            setIconResource(iconRes)
-                            iconTint = ColorStateList.valueOf(Color.WHITE)
-                            iconSize = (18 * context.resources.displayMetrics.density).toInt()
-                            iconPadding = (6 * context.resources.displayMetrics.density).toInt()
-                        } else if (btnIcon.startsWith("http://") || btnIcon.startsWith("https://")) {
-                            com.bumptech.glide.Glide.with(context)
-                                .asDrawable()
-                                .load(btnIcon)
-                                .into(object : com.bumptech.glide.request.target.CustomTarget<android.graphics.drawable.Drawable>() {
-                                    override fun onResourceReady(resource: android.graphics.drawable.Drawable, transition: com.bumptech.glide.request.transition.Transition<in android.graphics.drawable.Drawable>?) {
-                                        icon = resource
-                                        iconTint = null
-                                        iconSize = (18 * context.resources.displayMetrics.density).toInt()
-                                    }
-                                    override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {}
-                                })
-                        }
-
-                        layoutParams = LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT
-                        ).apply {
-                            setMargins(0, (4 * context.resources.displayMetrics.density).toInt(), 0, (4 * context.resources.displayMetrics.density).toInt())
-                        }
-                        setOnClickListener {
-                            (context as? AiChatActivity)?.handleButtonAction(btnAction)
-                        }
+                // 2b. Add standalone action blocks as interactive buttons
+                for (match in actionMatches) {
+                    val actionKey = match.groupValues[1].trim()
+                    val fullAction = "action:$actionKey"
+                    val (label, iconName) = when {
+                        actionKey == "open_settings" -> "Открыть настройки" to "settings"
+                        actionKey == "open_search" -> "Глобальный поиск" to "search"
+                        actionKey == "open_media_player" -> "Медиаплеер" to "music"
+                        actionKey == "open_wallpaper_editor" -> "Редактор обоев" to "photo"
+                        actionKey == "open_profile" -> "Открыть профиль" to "person"
+                        actionKey == "open_rich_editor" -> "Редактор текста" to "file"
+                        actionKey == "open_overlay" -> "Плавающее окно" to "desktop"
+                        actionKey.startsWith("run_plugin:") -> "Запустить плагин ${actionKey.removePrefix("run_plugin:")}" to "file"
+                        else -> "Выполнить действие" to "prime"
                     }
-                    buttonsContainer.addView(btn)
+                    val iconRes = resolveButtonIconRes(iconName)
+                    createAndAddMessageButton(context, buttonsContainer, label, fullAction, iconRes, "")
                 }
             }
         } else {

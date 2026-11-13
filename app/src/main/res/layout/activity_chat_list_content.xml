@@ -90,9 +90,9 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 tools:ignore="HardcodedText"
-                android:text="Прайма не видно, начните с кем нибудь общение!"
+                android:text="Нет активных чатов\nНажмите поиск, чтобы найти пользователей рядом"
                 android:textColor="@color/prime_text_secondary"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 

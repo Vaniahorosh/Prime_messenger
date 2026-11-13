@@ -51,11 +51,11 @@ class HiActivity : AppCompatActivity() {
     private var hasIntroRun = false
 
     private val contents = listOf(
-        DynamicContent("Всегда будь в", "Прайме!"),
-        DynamicContent("Всегда сообщение", "Быстрее!"),
-        DynamicContent("Всегда будь на", "Связи!"),
-        DynamicContent("Всегда будь в", "Приватности!"),
-        DynamicContent("Всегда мы", "Кастомнее!")
+        DynamicContent("Всегда будьте в", "Prime"),
+        DynamicContent("Мгновенные сообщения", "Быстрее"),
+        DynamicContent("Всегда оставайтесь на", "Связи"),
+        DynamicContent("Полная защита и", "Приватность"),
+        DynamicContent("Интерфейс под ваш стиль и", "Персонализация")
     )
 
     private val dynamicRunnable = object : Runnable {

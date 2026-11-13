@@ -592,7 +592,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 ChatMessage m = messages.get(i);
                 if (messageId.equals(m.getMessageId())) {
                     m.setMessageStatus(status);
-                    notifyItemChanged(i);
+                    notifyItemChanged(i, "STATUS_UPDATE");
                     break;
                 }
             }

@@ -577,9 +577,9 @@ class WallpaperEditorActivity : AppCompatActivity() {
         val animName = animationChoices.find { it.key == selectedAnimation }?.label ?: "Без анимации"
 
         val badgeText = when (selectedMode) {
-            "IMAGE" -> "🖼️ Фото • Zoom ${String.format(Locale.US, "%.1fx", photoScale)} • Dim ${(photoDimOpacity * 100).toInt()}%"
-            "MATERIAL" -> "🔷 Material 3 • ${materialStyleChoices.find { it.type == selectedPatternType }?.label ?: "Вселенная"}"
-            else -> "✨ Смайлы • $animName • $colorName"
+            "IMAGE" -> "Фото • Масштаб ${String.format(Locale.US, "%.1fx", photoScale)} • Затемнение ${(photoDimOpacity * 100).toInt()}%"
+            "MATERIAL" -> "Material 3 • ${materialStyleChoices.find { it.type == selectedPatternType }?.label ?: "Вселенная"}"
+            else -> "Смайлы • $animName • $colorName"
         }
         binding.tvPreviewInfoBadge.text = badgeText
 

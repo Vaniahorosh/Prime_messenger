@@ -1,0 +1,13 @@
+<project version="4">
+  <component name="PromptTemplates">
+    <option name="prompts">
+      <list>
+        <PromptTemplate>
+          <option name="enabled" value="true" />
+          <option name="name" value="Unslop UI (Clean &amp; Polish Design)" />
+          <option name="text" value="You are executing the Unslop design skill on the following Android UI file/selection.&#10;&#10;Transform AI-looking, generic, or cluttered UI into a clean, purposeful, production-ready interface:&#10;&#10;1. AUDIT: Identify signs of UI slop (random gradients, glowing blobs, emoji in buttons/labels, magic spacing numbers like 13.dp, hype copy, extra-bold fonts, uneven padding).&#10;2. DIRECTION: Set product character, world, moments, and signature detail.&#10;3. PASSES (in order):&#10;   - Spacing: Strict 4dp/8dp grid, consistent row heights (48dp min touch target).&#10;   - Color: Material 3 neutral surfaces (surface, surfaceContainer), 1 accent, no rainbow/hue-to-hue gradients.&#10;   - Icons: Uniform vector/Material icons (size 20.dp/24.dp), no emoji decorations.&#10;   - Copy: Calm, direct, no exclamation marks or hype words.&#10;   - Typography: M3 type scale, normal/medium weights, tabular figures for metrics.&#10;   - Layout &amp; Details: Consistent corner radii (RoundedCornerShape), subtle hairlines/elevation, no glowing drop shadows.&#10;   - Motion: Restrained Material transitions (tween 150-200ms).&#10;&#10;Present the audit and refined Kotlin Compose / XML code with explanations.&#10;&#10;$CURRENT_FILE" />
+        </PromptTemplate>
+      </list>
+    </option>
+  </component>
+</project>

@@ -66,6 +66,9 @@ object AvatarManager {
         return trimmed.isEmpty() ||
                 trimmed == "собеседник" ||
                 trimmed == "prime собеседник" ||
+                trimmed == "устройство bluetooth" ||
+                trimmed == "bluetooth-устройство" ||
+                trimmed.startsWith("собеседник #") ||
                 trimmed == "пользователь" ||
                 trimmed == "prime user" ||
                 trimmed == "контакт" ||

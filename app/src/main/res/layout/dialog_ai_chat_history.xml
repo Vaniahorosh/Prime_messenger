@@ -91,7 +91,7 @@
                 android:layout_height="wrap_content"
                 android:padding="24dp"
                 android:gravity="center"
-                android:text="Нет сохраненных чатов.\nНажмите 'Новый чат', чтобы начать диалог!"
+                android:text="Нет сохраненных чатов\nНажмите «Новый чат», чтобы начать диалог"
                 android:textColor="@color/prime_text_secondary"
                 android:textSize="14sp"
                 android:visibility="gone" />

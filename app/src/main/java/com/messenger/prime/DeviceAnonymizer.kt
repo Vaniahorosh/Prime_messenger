@@ -3,7 +3,6 @@ package com.messenger.prime
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothDevice
-import java.util.Locale
 
 object DeviceAnonymizer {
 
@@ -49,11 +48,13 @@ object DeviceAnonymizer {
             !isMacAddress(candidate) && 
             candidate != "Собеседник" && 
             candidate != "Prime Собеседник" &&
-            candidate != "Bluetooth-устройство") {
+            candidate != "Bluetooth-устройство" &&
+            candidate != "Устройство Bluetooth" &&
+            !candidate.startsWith("Собеседник #")) {
             return sanitizeDisplayName(candidate, macAddress)
         }
 
-        return "Bluetooth-устройство"
+        return "Устройство Bluetooth"
     }
 
     @JvmStatic

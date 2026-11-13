@@ -101,16 +101,16 @@
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
                                 app:iconSize="24dp"
-                                app:iconTint="@color/white" />
+                                app:iconTint="@color/prime_text_primary" />
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Назад"
-                                android:textColor="@color/white"
+                                android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
                                 android:textSize="10sp"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
                         <!-- 2. Кнопка Просмотр фото -->
@@ -138,16 +138,16 @@
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
                                 app:iconSize="24dp"
-                                app:iconTint="@color/white" />
+                                app:iconTint="@color/prime_text_primary" />
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Просмотр фото"
-                                android:textColor="@color/white"
+                                android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
                                 android:textSize="10sp"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
                         <!-- 3. Кнопка Режим читателя -->
@@ -175,17 +175,17 @@
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
                                 app:iconSize="24dp"
-                                app:iconTint="@color/white" />
+                                app:iconTint="@color/prime_text_primary" />
 
                             <TextView
                                 android:id="@+id/tvReaderModeLabel"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Читатель"
-                                android:textColor="@color/white"
+                                android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
                                 android:textSize="10sp"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
                         <!-- 4. Кнопка Удалить чат -->
@@ -213,15 +213,15 @@
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
                                 app:iconSize="24dp"
-                                app:iconTint="@color/prime_danger_light" />
+                                app:iconTint="@color/prime_danger" />
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Удалить чат"
-                                android:textColor="@color/prime_danger_light"
+                                android:textColor="@color/prime_danger"
                                 android:textSize="10sp"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
                     </LinearLayout>
 
@@ -655,7 +655,7 @@
                     app:iconGravity="textStart"
                     app:iconPadding="0dp"
                     app:iconSize="22dp"
-                    app:iconTint="@color/white" />
+                    app:iconTint="@color/prime_text_primary" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -668,9 +668,9 @@
                         android:id="@+id/tvStickyName"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/white"
+                        android:textColor="@color/prime_text_primary"
                         android:textSize="17sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:singleLine="true"
                         android:ellipsize="marquee"
                         tools:text="Имя Собеседника" />
@@ -679,7 +679,7 @@
                         android:id="@+id/tvStickyStatus"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="#E6FFFFFF"
+                        android:textColor="@color/prime_text_secondary"
                         android:textSize="12sp"
                         tools:text="в сети" />
                 </LinearLayout>

@@ -13,18 +13,20 @@
         android:text="Изменить фото профиля"
         android:textColor="@color/prime_text_primary"
         android:textSize="20sp"
-        android:textStyle="bold"
+        android:fontFamily="sans-serif-medium"
         android:layout_marginBottom="16dp"/>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnGallery"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="48dp"
         android:text="Выбрать из галереи"
+        android:textAllCaps="false"
+        android:textColor="@color/prime_text_primary"
+        android:fontFamily="sans-serif-medium"
         app:icon="@drawable/ic_photo"
         app:backgroundTint="#20000000"
-        android:textColor="@color/prime_text_primary"
-        app:cornerRadius="12dp"
+        app:cornerRadius="16dp"
         app:iconTint="@color/prime_text_primary"/>
 
     <TextView
@@ -32,7 +34,8 @@
         android:layout_height="wrap_content"
         android:text="Готовые аватары"
         android:textColor="@color/prime_text_secondary"
-        android:textSize="14sp"
+        android:textSize="13sp"
+        android:fontFamily="sans-serif-medium"
         android:layout_marginTop="16dp"
         android:layout_marginBottom="12dp"/>
 
@@ -47,44 +50,44 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_weight="1"
-            android:layout_marginEnd="4dp"
+            android:layout_marginEnd="6dp"
             android:background="#20FFFFFF"
             android:src="@drawable/avatar_1"
             android:scaleType="centerCrop"
-            app:shapeAppearanceOverlay="@style/SquareFABShape" />
+            app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
 
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/ivAv2"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_weight="1"
-            android:layout_marginEnd="4dp"
+            android:layout_marginEnd="6dp"
             android:background="#20FFFFFF"
             android:src="@drawable/avatar_2"
             android:scaleType="centerCrop"
-            app:shapeAppearanceOverlay="@style/SquareFABShape" />
+            app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
 
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/ivAv3"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_weight="1"
-            android:layout_marginEnd="4dp"
+            android:layout_marginEnd="6dp"
             android:background="#20FFFFFF"
             android:src="@drawable/avatar_3"
             android:scaleType="centerCrop"
-            app:shapeAppearanceOverlay="@style/SquareFABShape" />
+            app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
 
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/ivAv4"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_weight="1"
-            android:layout_marginEnd="4dp"
+            android:layout_marginEnd="6dp"
             android:background="#20FFFFFF"
             android:src="@drawable/avatar_4"
             android:scaleType="centerCrop"
-            app:shapeAppearanceOverlay="@style/SquareFABShape" />
+            app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
 
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/ivAv5"
@@ -94,6 +97,6 @@
             android:background="#20FFFFFF"
             android:src="@drawable/avatar_5"
             android:scaleType="centerCrop"
-            app:shapeAppearanceOverlay="@style/SquareFABShape" />
+            app:shapeAppearanceOverlay="@style/Rounded15PercentImageView" />
     </LinearLayout>
 </LinearLayout>

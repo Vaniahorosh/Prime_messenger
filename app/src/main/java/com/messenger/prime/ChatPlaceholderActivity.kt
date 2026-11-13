@@ -39,5 +39,11 @@ class ChatPlaceholderActivity : AppCompatActivity() {
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val overlayColor = getDefaultBlurOverlayColor(this)
         blur.setupBlur(binding.root, 16f, overlayColor, wallpaper.background)
+
+        // Make the placeholder functional: tap to open AiChatActivity
+        blur.setOnClickListener {
+            val intent = android.content.Intent(this, AiChatActivity::class.java)
+            startActivity(intent)
+        }
     }
 }

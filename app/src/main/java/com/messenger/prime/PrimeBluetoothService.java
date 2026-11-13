@@ -571,9 +571,13 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
     @Override
     public void onPacketReceived(String fromAddress, byte type, byte[] payload) {
-        if (payload == null || payload.length == 0) return;
-        if (type != 0x08 && (ChatHistoryManager.isDeviceForgotten(this, fromAddress) || ChatHistoryManager.isDeviceForgotten(this, resolveBackgroundDisplayName(fromAddress)))) {
-            return;
+        if (type != 0x08) {
+            if (ChatHistoryManager.isDeviceForgotten(this, fromAddress) || 
+                ChatHistoryManager.isDeviceForgotten(this, resolveBackgroundDisplayName(fromAddress)) ||
+                ChatHistoryManager.isChatDeletedTombstone(this, fromAddress) ||
+                ChatHistoryManager.isChatDeletedTombstone(this, resolveBackgroundDisplayName(fromAddress))) {
+                return;
+            }
         }
         
         resetReconnectAttempts(fromAddress);
@@ -594,12 +598,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         String displayName = resolveBackgroundDisplayName(fromAddress);
 
         try {
-            if (ChatPersonActivity.isForegroundWithAddress(fromAddress)) {
-                // Если чат открыт на экране, он сам обработает и сохранит все пакеты,
-                // поэтому фоновому сервису не нужно дублировать работу и ломать файлы.
-                if (type == 0x08) {
-                    ChatListNotifier.INSTANCE.notifyChanged();
-                }
+            if (type != 0x08 && ChatPersonActivity.isForegroundWithAddress(fromAddress)) {
                 return;
             }
 
@@ -666,6 +665,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 String data = new String(payload, StandardCharsets.UTF_8);
                 String deletedByName = displayName;
                 String deletedByLogin = null;
+                String deletedByMac = null;
                 if (data.startsWith("DELETE_CHAT:")) {
                     String[] parts = data.substring(12).split(";");
                     for (String p : parts) {
@@ -673,6 +673,8 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                             deletedByName = p.substring(5);
                         } else if (p.startsWith("login=")) {
                             deletedByLogin = p.substring(6);
+                        } else if (p.startsWith("mac=")) {
+                            deletedByMac = p.substring(4);
                         }
                     }
                 }
@@ -681,12 +683,19 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     DeviceBindingManager.unbindDeviceSecurely(this, deletedByLogin, fromAddress);
                     PrimeNotification.cancelNotificationForUser(this, deletedByLogin, fromAddress);
                 }
+                if (deletedByMac != null && !deletedByMac.isEmpty()) {
+                    ChatHistoryManager.deleteHistoryCompletely(this, deletedByMac, deletedByMac);
+                    DeviceBindingManager.unbindDeviceSecurely(this, deletedByMac, deletedByMac);
+                    PrimeNotification.cancelNotificationForUser(this, deletedByMac, deletedByMac);
+                }
                 ChatHistoryManager.deleteHistoryCompletely(this, deletedByName, fromAddress);
                 ChatHistoryManager.deleteHistoryCompletely(this, displayName, fromAddress);
                 DeviceBindingManager.unbindDeviceSecurely(this, deletedByName, fromAddress);
                 DeviceBindingManager.unbindDeviceSecurely(this, displayName, fromAddress);
                 BluetoothSocketHolder.removeConnection(fromAddress, displayName);
-                BluetoothConnectionManager.getInstance().disconnect(fromAddress);
+                try {
+                    BluetoothConnectionManager.getInstance().disconnect(fromAddress);
+                } catch (Throwable ignored) {}
 
                 try {
                     android.bluetooth.BluetoothManager bManager = (android.bluetooth.BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -700,6 +709,10 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
                 PrimeNotification.cancelNotificationForUser(this, deletedByName, fromAddress);
                 PrimeNotification.cancelNotificationForUser(this, displayName, fromAddress);
+
+                Intent chatDeletedIntent = new Intent("com.messenger.prime.CHAT_DELETED");
+                chatDeletedIntent.setPackage(getPackageName());
+                sendBroadcast(chatDeletedIntent);
 
                 ChatListNotifier.INSTANCE.notifyChanged();
                 ChatListNotifier.emitEvent(ChatEvent.GeneralUpdate.INSTANCE);

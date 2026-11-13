@@ -11,46 +11,31 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Placeholder when no chat is open -->
+    <!-- Clickable Ai Badge (Unslopped Empty State) -->
     <eightbitlab.com.blurview.BlurView
         android:id="@+id/blurRightPaneEmpty"
-        android:layout_width="320dp"
-        android:layout_height="wrap_content"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
         android:layout_gravity="center"
         android:background="@drawable/bg_blur_glass_panel"
-        android:padding="28dp"
-        android:elevation="6dp">
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground"
+        android:elevation="0dp">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:gravity="center"
             android:orientation="vertical">
 
             <ImageView
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:src="@drawable/ic_nav_chats"
-                app:tint="@color/prime_brand" />
+                android:src="@drawable/ic_prime_ai"
+                app:tint="@color/prime_brand"
+                android:contentDescription="Ai" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:gravity="center"
-                android:text="Выберите чат для начала общения"
-                android:textColor="@color/white"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:gravity="center"
-                android:text="Сообщения и медиафайлы передаются напрямую по Bluetooth"
-                android:textColor="@color/prime_text_secondary"
-                android:textSize="12sp" />
         </LinearLayout>
     </eightbitlab.com.blurview.BlurView>
 

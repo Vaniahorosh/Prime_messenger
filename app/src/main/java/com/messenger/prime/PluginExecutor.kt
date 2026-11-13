@@ -25,6 +25,11 @@ import java.util.Locale
 class AndroidPluginBridge(private val context: Context, private val pluginName: String) {
 
     @JavascriptInterface
+    fun log(message: String) {
+        android.util.Log.d("PrimePlugin", "[$pluginName]: $message")
+    }
+
+    @JavascriptInterface
     fun toast(message: String) {
         Handler(Looper.getMainLooper()).post {
             Toast.makeText(context, "🔔 [$pluginName]: $message", Toast.LENGTH_LONG).show()
@@ -172,7 +177,7 @@ class AndroidPluginBridge(private val context: Context, private val pluginName: 
             val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
             sp.edit().remove(ChatHistoryManager.getPersistedChatsKey(context)).apply()
             toast("Все чаты удалены")
-            context.sendBroadcast(Intent("com.messenger.prime.CHAT_HISTORY_UPDATED").setPackage(context.packageName))
+            ChatListNotifier.notifyChanged()
         } catch (_: Exception) {}
     }
 
@@ -188,6 +193,113 @@ class AndroidPluginBridge(private val context: Context, private val pluginName: 
             
             context.sendBroadcast(Intent("com.messenger.prime.THEME_CHANGED").setPackage(context.packageName))
         } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun shareText(text: String) {
+        try {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(Intent.createChooser(intent, "Поделиться...").apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+        } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun makeCall(phoneNumber: String) {
+        try {
+            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phoneNumber")).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun sendSms(phoneNumber: String, text: String) {
+        try {
+            val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$phoneNumber")).apply {
+                putExtra("sms_body", text)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun getDeviceModel(): String {
+        return Build.MODEL ?: "Unknown"
+    }
+
+    @JavascriptInterface
+    fun getAndroidVersion(): String {
+        return Build.VERSION.RELEASE ?: "Unknown"
+    }
+    
+    @JavascriptInterface
+    fun getAppVersion(): String {
+        return try {
+            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            pInfo.versionName ?: "1.0"
+        } catch (e: Exception) {
+            "1.0"
+        }
+    }
+    
+    @JavascriptInterface
+    fun getBatteryLevel(): Int {
+        return try {
+            val intentFilter = android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            val batteryStatus = context.registerReceiver(null, intentFilter)
+            val level = batteryStatus?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+            val scale = batteryStatus?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+            if (level != -1 && scale != -1) {
+                (level * 100 / scale.toFloat()).toInt()
+            } else -1
+        } catch (e: Exception) {
+            -1
+        }
+    }
+
+    @JavascriptInterface
+    fun writeFile(fileName: String, content: String): Boolean {
+        return try {
+            val file = File(context.filesDir, fileName)
+            file.writeText(content, Charsets.UTF_8)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    @JavascriptInterface
+    fun readFile(fileName: String): String {
+        return try {
+            val file = File(context.filesDir, fileName)
+            if (file.exists()) file.readText(Charsets.UTF_8) else ""
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    @JavascriptInterface
+    fun executeCommand(command: String): String {
+        // Safe limited shell execution wrapper (only basic commands like ping, ls)
+        return try {
+            val process = Runtime.getRuntime().exec(command)
+            val reader = java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
+            val output = java.lang.StringBuilder()
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                output.append(line).append("\n")
+            }
+            process.waitFor()
+            output.toString()
+        } catch (e: Exception) {
+            "Error executing command: ${e.localizedMessage}"
+        }
     }
 
     @JavascriptInterface
@@ -230,12 +342,19 @@ class AndroidPluginBridge(private val context: Context, private val pluginName: 
         try {
             val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
             val senderLogin = ChatHistoryManager.getCurrentUser(context)
-            val msg = ChatMessage(text, timeStr, senderLogin, true)
-            ChatHistoryManager.saveMessage(context, address, msg)
+            val msgId = senderLogin + "_" + System.currentTimeMillis() + "_" + java.util.UUID.randomUUID().toString().substring(0, 8)
+            val msg = ChatMessage(text, timeStr, senderLogin, true, null, System.currentTimeMillis(), null, msgId)
             
-            val updateIntent = Intent("com.messenger.prime.CHAT_HISTORY_UPDATED").setPackage(context.packageName)
-            updateIntent.putExtra("address", address)
-            context.sendBroadcast(updateIntent)
+            try {
+                val isConnected = BluetoothConnectionManager.getInstance().isConnected(address)
+                msg.messageStatus = if (isConnected) MessageStatus.SENT else MessageStatus.SENDING
+            } catch (e: Exception) {}
+
+            ChatHistoryManager.saveMessage(context, address, msg)
+            ChatListNotifier.notifyChanged()
+            
+            val payload = (msgId + ":::" + text).toByteArray(Charsets.UTF_8)
+            BluetoothConnectionManager.getInstance().sendPacket(address, 0x01.toByte(), payload)
         } catch (_: Exception) {}
     }
 }

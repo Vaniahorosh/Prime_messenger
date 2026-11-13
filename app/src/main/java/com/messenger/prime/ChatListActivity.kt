@@ -223,7 +223,9 @@ fun AnimatedSwipeableBottomSheet(
                     e.printStackTrace()
                 }
             }
-            onDispose {}
+            onDispose {
+                onDismissRequest()
+            }
         }
 
         val coroutineScope = rememberCoroutineScope()
@@ -234,12 +236,12 @@ fun AnimatedSwipeableBottomSheet(
             { onComplete ->
                 if (!isClosing) {
                     isClosing = true
+                    onDismissRequest()
                     coroutineScope.launch {
                         offsetY.animateTo(
                             targetValue = 1200f,
                             animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
                         )
-                        onDismissRequest()
                         onComplete?.invoke()
                     }
                 }
@@ -484,6 +486,7 @@ class ChatListActivity : AppCompatActivity() {
     private val pairedDevices = mutableStateListOf<BluetoothDevice>()
     private val isScanningState = mutableStateOf(false)
     private val deviceRssiMap = mutableStateMapOf<String, Short>()
+    private val deviceNameMap = mutableStateMapOf<String, String>()
     private val searchTimeoutHandler = Handler(Looper.getMainLooper())
     private val searchTimeoutRunnable = Runnable { stopBluetoothScan() }
 
@@ -567,7 +570,16 @@ class ChatListActivity : AppCompatActivity() {
                 val devAddr = try { dev.address } catch (_: Exception) { null }
                 if (devAddr.isNullOrEmpty()) return@filter false
 
-                val devName = try { @Suppress("MissingPermission") dev.name } catch (_: Exception) { null } ?: ""
+                val savedName = AvatarManager.getContactDisplayName(this, devAddr, devAddr, null)
+                val cachedName = deviceNameMap[devAddr]
+                val sysName = try { @Suppress("MissingPermission") dev.name } catch (_: Exception) { null }
+                val rawName = when {
+                    !savedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(savedName) && !AvatarManager.isGenericIdentity(savedName) -> savedName
+                    !cachedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(cachedName) -> cachedName
+                    !sysName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(sysName) -> sysName
+                    else -> ""
+                }
+                val devName = DeviceAnonymizer.sanitizeDisplayName(rawName, devAddr)
                 val devNameLower = devName.lowercase().replace('ё', 'е')
                 val macLower = devAddr.lowercase()
 
@@ -578,8 +590,16 @@ class ChatListActivity : AppCompatActivity() {
                 isDiscoveredMatch && !filteredSaved.any { it.id.equals(devAddr, ignoreCase = true) }
             }.map { dev ->
                 val devAddr = try { dev.address } catch (_: Exception) { "" } ?: ""
-                val devName = try { @Suppress("MissingPermission") dev.name ?: "Prime Собеседник" } catch (_: Exception) { "Prime Собеседник" }
-                val finalName = if (BluetoothAdapter.checkBluetoothAddress(devName)) "Prime Собеседник" else devName
+                val savedName = AvatarManager.getContactDisplayName(this, devAddr, devAddr, null)
+                val cachedName = deviceNameMap[devAddr]
+                val sysName = try { @Suppress("MissingPermission") dev.name } catch (_: Exception) { null }
+                val rawName = when {
+                    !savedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(savedName) && !AvatarManager.isGenericIdentity(savedName) -> savedName
+                    !cachedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(cachedName) -> cachedName
+                    !sysName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(sysName) -> sysName
+                    else -> null
+                }
+                val finalName = if (rawName.isNullOrBlank() || BluetoothAdapter.checkBluetoothAddress(rawName)) "Prime Собеседник" else DeviceAnonymizer.sanitizeDisplayName(rawName, devAddr)
                 ChatModel(
                     id = devAddr,
                     name = finalName,
@@ -1104,7 +1124,29 @@ class ChatListActivity : AppCompatActivity() {
                 b.tvChatStatus.text = "Личное пространство"
                 b.ivChatAvatar.setImageResource(R.drawable.ic_book)
                 updateInputState(true)
-                b.layoutHeader.setOnClickListener(null)
+                b.layoutHeader.setOnClickListener { v ->
+                    val menu = PrimePopupMenu.create(activity, v)
+                    menu.addItem("Больше", R.drawable.ic_more) {
+                        val intent = Intent(activity, PersonInformationActivity::class.java).apply {
+                            putExtra("EXTRA_CHAT_NAME", "Заметки")
+                            putExtra("EXTRA_IS_NOTES", true)
+                        }
+                        PrimeTransitions.startActivityWithTransition(activity, intent)
+                    }
+                    menu.addItem("В начало", R.drawable.ic_arrow_up) {
+                        b.rvMessages.smoothScrollToPosition(0)
+                    }
+                    menu.addItem("Поиск по чату", R.drawable.ic_search) {
+                        activity.openHeaderSearch()
+                    }
+                    val pinnedList = ChatHistoryManager.getPinnedMessages(activity, targetUsername, deviceAddress)
+                    if (!pinnedList.isNullOrEmpty()) {
+                        menu.addItem("Показать закреп.", R.drawable.ic_pin) {
+                            ChatHistoryManager.setPinnedBarHidden(activity, targetUsername, deviceAddress, false)
+                        }
+                    }
+                    menu.show()
+                }
                 b.layoutHeader.setOnLongClickListener(null)
             } else {
                 b.tvChatName.text = displayContactName
@@ -2298,39 +2340,50 @@ class ChatListActivity : AppCompatActivity() {
     private var primeDiscoveredPeer: ChatModel? = null
 
     private fun handlePrimeDeviceFound(device: BluetoothDevice, name: String?) {
-        if (primeDevices.add(device.address)) {
-            val knownContact = chatListState.find {
-                it.id.equals(device.address, ignoreCase = true)
-            }
-            val savedName = AvatarManager.getContactDisplayName(this, device.address, device.address, null)
-            val rawName = if (!savedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(savedName) && !AvatarManager.isGenericIdentity(savedName)) {
-                savedName
-            } else {
-                knownContact?.name ?: name
-            }
-            val finalName = if (rawName.isNullOrBlank() || BluetoothAdapter.checkBluetoothAddress(rawName)) "Prime Собеседник" else rawName
-            
-            if (knownContact == null) {
-                primeDiscoveredPeer = ChatModel(
-                    id = device.address,
-                    name = finalName,
-                    lastMessage = "Найден поблизости",
-                    time = "сейчас",
-                    avatarUri = null,
-                    onlineStatus = OnlineStatus.ONLINE
-                )
-            }
+        primeDevices.add(device.address)
 
-            runOnUiThread {
-                if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                    return@runOnUiThread
-                }
-                if (isContactDialogVisible.value) {
-                    // triggerPrimeFoundVibration()
-                }
-                if (::adapter.isInitialized) {
-                    adapter.updateList(allChats)
-                }
+        if (!name.isNullOrBlank() && !DeviceAnonymizer.isMacAddress(name)) {
+            deviceNameMap[device.address] = DeviceAnonymizer.sanitizeDisplayName(name, device.address)
+        }
+
+        val knownContact = chatListState.find {
+            it.id.equals(device.address, ignoreCase = true)
+        }
+        val savedName = AvatarManager.getContactDisplayName(this, device.address, device.address, null)
+        val cachedName = deviceNameMap[device.address]
+
+        val rawName = when {
+            !savedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(savedName) && !AvatarManager.isGenericIdentity(savedName) -> savedName
+            knownContact != null && !knownContact.name.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(knownContact.name) -> knownContact.name
+            !cachedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(cachedName) -> cachedName
+            !name.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(name) -> name
+            else -> null
+        }
+
+        val finalName = if (rawName.isNullOrBlank() || BluetoothAdapter.checkBluetoothAddress(rawName)) "Prime Собеседник" else DeviceAnonymizer.sanitizeDisplayName(rawName, device.address)
+
+        if (knownContact == null) {
+            primeDiscoveredPeer = ChatModel(
+                id = device.address,
+                name = finalName,
+                lastMessage = "Найден поблизости",
+                time = "сейчас",
+                avatarUri = null,
+                onlineStatus = OnlineStatus.ONLINE
+            )
+        } else if (finalName != "Prime Собеседник" && knownContact.name != finalName) {
+            val idx = chatListState.indexOfFirst { it.id.equals(device.address, ignoreCase = true) }
+            if (idx != -1) {
+                chatListState[idx] = chatListState[idx].copy(name = finalName)
+            }
+        }
+
+        runOnUiThread {
+            if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                return@runOnUiThread
+            }
+            if (::adapter.isInitialized) {
+                adapter.updateList(allChats)
             }
         }
     }
@@ -2352,6 +2405,11 @@ class ChatListActivity : AppCompatActivity() {
                             deviceRssiMap[device.address] = rssi
                         }
 
+                        val devName = try { device.name } catch (_: Exception) { null }
+                        if (!devName.isNullOrBlank() && !DeviceAnonymizer.isMacAddress(devName)) {
+                            deviceNameMap[device.address] = DeviceAnonymizer.sanitizeDisplayName(devName, device.address)
+                        }
+
                         if (!discoveredDevices.any { it.address == device.address }) {
                             discoveredDevices.add(device)
                         } else {
@@ -2360,22 +2418,23 @@ class ChatListActivity : AppCompatActivity() {
                                 discoveredDevices[idx] = device
                             }
                         }
-                        val devName = try { device.name } catch (_: Exception) { null }
+                        
                         val isSavedInChats = chatListState.any { it.id.equals(device.address, ignoreCase = true) }
-                        val isDesktopPeer = devName?.contains("Prime", ignoreCase = true) == true ||
-                                            devName?.contains("VANIAHOROSH", ignoreCase = true) == true ||
-                                            devName?.contains("PC", ignoreCase = true) == true ||
-                                            devName?.contains("Desktop", ignoreCase = true) == true ||
+                        val effectiveName = deviceNameMap[device.address] ?: devName
+                        val isDesktopPeer = effectiveName?.contains("Prime", ignoreCase = true) == true ||
+                                            effectiveName?.contains("VANIAHOROSH", ignoreCase = true) == true ||
+                                            effectiveName?.contains("PC", ignoreCase = true) == true ||
+                                            effectiveName?.contains("Desktop", ignoreCase = true) == true ||
                                             device.bondState == BluetoothDevice.BOND_BONDED
                         
                         if (isSavedInChats || isDesktopPeer) {
-                            handlePrimeDeviceFound(device, devName)
+                            handlePrimeDeviceFound(device, effectiveName)
                         } else {
                             val cachedUuids = try { device.uuids } catch (_: Exception) { null }
                             if (cachedUuids != null) {
                                 for (uuid in cachedUuids) {
                                     if (uuid.uuid.toString().equals(primeUuid.toString(), ignoreCase = true)) {
-                                        handlePrimeDeviceFound(device, devName)
+                                        handlePrimeDeviceFound(device, effectiveName)
                                         break
                                     }
                                 }
@@ -2391,17 +2450,21 @@ class ChatListActivity : AppCompatActivity() {
                         val mainHandler = Handler(Looper.getMainLooper())
                         val checkTask = Runnable {
                             val updatedName = try { device.name } catch (_: Exception) { null }
+                            if (!updatedName.isNullOrBlank() && !DeviceAnonymizer.isMacAddress(updatedName)) {
+                                deviceNameMap[device.address] = DeviceAnonymizer.sanitizeDisplayName(updatedName, device.address)
+                            }
+                            val bestName = deviceNameMap[device.address] ?: updatedName
                             val updatedUuids = try { device.uuids } catch (_: Exception) { null }
                             val isSaved = chatListState.any { it.id.equals(device.address, ignoreCase = true) }
-                            val isPrime = (updatedName?.contains("Prime", ignoreCase = true) == true) ||
-                                          (updatedName?.contains("VANIAHOROSH", ignoreCase = true) == true) ||
-                                          (updatedName?.contains("PC", ignoreCase = true) == true) ||
-                                          (updatedName?.contains("Desktop", ignoreCase = true) == true) ||
+                            val isPrime = (bestName?.contains("Prime", ignoreCase = true) == true) ||
+                                          (bestName?.contains("VANIAHOROSH", ignoreCase = true) == true) ||
+                                          (bestName?.contains("PC", ignoreCase = true) == true) ||
+                                          (bestName?.contains("Desktop", ignoreCase = true) == true) ||
                                           (device.bondState == BluetoothDevice.BOND_BONDED) ||
                                           (updatedUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true) ||
                                           isSaved
                             if (isPrime) {
-                                handlePrimeDeviceFound(device, updatedName)
+                                handlePrimeDeviceFound(device, bestName)
                             }
                         }
                         mainHandler.postDelayed(checkTask, 1200L)
@@ -2417,8 +2480,12 @@ class ChatListActivity : AppCompatActivity() {
                     }
                     if (device != null) {
                         val devName = try { device.name } catch (_: Exception) { null }
-                        if (devName?.contains("Prime", ignoreCase = true) == true) {
-                            handlePrimeDeviceFound(device, devName)
+                        if (!devName.isNullOrBlank() && !DeviceAnonymizer.isMacAddress(devName)) {
+                            deviceNameMap[device.address] = DeviceAnonymizer.sanitizeDisplayName(devName, device.address)
+                        }
+                        val bestName = deviceNameMap[device.address] ?: devName
+                        if (bestName?.contains("Prime", ignoreCase = true) == true) {
+                            handlePrimeDeviceFound(device, bestName)
                         }
                         val idx = discoveredDevices.indexOfFirst { it.address == device.address }
                         if (idx != -1) {
@@ -2432,6 +2499,12 @@ class ChatListActivity : AppCompatActivity() {
                         btAdapter?.bondedDevices?.let { bonded ->
                             pairedDevices.clear()
                             pairedDevices.addAll(bonded)
+                            for (dev in bonded) {
+                                val name = try { dev.name } catch (_: Exception) { null }
+                                if (!name.isNullOrBlank() && !DeviceAnonymizer.isMacAddress(name)) {
+                                    deviceNameMap[dev.address] = DeviceAnonymizer.sanitizeDisplayName(name, dev.address)
+                                }
+                            }
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -2888,13 +2961,24 @@ class ChatListActivity : AppCompatActivity() {
                     val rawAllDevices = (pairedDevices.map { it to true } + discoveredDevices.map { it to false })
                         .distinctBy { it.first.address }
                         .filter { (device, _) ->
-                            val name = try { @Suppress("MissingPermission") device.name } catch (e: Exception) { null }
+                            val devAddr = device.address
+                            val savedName = AvatarManager.getContactDisplayName(this@ChatListActivity, devAddr, devAddr, null)
+                            val knownContact = chatListState.find { it.id.equals(devAddr, ignoreCase = true) }
+                            val cachedName = deviceNameMap[devAddr]
+                            val sysName = try { @Suppress("MissingPermission") device.name } catch (e: Exception) { null }
+                            val name = when {
+                                !savedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(savedName) && !AvatarManager.isGenericIdentity(savedName) -> savedName
+                                knownContact != null && !knownContact.name.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(knownContact.name) -> knownContact.name
+                                !cachedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(cachedName) -> cachedName
+                                !sysName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(sysName) -> sysName
+                                else -> null
+                            }
                             val devUuids = try { @Suppress("MissingPermission") device.uuids } catch (e: Exception) { null }
                             val hasPrimeUuid = devUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true
-                            val isSavedInChats = chatListState.any { it.id.equals(device.address, ignoreCase = true) }
+                            val isSavedInChats = knownContact != null
                             
                             val isExplicitPrime = (name?.contains("Prime", ignoreCase = true) == true) || 
-                                                  primeDevices.contains(device.address) || 
+                                                  primeDevices.contains(devAddr) || 
                                                   hasPrimeUuid || isSavedInChats
                             if (isExplicitPrime) return@filter true
 
@@ -2925,13 +3009,24 @@ class ChatListActivity : AppCompatActivity() {
                         }
 
                     val primeOnlyDevices = rawAllDevices.filter { (device, _) ->
-                        val name = try { @Suppress("MissingPermission") device.name } catch (e: Exception) { null }
+                        val devAddr = device.address
+                        val savedName = AvatarManager.getContactDisplayName(this@ChatListActivity, devAddr, devAddr, null)
+                        val knownContact = chatListState.find { it.id.equals(devAddr, ignoreCase = true) }
+                        val cachedName = deviceNameMap[devAddr]
+                        val sysName = try { @Suppress("MissingPermission") device.name } catch (e: Exception) { null }
+                        val name = when {
+                            !savedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(savedName) && !AvatarManager.isGenericIdentity(savedName) -> savedName
+                            knownContact != null && !knownContact.name.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(knownContact.name) -> knownContact.name
+                            !cachedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(cachedName) -> cachedName
+                            !sysName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(sysName) -> sysName
+                            else -> null
+                        }
                         val devUuids = try { @Suppress("MissingPermission") device.uuids } catch (e: Exception) { null }
                         val hasPrimeUuid = devUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true
-                        val isSavedInChats = chatListState.any { it.id.equals(device.address, ignoreCase = true) }
+                        val isSavedInChats = knownContact != null
                         
                         (name?.contains("Prime", ignoreCase = true) == true) || 
-                        primeDevices.contains(device.address) || 
+                        primeDevices.contains(devAddr) || 
                         hasPrimeUuid || isSavedInChats
                     }
                     
@@ -3003,9 +3098,20 @@ class ChatListActivity : AppCompatActivity() {
                         ) {
                             items(allPrimeList, key = { "prime_row_" + it.first.address }) { (device, isPaired) ->
                                 val devMac = device.address
-                                val knownContact = chatListState.find { it.id == devMac }
-                                var devName = knownContact?.name ?: try { @Suppress("MissingPermission") device.name ?: "Prime Собеседник" } catch (_: Exception) { "Prime Собеседник" }
-                                if (BluetoothAdapter.checkBluetoothAddress(devName)) devName = "Prime Собеседник"
+                                val knownContact = chatListState.find { it.id.equals(devMac, ignoreCase = true) }
+                                val savedName = AvatarManager.getContactDisplayName(this@ChatListActivity, devMac, devMac, null)
+                                val cachedName = deviceNameMap[devMac]
+                                val sysName = try { @Suppress("MissingPermission") device.name } catch (_: Exception) { null }
+
+                                val rawName = when {
+                                    !savedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(savedName) && !AvatarManager.isGenericIdentity(savedName) -> savedName
+                                    knownContact != null && !knownContact.name.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(knownContact.name) -> knownContact.name
+                                    !cachedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(cachedName) -> cachedName
+                                    !sysName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(sysName) -> sysName
+                                    else -> null
+                                }
+
+                                val devName = if (rawName.isNullOrBlank() || BluetoothAdapter.checkBluetoothAddress(rawName)) "Prime Собеседник" else DeviceAnonymizer.sanitizeDisplayName(rawName, devMac)
                                 val rssi = deviceRssiMap[devMac]
 
                                 val proximityText = if (!isPaired) {
@@ -3026,6 +3132,7 @@ class ChatListActivity : AppCompatActivity() {
                                         .clickable {
                                             dismissSheet {
                                                 isContactDialogVisible.value = false
+                                                stopBluetoothScan()
                                                 navigateToChatPerson(devName, devMac, useExistingSocket = false)
                                             }
                                         },
@@ -3077,6 +3184,7 @@ class ChatListActivity : AppCompatActivity() {
                                             onClick = {
                                                 dismissSheet {
                                                     isContactDialogVisible.value = false
+                                                    stopBluetoothScan()
                                                     navigateToChatPerson(devName, devMac, useExistingSocket = false)
                                                 }
                                             },
@@ -3110,9 +3218,21 @@ class ChatListActivity : AppCompatActivity() {
                             }
 
                             items(otherDevices, key = { "other_dev_" + it.first.address }) { (device, isPaired) ->
-                                val devNameRaw = try { @Suppress("MissingPermission") device.name ?: "" } catch (_: Exception) { "" }
-                                val devName = DeviceAnonymizer.sanitizeDisplayName(devNameRaw, device.address)
                                 val devMac = device.address
+                                val knownContact = chatListState.find { it.id.equals(devMac, ignoreCase = true) }
+                                val savedName = AvatarManager.getContactDisplayName(this@ChatListActivity, devMac, devMac, null)
+                                val cachedName = deviceNameMap[devMac]
+                                val sysName = try { @Suppress("MissingPermission") device.name } catch (_: Exception) { null }
+
+                                val rawName = when {
+                                    !savedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(savedName) && !AvatarManager.isGenericIdentity(savedName) -> savedName
+                                    knownContact != null && !knownContact.name.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(knownContact.name) -> knownContact.name
+                                    !cachedName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(cachedName) -> cachedName
+                                    !sysName.isNullOrBlank() && !BluetoothAdapter.checkBluetoothAddress(sysName) -> sysName
+                                    else -> null
+                                }
+
+                                val devName = DeviceAnonymizer.sanitizeDisplayName(rawName, devMac)
                                 val rssi = deviceRssiMap[devMac]
 
                                 val statusSubText = if (isPaired) "Ранее сопряжено" else {
@@ -3133,6 +3253,7 @@ class ChatListActivity : AppCompatActivity() {
                                         .clickable {
                                             dismissSheet {
                                                 isContactDialogVisible.value = false
+                                                stopBluetoothScan()
                                                 navigateToChatPerson(devName, devMac, useExistingSocket = false)
                                             }
                                         }
@@ -3149,6 +3270,7 @@ class ChatListActivity : AppCompatActivity() {
                                         onClick = {
                                             dismissSheet {
                                                 isContactDialogVisible.value = false
+                                                stopBluetoothScan()
                                                 navigateToChatPerson(devName, devMac, useExistingSocket = false)
                                             }
                                         },
@@ -3697,11 +3819,17 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        if (isContactDialogVisible.value) {
+            isContactDialogVisible.value = false
+        }
         stopBluetoothScan()
     }
 
     override fun onStop() {
         super.onStop()
+        if (isContactDialogVisible.value) {
+            isContactDialogVisible.value = false
+        }
         TransferManager.unregisterListener(transferListener)
         BluetoothConnectionManager.getInstance().unregisterCallback(globalBtCallback)
         try {
@@ -4311,6 +4439,10 @@ class ChatListActivity : AppCompatActivity() {
 
         btnNavAi?.setOnClickListener { v ->
             hapticTap(v)
+            if (isContactDialogVisible.value) {
+                isContactDialogVisible.value = false
+                stopBluetoothScan()
+            }
             val intent = Intent(this, AiChatActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
@@ -4319,6 +4451,10 @@ class ChatListActivity : AppCompatActivity() {
         }
         btnNavAi?.setOnLongClickListener { v ->
             hapticTap(v)
+            if (isContactDialogVisible.value) {
+                isContactDialogVisible.value = false
+                stopBluetoothScan()
+            }
             PrimePopupMenu.create(this, v)
                 .addItem("Открыть AI Чат", R.drawable.ic_prime_ai) {
                     val intent = Intent(this, AiChatActivity::class.java).apply {
@@ -4333,6 +4469,10 @@ class ChatListActivity : AppCompatActivity() {
 
         btnNavSearch?.setOnClickListener { v ->
             hapticTap(v)
+            if (isContactDialogVisible.value) {
+                isContactDialogVisible.value = false
+                stopBluetoothScan()
+            }
             val intent = Intent(this, GlobalSearchActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
@@ -4342,11 +4482,19 @@ class ChatListActivity : AppCompatActivity() {
 
         btnNavDownloads?.setOnClickListener { v ->
             hapticTap(v)
+            if (isContactDialogVisible.value) {
+                isContactDialogVisible.value = false
+                stopBluetoothScan()
+            }
             DownloadsActivity.openWithPermissionCheck(this)
         }
 
         btnNavProfile?.setOnClickListener { v ->
             hapticTap(v)
+            if (isContactDialogVisible.value) {
+                isContactDialogVisible.value = false
+                stopBluetoothScan()
+            }
             val intent = Intent(this, SettingsActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
@@ -4402,6 +4550,7 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private fun closeHeaderSearch() {
+        stopBluetoothScan()
         val header = binding.layoutIslandHeader
 
         header.tvHeaderTitle.animate().cancel()
@@ -4799,9 +4948,10 @@ class ChatListActivity : AppCompatActivity() {
             
             try {
                 val currentUser = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("current_user", "") ?: ""
-                val myDisplayName = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE).getString("${currentUser}_name", currentUser) ?: currentUser
-                val payload = "DELETE_CHAT:login=$myDisplayName;name=$myDisplayName".toByteArray(Charsets.UTF_8)
+                val myDisplayName = AvatarManager.getMyDisplayName(this)
+                val payload = "DELETE_CHAT:login=$currentUser;name=$myDisplayName;mac=$targetId".toByteArray(Charsets.UTF_8)
                 
+                BluetoothConnectionManager.getInstance().broadcastPacket(8.toByte(), payload)
                 BluetoothConnectionManager.getInstance().sendPacket(targetId, 8.toByte(), payload)
                 PrimeCompanionServer.broadcastPacket(8.toByte(), payload)
                 Thread.sleep(100)
@@ -4825,6 +4975,10 @@ class ChatListActivity : AppCompatActivity() {
             }
             
             ChatHistoryManager.deleteHistoryCompletely(this, targetName, targetId)
+            val chatDeletedIntent = Intent("com.messenger.prime.CHAT_DELETED").apply {
+                `package` = packageName
+            }
+            sendBroadcast(chatDeletedIntent)
         }.start()
     }
 
@@ -4956,7 +5110,7 @@ class ChatListActivity : AppCompatActivity() {
                     binding.layoutIslandHeader.vStartChatHighlightRing.clearAnimation()
                 }
             } else {
-                binding.tvEmptyState.text = "Прайма не видно, начните с кем нибудь общение!"
+                binding.tvEmptyState.text = "Нет активных чатов\nНажмите поиск, чтобы найти пользователей рядом"
                 if (chatListState.isEmpty()) {
                     binding.layoutEmptyState.visibility = View.VISIBLE
                     

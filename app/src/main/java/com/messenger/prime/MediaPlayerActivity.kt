@@ -672,6 +672,8 @@ class MediaPlayerActivity : AppCompatActivity() {
         val isAvatarPreview = isContactAvatarPreview || isMyAvatarPreview
                 || item.text == "Аватар профиля"
                 || item.time == "Это вы"
+                || item.time == "Активный аватар"
+                || item.time == "Аватар профиля"
                 || item.time == "В прайме!"
 
         val popup = PrimePopupMenu.create(this, btnMoreMenu)
@@ -839,6 +841,8 @@ class MediaPlayerActivity : AppCompatActivity() {
         val isAvatarPreview = item.messageId?.contains("avatar_preview") == true
                 || item.text == "Аватар профиля"
                 || item.time == "Это вы"
+                || item.time == "Активный аватар"
+                || item.time == "Аватар профиля"
                 || item.time == "В прайме!"
                 || item.imagePath?.lowercase(Locale.US)?.contains("avatar") == true
 

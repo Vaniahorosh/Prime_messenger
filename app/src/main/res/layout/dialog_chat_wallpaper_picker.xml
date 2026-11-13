@@ -18,13 +18,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="16dp"
+            android:paddingHorizontal="20dp"
             android:paddingTop="12dp"
             android:paddingBottom="24dp">
 
             <!-- Драг хэндл для шторки -->
             <View
-                android:layout_width="40dp"
+                android:layout_width="32dp"
                 android:layout_height="4dp"
                 android:layout_gravity="center_horizontal"
                 android:layout_marginBottom="12dp"
@@ -37,11 +37,11 @@
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingBottom="10dp">
+                android:paddingBottom="12dp">
 
                 <ImageView
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
                     android:src="@drawable/ic_photo"
                     app:tint="@color/prime_brand" />
 
@@ -75,8 +75,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_glass_card"
-                    android:paddingHorizontal="10dp"
-                    android:paddingVertical="4dp"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="5dp"
                     android:text="Стандартные"
                     android:textColor="@color/prime_brand"
                     android:textSize="11sp"
@@ -111,12 +111,12 @@
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnApplyForChat"
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
+                    android:layout_height="48dp"
                     android:text="Применить для этого чата"
                     android:textAllCaps="false"
                     android:textColor="@color/white"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
+                    android:textSize="14sp"
+                    android:fontFamily="sans-serif-medium"
                     app:cornerRadius="16dp"
                     app:backgroundTint="@color/prime_brand"
                     app:icon="@drawable/ic_done"
@@ -134,6 +134,7 @@
                     android:textAllCaps="false"
                     android:textColor="@color/prime_text_primary"
                     android:textSize="14sp"
+                    android:fontFamily="sans-serif-medium"
                     app:cornerRadius="16dp"
                     app:strokeColor="@color/prime_divider"
                     app:strokeWidth="1dp" />
@@ -155,6 +156,7 @@
                         android:textAllCaps="false"
                         android:textColor="@color/prime_brand"
                         android:textSize="13sp"
+                        android:fontFamily="sans-serif-medium"
                         app:backgroundTint="@android:color/transparent"
                         app:icon="@drawable/ic_add"
                         app:iconGravity="textStart"
@@ -170,6 +172,7 @@
                         android:textAllCaps="false"
                         android:textColor="@color/prime_danger"
                         android:textSize="13sp"
+                        android:fontFamily="sans-serif-medium"
                         app:backgroundTint="@android:color/transparent"
                         app:icon="@drawable/ic_trash"
                         app:iconGravity="textStart"

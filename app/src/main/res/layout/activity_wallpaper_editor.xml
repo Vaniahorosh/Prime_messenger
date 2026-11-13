@@ -40,7 +40,7 @@
                     app:backgroundTint="@android:color/transparent"
                     app:elevation="0dp"
                     android:padding="0dp"
-                    app:cornerRadius="14dp"
+                    app:cornerRadius="16dp"
                     app:icon="@drawable/ic_arrow_back"
                     app:iconGravity="textStart"
                     app:iconPadding="0dp"
@@ -51,7 +51,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_marginStart="14dp"
+                    android:layout_marginStart="12dp"
                     android:orientation="vertical">
 
                     <TextView
@@ -61,13 +61,13 @@
                         android:text="Редактор обоев"
                         android:textColor="@color/prime_text_primary"
                         android:textSize="20sp"
-                        android:textStyle="bold" />
+                        android:fontFamily="sans-serif-medium" />
 
                     <TextView
                         android:id="@+id/tvHeaderSubtitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Общие обои для чатов"
+                        android:text="Общие обои для всех чатов"
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -79,8 +79,8 @@
                     android:text="Сохранить"
                     android:textAllCaps="false"
                     android:textColor="@color/white"
-                    android:textStyle="bold"
-                    app:cornerRadius="14dp"
+                    android:fontFamily="sans-serif-medium"
+                    app:cornerRadius="16dp"
                     app:backgroundTint="@color/prime_brand" />
             </LinearLayout>
 
@@ -115,11 +115,11 @@
                 android:layout_width="220dp"
                 android:layout_height="390dp"
                 android:layout_gravity="center_horizontal"
-                android:layout_marginBottom="10dp"
+                android:layout_marginBottom="12dp"
                 app:cardCornerRadius="32dp"
-                app:cardElevation="12dp"
-                app:strokeWidth="2.5dp"
-                app:strokeColor="@color/prime_brand">
+                app:cardElevation="8dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/glass_white_20">
 
                 <FrameLayout
                     android:id="@+id/frameLivePreview"
@@ -162,7 +162,7 @@
                                 android:text="12:45"
                                 android:textColor="#D0FFFFFF"
                                 android:textSize="9sp"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
 
                             <View
                                 android:layout_width="0dp"
@@ -172,9 +172,10 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="••• 5G 🔋"
+                                android:text="5G"
                                 android:textColor="#D0FFFFFF"
-                                android:textSize="8sp" />
+                                android:textSize="8sp"
+                                android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
                         <!-- 1. Парящий островок шапки чата (Floating Glass Header как в ChatPersonActivity) -->
@@ -186,14 +187,14 @@
                             android:background="@drawable/bg_floating_island"
                             android:gravity="center_vertical"
                             android:orientation="horizontal"
-                            android:paddingStart="4dp"
+                            android:paddingStart="6dp"
                             android:paddingTop="4dp"
                             android:paddingEnd="8dp"
                             android:paddingBottom="4dp">
 
                             <ImageView
-                                android:layout_width="20dp"
-                                android:layout_height="20dp"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
                                 android:src="@drawable/ic_arrow_back"
                                 app:tint="@color/prime_text_primary" />
 
@@ -214,7 +215,7 @@
                                     android:text="Собеседник"
                                     android:textColor="@color/prime_text_primary"
                                     android:textSize="11sp"
-                                    android:textStyle="bold" />
+                                    android:fontFamily="sans-serif-medium" />
 
                                 <TextView
                                     android:id="@+id/tvPreviewChatStatus"
@@ -258,7 +259,7 @@
                                 android:text="Сегодня"
                                 android:textColor="@color/white"
                                 android:textSize="8sp"
-                                android:textStyle="bold" />
+                                android:fontFamily="sans-serif-medium" />
 
                             <!-- Входящее сообщение -->
                             <LinearLayout
@@ -275,7 +276,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:maxWidth="145dp"
-                                    android:text="Неужели чат не интересен со мной?"
+                                    android:text="Как тебе новые обои в чате?"
                                     android:textColor="#FFFFFF"
                                     android:textSize="10sp" />
 
@@ -303,7 +304,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:maxWidth="145dp"
-                                    android:text="Прости, не заметил из за крутых обоев! 🔥"
+                                    android:text="Выглядит очень стильно и приятно!"
                                     android:textColor="#FFFFFF"
                                     android:textSize="10sp" />
 
@@ -326,12 +327,12 @@
                             android:background="@drawable/bg_floating_island"
                             android:gravity="center_vertical"
                             android:orientation="horizontal"
-                            android:paddingHorizontal="6dp"
-                            android:paddingVertical="3dp">
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="4dp">
 
                             <ImageView
-                                android:layout_width="18dp"
-                                android:layout_height="18dp"
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
                                 android:src="@drawable/ic_photo"
                                 app:tint="@color/prime_text_secondary" />
 
@@ -346,8 +347,8 @@
                                 android:textSize="10sp" />
 
                             <ImageView
-                                android:layout_width="20dp"
-                                android:layout_height="20dp"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
                                 android:src="@drawable/ic_send"
                                 app:tint="@color/prime_brand" />
                         </LinearLayout>
@@ -356,7 +357,7 @@
                     <!-- Вырез под камеру -->
                     <View
                         android:layout_width="36dp"
-                        android:layout_height="6dp"
+                        android:layout_height="5dp"
                         android:layout_gravity="top|center_horizontal"
                         android:layout_marginTop="5dp"
                         android:background="@drawable/bg_m3_active_indicator"
@@ -374,11 +375,11 @@
                 android:background="@drawable/bg_m3_active_indicator"
                 android:backgroundTint="@color/glass_white_20"
                 android:paddingHorizontal="14dp"
-                android:paddingVertical="5dp"
-                android:text="✨ Смайлы • Парение • Тёмно-синий"
+                android:paddingVertical="6dp"
+                android:text="Смайлы • Парение • Тёмно-синий"
                 android:textColor="@color/prime_text_secondary"
                 android:textSize="11sp"
-                android:textStyle="bold" />
+                android:fontFamily="sans-serif-medium" />
 
             <!-- Переключатель главных режимов -->
             <HorizontalScrollView
@@ -399,11 +400,11 @@
                         android:layout_width="wrap_content"
                         android:layout_height="48dp"
                         android:layout_marginEnd="8dp"
-                        android:text="Смайлы &amp; Узоры"
+                        android:text="Смайлы и узоры"
                         android:textAllCaps="false"
                         android:textColor="@color/prime_text_primary"
-                        android:textStyle="bold"
-                        app:cornerRadius="14dp"
+                        android:fontFamily="sans-serif-medium"
+                        app:cornerRadius="16dp"
                         app:icon="@drawable/ic_tema"
                         app:iconTint="@color/prime_brand"
                         app:strokeColor="@color/prime_brand" />
@@ -414,11 +415,11 @@
                         android:layout_width="wrap_content"
                         android:layout_height="48dp"
                         android:layout_marginEnd="8dp"
-                        android:text="Material 3 Фигуры"
+                        android:text="Material 3 фигуры"
                         android:textAllCaps="false"
                         android:textColor="@color/prime_text_primary"
-                        android:textStyle="bold"
-                        app:cornerRadius="14dp"
+                        android:fontFamily="sans-serif-medium"
+                        app:cornerRadius="16dp"
                         app:icon="@drawable/ic_live_fon"
                         app:iconTint="@color/prime_brand"
                         app:strokeColor="@color/prime_brand" />
@@ -428,11 +429,11 @@
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         android:layout_width="wrap_content"
                         android:layout_height="48dp"
-                        android:text="Фото из Галереи"
+                        android:text="Фото из галереи"
                         android:textAllCaps="false"
                         android:textColor="@color/prime_text_primary"
-                        android:textStyle="bold"
-                        app:cornerRadius="14dp"
+                        android:fontFamily="sans-serif-medium"
+                        app:cornerRadius="16dp"
                         app:icon="@drawable/ic_photo"
                         app:iconTint="@color/prime_brand"
                         app:strokeColor="@color/prime_brand" />
@@ -456,14 +457,14 @@
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnPickGallery"
                         android:layout_width="0dp"
-                        android:layout_height="52dp"
+                        android:layout_height="48dp"
                         android:layout_weight="1"
                         android:layout_marginEnd="8dp"
                         android:text="Выбрать из галереи"
                         android:textAllCaps="false"
                         android:textColor="@color/white"
-                        android:textStyle="bold"
-                        app:cornerRadius="14dp"
+                        android:fontFamily="sans-serif-medium"
+                        app:cornerRadius="16dp"
                         app:backgroundTint="@color/prime_brand"
                         app:icon="@drawable/ic_photo"
                         app:iconTint="@color/white" />
@@ -472,11 +473,12 @@
                         android:id="@+id/btnResetPhotoTransform"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         android:layout_width="wrap_content"
-                        android:layout_height="52dp"
+                        android:layout_height="48dp"
                         android:text="Сброс"
                         android:textAllCaps="false"
                         android:textColor="@color/prime_text_primary"
-                        app:cornerRadius="14dp"
+                        android:fontFamily="sans-serif-medium"
+                        app:cornerRadius="16dp"
                         app:strokeColor="@color/prime_divider" />
                 </LinearLayout>
 
@@ -485,10 +487,10 @@
                     android:id="@+id/tvLabelPhotoZoom"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Масштаб (Zoom): 1.0x"
+                    android:text="Масштаб: 1.0×"
                     android:textColor="@color/prime_text_secondary"
                     android:textSize="12sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="sans-serif-medium" />
 
                 <com.google.android.material.slider.Slider
                     android:id="@+id/sliderPhotoZoom"
@@ -509,10 +511,10 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="Поворот (Rotation): 0°"
+                    android:text="Поворот: 0°"
                     android:textColor="@color/prime_text_secondary"
                     android:textSize="12sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="sans-serif-medium" />
 
                 <com.google.android.material.slider.Slider
                     android:id="@+id/sliderPhotoRotation"
@@ -536,7 +538,7 @@
                     android:text="Затемнение фона: 20%"
                     android:textColor="@color/prime_text_secondary"
                     android:textSize="12sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="sans-serif-medium" />
 
                 <com.google.android.material.slider.Slider
                     android:id="@+id/sliderPhotoDim"
@@ -567,7 +569,7 @@
                     android:text="Стиль динамических фигур:"
                     android:textColor="@color/prime_text_secondary"
                     android:textSize="12sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="sans-serif-medium" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
@@ -602,10 +604,10 @@
                     android:layout_marginBottom="12dp"
                     android:hint="Впишите свои смайлики"
                     app:endIconMode="clear_text"
-                    app:boxCornerRadiusBottomEnd="14dp"
-                    app:boxCornerRadiusBottomStart="14dp"
-                    app:boxCornerRadiusTopEnd="14dp"
-                    app:boxCornerRadiusTopStart="14dp"
+                    app:boxCornerRadiusBottomEnd="16dp"
+                    app:boxCornerRadiusBottomStart="16dp"
+                    app:boxCornerRadiusTopEnd="16dp"
+                    app:boxCornerRadiusTopStart="16dp"
                     app:boxStrokeColor="@color/prime_brand">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -625,7 +627,7 @@
                     android:text="Готовые наборы смайлов:"
                     android:textColor="@color/prime_text_secondary"
                     android:textSize="12sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="sans-serif-medium" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
@@ -651,7 +653,7 @@
                     android:text="Расположение узора:"
                     android:textColor="@color/prime_text_secondary"
                     android:textSize="12sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="sans-serif-medium" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
@@ -677,7 +679,7 @@
                     android:text="Цвет фона:"
                     android:textColor="@color/prime_text_secondary"
                     android:textSize="12sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="sans-serif-medium" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"
@@ -708,10 +710,10 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="8dp"
-                    android:text="Эффект анимации &amp; движения:"
+                    android:text="Эффект анимации и движения:"
                     android:textColor="@color/prime_text_secondary"
                     android:textSize="12sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="sans-serif-medium" />
 
                 <HorizontalScrollView
                     android:layout_width="match_parent"

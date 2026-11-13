@@ -53,14 +53,14 @@
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/btnBack" />
 
-                    <com.messenger.prime.OutlinedTextView
+                    <TextView
                         android:id="@+id/tvTitle"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:text="Приветствуем!"
-                        android:textColor="@color/white"
+                        android:text="Вход в Prime"
+                        android:textColor="@color/prime_text_primary"
                         android:textSize="26sp"
-                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:textAlignment="center"
                         android:visibility="gone"
                         tools:ignore="MissingConstraints" />
@@ -240,7 +240,7 @@
                                 android:layout_marginStart="8dp"
                                 android:layout_gravity="center_vertical"
                                 app:srcCompat="@drawable/ic_arrow_forward"
-                                app:backgroundTint="#007BFF"
+                                app:backgroundTint="?attr/colorPrimary"
                                 app:tint="@color/white"
                                 app:fabSize="mini"
                                 app:elevation="0dp"
@@ -250,25 +250,29 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnToggleMode"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="16dp"
-                            android:text="Регистрация"
+                            android:layout_height="50dp"
+                            android:layout_marginTop="20dp"
+                            android:text="Создать профиль"
+                            android:textAllCaps="false"
+                            android:textSize="14sp"
+                            android:fontFamily="sans-serif-medium"
                             app:backgroundTint="@color/prime_brand"
                             android:textColor="@color/white"
-                            app:cornerRadius="16dp" />
+                            app:cornerRadius="14dp" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnRegisterSubmit"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="16dp"
-                            android:text="Быть в прайме!"
+                            android:layout_height="50dp"
+                            android:layout_marginTop="20dp"
+                            android:text="Завершить регистрацию"
                             android:visibility="gone"
+                            android:textAllCaps="false"
+                            android:textSize="14sp"
+                            android:fontFamily="sans-serif-medium"
                             app:backgroundTint="@color/prime_brand"
                             android:textColor="@color/white"
-                            app:cornerRadius="16dp"
-                            app:strokeColor="@color/prime_brand"
-                            app:strokeWidth="2dp" />
+                            app:cornerRadius="14dp" />
 
                         <TextView
                             android:id="@+id/tvError"
@@ -296,32 +300,20 @@
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/llInputs">
 
-                        <LinearLayout
-                            android:layout_width="match_parent"
+                        <TextView
+                            android:id="@+id/tvAvatarsHint"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
-                            <TextView
-                                android:id="@+id/tvAvatarsHint"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Или выберите из 5 готовых аватаров"
-                                android:textColor="?attr/colorPrimary"
-                                android:textSize="12sp" />
-                            <View
-                                android:id="@+id/vAvatarsLine"
-                                android:layout_width="0dp"
-                                android:layout_height="2dp"
-                                android:layout_weight="1"
-                                android:background="?attr/colorPrimary"
-                                android:layout_marginStart="8dp" />
-                        </LinearLayout>
+                            android:text="Или выберите готовый аватар"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="12sp"
+                            android:fontFamily="sans-serif-medium" />
 
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
-                            android:layout_marginTop="16dp"
+                            android:layout_marginTop="12dp"
                             android:gravity="center">
 
                             <com.google.android.material.imageview.ShapeableImageView
@@ -334,7 +326,7 @@
                                 android:scaleType="centerCrop"
                                 app:shapeAppearanceOverlay="@style/SquareFABShape"
                                 app:strokeColor="?attr/colorPrimary"
-                                app:strokeWidth="2dp"/>
+                                app:strokeWidth="1.5dp"/>
                             <com.google.android.material.imageview.ShapeableImageView
                                 android:id="@+id/ivAvatar2"
                                 android:layout_width="48dp"
@@ -345,7 +337,7 @@
                                 android:scaleType="centerCrop"
                                 app:shapeAppearanceOverlay="@style/SquareFABShape"
                                 app:strokeColor="?attr/colorPrimary"
-                                app:strokeWidth="2dp"/>
+                                app:strokeWidth="1.5dp"/>
                             <com.google.android.material.imageview.ShapeableImageView
                                 android:id="@+id/ivAvatar3"
                                 android:layout_width="48dp"
@@ -356,7 +348,7 @@
                                 android:scaleType="centerCrop"
                                 app:shapeAppearanceOverlay="@style/SquareFABShape"
                                 app:strokeColor="?attr/colorPrimary"
-                                app:strokeWidth="2dp"/>
+                                app:strokeWidth="1.5dp"/>
                             <com.google.android.material.imageview.ShapeableImageView
                                 android:id="@+id/ivAvatar4"
                                 android:layout_width="48dp"
@@ -367,7 +359,7 @@
                                 android:scaleType="centerCrop"
                                 app:shapeAppearanceOverlay="@style/SquareFABShape"
                                 app:strokeColor="?attr/colorPrimary"
-                                app:strokeWidth="2dp"/>
+                                app:strokeWidth="1.5dp"/>
                             <com.google.android.material.imageview.ShapeableImageView
                                 android:id="@+id/ivAvatar5"
                                 android:layout_width="48dp"
@@ -377,7 +369,7 @@
                                 android:scaleType="centerCrop"
                                 app:shapeAppearanceOverlay="@style/SquareFABShape"
                                 app:strokeColor="?attr/colorPrimary"
-                                app:strokeWidth="2dp"/>
+                                app:strokeWidth="1.5dp"/>
                         </LinearLayout>
                     </LinearLayout>
 

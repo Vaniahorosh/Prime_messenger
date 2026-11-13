@@ -64,6 +64,18 @@
             tools:text="Java • Активен" />
     </LinearLayout>
 
+    <!-- Run Plugin Button -->
+    <ImageView
+        android:id="@+id/btnRunPlugin"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginEnd="6dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="7dp"
+        android:src="@drawable/ic_media_play"
+        app:tint="@color/prime_brand"
+        android:contentDescription="@string/app_name" />
+
     <!-- Enable / Disable Modern Material 3 Switch -->
     <com.google.android.material.materialswitch.MaterialSwitch
         android:id="@+id/switchPluginEnable"

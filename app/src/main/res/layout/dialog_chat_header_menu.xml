@@ -18,6 +18,15 @@
             android:orientation="vertical"
             android:paddingVertical="12dp">
 
+            <!-- Drag handle -->
+            <View
+                android:layout_width="32dp"
+                android:layout_height="4dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="10dp"
+                android:background="@drawable/ic_drag_handle"
+                android:backgroundTint="#40FFFFFF" />
+
             <!-- Title -->
             <TextView
                 android:id="@+id/tvMenuTitle"
@@ -59,7 +68,8 @@
                     android:layout_marginStart="16dp"
                     android:text="Профиль"
                     android:textColor="@color/prime_text_primary"
-                    android:textSize="16sp" />
+                    android:textSize="15sp"
+                    android:fontFamily="sans-serif-regular" />
             </LinearLayout>
 
             <!-- Item: To Top -->
@@ -85,7 +95,8 @@
                     android:layout_marginStart="16dp"
                     android:text="В начало"
                     android:textColor="@color/prime_text_primary"
-                    android:textSize="16sp" />
+                    android:textSize="15sp"
+                    android:fontFamily="sans-serif-regular" />
             </LinearLayout>
 
             <!-- Item: Search -->
@@ -111,7 +122,8 @@
                     android:layout_marginStart="16dp"
                     android:text="Поиск по чату"
                     android:textColor="@color/prime_text_primary"
-                    android:textSize="16sp" />
+                    android:textSize="15sp"
+                    android:fontFamily="sans-serif-regular" />
             </LinearLayout>
 
             <!-- Item: Change Wallpaper -->
@@ -137,7 +149,8 @@
                     android:layout_marginStart="16dp"
                     android:text="Изменить обои"
                     android:textColor="@color/prime_text_primary"
-                    android:textSize="16sp" />
+                    android:textSize="15sp"
+                    android:fontFamily="sans-serif-regular" />
             </LinearLayout>
 
             <!-- Item: Mute -->
@@ -165,7 +178,8 @@
                     android:layout_marginStart="16dp"
                     android:text="Отключить звук"
                     android:textColor="@color/prime_text_primary"
-                    android:textSize="16sp" />
+                    android:textSize="15sp"
+                    android:fontFamily="sans-serif-regular" />
             </LinearLayout>
 
             <!-- Item: Reader Mode -->
@@ -193,7 +207,8 @@
                     android:layout_marginStart="16dp"
                     android:text="Режим читателя"
                     android:textColor="@color/prime_text_primary"
-                    android:textSize="16sp" />
+                    android:textSize="15sp"
+                    android:fontFamily="sans-serif-regular" />
             </LinearLayout>
 
             <!-- Item: Show Pinned Bar -->
@@ -220,7 +235,8 @@
                     android:layout_marginStart="16dp"
                     android:text="Показать закреп."
                     android:textColor="@color/prime_text_primary"
-                    android:textSize="16sp" />
+                    android:textSize="15sp"
+                    android:fontFamily="sans-serif-regular" />
             </LinearLayout>
 
             <!-- Item: Delete Chat -->
@@ -246,7 +262,8 @@
                     android:layout_marginStart="16dp"
                     android:text="Удалить чат"
                     android:textColor="@color/prime_danger"
-                    android:textSize="16sp" />
+                    android:textSize="15sp"
+                    android:fontFamily="sans-serif-regular" />
             </LinearLayout>
 
         </LinearLayout>
@@ -269,7 +286,7 @@
             android:paddingVertical="16dp"
             android:text="Отмена"
             android:textColor="@color/prime_text_primary"
-            android:textSize="16sp"
+            android:textSize="15sp"
             android:fontFamily="sans-serif-medium" />
     </eightbitlab.com.blurview.BlurView>
 

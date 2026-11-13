@@ -494,7 +494,7 @@ class PhotoEditorActivity : AppCompatActivity() {
             b.sliderSaturation.value = saturation
             b.sliderTemperature.value = temperature
             b.sliderTint.value = tint
-            PrimeNotification.show(this, "✨ Авто-улучшение применено!")
+            PrimeNotification.show(this, "Авто-улучшение применено")
         }
 
         b.toolLight.setOnClickListener { toggleToolGroup(b, b.layoutGroupLight, "Освещение") }

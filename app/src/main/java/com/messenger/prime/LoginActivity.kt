@@ -136,25 +136,17 @@ class LoginActivity : AppCompatActivity() {
 
                             // Setup TextSwitcher
                             b.tsTitle.setFactory {
-                                val textView = OutlinedTextView(this@LoginActivity)
-                                textView.textSize = 26f
-                                val density = resources.displayMetrics.density
-                                if (!darkTheme) {
-                                    textView.setTextColor(android.graphics.Color.WHITE)
-                                    textView.strokeColor = android.graphics.Color.BLACK
-                                    textView.strokeWidthPx = 3f * density
-                                    textView.isStrokeEnabled = true
-                                } else {
-                                    textView.setTextColor(android.graphics.Color.parseColor("#F1F5F9"))
-                                    textView.isStrokeEnabled = false
-                                }
-                                textView.setTypeface(null, android.graphics.Typeface.BOLD)
+                                val textView = TextView(this@LoginActivity)
+                                textView.textSize = 22f
+                                val titleColor = if (darkTheme) android.graphics.Color.parseColor("#F1F5F9") else android.graphics.Color.parseColor("#0F172A")
+                                textView.setTextColor(titleColor)
+                                textView.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
                                 textView.textAlignment = View.TEXT_ALIGNMENT_CENTER
                                 textView
                             }
                             b.tsTitle.inAnimation = android.view.animation.AnimationUtils.loadAnimation(this@LoginActivity, android.R.anim.slide_in_left)
                             b.tsTitle.outAnimation = android.view.animation.AnimationUtils.loadAnimation(this@LoginActivity, android.R.anim.slide_out_right)
-                            b.tsTitle.setText("Приветствуем!")
+                            b.tsTitle.setText("Вход в Prime")
 
                             b.loginBlurCard.setupBlur(b.rootConstraint, 20f)
 
@@ -196,8 +188,8 @@ class LoginActivity : AppCompatActivity() {
                                     if (login.isNotEmpty() && sharedPreferences.contains(login)) {
                                         // Found user
                                         val name = sharedPreferences.getString("${login}_name", login) ?: login
-                                        setTitleText(b, "Это вы, $name?")
-                                        b.btnToggleMode.text = "Нет это не я"
+                                        setTitleText(b, "Вход: $name")
+                                        b.btnToggleMode.text = "Сменить профиль"
                                         
                                         if (b.llPasswordContainer.visibility != View.VISIBLE) {
                                             b.llPasswordContainer.visibility = View.VISIBLE
@@ -217,9 +209,9 @@ class LoginActivity : AppCompatActivity() {
                                             loadAvatarIntoView(this@LoginActivity, null, b.ivLoginAvatar, name)
                                         }
                                     } else {
-                                        // User not found -> "Приветствуем!"
-                                        setTitleText(b, "Приветствуем!")
-                                        b.btnToggleMode.text = "Регистрация"
+                                        // User not found -> "Вход в Prime"
+                                        setTitleText(b, "Вход в Prime")
+                                        b.btnToggleMode.text = "Создать профиль"
                                         
                                         if (b.llPasswordContainer.visibility == View.VISIBLE) {
                                             b.llPasswordContainer.animate().translationY(-30f).alpha(0f).setDuration(200L).withEndAction {
@@ -373,7 +365,7 @@ class LoginActivity : AppCompatActivity() {
         TransitionManager.beginDelayedTransition(b.contentContainer, transition)
         
         if (isRegistrationMode) {
-            setTitleText(b, "Давайте создадим профиль!")
+            setTitleText(b, "Создание профиля")
             b.tvSubtitle.visibility = View.GONE
             
             b.flLoginAvatar.visibility = View.GONE
@@ -407,7 +399,7 @@ class LoginActivity : AppCompatActivity() {
                  hideError(b)
             }
         } else {
-            b.tsTitle.setText("Приветствуем!")
+            b.tsTitle.setText("Вход в Prime")
             b.tvSubtitle.visibility = View.VISIBLE
             
             b.flRegisterAvatar.visibility = View.GONE
@@ -591,7 +583,6 @@ class LoginActivity : AppCompatActivity() {
 
     private fun setupContrastColors(b: ActivityLoginContentBinding, darkTheme: Boolean) {
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
-        val density = resources.displayMetrics.density
         val titleColor = if (darkTheme) android.graphics.Color.parseColor("#F1F5F9") else android.graphics.Color.parseColor("#0F172A")
         val subtitleColor = if (darkTheme) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
         val iconTint = if (darkTheme) android.graphics.Color.WHITE else android.graphics.Color.parseColor("#1E293B")
@@ -600,15 +591,7 @@ class LoginActivity : AppCompatActivity() {
         val boxBgColor = if (darkTheme) android.graphics.Color.parseColor("#1AFFFFFF") else android.graphics.Color.parseColor("#10000000")
         val strokeColorList = android.content.res.ColorStateList.valueOf(if (darkTheme) android.graphics.Color.WHITE else accentColor)
 
-        if (!darkTheme) {
-            b.tvTitle.setTextColor(android.graphics.Color.WHITE)
-            b.tvTitle.strokeColor = android.graphics.Color.BLACK
-            b.tvTitle.strokeWidthPx = 3f * density
-            b.tvTitle.isStrokeEnabled = true
-        } else {
-            b.tvTitle.setTextColor(titleColor)
-        }
-
+        b.tvTitle.setTextColor(titleColor)
         b.tvSubtitle.setTextColor(subtitleColor)
         b.btnBack.setColorFilter(iconTint)
         

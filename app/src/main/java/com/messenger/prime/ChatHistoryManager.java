@@ -289,6 +289,9 @@ public class ChatHistoryManager {
         if (targetUsername != null && !targetUsername.isEmpty()) {
             recordChatDeletedTombstone(appContext, targetUsername);
         }
+        if (deviceAddress != null && !deviceAddress.isEmpty()) {
+            recordChatDeletedTombstone(appContext, deviceAddress);
+        }
 
         List<String> keysToDelete = new ArrayList<>();
         if (targetUsername != null && !targetUsername.trim().isEmpty()) {
@@ -314,6 +317,9 @@ public class ChatHistoryManager {
 
         for (String k : keysToDelete) {
             markDeviceForgotten(appContext, k);
+            recordChatDeletedTombstone(appContext, k);
+            clearDraft(appContext, k);
+            clearPinnedMessage(appContext, k);
         }
 
         // 0. Synchronously clear memoryCache for all keys

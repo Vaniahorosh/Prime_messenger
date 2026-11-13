@@ -33,54 +33,67 @@
         android:layout_height="match_parent"
         android:gravity="center"
         android:orientation="vertical"
-        android:padding="32dp"
+        android:paddingHorizontal="32dp"
+        android:paddingVertical="24dp"
         android:visibility="gone"
         tools:visibility="visible">
 
-        <ImageView
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:background="@drawable/bg_circular_mode_active"
-            android:backgroundTint="?attr/colorPrimary"
-            android:padding="20dp"
-            android:src="@drawable/ic_prime_ai"
-            app:tint="?attr/colorOnPrimary"
-            android:elevation="4dp"
-            android:contentDescription="AI Assistant Logo" />
+        <eightbitlab.com.blurview.BlurView
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_blur_glass_panel"
+            android:elevation="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:src="@drawable/ic_prime_ai"
+                    app:tint="@color/prime_brand"
+                    android:contentDescription="Ai" />
+
+            </LinearLayout>
+        </eightbitlab.com.blurview.BlurView>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:gravity="center"
-            android:text="AI Prime Assistant"
+            android:text="Prime AI"
             android:textColor="@color/prime_text_primary"
-            android:textSize="22sp"
+            android:textSize="20sp"
             android:fontFamily="sans-serif-medium" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:layout_marginHorizontal="24dp"
+            android:layout_marginHorizontal="16dp"
             android:gravity="center"
-            android:text="Умный помощник для кодинга, перевода, анализа и генерации идей. Настройте API ключ и начните первый диалог!"
+            android:text="Умный помощник для кода, текстов и генерации плагинов"
             android:textColor="@color/prime_text_secondary"
             android:lineSpacingMultiplier="1.2"
-            android:textSize="15sp" />
+            android:textSize="14sp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnEmptyCreateChat"
             style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
             android:layout_width="wrap_content"
             android:layout_height="48dp"
-            android:layout_marginTop="32dp"
-            android:text="Создать первый чат"
+            android:layout_marginTop="28dp"
+            android:text="Новый чат"
             android:textColor="?attr/colorOnPrimary"
             android:textAllCaps="false"
-            android:letterSpacing="0.01"
-            android:textSize="15sp"
-            app:cornerRadius="24dp"
+            android:textSize="14sp"
+            android:fontFamily="sans-serif-medium"
+            app:cornerRadius="14dp"
             app:backgroundTint="?attr/colorPrimary"
             app:icon="@drawable/ic_add"
             app:iconTint="?attr/colorOnPrimary" />
@@ -91,12 +104,12 @@
             android:layout_width="wrap_content"
             android:layout_height="48dp"
             android:layout_marginTop="12dp"
-            android:text="Настроить API ключ"
+            android:text="Настроить ключ API"
             android:textColor="?attr/colorPrimary"
             android:textAllCaps="false"
-            android:letterSpacing="0.01"
-            android:textSize="15sp"
-            app:cornerRadius="24dp"
+            android:textSize="14sp"
+            android:fontFamily="sans-serif-medium"
+            app:cornerRadius="14dp"
             app:strokeColor="?attr/colorPrimary"
             app:icon="@drawable/ic_settings"
             app:iconTint="?attr/colorPrimary" />
@@ -106,7 +119,7 @@
     <View
         android:id="@+id/vTopFog"
         android:layout_width="match_parent"
-        android:layout_height="140dp"
+        android:layout_height="128dp"
         android:layout_gravity="top"
         android:background="@drawable/bg_top_fog_dark"
         android:clickable="false"
@@ -116,7 +129,7 @@
     <View
         android:id="@+id/vBottomFog"
         android:layout_width="match_parent"
-        android:layout_height="63dp"
+        android:layout_height="64dp"
         android:layout_gravity="bottom"
         android:background="@drawable/bg_bottom_fog_dark"
         android:clickable="false"
@@ -126,7 +139,7 @@
     <LinearLayout
         android:id="@+id/topHeaderBar"
         android:layout_width="match_parent"
-        android:layout_height="68dp"
+        android:layout_height="64dp"
         android:layout_gravity="top"
         android:gravity="center_vertical"
         android:orientation="horizontal"
@@ -159,7 +172,8 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:layout_marginEnd="8dp"
-                    android:src="@drawable/ic_prime_ai" />
+                    android:src="@drawable/ic_prime_ai"
+                    app:tint="@color/prime_brand" />
 
                 <TextView
                     android:id="@+id/tvAiHeaderTitle"

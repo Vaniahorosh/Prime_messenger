@@ -22,18 +22,18 @@
         <!-- Top Drag Handle -->
         <View
             android:id="@+id/vPlayerDragHandle"
-            android:layout_width="40dp"
+            android:layout_width="32dp"
             android:layout_height="4dp"
             android:layout_marginTop="2dp"
             android:layout_marginBottom="16dp"
-            android:alpha="0.4"
-            android:background="@drawable/bg_date_bubble" />
+            android:background="@drawable/ic_drag_handle"
+            android:backgroundTint="#40FFFFFF" />
 
         <!-- Track Cover Art (Expanded) -->
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/ivPlayerCover"
-            android:layout_width="260dp"
-            android:layout_height="260dp"
+            android:layout_width="240dp"
+            android:layout_height="240dp"
             android:layout_marginVertical="8dp"
             android:elevation="8dp"
             android:scaleType="centerCrop"
@@ -56,7 +56,7 @@
             android:singleLine="true"
             android:textColor="@color/prime_text_primary"
             android:textSize="18sp"
-            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"
             tools:text="Очень длинное название трека, которое красиво переливается в бегущую строку" />
 
         <!-- Artist Name -->
@@ -101,7 +101,8 @@
                     android:layout_height="wrap_content"
                     android:text="00:00"
                     android:textColor="@color/prime_text_secondary"
-                    android:textSize="11sp" />
+                    android:textSize="11sp"
+                    android:fontFamily="sans-serif-medium" />
 
                 <View
                     android:layout_width="0dp"
@@ -114,7 +115,8 @@
                     android:layout_height="wrap_content"
                     android:text="00:00"
                     android:textColor="@color/prime_text_secondary"
-                    android:textSize="11sp" />
+                    android:textSize="11sp"
+                    android:fontFamily="sans-serif-medium" />
             </LinearLayout>
         </LinearLayout>
 
@@ -153,8 +155,8 @@
 
             <FrameLayout
                 android:id="@+id/btnPlayerPlayPauseContainer"
-                android:layout_width="58dp"
-                android:layout_height="58dp"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
                 android:layout_marginHorizontal="16dp"
                 android:background="@drawable/bg_circular_mode_active"
                 android:clickable="true"
@@ -162,8 +164,8 @@
 
                 <ImageView
                     android:id="@+id/ivPlayerPlayPause"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
                     android:layout_gravity="center"
                     android:contentDescription="Воспроизведение"
                     android:src="@drawable/ic_media_play"
@@ -205,7 +207,7 @@
                 android:text="Очередь воспроизведения"
                 android:textColor="@color/prime_text_primary"
                 android:textSize="13sp"
-                android:textStyle="bold" />
+                android:fontFamily="sans-serif-medium" />
 
             <View
                 android:layout_width="0dp"
@@ -213,7 +215,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="10dp"
                 android:background="@color/prime_text_secondary"
-                android:alpha="0.3" />
+                android:alpha="0.2" />
         </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView

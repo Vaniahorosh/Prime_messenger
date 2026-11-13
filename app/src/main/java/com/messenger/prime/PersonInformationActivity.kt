@@ -517,7 +517,11 @@ class PersonInformationActivity : AppCompatActivity() {
         }
         binding.tvStickyName.text = binding.tvUserNameWP.text
         binding.tvStickyStatus.animateSlideDownText(binding.tvStatusWP.text)
-        binding.tvStickyStatus.setTextColor(binding.tvStatusWP.currentTextColor)
+        val isGreen = binding.tvStatusWP.currentTextColor == ContextCompat.getColor(this, R.color.prime_success)
+        binding.tvStickyStatus.setTextColor(
+            if (isGreen) ContextCompat.getColor(this, R.color.prime_success)
+            else ContextCompat.getColor(this, R.color.prime_text_secondary)
+        )
     }
 
     private fun setupThemeAndBackground() {
@@ -779,7 +783,7 @@ class PersonInformationActivity : AppCompatActivity() {
             val mediaList = contactHistory.mapIndexed { idx, uriStr ->
                 ChatMessage(
                     "Аватар профиля",
-                    if (idx == 0) "В прайме! (Активный)" else "В прайме!",
+                    if (idx == 0) "Активный аватар" else "Аватар профиля",
                     displayContactName,
                     false,
                     null,
@@ -875,7 +879,8 @@ class PersonInformationActivity : AppCompatActivity() {
             com.messenger.prime.shapes.M3EShapes.cookie7Sided,
             com.messenger.prime.shapes.M3EShapes.circle
         )
-        val btnBgColor = ContextCompat.getColor(this, R.color.glass_white_20)
+        val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val btnBgColor = if (isNight) ContextCompat.getColor(this, R.color.glass_white_20) else ContextCompat.getColor(this, R.color.prime_search_bg)
 
         for ((index, btn) in leftButtons.withIndex()) {
             btn.outlineProvider = null
@@ -967,19 +972,23 @@ class PersonInformationActivity : AppCompatActivity() {
 
     private fun performCompleteChatDeletion() {
         val targetAddr = deviceAddress ?: targetUsername
-        if (BluetoothConnectionManager.getInstance().isConnected(targetAddr)) {
-            val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-            val currentUser = sp.getString("current_user", "") ?: ""
-            val deletionPayload = "DELETE_CHAT:login=$currentUser;name=$currentUser"
-            BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 8.toByte(), deletionPayload.toByteArray(Charsets.UTF_8))
-            PrimeCompanionServer.broadcastPacket(8.toByte(), deletionPayload.toByteArray(Charsets.UTF_8))
-            
-            Handler(Looper.getMainLooper()).postDelayed({
-                finalizeChatDeletion()
-            }, 350)
-        } else {
+        val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        val currentUser = sp.getString("current_user", "") ?: ""
+        val myName = AvatarManager.getMyDisplayName(this)
+        val deletionPayload = "DELETE_CHAT:login=$currentUser;name=$myName;mac=${deviceAddress ?: ""}"
+        val payloadBytes = deletionPayload.toByteArray(Charsets.UTF_8)
+
+        try {
+            BluetoothConnectionManager.getInstance().broadcastPacket(8.toByte(), payloadBytes)
+            if (targetAddr.isNotEmpty()) {
+                BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 8.toByte(), payloadBytes)
+            }
+            PrimeCompanionServer.broadcastPacket(8.toByte(), payloadBytes)
+        } catch (_: Exception) {}
+
+        Handler(Looper.getMainLooper()).postDelayed({
             finalizeChatDeletion()
-        }
+        }, 300)
     }
 
     @SuppressLint("MissingPermission")

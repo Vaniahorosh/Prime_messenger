@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.messenger.prime.databinding.ActivityBanContentBinding
@@ -120,16 +121,17 @@ class BanActivity : AppCompatActivity() {
     }
 
     private fun setupUI(userName: String, reason: String) {
-        binding.tvBanTitle.text = "$userName, ваш аккаунт заблокирован."
+        binding.tvBanTitle.text = "$userName, аккаунт заблокирован"
         binding.tvBanReason.text = "Причина: $reason"
 
+        val textPrimaryColor = ContextCompat.getColor(this, R.color.prime_text_primary)
         if (binding.tsBanTime.childCount == 0) {
             binding.tsBanTime.setFactory {
                 TextView(this).apply {
                     gravity = Gravity.CENTER
-                    setTextColor(Color.WHITE)
-                    textSize = 16f
-                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(textPrimaryColor)
+                    textSize = 15f
+                    setTypeface(Typeface.DEFAULT, Typeface.BOLD)
                     layoutParams = FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
@@ -139,9 +141,13 @@ class BanActivity : AppCompatActivity() {
         }
 
         if (isPermanent) {
-            binding.tsBanTime.setText("Навсегда")
+            binding.tsBanTime.setText("Бессрочно")
             binding.tvBanExpiry.visibility = View.GONE
             binding.btnBanAction.text = "Удалить аккаунт"
+            binding.btnBanAction.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.prime_danger)
+            )
+            binding.btnBanAction.setTextColor(Color.WHITE)
             binding.tvDeleteWarning.visibility = View.VISIBLE
             
             binding.btnBanAction.setOnClickListener { deleteAccountAndFinish() }
@@ -149,9 +155,13 @@ class BanActivity : AppCompatActivity() {
             updateTimeText()
             
             val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
-            binding.tvBanExpiry.text = "Блокировка спадет: ${sdf.format(Date(banExpiryTimestamp))}"
+            binding.tvBanExpiry.text = "Блокировка истекает: ${sdf.format(Date(banExpiryTimestamp))}"
             
             binding.btnBanAction.text = "Выйти из приложения"
+            binding.btnBanAction.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.prime_surface)
+            )
+            binding.btnBanAction.setTextColor(textPrimaryColor)
             binding.btnBanAction.setOnClickListener { finishAffinity() }
         }
     }
