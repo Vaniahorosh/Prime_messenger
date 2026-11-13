@@ -1,3 +1,0 @@
-- [x] Добавить атрибуты `marquee` в `activity_settings.xml`
-- [x] Активировать `isSelected` в `SettingsActivity.kt`
-- [x] Проверить сборку проекта

@@ -1,5 +1,0 @@
-- [x] Обновить список в `ValidationUtils.kt`
-- [x] Внедрить проверку в `LoginActivity.kt` (Логин)
-- [x] Внедрить проверку в `RegisterActivity.kt` (Имя)
-- [x] Внедрить проверку в `SettingsActivity.kt` (Логин и Имя)
-- [x] Проверить сборку и работу валидации
