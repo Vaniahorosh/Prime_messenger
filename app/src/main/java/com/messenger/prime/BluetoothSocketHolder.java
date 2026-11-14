@@ -87,6 +87,8 @@ public class BluetoothSocketHolder {
             try { socket.close(); } catch (Exception ignored) {}
             socket = null;
             connectedThreadInstance = null;
+            activeDeviceAddress = null;
+            activeTargetUsername = null;
         }
     }
 
@@ -319,11 +321,8 @@ public class BluetoothSocketHolder {
 
     public static synchronized boolean sendPacket(String address, String name, byte type, byte[] payload) {
         Object targetThread = getThreadFor(address, name);
-        if (targetThread == null) {
+        if (targetThread == null && (address == null || address.isEmpty()) && (name == null || name.isEmpty())) {
             targetThread = connectedThreadInstance;
-        }
-        if (targetThread == null && !threadMap.isEmpty()) {
-            targetThread = threadMap.values().iterator().next();
         }
         if (targetThread != null) {
             try {
@@ -340,11 +339,8 @@ public class BluetoothSocketHolder {
 
     public static synchronized boolean streamFilePacket(String address, String name, byte type, byte[] header, java.io.File file) {
         Object targetThread = getThreadFor(address, name);
-        if (targetThread == null) {
+        if (targetThread == null && (address == null || address.isEmpty()) && (name == null || name.isEmpty())) {
             targetThread = connectedThreadInstance;
-        }
-        if (targetThread == null && !threadMap.isEmpty()) {
-            targetThread = threadMap.values().iterator().next();
         }
         if (targetThread != null) {
             try {

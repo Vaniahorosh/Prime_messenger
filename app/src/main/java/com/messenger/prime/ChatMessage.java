@@ -11,11 +11,14 @@ import java.util.UUID;
 public class ChatMessage {
 
     public enum MessageType {
-        TEXT, IMAGE, VIDEO, FILE, VOICE, MUSIC
+        TEXT, IMAGE, VIDEO, FILE, VOICE, MUSIC, STICKER
     }
 
     public static String getSummaryDescription(ChatMessage msg) {
         if (msg == null) return "";
+        if (msg.isSticker() || msg.getMessageType() == MessageType.STICKER) {
+            return "Стикер";
+        }
         if (msg.isVideoNote() || (msg.getText() != null && (msg.getText().startsWith("VIDEO_NOTE:") || msg.getText().startsWith("vn_") || msg.getText().contains("Видеосообщение")))) {
             return "Видеосообщение";
         }
@@ -110,6 +113,39 @@ public class ChatMessage {
     private int downloadProgress = 0;
     private boolean isDownloading = false;
     private int sendingProgress = 0;
+
+    private String stickerPackId;
+    private String stickerPackName;
+
+    public String getStickerPackId() {
+        return stickerPackId;
+    }
+
+    public void setStickerPackId(String stickerPackId) {
+        this.stickerPackId = stickerPackId;
+    }
+
+    public String getStickerPackName() {
+        return stickerPackName;
+    }
+
+    public void setStickerPackName(String stickerPackName) {
+        this.stickerPackName = stickerPackName;
+    }
+
+    public boolean isSticker() {
+        if (messageType == MessageType.STICKER) return true;
+        if (imagePath != null) {
+            String lower = imagePath.toLowerCase(Locale.ROOT);
+            if (lower.contains("/stickers/") || lower.contains("sticker_") || lower.startsWith("sticker:")) {
+                return true;
+            }
+        }
+        if (text != null && text.startsWith("STICKER:")) {
+            return true;
+        }
+        return false;
+    }
 
     public ChatMessage(String text, String time, String senderLogin, boolean isOutgoing) {
         this(text, time, senderLogin, isOutgoing, null, System.currentTimeMillis(), null, null);

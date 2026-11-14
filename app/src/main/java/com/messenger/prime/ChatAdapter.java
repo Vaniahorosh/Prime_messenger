@@ -97,6 +97,15 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final int VIEW_TYPE_INCOMING = 1;
     private static final int VIEW_TYPE_OUTGOING = 2;
 
+    public interface OnStickerPackClickListener {
+        void onStickerPackClicked(String packId, String packName);
+    }
+    private OnStickerPackClickListener stickerPackClickListener;
+
+    public void setOnStickerPackClickListener(OnStickerPackClickListener listener) {
+        this.stickerPackClickListener = listener;
+    }
+
     public interface OnMessageLongClickListener {
         void onMessageLongClick(ChatMessage message, int position);
     }
@@ -384,6 +393,36 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public void setMessages(List<ChatMessage> newMessages) {
         List<ChatMessage> incomingMessages = ChatHistoryManager.deduplicateMessagesList(newMessages);
+        if (incomingMessages == null) {
+            this.messages.clear();
+            notifyDataSetChanged();
+            return;
+        }
+
+        // Fast path 1: Initial load into empty adapter
+        if (this.messages.isEmpty()) {
+            this.messages.addAll(incomingMessages);
+            notifyDataSetChanged();
+            return;
+        }
+
+        int oldSize = this.messages.size();
+        int newSize = incomingMessages.size();
+
+        // Fast path 2: Appending a single message (e.g. sent/received new message)
+        if (newSize == oldSize + 1) {
+            ChatMessage lastOld = this.messages.get(oldSize - 1);
+            ChatMessage newPrev = incomingMessages.get(oldSize - 1);
+            if (Objects.equals(lastOld.getMessageId(), newPrev.getMessageId()) &&
+                Objects.equals(lastOld.getText(), newPrev.getText()) &&
+                lastOld.getMessageStatus() == newPrev.getMessageStatus()) {
+                ChatMessage appended = incomingMessages.get(newSize - 1);
+                this.messages.add(appended);
+                notifyItemInserted(newSize - 1);
+                return;
+            }
+        }
+
         DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new DiffUtil.Callback() {
             @Override
             public int getOldListSize() {
@@ -1089,12 +1128,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private static boolean isDifferentDay(long t1, long t2) {
         if (t1 <= 0 || t2 <= 0) return false;
-        Calendar cal1 = Calendar.getInstance();
-        cal1.setTimeInMillis(t1);
-        Calendar cal2 = Calendar.getInstance();
-        cal2.setTimeInMillis(t2);
-        return cal1.get(Calendar.YEAR) != cal2.get(Calendar.YEAR) ||
-               cal1.get(Calendar.DAY_OF_YEAR) != cal2.get(Calendar.DAY_OF_YEAR);
+        long offset1 = java.util.TimeZone.getDefault().getOffset(t1);
+        long offset2 = java.util.TimeZone.getDefault().getOffset(t2);
+        return (t1 + offset1) / 86400000L != (t2 + offset2) / 86400000L;
     }
 
     public static String getDateHeaderString(long timestamp) {
@@ -1962,8 +1998,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         View layoutBubble = itemView.findViewById(isOutgoing ? R.id.layoutOutgoingBubble : R.id.layoutIncomingBubble);
         if (layoutBubble != null) {
             ViewGroup.LayoutParams lp = layoutBubble.getLayoutParams();
-            if (lp != null && lp.width != ViewGroup.LayoutParams.WRAP_CONTENT) {
+            if (lp != null) {
                 lp.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+                if (lp instanceof LinearLayout.LayoutParams) {
+                    ((LinearLayout.LayoutParams) lp).gravity = isOutgoing ? Gravity.END : Gravity.START;
+                }
                 layoutBubble.setLayoutParams(lp);
             }
             applyBubbleCornerRadius(layoutBubble, isOutgoing);
@@ -1978,6 +2017,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 lpBlock.width = ViewGroup.LayoutParams.WRAP_CONTENT;
                 layoutBlock.setLayoutParams(lpBlock);
             }
+            if (layoutBlock instanceof LinearLayout) {
+                ((LinearLayout) layoutBlock).setGravity(isOutgoing ? Gravity.END : Gravity.START);
+            }
         }
 
         View vnContainer = itemView.findViewById(R.id.layoutVideoNoteContainer);
@@ -1991,12 +2033,20 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         View badgeOut = itemView.findViewById(R.id.ivRichBadgeOut);
         if (badgeOut != null) badgeOut.setVisibility(View.GONE);
 
+        View stickerTag = itemView.findViewById(R.id.layoutStickerPackTag);
+        if (stickerTag != null) {
+            stickerTag.setVisibility(View.GONE);
+        }
+
         View layoutMediaContainer = itemView.findViewById(R.id.layoutMediaContainer);
         if (layoutMediaContainer != null) {
             ViewGroup.LayoutParams lp = layoutMediaContainer.getLayoutParams();
             if (lp != null) {
                 lp.width = (int) (240 * itemView.getResources().getDisplayMetrics().density);
                 lp.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+                if (lp instanceof LinearLayout.LayoutParams) {
+                    ((LinearLayout.LayoutParams) lp).gravity = isOutgoing ? Gravity.END : Gravity.START;
+                }
                 layoutMediaContainer.setLayoutParams(lp);
             }
             layoutMediaContainer.setOutlineProvider(null);
@@ -2009,6 +2059,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (lp != null) {
                 lp.width = ViewGroup.LayoutParams.MATCH_PARENT;
                 lp.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+                if (lp instanceof LinearLayout.LayoutParams) {
+                    ((LinearLayout.LayoutParams) lp).gravity = isOutgoing ? Gravity.END : Gravity.START;
+                } else if (lp instanceof FrameLayout.LayoutParams) {
+                    ((FrameLayout.LayoutParams) lp).gravity = isOutgoing ? Gravity.END : Gravity.START;
+                }
                 layoutSingleMedia.setLayoutParams(lp);
             }
             layoutSingleMedia.setOutlineProvider(null);
@@ -2020,6 +2075,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             img.setOutlineProvider(null);
             img.setClipToOutline(false);
             img.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            if (img instanceof com.google.android.material.imageview.ShapeableImageView) {
+                float cornerRadiusPx = 16 * itemView.getResources().getDisplayMetrics().density;
+                ((com.google.android.material.imageview.ShapeableImageView) img).setShapeAppearanceModel(
+                    com.google.android.material.shape.ShapeAppearanceModel.builder()
+                        .setAllCornerSizes(cornerRadiusPx)
+                        .build()
+                );
+            }
         }
 
         com.messenger.prime.TextureVideoView vv = itemView.findViewById(R.id.videoMessagePreview);
@@ -2509,9 +2572,17 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
         }
         if (bubble != null) {
+            if (message != null && message.isSticker()) {
+                bubble.setPadding(0, 0, 0, 0);
+                bubble.setBackgroundColor(Color.TRANSPARENT);
+                bubble.setElevation(0f);
+                return;
+            }
+
             float density = layoutMediaContainer.getContext().getResources().getDisplayMetrics().density;
 
-            boolean hasCaption = message != null && message.getText() != null && !message.getText().trim().isEmpty()
+            boolean hasCaption = message != null && !message.isSticker() && message.getText() != null && !message.getText().trim().isEmpty()
+                    && !message.getText().startsWith("STICKER:")
                     && !"Фото".equals(message.getText()) && !"Видео".equals(message.getText()) && !"Видеозапись".equals(message.getText())
                     && !"Фото отправлено".equals(message.getText()) && !"Видео отправлено".equals(message.getText())
                     && !"Файл".equals(message.getText());
@@ -2533,6 +2604,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         com.messenger.prime.TextureVideoView vv = vvPreview != null ? vvPreview : container.findViewById(R.id.videoMessagePreview);
 
         float density = container.getContext().getResources().getDisplayMetrics().density;
+        boolean isSticker = message != null && message.isSticker();
 
         // Dynamic aspect ratio calculation so bubble adapts to vertical or horizontal format
         int[] dims = getMediaDimensions(container.getContext(), item.path, item.isVideo);
@@ -2542,7 +2614,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         int targetWidthDp;
         int targetHeightDp;
 
-        if (aspect >= 1.2f) {
+        if (isSticker) {
+            int prefSize = com.messenger.prime.emoji.EmojiStickerSettings.getStickerSizeDp(container.getContext());
+            targetWidthDp = prefSize;
+            targetHeightDp = prefSize;
+            if (aspect > 0) {
+                if (aspect >= 1.0f) {
+                    targetHeightDp = Math.max(60, Math.round(targetWidthDp / aspect));
+                } else {
+                    targetWidthDp = Math.max(60, Math.round(targetHeightDp * aspect));
+                }
+            }
+        } else if (aspect >= 1.2f) {
             // Horizontal / Landscape (e.g. 16:9, 4:3)
             targetWidthDp = 270;
             targetHeightDp = Math.round(targetWidthDp / aspect);
@@ -2571,6 +2654,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (lpMedia != null) {
                 lpMedia.width = targetW;
                 lpMedia.height = targetH;
+                if (lpMedia instanceof LinearLayout.LayoutParams && message != null) {
+                    ((LinearLayout.LayoutParams) lpMedia).gravity = message.isOutgoing() ? Gravity.END : Gravity.START;
+                }
                 layoutMediaContainer.setLayoutParams(lpMedia);
             }
         }
@@ -2579,6 +2665,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (lpSingle != null) {
             lpSingle.width = targetW;
             lpSingle.height = targetH;
+            if (lpSingle instanceof LinearLayout.LayoutParams && message != null) {
+                ((LinearLayout.LayoutParams) lpSingle).gravity = message.isOutgoing() ? Gravity.END : Gravity.START;
+            } else if (lpSingle instanceof FrameLayout.LayoutParams && message != null) {
+                ((FrameLayout.LayoutParams) lpSingle).gravity = message.isOutgoing() ? Gravity.END : Gravity.START;
+            }
             container.setLayoutParams(lpSingle);
         }
 
@@ -2605,7 +2696,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (layoutMediaContainer != null) {
             ViewGroup.MarginLayoutParams mlp = (ViewGroup.MarginLayoutParams) layoutMediaContainer.getLayoutParams();
             if (mlp != null) {
-                boolean hasCaption = message != null && message.getText() != null && !message.getText().trim().isEmpty()
+                boolean hasCaption = message != null && !isSticker && message.getText() != null && !message.getText().trim().isEmpty()
+                        && !message.getText().startsWith("STICKER:")
                         && !"Фото".equals(message.getText()) && !"Видео".equals(message.getText()) && !"Видеозапись".equals(message.getText())
                         && !"Фото отправлено".equals(message.getText()) && !"Видео отправлено".equals(message.getText())
                         && !"Файл".equals(message.getText());
@@ -2614,18 +2706,28 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
         }
 
-        float cornerRadiusPx = 14 * density;
-        android.view.ViewOutlineProvider clipProvider = new android.view.ViewOutlineProvider() {
-            @Override
-            public void getOutline(View view, android.graphics.Outline outline) {
-                int w = view.getWidth() > 0 ? view.getWidth() : targetW;
-                int h = view.getHeight() > 0 ? view.getHeight() : targetH;
-                outline.setRoundRect(0, 0, w, h, cornerRadiusPx);
+        if (isSticker) {
+            container.setOutlineProvider(null);
+            container.setClipToOutline(false);
+            if (img instanceof com.google.android.material.imageview.ShapeableImageView) {
+                ((com.google.android.material.imageview.ShapeableImageView) img).setShapeAppearanceModel(
+                    com.google.android.material.shape.ShapeAppearanceModel.builder().build()
+                );
             }
-        };
-        container.setOutlineProvider(clipProvider);
-        container.setClipToOutline(true);
-        container.invalidateOutline();
+        } else {
+            float cornerRadiusPx = 14 * density;
+            android.view.ViewOutlineProvider clipProvider = new android.view.ViewOutlineProvider() {
+                @Override
+                public void getOutline(View view, android.graphics.Outline outline) {
+                    int w = view.getWidth() > 0 ? view.getWidth() : targetW;
+                    int h = view.getHeight() > 0 ? view.getHeight() : targetH;
+                    outline.setRoundRect(0, 0, w, h, cornerRadiusPx);
+                }
+            };
+            container.setOutlineProvider(clipProvider);
+            container.setClipToOutline(true);
+            container.invalidateOutline();
+        }
 
         if (message != null && message.getText() != null && message.getText().startsWith("VIDEO_NOTE:")) {
             String shape = message.getText().substring("VIDEO_NOTE:".length()).trim();
@@ -2634,7 +2736,35 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         ImageView play = ivPlay != null ? ivPlay : container.findViewById(R.id.ivVideoPlayBadge);
         TextView dur = tvDur != null ? tvDur : container.findViewById(R.id.tvVideoDuration);
 
-        if (item.isVideo) {
+        if (isSticker) {
+            boolean isVideoSticker = (item.isVideo || (item.path != null && (item.path.endsWith(".mp4") || item.path.endsWith(".webm"))));
+            if (play != null) play.setVisibility(View.GONE);
+            if (dur != null) dur.setVisibility(View.GONE);
+
+            if (isVideoSticker) {
+                if (img != null) img.setVisibility(View.GONE);
+                if (vv != null) {
+                    vv.setVisibility(View.VISIBLE);
+                    vv.setVideoPath(item.path);
+                    vv.setOnPreparedListener(mp -> {
+                        mp.setLooping(true);
+                        mp.setVolume(0f, 0f);
+                        vv.start();
+                    });
+                }
+            } else {
+                if (vv != null) {
+                    vv.removeCallbacks(null);
+                    try { vv.stopPlayback(); } catch (Exception ignored) {}
+                    vv.setVisibility(View.GONE);
+                }
+                if (img != null) {
+                    img.setVisibility(View.VISIBLE);
+                    img.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                    loadStickerImageIntoView(container.getContext(), item.path, img);
+                }
+            }
+        } else if (item.isVideo) {
             if (img != null) {
                 img.setVisibility(View.VISIBLE);
             }
@@ -2694,10 +2824,50 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             });
         }
 
-        if (img != null) setupSingleTapMediaOpener(img, message, messages);
-        if (container != null) setupSingleTapMediaOpener(container, message, messages);
-        if (dur != null) setupSingleTapMediaOpener(dur, message, messages);
-        if (play != null) setupSingleTapMediaOpener(play, message, messages);
+        if (isSticker) {
+            final String packId = message.getStickerPackId();
+            final String packName = message.getStickerPackName();
+            View.OnClickListener stickerOpener = v -> {
+                if (isMultiSelectionMode) {
+                    toggleMessageSelection(message);
+                    return;
+                }
+                if (stickerPackClickListener != null) {
+                    stickerPackClickListener.onStickerPackClicked(packId, packName);
+                }
+            };
+            View.OnLongClickListener stickerLongClick = v -> {
+                View parentRow = container;
+                while (parentRow != null && !(parentRow.getParent() instanceof RecyclerView)) {
+                    if (parentRow.getParent() instanceof View) {
+                        parentRow = (View) parentRow.getParent();
+                    } else {
+                        break;
+                    }
+                }
+                if (parentRow != null) {
+                    parentRow.performLongClick();
+                }
+                return true;
+            };
+            if (img != null) {
+                img.setOnClickListener(stickerOpener);
+                img.setOnLongClickListener(stickerLongClick);
+            }
+            if (container != null) {
+                container.setOnClickListener(stickerOpener);
+                container.setOnLongClickListener(stickerLongClick);
+            }
+            if (layoutMediaContainer != null) {
+                layoutMediaContainer.setOnClickListener(stickerOpener);
+                layoutMediaContainer.setOnLongClickListener(stickerLongClick);
+            }
+        } else {
+            if (img != null) setupSingleTapMediaOpener(img, message, messages);
+            if (container != null) setupSingleTapMediaOpener(container, message, messages);
+            if (dur != null) setupSingleTapMediaOpener(dur, message, messages);
+            if (play != null) setupSingleTapMediaOpener(play, message, messages);
+        }
     }
 
     private void bindGridMediaItems(List<ChatMessage.MediaItem> items, View container, ChatMessage message) {
@@ -2927,6 +3097,38 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             return !act.isFinishing() && !act.isDestroyed();
         }
         return true;
+    }
+
+    public static void loadStickerImageIntoView(Context context, String pathOrUri, ImageView imageView) {
+        if (imageView == null || !isActivityValid(context)) return;
+        if (pathOrUri == null || pathOrUri.isEmpty()) {
+            imageView.setImageDrawable(null);
+            imageView.setTag(null);
+            return;
+        }
+        if (pathOrUri.equals(imageView.getTag())) {
+            return;
+        }
+        imageView.setTag(pathOrUri);
+
+        try {
+            File f = new File(pathOrUri);
+            if (!f.exists() && !pathOrUri.contains("://")) {
+                f = new File(context.getFilesDir(), pathOrUri);
+            }
+            Uri uri = pathOrUri.startsWith("content://") || pathOrUri.startsWith("file://") || pathOrUri.startsWith("http")
+                    ? Uri.parse(pathOrUri)
+                    : Uri.fromFile(f);
+
+            imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            Glide.with(context)
+                    .load(uri)
+                    .fitCenter()
+                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                    .into(imageView);
+        } catch (Throwable ignored) {
+            imageView.setImageDrawable(null);
+        }
     }
 
     public static void loadMediaImageIntoView(Context context, String pathOrUri, ImageView imageView) {
@@ -3208,6 +3410,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         ImageButton btnCancelDownload;
         View layoutSelectionCircle;
         ImageView ivSelectionCheck;
+        View layoutStickerPackTag;
+        TextView tvStickerPackTag;
 
         IncomingViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -3243,6 +3447,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             pbDownloadProgress = itemView.findViewById(R.id.pbDownloadProgress);
             tvDownloadPercent = itemView.findViewById(R.id.tvDownloadPercent);
             btnCancelDownload = itemView.findViewById(R.id.btnCancelDownload);
+            layoutStickerPackTag = itemView.findViewById(R.id.layoutStickerPackTag);
+            tvStickerPackTag = itemView.findViewById(R.id.tvStickerPackTag);
         }
 
         void bind(ChatMessage message, boolean showDateHeader, OnMessageLongClickListener listener, int position) {
@@ -3344,7 +3550,45 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 btnFileDownload, layoutDownloadProgress, pbDownloadProgress, tvDownloadPercent, btnCancelDownload
             );
 
-            if (!isVideoNote && message.getMessageType() != ChatMessage.MessageType.VOICE && text != null && !text.isEmpty() && !"Голосовое сообщение".equals(text) && !"Фото".equals(text) && !"Фото отправлено".equals(text) && !"Фотография".equals(text) && !"Файл".equals(text) && !"Видео".equals(text) && !"Видеозапись".equals(text) && !"Видео отправлено".equals(text)) {
+            if (layoutStickerPackTag != null) {
+                layoutStickerPackTag.setVisibility(View.GONE);
+            }
+
+            if (message != null && message.isSticker()) {
+                final String fPackName = message.getStickerPackName() != null ? message.getStickerPackName() : "";
+                final String fPackId = message.getStickerPackId();
+                View.OnClickListener stickerOpener = v -> {
+                    if (isMultiSelectionMode) {
+                        toggleMessageSelection(message);
+                        return;
+                    }
+                    if (stickerPackClickListener != null && fPackId != null && !fPackId.isEmpty()) {
+                        stickerPackClickListener.onStickerPackClicked(fPackId, fPackName);
+                    }
+                };
+                if (layoutIncomingBubble != null) {
+                    layoutIncomingBubble.setBackgroundColor(Color.TRANSPARENT);
+                    layoutIncomingBubble.setElevation(0f);
+                    layoutIncomingBubble.setPadding(0, 0, 0, 0);
+                    layoutIncomingBubble.setOnClickListener(stickerOpener);
+                    if (layoutIncomingBubble.getLayoutParams() instanceof LinearLayout.LayoutParams) {
+                        LinearLayout.LayoutParams bubbleLp = (LinearLayout.LayoutParams) layoutIncomingBubble.getLayoutParams();
+                        bubbleLp.gravity = Gravity.START;
+                        layoutIncomingBubble.setLayoutParams(bubbleLp);
+                    }
+                }
+                View block = itemView.findViewById(R.id.layoutIncomingMessageBlock);
+                if (block instanceof LinearLayout) {
+                    ((LinearLayout) block).setGravity(Gravity.START);
+                }
+                if (layoutMediaContainer != null && layoutMediaContainer.getLayoutParams() instanceof LinearLayout.LayoutParams) {
+                    LinearLayout.LayoutParams mediaLp = (LinearLayout.LayoutParams) layoutMediaContainer.getLayoutParams();
+                    mediaLp.gravity = Gravity.START;
+                    layoutMediaContainer.setLayoutParams(mediaLp);
+                }
+            }
+
+            if (message != null && !message.isSticker() && !isVideoNote && message.getMessageType() != ChatMessage.MessageType.VOICE && text != null && !text.isEmpty() && !text.startsWith("STICKER:") && !"Голосовое сообщение".equals(text) && !"Фото".equals(text) && !"Фото отправлено".equals(text) && !"Фотография".equals(text) && !"Файл".equals(text) && !"Видео".equals(text) && !"Видеозапись".equals(text) && !"Видео отправлено".equals(text)) {
                 View ivRichBadgeIn = itemView.findViewById(R.id.ivRichBadgeIn);
                 if (ivRichBadgeIn != null) {
                     ivRichBadgeIn.setVisibility(message.isRichFormatted() ? View.VISIBLE : View.GONE);
@@ -3532,6 +3776,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         ImageButton btnCancelDownload;
         View layoutSelectionCircle;
         ImageView ivSelectionCheck;
+        View layoutStickerPackTag;
+        TextView tvStickerPackTag;
 
         OutgoingViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -3570,6 +3816,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             pbDownloadProgress = itemView.findViewById(R.id.pbDownloadProgress);
             tvDownloadPercent = itemView.findViewById(R.id.tvDownloadPercent);
             btnCancelDownload = itemView.findViewById(R.id.btnCancelDownload);
+            layoutStickerPackTag = itemView.findViewById(R.id.layoutStickerPackTag);
+            tvStickerPackTag = itemView.findViewById(R.id.tvStickerPackTag);
         }
 
         void bind(ChatMessage message, boolean showDateHeader, OnMessageLongClickListener listener, int position) {
@@ -3666,7 +3914,45 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 btnFileDownload, layoutDownloadProgress, pbDownloadProgress, tvDownloadPercent, btnCancelDownload
             );
 
-            if (!isVideoNoteOutgoing && message.getMessageType() != ChatMessage.MessageType.VOICE && text != null && !text.isEmpty() && !"Голосовое сообщение".equals(text) && !"Фото".equals(text) && !"Фото отправлено".equals(text) && !"Фотография".equals(text) && !"Файл".equals(text) && !"Видео".equals(text) && !"Видеозапись".equals(text) && !"Видео отправлено".equals(text)) {
+            if (layoutStickerPackTag != null) {
+                layoutStickerPackTag.setVisibility(View.GONE);
+            }
+
+            if (message != null && message.isSticker()) {
+                final String fPackName = message.getStickerPackName() != null ? message.getStickerPackName() : "";
+                final String fPackId = message.getStickerPackId();
+                View.OnClickListener stickerOpener = v -> {
+                    if (isMultiSelectionMode) {
+                        toggleMessageSelection(message);
+                        return;
+                    }
+                    if (stickerPackClickListener != null && fPackId != null && !fPackId.isEmpty()) {
+                        stickerPackClickListener.onStickerPackClicked(fPackId, fPackName);
+                    }
+                };
+                if (layoutOutgoingBubble != null) {
+                    layoutOutgoingBubble.setBackgroundColor(Color.TRANSPARENT);
+                    layoutOutgoingBubble.setElevation(0f);
+                    layoutOutgoingBubble.setPadding(0, 0, 0, 0);
+                    layoutOutgoingBubble.setOnClickListener(stickerOpener);
+                    if (layoutOutgoingBubble.getLayoutParams() instanceof LinearLayout.LayoutParams) {
+                        LinearLayout.LayoutParams bubbleLp = (LinearLayout.LayoutParams) layoutOutgoingBubble.getLayoutParams();
+                        bubbleLp.gravity = Gravity.END;
+                        layoutOutgoingBubble.setLayoutParams(bubbleLp);
+                    }
+                }
+                View block = itemView.findViewById(R.id.layoutOutgoingMessageBlock);
+                if (block instanceof LinearLayout) {
+                    ((LinearLayout) block).setGravity(Gravity.END);
+                }
+                if (layoutMediaContainer != null && layoutMediaContainer.getLayoutParams() instanceof LinearLayout.LayoutParams) {
+                    LinearLayout.LayoutParams mediaLp = (LinearLayout.LayoutParams) layoutMediaContainer.getLayoutParams();
+                    mediaLp.gravity = Gravity.END;
+                    layoutMediaContainer.setLayoutParams(mediaLp);
+                }
+            }
+
+            if (message != null && !message.isSticker() && !isVideoNoteOutgoing && message.getMessageType() != ChatMessage.MessageType.VOICE && text != null && !text.isEmpty() && !text.startsWith("STICKER:") && !"Голосовое сообщение".equals(text) && !"Фото".equals(text) && !"Фото отправлено".equals(text) && !"Фотография".equals(text) && !"Файл".equals(text) && !"Видео".equals(text) && !"Видеозапись".equals(text) && !"Видео отправлено".equals(text)) {
                 View ivRichBadgeOut = itemView.findViewById(R.id.ivRichBadgeOut);
                 if (ivRichBadgeOut != null) {
                     ivRichBadgeOut.setVisibility(message.isRichFormatted() ? View.VISIBLE : View.GONE);

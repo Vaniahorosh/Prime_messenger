@@ -145,7 +145,7 @@ object DeviceBindingManager {
                     } catch (_: Exception) {}
 
                     try {
-                        BluetoothConnectionManager.getInstance().unblockMacAddress(mac)
+                        BluetoothConnectionManager.getInstance().blockMacAddress(mac, 0, "Device unbind")
                         BluetoothConnectionManager.getInstance().disconnect(mac)
                         PrimeBluetoothService.cancelReconnect(context, mac)
                     } catch (_: Exception) {}

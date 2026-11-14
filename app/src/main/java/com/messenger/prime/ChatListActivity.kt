@@ -236,14 +236,12 @@ fun AnimatedSwipeableBottomSheet(
             { onComplete ->
                 if (!isClosing) {
                     isClosing = true
-                    onDismissRequest()
-                    coroutineScope.launch {
-                        offsetY.animateTo(
-                            targetValue = 1200f,
-                            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
-                        )
+                    try {
                         onComplete?.invoke()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
+                    onDismissRequest()
                 }
             }
         }
@@ -818,6 +816,7 @@ class ChatListActivity : AppCompatActivity() {
         // 3. Trigger forced connection in BluetoothConnectionManager immediately
         if (BluetoothAdapter.checkBluetoothAddress(deviceAddress)) {
             try {
+                BluetoothConnectionManager.getInstance().unblockMacAddress(deviceAddress)
                 val bManager = getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager
                 val bAdapter = bManager?.adapter
                 if (bAdapter != null && bAdapter.isEnabled) {
@@ -1645,9 +1644,7 @@ class ChatListActivity : AppCompatActivity() {
         fun openAttachmentPanel() {
             val targetAddr = if (!activeDeviceAddress.isNullOrEmpty()) activeDeviceAddress!! else (activeTargetUsername ?: "")
             val isConnected = (targetAddr.isNotEmpty() && BluetoothConnectionManager.getInstance().isConnected(targetAddr)) ||
-                BluetoothSocketHolder.isConnectedWith(activeDeviceAddress, activeTargetUsername) ||
-                BluetoothConnectionManager.getInstance().getConnectedDeviceCount() > 0 ||
-                BluetoothSocketHolder.hasAnyActiveConnection()
+                BluetoothSocketHolder.isConnectedWith(activeDeviceAddress, activeTargetUsername)
             if (!isConnected) {
                 Toast.makeText(activity, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show()
                 binding?.btnAttach?.alpha = 0.4f
@@ -1693,9 +1690,7 @@ class ChatListActivity : AppCompatActivity() {
             fun checkConn(): Boolean {
                 val targetAddr = if (!activeDeviceAddress.isNullOrEmpty()) activeDeviceAddress!! else (activeTargetUsername ?: "")
                 val isConn = (targetAddr.isNotEmpty() && BluetoothConnectionManager.getInstance().isConnected(targetAddr)) ||
-                    BluetoothSocketHolder.isConnectedWith(activeDeviceAddress, activeTargetUsername) ||
-                    BluetoothConnectionManager.getInstance().getConnectedDeviceCount() > 0 ||
-                    BluetoothSocketHolder.hasAnyActiveConnection()
+                    BluetoothSocketHolder.isConnectedWith(activeDeviceAddress, activeTargetUsername)
                 if (!isConn) {
                     Toast.makeText(activity, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show()
                     dialog.dismiss()
@@ -2340,6 +2335,10 @@ class ChatListActivity : AppCompatActivity() {
     private var primeDiscoveredPeer: ChatModel? = null
 
     private fun handlePrimeDeviceFound(device: BluetoothDevice, name: String?) {
+        if (BluetoothConnectionManager.getInstance().isMacBlocked(device.address)) {
+            Log.d("ChatListActivity", "handlePrimeDeviceFound: ignoring blocked/deleted MAC: ${device.address}")
+            return
+        }
         primeDevices.add(device.address)
 
         if (!name.isNullOrBlank() && !DeviceAnonymizer.isMacAddress(name)) {
@@ -2400,6 +2399,9 @@ class ChatListActivity : AppCompatActivity() {
                         intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                     }
                     if (device != null) {
+                        if (BluetoothConnectionManager.getInstance().isMacBlocked(device.address)) {
+                            return
+                        }
                         val rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE)
                         if (rssi != Short.MIN_VALUE) {
                             deviceRssiMap[device.address] = rssi
@@ -4906,6 +4908,14 @@ class ChatListActivity : AppCompatActivity() {
         val targetName = contact.name
         val targetId = contact.id
         
+        // Immediately block MAC and cancel background reconnects
+        BluetoothConnectionManager.getInstance().blockMacAddress(targetId, 0, "Chat deleted from list")
+        PrimeBluetoothService.cancelReconnect(this, targetId)
+        PrimeBluetoothService.cancelReconnect(this, targetName)
+        if (activeEmbeddedChatViewController?.let { it.activeTargetUsername == targetName || it.activeDeviceAddress == targetId } == true) {
+            activeEmbeddedChatViewController?.closeEmbeddedChat()
+        }
+
         // Remove from UI immediately for responsiveness
         allChats = allChats.filter { !it.id.equals(targetId, ignoreCase = true) }
         val iterator = chatListState.iterator()
@@ -4927,7 +4937,8 @@ class ChatListActivity : AppCompatActivity() {
         var isCancelled = false
         PrimeNotification.show(this, "Удаление чата с $targetName...", onUndo = {
             isCancelled = true
-            // Restore chat
+            // Restore chat and unblock
+            BluetoothConnectionManager.getInstance().unblockMacAddress(targetId)
             allChats = (allChats + contact).sortedByDescending { it.time }
             chatListState.add(contact)
             chatListState.sortByDescending { it.time }
@@ -4960,6 +4971,12 @@ class ChatListActivity : AppCompatActivity() {
             } finally {
                 BluetoothConnectionManager.getInstance().disconnect(targetId)
                 BluetoothSocketHolder.removeConnection(contact.id, contact.name)
+            }
+            
+            try {
+                DeviceBindingManager.unbindDeviceSecurely(this, targetName, targetId)
+            } catch (e: Exception) {
+                Log.w("ChatListActivity", "unbindDeviceSecurely failed: ${e.message}")
             }
             
             try {
@@ -5495,8 +5512,9 @@ class ChatListActivity : AppCompatActivity() {
             btAdapter.bondedDevices?.let { bonded ->
                 pairedDevices.addAll(bonded)
                 for (dev in bonded) {
-                    val devName = try { dev.name } catch (_: Exception) { null }
                     val devAddr = dev.address
+                    if (BluetoothConnectionManager.getInstance().isMacBlocked(devAddr)) continue
+                    val devName = try { dev.name } catch (_: Exception) { null }
                     val devUuids = try { dev.uuids } catch (_: Exception) { null }
                     val hasPrimeUuid = devUuids?.any { it.uuid.toString().equals(primeUuid.toString(), ignoreCase = true) } == true
                     val isSavedInChats = chatListState.any { 
@@ -5616,6 +5634,7 @@ class ChatListActivity : AppCompatActivity() {
         activeEmbeddedChatViewController = null
         typingExpireHandler.removeCallbacksAndMessages(null)
         searchTimeoutHandler.removeCallbacksAndMessages(null)
+        ChatListNotifier.unsubscribe(onChatListChanged)
         TransferManager.unregisterListener(transferListener)
         try {
             BluetoothConnectionManager.getInstance().unregisterCallback(globalBtCallback)

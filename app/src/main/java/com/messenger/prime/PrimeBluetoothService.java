@@ -33,6 +33,8 @@ import com.messenger.prime.events.ChatEvent;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.Set;
+
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -57,6 +59,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     private final Handler reconnectHandler = new Handler(Looper.getMainLooper());
     private final ConcurrentHashMap<String, Integer> reconnectAttempts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Runnable> pendingReconnects = new ConcurrentHashMap<>();
+    private static final Set<String> cancelledReconnectAddresses = ConcurrentHashMap.newKeySet();
 
     @Override
     public void onCreate() {
@@ -123,7 +126,11 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     }
 
     public static void cancelReconnect(Context context, String address) {
-        if (context == null || address == null || address.isEmpty()) return;
+        if (address == null || address.trim().isEmpty()) return;
+        String clean = address.trim().toUpperCase(Locale.US);
+        cancelledReconnectAddresses.add(clean);
+        cancelledReconnectAddresses.add(address.trim());
+        if (context == null) return;
         try {
             Intent intent = new Intent(context, PrimeBluetoothService.class);
             intent.setAction("CANCEL_RECONNECT");
@@ -134,6 +141,22 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
     private void scheduleReconnect(String address) {
         if (address == null || address.isEmpty() || !BluetoothAdapter.checkBluetoothAddress(address)) return;
+
+        String clean = address.trim().toUpperCase(Locale.US);
+        if (cancelledReconnectAddresses.contains(clean) || cancelledReconnectAddresses.contains(address.trim())) {
+            Log.d(TAG, "Reconnect for " + address + " is cancelled/blocked, skipping auto-reconnect.");
+            return;
+        }
+
+        if (BluetoothConnectionManager.getInstance().isMacBlocked(address)) {
+            Log.d(TAG, "Address " + address + " is blocked/deleted, skipping background auto-reconnect.");
+            return;
+        }
+
+        if (!ChatHistoryManager.hasChat(this, address)) {
+            Log.d(TAG, "Address " + address + " is not in active chat list, skipping background auto-reconnect.");
+            return;
+        }
 
         int attempts = reconnectAttempts.getOrDefault(address, 0) + 1;
         if (attempts > 3) {
@@ -171,6 +194,13 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
         Runnable reconnectTask = () -> {
             pendingReconnects.remove(address);
+            String cleanTask = address.trim().toUpperCase(Locale.US);
+            if (cancelledReconnectAddresses.contains(cleanTask) || cancelledReconnectAddresses.contains(address.trim()) ||
+                BluetoothConnectionManager.getInstance().isMacBlocked(address) ||
+                !ChatHistoryManager.hasChat(this, address)) {
+                Log.d(TAG, "Chat was deleted or blocked during reconnect backoff, aborting reconnect to " + address);
+                return;
+            }
             if (!BluetoothConnectionManager.getInstance().isConnected(address)) {
                 if (adapter != null && adapter.isEnabled()) {
                     try {
@@ -199,6 +229,9 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             if ("CANCEL_RECONNECT".equals(action)) {
                 String addr = intent.getStringExtra("EXTRA_ADDRESS");
                 if (addr != null && !addr.isEmpty()) {
+                    String clean = addr.trim().toUpperCase(Locale.US);
+                    cancelledReconnectAddresses.add(clean);
+                    cancelledReconnectAddresses.add(addr.trim());
                     resetReconnectAttempts(addr);
                 }
             } else if (ACTION_STOP_SERVICE.equals(action)) {
@@ -403,7 +436,11 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         if (isConnected) {
             resetReconnectAttempts(deviceAddress);
         } else if (state == BluetoothConnectionManager.ConnectionState.DISCONNECTED) {
-            scheduleReconnect(deviceAddress);
+            if (deviceAddress != null && !BluetoothConnectionManager.getInstance().isMacBlocked(deviceAddress) && ChatHistoryManager.hasChat(this, deviceAddress)) {
+                scheduleReconnect(deviceAddress);
+            } else {
+                Log.d(TAG, "Device " + deviceAddress + " disconnected but blocked or chat deleted, skipping auto-reconnect.");
+            }
         }
 
         saveBackgroundPresenceToChatList(deviceName, deviceAddress, isConnected);
@@ -678,6 +715,22 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                         }
                     }
                 }
+                if (fromAddress != null && !fromAddress.isEmpty()) {
+                    BluetoothConnectionManager.getInstance().blockMacAddress(fromAddress, 0, "Chat deleted by peer");
+                    cancelReconnect(this, fromAddress);
+                }
+                if (deletedByMac != null && !deletedByMac.isEmpty()) {
+                    BluetoothConnectionManager.getInstance().blockMacAddress(deletedByMac, 0, "Chat deleted by peer");
+                    cancelReconnect(this, deletedByMac);
+                }
+                if (deletedByName != null && !deletedByName.isEmpty()) {
+                    cancelReconnect(this, deletedByName);
+                }
+                if (deletedByLogin != null && !deletedByLogin.isEmpty()) {
+                    cancelReconnect(this, deletedByLogin);
+                }
+                cancelReconnect(this, displayName);
+
                 if (deletedByLogin != null && !deletedByLogin.isEmpty()) {
                     ChatHistoryManager.deleteHistoryCompletely(this, deletedByLogin, fromAddress);
                     DeviceBindingManager.unbindDeviceSecurely(this, deletedByLogin, fromAddress);

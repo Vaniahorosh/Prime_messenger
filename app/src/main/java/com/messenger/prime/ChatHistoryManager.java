@@ -90,6 +90,26 @@ public class ChatHistoryManager {
         return (json != null && !json.trim().isEmpty()) ? json : "[]";
     }
 
+    public static boolean hasChat(Context context, String addressOrName) {
+        if (context == null || addressOrName == null || addressOrName.trim().isEmpty()) return false;
+        String target = addressOrName.trim();
+        if (isChatDeletedTombstone(context, target)) return false;
+        try {
+            String json = getPersistedChatsJson(context);
+            if (json == null || json.trim().isEmpty() || "[]".equals(json.trim())) return false;
+            JSONArray array = new JSONArray(json);
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject obj = array.getJSONObject(i);
+                String id = obj.optString("id", "").trim();
+                String name = obj.optString("name", "").trim();
+                if (id.equalsIgnoreCase(target) || name.equalsIgnoreCase(target)) {
+                    return true;
+                }
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
     private static String sanitizeAndCleanupCopiedChats(Context context, String currentUser, String jsonStr) {
         if (context == null || currentUser == null || jsonStr == null || jsonStr.trim().isEmpty()) {
             return "[]";
@@ -288,9 +308,12 @@ public class ChatHistoryManager {
         Context appContext = context.getApplicationContext();
         if (targetUsername != null && !targetUsername.isEmpty()) {
             recordChatDeletedTombstone(appContext, targetUsername);
+            PrimeBluetoothService.cancelReconnect(appContext, targetUsername);
         }
         if (deviceAddress != null && !deviceAddress.isEmpty()) {
             recordChatDeletedTombstone(appContext, deviceAddress);
+            BluetoothConnectionManager.getInstance().blockMacAddress(deviceAddress, 0, "Chat deleted completely");
+            PrimeBluetoothService.cancelReconnect(appContext, deviceAddress);
         }
 
         List<String> keysToDelete = new ArrayList<>();
@@ -1092,6 +1115,8 @@ public class ChatHistoryManager {
                     msg.setFileName(fileName);
                     msg.setFileSize(fileSize);
                     msg.setVideoDuration(videoDuration);
+                    msg.setStickerPackId(obj.optString("stickerPackId", null));
+                    msg.setStickerPackName(obj.optString("stickerPackName", null));
                     try {
                         msg.setMessageType(ChatMessage.MessageType.valueOf(msgTypeStr));
                     } catch (Exception ignored) {}
@@ -1202,23 +1227,30 @@ public class ChatHistoryManager {
 
     public static List<ChatMessage> deduplicateMessagesList(List<ChatMessage> rawList) {
         if (rawList == null || rawList.isEmpty()) return new ArrayList<>();
-        List<ChatMessage> result = new ArrayList<>();
+        if (rawList.size() == 1) return new ArrayList<>(rawList);
+
+        java.util.Map<String, ChatMessage> idMap = new java.util.HashMap<>(rawList.size());
+        java.util.Map<String, ChatMessage> fallbackMap = new java.util.HashMap<>(rawList.size());
+        List<ChatMessage> result = new ArrayList<>(rawList.size());
 
         for (ChatMessage msg : rawList) {
             if (msg == null) continue;
-            boolean duplicate = false;
-            for (int i = 0; i < result.size(); i++) {
-                ChatMessage existing = result.get(i);
-                if (isSameMessage(msg, existing)) {
-                    duplicate = true;
-                    if ((existing.getMessageId() == null || existing.getMessageId().trim().isEmpty()) && 
-                        (msg.getMessageId() != null && !msg.getMessageId().trim().isEmpty())) {
-                        result.set(i, msg);
-                    }
-                    break;
+            String msgId = msg.getMessageId();
+            if (msgId != null && !msgId.trim().isEmpty()) {
+                String cleanId = msgId.trim();
+                ChatMessage existing = idMap.get(cleanId);
+                if (existing != null) {
+                    continue;
                 }
-            }
-            if (!duplicate) {
+                idMap.put(cleanId, msg);
+                result.add(msg);
+            } else {
+                String fallbackKey = (msg.getSenderLogin() != null ? msg.getSenderLogin() : "") + "_" +
+                        msg.getTimestamp() + "_" + (msg.getText() != null ? msg.getText() : "");
+                if (fallbackMap.containsKey(fallbackKey)) {
+                    continue;
+                }
+                fallbackMap.put(fallbackKey, msg);
                 result.add(msg);
             }
         }
@@ -1265,6 +1297,8 @@ public class ChatHistoryManager {
                 obj.put("isEdited", msg.isEdited());
                 obj.put("messageStatus", msg.getMessageStatus() != null ? msg.getMessageStatus().name() : MessageStatus.SENT.name());
                 obj.put("messageType", msg.getMessageType() != null ? msg.getMessageType().name() : ChatMessage.MessageType.TEXT.name());
+                obj.put("stickerPackId", msg.getStickerPackId() != null ? msg.getStickerPackId() : "");
+                obj.put("stickerPackName", msg.getStickerPackName() != null ? msg.getStickerPackName() : "");
                 obj.put("fileName", msg.getFileName() != null ? msg.getFileName() : "");
                 obj.put("fileSize", msg.getFileSize());
                 obj.put("videoDuration", msg.getVideoDuration() != null ? msg.getVideoDuration() : "");

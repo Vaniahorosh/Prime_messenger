@@ -278,13 +278,18 @@ class BrowserBottomSheetDialogFragment : BottomSheetDialogFragment() {
     }
 
     override fun onDestroyView() {
-        inactivityHandler.removeCallbacks(expandRunnable)
+        inactivityHandler.removeCallbacksAndMessages(null)
         PrimePredictiveBack.isGestureLocked = false
         try {
-            webView.stopLoading()
-            webView.loadUrl("about:blank")
-            webView.webChromeClient = null
-            webView.destroy()
+            if (::webView.isInitialized) {
+                (webView.parent as? ViewGroup)?.removeView(webView)
+                webView.stopLoading()
+                webView.loadUrl("about:blank")
+                webView.webChromeClient = null
+                webView.webViewClient = android.webkit.WebViewClient()
+                webView.removeAllViews()
+                webView.destroy()
+            }
         } catch (e: Exception) {
             Log.e("BrowserDebug", "Error destroying webView", e)
         }

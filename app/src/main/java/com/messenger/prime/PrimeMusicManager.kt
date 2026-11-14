@@ -20,7 +20,9 @@ import android.util.Log
 import android.widget.Toast
 import java.io.File
 import java.io.FileOutputStream
+import java.lang.ref.WeakReference
 import java.util.Locale
+import java.util.concurrent.CopyOnWriteArrayList
 
 data class TrackItem(
     val id: String,
@@ -42,7 +44,7 @@ object PrimeMusicManager {
         fun onProgressUpdated(progress: Long, duration: Long) {}
     }
 
-    private val listeners = mutableListOf<PlayerListener>()
+    private val listeners = CopyOnWriteArrayList<WeakReference<PlayerListener>>()
 
     private var mediaPlayer: MediaPlayer? = null
     private var currentTrack: TrackItem? = null
@@ -76,9 +78,8 @@ object PrimeMusicManager {
     }
 
     fun addListener(listener: PlayerListener) {
-        if (!listeners.contains(listener)) {
-            listeners.add(listener)
-        }
+        listeners.removeAll { it.get() == null || it.get() === listener }
+        listeners.add(WeakReference(listener))
         val mp = mediaPlayer
         if (mp != null) {
             listener.onProgressUpdated(mp.currentPosition.toLong(), mp.duration.toLong().coerceAtLeast(1L))
@@ -86,7 +87,7 @@ object PrimeMusicManager {
     }
 
     fun removeListener(listener: PlayerListener) {
-        listeners.remove(listener)
+        listeners.removeAll { it.get() == null || it.get() === listener }
     }
 
     fun isPlaying(): Boolean = mediaPlayer?.isPlaying == true
@@ -316,8 +317,17 @@ object PrimeMusicManager {
 
     private fun notifyTrackChanged(track: TrackItem?) {
         handler.post {
-            for (l in ArrayList(listeners)) {
-                l.onTrackChanged(track)
+            val toRemove = mutableListOf<WeakReference<PlayerListener>>()
+            for (ref in listeners) {
+                val l = ref.get()
+                if (l != null) {
+                    l.onTrackChanged(track)
+                } else {
+                    toRemove.add(ref)
+                }
+            }
+            if (toRemove.isNotEmpty()) {
+                listeners.removeAll(toRemove)
             }
         }
     }
@@ -341,16 +351,34 @@ object PrimeMusicManager {
                     .build()
             )
 
-            for (l in ArrayList(listeners)) {
-                l.onPlaybackStateChanged(isPlaying)
+            val toRemove = mutableListOf<WeakReference<PlayerListener>>()
+            for (ref in listeners) {
+                val l = ref.get()
+                if (l != null) {
+                    l.onPlaybackStateChanged(isPlaying)
+                } else {
+                    toRemove.add(ref)
+                }
+            }
+            if (toRemove.isNotEmpty()) {
+                listeners.removeAll(toRemove)
             }
         }
     }
 
     private fun notifyProgress(pos: Long, dur: Long) {
         handler.post {
-            for (l in ArrayList(listeners)) {
-                l.onProgressUpdated(pos, dur)
+            val toRemove = mutableListOf<WeakReference<PlayerListener>>()
+            for (ref in listeners) {
+                val l = ref.get()
+                if (l != null) {
+                    l.onProgressUpdated(pos, dur)
+                } else {
+                    toRemove.add(ref)
+                }
+            }
+            if (toRemove.isNotEmpty()) {
+                listeners.removeAll(toRemove)
             }
         }
     }

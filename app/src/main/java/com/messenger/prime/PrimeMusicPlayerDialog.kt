@@ -258,4 +258,11 @@ class PrimeMusicPlayerDialog(private val context: Context) : PrimeMusicManager.P
             b.tvPlayerTotalTime.text = PrimeMusicManager.formatDuration(durationMs)
         }
     }
+
+    fun dismiss() {
+        PrimeMusicManager.removeListener(this)
+        dialog?.dismiss()
+        dialog = null
+        binding = null
+    }
 }

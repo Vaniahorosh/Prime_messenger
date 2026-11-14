@@ -233,29 +233,47 @@
                         android:textColor="@color/prime_text_primary"
                         android:textSize="17sp"
                         android:fontFamily="sans-serif-medium"
-                        app:layout_constraintBottom_toTopOf="@id/tvChatStatus"
+                        app:layout_constraintBottom_toTopOf="@id/layoutStatusContainer"
                         app:layout_constraintEnd_toStartOf="@id/ivChatAvatar"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintVertical_chainStyle="packed" />
 
-                    <TextView
-                        android:id="@+id/tvChatStatus"
+                    <LinearLayout
+                        android:id="@+id/layoutStatusContainer"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
                         android:layout_marginEnd="8dp"
-                        android:ellipsize="end"
-                        android:maxLines="1"
                         android:gravity="center"
-                        android:textAlignment="center"
-                        tools:text="Ожидание подключения..."
-                        android:textColor="@color/prime_text_secondary"
-                        android:textSize="12.5sp"
+                        android:orientation="horizontal"
                         app:layout_constraintBottom_toBottomOf="parent"
                         app:layout_constraintEnd_toStartOf="@id/ivChatAvatar"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/tvChatName" />
+                        app:layout_constraintTop_toBottomOf="@id/tvChatName">
+
+                        <TextView
+                            android:id="@+id/tvChatStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:gravity="center"
+                            android:textAlignment="center"
+                            tools:text="Ожидание подключения..."
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="12.5sp" />
+
+                        <ImageView
+                            android:id="@+id/ivHeaderVersionBadge"
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:layout_marginStart="5dp"
+                            android:visibility="gone"
+                            android:contentDescription="Статус версии"
+                            android:src="@drawable/ic_prime_warning"
+                            app:tint="@color/prime_warning" />
+                    </LinearLayout>
                 </androidx.constraintlayout.widget.ConstraintLayout>
 
                 <!-- Состояние выбора нескольких сообщений (Мультивыбор) -->
@@ -1198,6 +1216,17 @@
                     android:paddingEnd="4dp"
                     android:paddingBottom="4dp">
 
+                    <!-- Emoji & Stickers toggle button -->
+                    <ImageButton
+                        android:id="@+id/btnEmojiToggle"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_gravity="center_vertical"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Эмодзи и стикеры"
+                        android:src="@drawable/ic_emoji"
+                        app:tint="@color/prime_brand" />
+
                     <EditText
                         android:id="@+id/etMessage"
                         android:layout_width="0dp"
@@ -1323,6 +1352,24 @@
             </eightbitlab.com.blurview.BlurView>
 
         </LinearLayout>
+
+        <!-- 5. Панель Эмодзи и Стикеров на BlurView (выезжает снизу под строкой ввода) -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/blurEmojiPanel"
+            android:layout_width="match_parent"
+            android:layout_height="310dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_floating_island"
+            android:outlineProvider="background"
+            android:clipToOutline="true"
+            android:elevation="6dp"
+            android:visibility="gone">
+
+            <androidx.compose.ui.platform.ComposeView
+                android:id="@+id/composeEmojiPanel"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </eightbitlab.com.blurview.BlurView>
 
     </LinearLayout>
 

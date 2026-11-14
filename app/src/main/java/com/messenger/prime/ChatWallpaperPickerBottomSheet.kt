@@ -151,8 +151,19 @@ class ChatWallpaperPickerBottomSheet(
             d.dismiss()
         }
 
+        d.setOnDismissListener {
+            dialog = null
+            selectedWallpaper = null
+        }
+
         dialog = d
         d.show()
+    }
+
+    fun dismiss() {
+        dialog?.dismiss()
+        dialog = null
+        selectedWallpaper = null
     }
 
     private inner class WallpaperPickerAdapter(

@@ -70,8 +70,19 @@ class AiChatHistoryBottomSheet(
             onCreateNewSession()
         }
 
+        d.setOnDismissListener {
+            dialog = null
+            binding = null
+        }
+
         dialog = d
         d.show()
+    }
+
+    fun dismiss() {
+        dialog?.dismiss()
+        dialog = null
+        binding = null
     }
 
     private fun refreshSessionsList() {

@@ -2,7 +2,9 @@ package com.messenger.prime
 
 import android.os.Handler
 import android.os.Looper
+import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 data class ActiveTransfer(
     val id: String,
@@ -55,18 +57,19 @@ object DownloadsIconAnimator {
 
 object TransferManager {
     private val activeTransfersMap = ConcurrentHashMap<String, ActiveTransfer>()
-    private val listeners = mutableSetOf<TransferListener>()
+    private val listeners = CopyOnWriteArrayList<WeakReference<TransferListener>>()
     private val handler = Handler(Looper.getMainLooper())
 
     @JvmStatic
     fun registerListener(listener: TransferListener) {
-        listeners.add(listener)
+        listeners.removeAll { it.get() == null || it.get() === listener }
+        listeners.add(WeakReference(listener))
         listener.onTransferUpdated(getActiveTransfers())
     }
 
     @JvmStatic
     fun unregisterListener(listener: TransferListener) {
-        listeners.remove(listener)
+        listeners.removeAll { it.get() == null || it.get() === listener }
     }
 
     @JvmStatic
@@ -138,8 +141,21 @@ object TransferManager {
     private fun notifyListeners() {
         val list = activeTransfersMap.values.toList()
         handler.post {
-            for (listener in listeners.toList()) {
-                listener.onTransferUpdated(list)
+            val toRemove = mutableListOf<WeakReference<TransferListener>>()
+            for (ref in listeners) {
+                val listener = ref.get()
+                if (listener != null) {
+                    try {
+                        listener.onTransferUpdated(list)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                } else {
+                    toRemove.add(ref)
+                }
+            }
+            if (toRemove.isNotEmpty()) {
+                listeners.removeAll(toRemove)
             }
         }
     }

@@ -216,4 +216,18 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
     override fun onActivityDestroyed(activity: Activity) {
         activityStack.removeAll { it.get() == null || it.get() == activity }
     }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= TRIM_MEMORY_MODERATE) {
+            com.messenger.prime.emoji.StickerBitmapCache.clear()
+            AvatarManager.invalidateAvatarFileCache()
+        }
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        com.messenger.prime.emoji.StickerBitmapCache.clear()
+        AvatarManager.invalidateAvatarFileCache()
+    }
 }

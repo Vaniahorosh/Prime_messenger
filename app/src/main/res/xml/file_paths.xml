@@ -3,4 +3,5 @@
     <cache-path name="cache_files" path="." />
     <files-path name="avatars" path="avatars" />
     <files-path name="shared_media" path="shared_media" />
+    <files-path name="stickers" path="stickers" />
 </paths>

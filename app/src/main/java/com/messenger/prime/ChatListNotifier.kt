@@ -3,6 +3,7 @@ package com.messenger.prime
 import android.os.Handler
 import android.os.Looper
 import com.messenger.prime.events.ChatEvent
+import java.lang.ref.WeakReference
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -15,7 +16,7 @@ object ChatListNotifier {
     }
 
     private val legacyListeners = CopyOnWriteArrayList<() -> Unit>()
-    private val eventListeners = CopyOnWriteArrayList<ChatEventListener>()
+    private val eventListeners = CopyOnWriteArrayList<WeakReference<ChatEventListener>>()
     private val mainHandler = Handler(Looper.getMainLooper())
 
     @JvmStatic
@@ -32,14 +33,13 @@ object ChatListNotifier {
     
     @JvmStatic
     fun addListener(listener: ChatEventListener) {
-        if (!eventListeners.contains(listener)) {
-            eventListeners.add(listener)
-        }
+        eventListeners.removeAll { it.get() == null || it.get() === listener }
+        eventListeners.add(WeakReference(listener))
     }
     
     @JvmStatic
     fun removeListener(listener: ChatEventListener) {
-        eventListeners.remove(listener)
+        eventListeners.removeAll { it.get() == null || it.get() === listener }
     }
 
     @JvmStatic
@@ -51,12 +51,21 @@ object ChatListNotifier {
     fun emitEvent(event: ChatEvent) {
         mainHandler.post {
             // Notify event listeners
-            eventListeners.forEach { listener ->
-                try {
-                    listener.onEvent(event)
-                } catch (e: Exception) {
-                    e.printStackTrace()
+            val toRemove = mutableListOf<WeakReference<ChatEventListener>>()
+            eventListeners.forEach { ref ->
+                val listener = ref.get()
+                if (listener != null) {
+                    try {
+                        listener.onEvent(event)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                } else {
+                    toRemove.add(ref)
                 }
+            }
+            if (toRemove.isNotEmpty()) {
+                eventListeners.removeAll(toRemove)
             }
             
             // For backward compatibility, also notify legacy listeners 

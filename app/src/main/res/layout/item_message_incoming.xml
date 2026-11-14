@@ -352,6 +352,42 @@
             </FrameLayout>
         </FrameLayout>
 
+        <!-- Тэг стикерпака для стикеров -->
+        <LinearLayout
+            android:id="@+id/layoutStickerPackTag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_gravity="start"
+            android:background="@drawable/bg_emoji_chip"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:contentDescription="Стикерпак"
+                android:src="@drawable/ic_stickers"
+                app:tint="@color/prime_brand" />
+
+            <TextView
+                android:id="@+id/tvStickerPackTag"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="@color/prime_brand"
+                android:textSize="11sp"
+                tools:text="Стикерпак: Prime Classic" />
+        </LinearLayout>
+
         <!-- Контейнер для обычных файлов -->
         <LinearLayout
             android:id="@+id/layoutFileContainer"

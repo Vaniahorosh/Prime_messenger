@@ -300,20 +300,38 @@
                                     android:singleLine="true"
                                     android:ellipsize="marquee"
                                     android:transitionName="transition_name"
-                                    app:layout_constraintBottom_toTopOf="@+id/tvStatusWP"
+                                    app:layout_constraintBottom_toTopOf="@+id/layoutStatusWPContainer"
                                     app:layout_constraintEnd_toEndOf="parent"
                                     app:layout_constraintStart_toStartOf="parent" />
 
-                                <TextView
-                                    android:id="@+id/tvStatusWP"
+                                <LinearLayout
+                                    android:id="@+id/layoutStatusWPContainer"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:layout_marginBottom="12dp"
-                                    android:text="в сети"
-                                    android:textColor="#E6FFFFFF"
-                                    android:textSize="12sp"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal"
                                     app:layout_constraintBottom_toBottomOf="parent"
-                                    app:layout_constraintStart_toStartOf="@+id/tvUserNameWP" />
+                                    app:layout_constraintStart_toStartOf="@+id/tvUserNameWP">
+
+                                    <TextView
+                                        android:id="@+id/tvStatusWP"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="в сети"
+                                        android:textColor="#E6FFFFFF"
+                                        android:textSize="12sp" />
+
+                                    <ImageView
+                                        android:id="@+id/ivVersionStatusBadge"
+                                        android:layout_width="14dp"
+                                        android:layout_height="14dp"
+                                        android:layout_marginStart="6dp"
+                                        android:visibility="gone"
+                                        android:contentDescription="Статус версии"
+                                        android:src="@drawable/ic_prime_warning"
+                                        app:tint="@color/prime_warning" />
+                                </LinearLayout>
                             </androidx.constraintlayout.widget.ConstraintLayout>
                         </androidx.constraintlayout.widget.ConstraintLayout>
                     </androidx.cardview.widget.CardView>

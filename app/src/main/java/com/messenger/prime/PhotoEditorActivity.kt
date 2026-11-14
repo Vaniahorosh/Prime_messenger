@@ -213,6 +213,7 @@ class PhotoEditorActivity : AppCompatActivity() {
                         setupAspectSelector(b)
 
                         val isProfilePhoto = intent.getBooleanExtra("IS_PROFILE_PHOTO", false)
+                        val isStickerMode = intent.getBooleanExtra("IS_STICKER_MODE", false)
                         val contactName = intent.getStringExtra("EXTRA_CONTACT_NAME")
                         val initialCaption = intent.getStringExtra("EXTRA_CAPTION")
 
@@ -221,6 +222,12 @@ class PhotoEditorActivity : AppCompatActivity() {
                             b.layoutCaptionContainer.visibility = View.GONE
                             b.btnHdQualityToggle.visibility = View.GONE
                             b.aspectSelectorContainer.visibility = View.GONE
+                        } else if (isStickerMode) {
+                            b.tsEditorTitle.setText("Редактор стикера")
+                            b.layoutCaptionContainer.visibility = View.GONE
+                            b.btnHdQualityToggle.visibility = View.GONE
+                            b.aspectSelectorContainer.visibility = View.VISIBLE
+                            applyAspectRatio(b, "1:1")
                         } else {
                             if (!contactName.isNullOrBlank()) {
                                 b.tsEditorTitle.setText(contactName)
@@ -273,6 +280,8 @@ class PhotoEditorActivity : AppCompatActivity() {
                             } else {
                                 if (isProfilePhoto) {
                                     b.btnSetOriginal.text = "Поставить фото без редактирования"
+                                } else if (isStickerMode) {
+                                    b.btnSetOriginal.text = "Стикер без редактирования"
                                 } else {
                                     b.btnSetOriginal.text = "Отправить без редактирования"
                                 }
@@ -1175,17 +1184,41 @@ class PhotoEditorActivity : AppCompatActivity() {
                     }
                 }
 
-                val file = File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
+                val isStickerMode = intent.getBooleanExtra("IS_STICKER_MODE", false)
+                val finalBitmap = if (isStickerMode && (outputBitmap.width > 512 || outputBitmap.height > 512)) {
+                    val maxDim = 512f
+                    val scale = (maxDim / maxOf(outputBitmap.width, outputBitmap.height)).coerceAtMost(1f)
+                    val targetW = (outputBitmap.width * scale).toInt().coerceAtLeast(1)
+                    val targetH = (outputBitmap.height * scale).toInt().coerceAtLeast(1)
+                    val scaled = Bitmap.createScaledBitmap(outputBitmap, targetW, targetH, true)
+                    scaled
+                } else {
+                    outputBitmap
+                }
+
+                val file = if (isStickerMode) {
+                    File(cacheDir, "sticker_edited_${System.currentTimeMillis()}.png")
+                } else {
+                    File(cacheDir, "avatar_edited_${System.currentTimeMillis()}.jpg")
+                }
+
                 FileOutputStream(file).use { out ->
-                    outputBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                    if (isStickerMode) {
+                        finalBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                    } else {
+                        finalBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                    }
                     out.flush()
                 }
 
-                if (outputBitmap != resultBitmap && !resultBitmap.isRecycled) {
-                    try { resultBitmap.recycle() } catch (_: Throwable) {}
+                if (finalBitmap != outputBitmap && !finalBitmap.isRecycled) {
+                    try { finalBitmap.recycle() } catch (_: Throwable) {}
                 }
-                if (!outputBitmap.isRecycled) {
+                if (outputBitmap != resultBitmap && !outputBitmap.isRecycled) {
                     try { outputBitmap.recycle() } catch (_: Throwable) {}
+                }
+                if (!resultBitmap.isRecycled) {
+                    try { resultBitmap.recycle() } catch (_: Throwable) {}
                 }
 
                 val uriStr = Uri.fromFile(file).toString()

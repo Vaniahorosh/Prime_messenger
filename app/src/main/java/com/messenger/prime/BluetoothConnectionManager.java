@@ -5,6 +5,8 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -17,6 +19,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -69,10 +72,48 @@ public class BluetoothConnectionManager {
 
     private final Set<String> blockedMacAddresses = ConcurrentHashMap.newKeySet();
 
+    private void loadBlockedMacsFromPrefs() {
+        Context ctx = PrimeApplication.getAppContext();
+        if (ctx != null) {
+            try {
+                SharedPreferences sp = ctx.getSharedPreferences("PrimeDeletedChats", Context.MODE_PRIVATE);
+                Set<String> saved = sp.getStringSet("blocked_macs", Collections.emptySet());
+                if (saved != null) {
+                    for (String mac : saved) {
+                        blockedMacAddresses.add(mac.trim().toUpperCase(Locale.US));
+                        blockedMacAddresses.add(mac.trim());
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private void saveBlockedMacsToPrefs() {
+        Context ctx = PrimeApplication.getAppContext();
+        if (ctx != null) {
+            try {
+                SharedPreferences sp = ctx.getSharedPreferences("PrimeDeletedChats", Context.MODE_PRIVATE);
+                sp.edit().putStringSet("blocked_macs", new HashSet<>(blockedMacAddresses)).apply();
+            } catch (Exception ignored) {}
+        }
+    }
+
     public boolean isMacBlocked(String macAddress) {
         if (macAddress == null || macAddress.isEmpty()) return false;
+        if (blockedMacAddresses.isEmpty()) {
+            loadBlockedMacsFromPrefs();
+        }
         String clean = macAddress.trim().toUpperCase(Locale.US);
-        return blockedMacAddresses.contains(clean) || blockedMacAddresses.contains(macAddress.trim());
+        if (blockedMacAddresses.contains(clean) || blockedMacAddresses.contains(macAddress.trim())) {
+            return true;
+        }
+        Context ctx = PrimeApplication.getAppContext();
+        if (ctx != null && ChatHistoryManager.isChatDeletedTombstone(ctx, macAddress)) {
+            blockedMacAddresses.add(clean);
+            blockedMacAddresses.add(macAddress.trim());
+            return true;
+        }
+        return false;
     }
 
     public void blockMacAddress(String macAddress, long durationMs, String reason) {
@@ -80,7 +121,20 @@ public class BluetoothConnectionManager {
         String clean = macAddress.trim().toUpperCase(Locale.US);
         blockedMacAddresses.add(clean);
         blockedMacAddresses.add(macAddress.trim());
+        saveBlockedMacsToPrefs();
+
         disconnect(macAddress);
+        disconnect(clean);
+
+        Context ctx = PrimeApplication.getAppContext();
+        if (ctx != null) {
+            try {
+                PrimeBluetoothService.cancelReconnect(ctx, macAddress);
+                PrimeBluetoothService.cancelReconnect(ctx, clean);
+                ChatHistoryManager.recordChatDeletedTombstone(ctx, macAddress);
+                ChatHistoryManager.recordChatDeletedTombstone(ctx, clean);
+            } catch (Exception ignored) {}
+        }
     }
 
     public void unblockMacAddress(String macAddress) {
@@ -88,6 +142,15 @@ public class BluetoothConnectionManager {
         String clean = macAddress.trim().toUpperCase(Locale.US);
         blockedMacAddresses.remove(clean);
         blockedMacAddresses.remove(macAddress.trim());
+        saveBlockedMacsToPrefs();
+
+        Context ctx = PrimeApplication.getAppContext();
+        if (ctx != null) {
+            try {
+                ChatHistoryManager.clearChatDeletedTombstone(ctx, macAddress);
+                ChatHistoryManager.clearChatDeletedTombstone(ctx, clean);
+            } catch (Exception ignored) {}
+        }
     }
 
     public static synchronized BluetoothConnectionManager getInstance() {
@@ -145,14 +208,21 @@ public class BluetoothConnectionManager {
 
     public synchronized boolean isConnected(String deviceAddress) {
         if (deviceAddress == null || deviceAddress.isEmpty()) {
-            return !connectionPool.isEmpty();
+            for (ConnectedThread t : connectionPool.values()) {
+                if (t != null && t.isSocketConnected()) return true;
+            }
+            return false;
         }
         ConnectedThread thread = getThreadFor(deviceAddress);
-        return thread != null && thread.isAlive();
+        return thread != null && thread.isSocketConnected();
     }
 
     public synchronized int getConnectedDeviceCount() {
-        return connectionPool.size();
+        int count = 0;
+        for (ConnectedThread t : connectionPool.values()) {
+            if (t != null && t.isSocketConnected()) count++;
+        }
+        return count;
     }
 
     private synchronized void setState(String deviceAddress, ConnectionState newState, String deviceName) {
@@ -322,6 +392,10 @@ public class BluetoothConnectionManager {
             final BluetoothDevice dev = device;
             final UUID uuid = serviceUuid;
             retryHandler.postDelayed(() -> {
+                if (isMacBlocked(dev.getAddress())) {
+                    Log.d(TAG, "Server wait timeout fallback aborted: device " + dev.getAddress() + " is blocked/deleted.");
+                    return;
+                }
                 if (!isConnected(dev.getAddress())) {
                     Log.d(TAG, "Server wait timeout fallback: forcing client connection to " + dev.getAddress());
                     ConnectThread ct = new ConnectThread(adp, dev, uuid);
@@ -372,6 +446,13 @@ public class BluetoothConnectionManager {
         ConnectThread ct = connectingThreads.remove(devAddrUpper);
         if (ct == null && devAddr != null) ct = connectingThreads.remove(devAddr);
         if (ct != null) ct.cancel();
+
+        Handler rh = connectRetryHandlers.remove(devAddrUpper);
+        if (rh != null) rh.removeCallbacksAndMessages(null);
+        if (devAddr != null) {
+            Handler rh2 = connectRetryHandlers.remove(devAddr);
+            if (rh2 != null) rh2.removeCallbacksAndMessages(null);
+        }
 
         ConnectedThread oldCt = connectionPool.get(devAddrUpper);
         if (oldCt == null && devAddr != null) oldCt = connectionPool.get(devAddr);
@@ -497,11 +578,22 @@ public class BluetoothConnectionManager {
             disconnect();
             return;
         }
+        String upperAddr = deviceAddress.toUpperCase(Locale.US);
+
+        Handler rh = connectRetryHandlers.remove(deviceAddress);
+        if (rh != null) rh.removeCallbacksAndMessages(null);
+        Handler rhu = connectRetryHandlers.remove(upperAddr);
+        if (rhu != null) rhu.removeCallbacksAndMessages(null);
+
         ConnectThread ct = connectingThreads.remove(deviceAddress);
         if (ct != null) ct.cancel();
+        ConnectThread ctu = connectingThreads.remove(upperAddr);
+        if (ctu != null) ctu.cancel();
 
         ConnectedThread ctd = connectionPool.remove(deviceAddress);
         if (ctd != null) ctd.cancel();
+        ConnectedThread ctdu = connectionPool.remove(upperAddr);
+        if (ctdu != null) ctdu.cancel();
 
         setState(deviceAddress, ConnectionState.DISCONNECTED, null);
     }
@@ -514,6 +606,11 @@ public class BluetoothConnectionManager {
      * Полный сброс всех потоков и ресурсов.
      */
     public synchronized void stopAll() {
+        for (Handler h : connectRetryHandlers.values()) {
+            if (h != null) h.removeCallbacksAndMessages(null);
+        }
+        connectRetryHandlers.clear();
+
         for (ConnectThread ct : connectingThreads.values()) {
             ct.cancel();
         }
@@ -599,7 +696,22 @@ public class BluetoothConnectionManager {
                 }
 
                 if (socket != null && socket.isConnected()) {
-                    BluetoothDevice remoteDevice = socket.getRemoteDevice();
+                    BluetoothDevice remoteDevice = null;
+                    try {
+                        remoteDevice = socket.getRemoteDevice();
+                    } catch (Exception ignored) {}
+
+                    if (remoteDevice == null) {
+                        closeSocketQuietly(socket);
+                        continue;
+                    }
+
+                    String devAddr = remoteDevice.getAddress();
+                    if (isMacBlocked(devAddr)) {
+                        Log.w(TAG, "AcceptThread: rejecting incoming socket from blocked/deleted MAC: " + devAddr);
+                        closeSocketQuietly(socket);
+                        continue;
+                    }
                     onSocketConnected(socket, remoteDevice);
                 }
             }
@@ -639,7 +751,7 @@ public class BluetoothConnectionManager {
 
         public void run() {
             try {
-                if (isCancelled) return;
+                if (isCancelled || isMacBlocked(mmDevice.getAddress())) return;
                 if (mmAdapter != null && mmAdapter.isDiscovering()) {
                     try {
                         mmAdapter.cancelDiscovery();
@@ -931,6 +1043,11 @@ public class BluetoothConnectionManager {
         
         public void streamFilePacket(byte type, byte[] header, java.io.File file) {
             if (!isRunning || mmOutStream == null) return;
+            if (file == null || !file.exists() || !file.canRead()) {
+                Log.w(TAG, "streamFilePacket: file does not exist or unreadable, skipping send");
+                notifySendProgress(threadDeviceAddress, -1);
+                return;
+            }
             boolean isMediaPacket = (type == 0x02 || type == 0x0E); // TYPE_PHOTO (0x02), TYPE_FILE (0x0E)
             if (isMediaPacket) {
                 isMediaSendingCancelled = false;
@@ -938,8 +1055,13 @@ public class BluetoothConnectionManager {
             writeExecutor.execute(() -> {
                 try {
                     synchronized (this) {
+                        if (file == null || !file.exists() || !file.canRead()) {
+                            Log.w(TAG, "streamFilePacket async: file missing before write");
+                            notifySendProgress(threadDeviceAddress, -1);
+                            return;
+                        }
                         mmOutStream.writeByte(type);
-                        long fileLength = file != null ? file.length() : 0;
+                        long fileLength = file.length();
                         int headerLen = header != null ? header.length : 0;
                         long totalLen = fileLength + headerLen;
                         

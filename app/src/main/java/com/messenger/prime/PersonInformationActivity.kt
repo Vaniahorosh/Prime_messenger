@@ -856,6 +856,40 @@ class PersonInformationActivity : AppCompatActivity() {
             if (isConnected) ContextCompat.getColor(this, R.color.prime_success)
             else ContextCompat.getColor(this, R.color.white)
         )
+
+        val isDesktop = AvatarManager.isDesktopContact(this, targetUsername, deviceAddress)
+        val remoteVersion = maxOf(
+            sharedPrefs.getInt("remote_version_$targetUsername", -1),
+            if (!deviceAddress.isNullOrEmpty()) sharedPrefs.getInt("remote_version_$deviceAddress", -1) else -1
+        )
+        val myVer = ChatPersonActivity.getAppVersionCode(this)
+
+        if (!isDesktop && remoteVersion > 0 && remoteVersion != myVer) {
+            binding.ivVersionStatusBadge.visibility = View.VISIBLE
+            if (remoteVersion < myVer) {
+                binding.ivVersionStatusBadge.setImageResource(R.drawable.ic_prime_warning)
+                binding.ivVersionStatusBadge.imageTintList = android.content.res.ColorStateList.valueOf(
+                    ContextCompat.getColor(this, R.color.prime_warning)
+                )
+            } else {
+                binding.ivVersionStatusBadge.setImageResource(R.drawable.ic_prime_warning)
+                binding.ivVersionStatusBadge.imageTintList = android.content.res.ColorStateList.valueOf(
+                    ContextCompat.getColor(this, R.color.prime_brand)
+                )
+            }
+            binding.ivVersionStatusBadge.setOnClickListener { v ->
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                val msg = if (remoteVersion < myVer) {
+                    "У собеседника устаревшая версия клиента. Попросите обновить приложение!"
+                } else {
+                    "Пользователь использует более новую версию клиента"
+                }
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            binding.ivVersionStatusBadge.visibility = View.GONE
+        }
+
         updateStickyHeaderData()
     }
 
@@ -995,11 +1029,11 @@ class PersonInformationActivity : AppCompatActivity() {
     private fun finalizeChatDeletion() {
         val targetAddr = deviceAddress ?: targetUsername
 
-        // Ensure MAC is not blocked
+        // Ensure MAC is blocked and background reconnects are fully cancelled
         try {
-            BluetoothConnectionManager.getInstance().unblockMacAddress(targetAddr)
+            BluetoothConnectionManager.getInstance().blockMacAddress(targetAddr, 0, "Chat deleted")
             deviceAddress?.let {
-                if (it.isNotEmpty()) BluetoothConnectionManager.getInstance().unblockMacAddress(it)
+                if (it.isNotEmpty()) BluetoothConnectionManager.getInstance().blockMacAddress(it, 0, "Chat deleted")
             }
         } catch (_: Exception) {}
 
@@ -1104,6 +1138,20 @@ class PersonInformationActivity : AppCompatActivity() {
             for (msg in history) {
                 if (msg.isVideoNote || (msg.text != null && msg.text.startsWith("VIDEO_NOTE:")) || (msg.imagePath != null && msg.imagePath.contains("video_notes"))) {
                     // BARRIER: Video notes are strictly excluded from PersonInformationActivity media gallery!
+                    continue
+                }
+
+                // BARRIER: Stickers must never be counted or displayed as media under any circumstances!
+                if (msg.isSticker || msg.messageType == ChatMessage.MessageType.STICKER ||
+                    (msg.text != null && msg.text.startsWith("STICKER:")) ||
+                    (msg.imagePath != null && (
+                        msg.imagePath.lowercase(Locale.US).contains("/stickers/") ||
+                        msg.imagePath.lowercase(Locale.US).contains("sticker_") ||
+                        msg.imagePath.lowercase(Locale.US).startsWith("sticker:") ||
+                        msg.imagePath.lowercase(Locale.US).contains("prime_stickers")
+                    )) ||
+                    !msg.stickerPackId.isNullOrEmpty() ||
+                    !msg.stickerPackName.isNullOrEmpty()) {
                     continue
                 }
 
