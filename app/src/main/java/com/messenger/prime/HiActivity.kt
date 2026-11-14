@@ -167,7 +167,7 @@ class HiActivity : AppCompatActivity() {
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         binding.tvLicense.setTextColor(if (isDark) Color.WHITE else Color.parseColor("#64748B"))
         binding.btnExit.setColorFilter(if (isDark) Color.WHITE else Color.parseColor("#1E293B"))
-        binding.ivLogo.setColorFilter(if (isDark) ColorAccentManager.getCurrentAccentColor(this) else Color.WHITE)
+        binding.ivLogo.setColorFilter(ColorAccentManager.getCurrentAccentColor(this))
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -600,8 +600,7 @@ class HiActivity : AppCompatActivity() {
         LavaBackgroundState.onActivityResumed()
         if (::binding.isInitialized) {
             ColorAccentManager.tintViewTree(binding.root, ColorAccentManager.getCurrentAccentColor(this))
-            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            binding.ivLogo.setColorFilter(if (isDark) ColorAccentManager.getCurrentAccentColor(this) else Color.WHITE)
+            binding.ivLogo.setColorFilter(ColorAccentManager.getCurrentAccentColor(this))
             
             if (hasIntroRun) {
                 // Восстанавливаем полную видимость всех элементов при возврате на экран (например, с LoginActivity)

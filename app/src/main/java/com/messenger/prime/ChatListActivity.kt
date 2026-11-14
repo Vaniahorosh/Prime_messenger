@@ -777,6 +777,7 @@ class ChatListActivity : AppCompatActivity() {
     private val primeUuid = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66")
     private val primeDevices = mutableStateSetOf<String>()
     private var lastChatLaunchTime = 0L
+    private var lastTargetAddress: String? = null
 
     @Synchronized
     private fun navigateToChatPerson(
@@ -785,11 +786,15 @@ class ChatListActivity : AppCompatActivity() {
         useExistingSocket: Boolean = false
     ) {
         val now = SystemClock.elapsedRealtime()
-        if (now - lastChatLaunchTime < 1000L) {
+        val isSameChat = (deviceAddress.isNotEmpty() && deviceAddress.equals(lastTargetAddress, ignoreCase = true)) ||
+                (deviceAddress.isEmpty() && targetName.equals(lastTargetAddress, ignoreCase = true))
+        val debounceTime = if (isSameChat) 350L else 150L
+        if (now - lastChatLaunchTime < debounceTime) {
             Log.d("ChatListActivity", "navigateToChatPerson ignored due to debounce")
             return
         }
         lastChatLaunchTime = now
+        lastTargetAddress = if (deviceAddress.isNotEmpty()) deviceAddress else targetName
 
         val savedName = AvatarManager.getContactDisplayName(this, deviceAddress, deviceAddress, null)
         val resolvedTargetName = if (!savedName.isNullOrEmpty() && !BluetoothAdapter.checkBluetoothAddress(savedName) && savedName != "Собеседник") {
@@ -850,6 +855,7 @@ class ChatListActivity : AppCompatActivity() {
 
             ChatHistoryManager.unmarkDeviceForgotten(this@ChatListActivity, resolvedTargetName)
             if (deviceAddress != null) ChatHistoryManager.unmarkDeviceForgotten(this@ChatListActivity, deviceAddress)
+            adapter.activeChatId = if (!deviceAddress.isNullOrEmpty()) deviceAddress else resolvedTargetName
             val chatIntent = Intent(this@ChatListActivity, ChatPersonActivity::class.java).apply {
                 putExtra("EXTRA_CHAT_NAME", resolvedTargetName)
                 putExtra("EXTRA_DEVICE_ADDRESS", deviceAddress)
@@ -3854,6 +3860,7 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        adapter.activeChatId = PrimeApplication.currentActiveChatAddress ?: PrimeApplication.currentActiveChatName
         refreshUserUi()
         reloadChatsFromDb()
         updateNavigationStyleUi()
@@ -3993,7 +4000,7 @@ class ChatListActivity : AppCompatActivity() {
                 .setDuration(180)
                 .start()
 
-            iconView?.setColorFilter(accentColor)
+            iconView?.setColorFilter(inactiveColor)
             iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
         }
     }

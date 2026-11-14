@@ -163,6 +163,13 @@ class WallpaperEditorActivity : AppCompatActivity() {
         binding.inputLayoutWallpaperName.boxStrokeColor = accentColor
         binding.inputLayoutCustomEmojis.boxStrokeColor = accentColor
 
+        binding.sliderPhotoZoom.thumbTintList = accentTint
+        binding.sliderPhotoZoom.trackActiveTintList = accentTint
+        binding.sliderPhotoRotation.thumbTintList = accentTint
+        binding.sliderPhotoRotation.trackActiveTintList = accentTint
+        binding.sliderPhotoDim.thumbTintList = accentTint
+        binding.sliderPhotoDim.trackActiveTintList = accentTint
+
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(0, systemBars.top, 0, systemBars.bottom)
@@ -466,6 +473,7 @@ class WallpaperEditorActivity : AppCompatActivity() {
         val updateBtn = { btn: com.google.android.material.button.MaterialButton, isSelected: Boolean ->
             btn.strokeColor = ColorStateList.valueOf(if (isSelected) accentColor else ContextCompat.getColor(this, R.color.prime_divider))
             btn.strokeWidth = if (isSelected) (2 * density).toInt() else (1 * density).toInt()
+            btn.iconTint = ColorStateList.valueOf(if (isSelected) accentColor else ContextCompat.getColor(this, R.color.prime_text_secondary))
         }
 
         updateBtn(binding.btnTabEmoji, selectedMode == "PATTERN")

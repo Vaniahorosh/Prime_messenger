@@ -259,7 +259,6 @@
                                 tools:translationY="0dp" />
 
                             <View
-                                android:id="@+id/viewPhotoInfoGradient"
                                 android:layout_width="match_parent"
                                 android:layout_height="90dp"
                                 android:background="@drawable/bg_photo_info_gradient"
@@ -2567,7 +2566,6 @@
 
                                 <!-- Блок предпросмотра стиля чата -->
                                 <com.google.android.material.card.MaterialCardView
-                                    android:id="@+id/cardChatStylePreviewBlock"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="10dp"
@@ -2577,7 +2575,6 @@
                                     app:strokeColor="#1A000000">
 
                                     <FrameLayout
-                                        android:id="@+id/layoutChatStylePreviewBg"
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:padding="12dp">
@@ -2622,7 +2619,6 @@
                                                     android:orientation="vertical">
 
                                                     <TextView
-                                                        android:id="@+id/tvPreviewChatName"
                                                         android:layout_width="wrap_content"
                                                         android:layout_height="wrap_content"
                                                         android:text="Собеседник"
@@ -2631,7 +2627,6 @@
                                                         android:fontFamily="sans-serif-medium" />
 
                                                     <TextView
-                                                        android:id="@+id/tvPreviewChatStatus"
                                                         android:layout_width="wrap_content"
                                                         android:layout_height="wrap_content"
                                                         android:text="В сети"
@@ -2650,6 +2645,18 @@
                                     </FrameLayout>
                                 </com.google.android.material.card.MaterialCardView>
                             </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:layout_marginTop="20dp"
+                                android:layout_marginBottom="16dp"
+                                android:background="@color/prime_divider" />
+
+                            <!-- Секция: Способ открытия информации о собеседнике -->
+                            <include
+                                android:id="@+id/cardPartnerInfoOpenModeSection"
+                                layout="@layout/layout_settings_partner_info_open_mode" />
 
                             <View
                                 android:layout_width="match_parent"

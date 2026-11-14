@@ -63,6 +63,7 @@ class AiChatActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ColorAccentManager.applyAccentToActivity(this)
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivityAiChatBinding.inflate(layoutInflater)
@@ -75,16 +76,11 @@ class AiChatActivity : AppCompatActivity() {
         // Setup Insets, Fog, Blur & Listeners
         setupSystemBarInsets()
         setupBlurViews()
-        setupBottomNav()
         setupListeners()
         setupRecyclerView()
 
         // Material UI Color Accent Application
-        ColorAccentManager.tintViews(this, binding.btnEmptyCreateChat)
-        binding.btnAiActionRight.backgroundTintList = ColorStateList.valueOf(ColorAccentManager.getCurrentAccentColor(this))
-        binding.btnAiActionRight.imageTintList = ColorStateList.valueOf(Color.WHITE)
-        binding.btnEmptySetupKey.setTextColor(ColorAccentManager.getCurrentAccentColor(this))
-        binding.btnEmptySetupKey.strokeColor = ColorStateList.valueOf(ColorAccentManager.getCurrentAccentColor(this))
+        applyAccentToChatUi()
 
         // Load or Create Active Chat Session & Auto-Detect Model
         loadActiveSessionOrNew()
@@ -95,6 +91,22 @@ class AiChatActivity : AppCompatActivity() {
             addAction("com.messenger.prime.BUBBLE_RADIUS_CHANGED")
         }
         ContextCompat.registerReceiver(this, wallpaperReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applyAccentToChatUi()
+    }
+
+    private fun applyAccentToChatUi() {
+        if (!::binding.isInitialized) return
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        ColorAccentManager.tintViews(this, binding.btnEmptyCreateChat)
+        binding.btnAiActionRight.backgroundTintList = ColorStateList.valueOf(accentColor)
+        binding.btnAiActionRight.imageTintList = ColorStateList.valueOf(Color.WHITE)
+        binding.btnEmptySetupKey.setTextColor(accentColor)
+        binding.btnEmptySetupKey.strokeColor = ColorStateList.valueOf(accentColor)
+        setupBottomNav()
     }
 
     private fun loadActiveSessionOrNew() {
@@ -493,7 +505,7 @@ class AiChatActivity : AppCompatActivity() {
                 .setDuration(180)
                 .start()
 
-            iconView?.setColorFilter(accentColor)
+            iconView?.setColorFilter(inactiveColor)
             iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
         }
     }

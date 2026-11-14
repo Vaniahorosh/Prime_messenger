@@ -438,6 +438,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         val accentColor = ColorAccentManager.getCurrentAccentColor(this)
         val colorStateList = android.content.res.ColorStateList.valueOf(accentColor)
         navBarProgressBar.progressTintList = colorStateList
+        btnPlayPause.backgroundTintList = colorStateList
     }
 
     @SuppressLint("InternalInsetResource", "Discouraged")

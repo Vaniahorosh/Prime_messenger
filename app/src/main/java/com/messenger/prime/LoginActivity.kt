@@ -589,7 +589,17 @@ class LoginActivity : AppCompatActivity() {
         val lightGrayColor = android.graphics.Color.parseColor("#94A3B8")
         val hintColorList = android.content.res.ColorStateList.valueOf(lightGrayColor)
         val boxBgColor = if (darkTheme) android.graphics.Color.parseColor("#1AFFFFFF") else android.graphics.Color.parseColor("#10000000")
-        val strokeColorList = android.content.res.ColorStateList.valueOf(if (darkTheme) android.graphics.Color.WHITE else accentColor)
+        val defaultStrokeColor = if (darkTheme) android.graphics.Color.parseColor("#33FFFFFF") else android.graphics.Color.parseColor("#E2E8F0")
+        val strokeColorList = android.content.res.ColorStateList(
+            arrayOf(
+                intArrayOf(android.R.attr.state_focused),
+                intArrayOf()
+            ),
+            intArrayOf(
+                accentColor,
+                defaultStrokeColor
+            )
+        )
 
         b.tvTitle.setTextColor(titleColor)
         b.tvSubtitle.setTextColor(subtitleColor)
@@ -620,6 +630,9 @@ class LoginActivity : AppCompatActivity() {
         b.inputLayoutPassword.setBoxStrokeColorStateList(strokeColorList)
 
         b.inputLayoutPassword.setEndIconTintList(android.content.res.ColorStateList.valueOf(iconTint))
+
+        b.btnSubmitArrow.backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
+        b.btnSubmitArrow.imageTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
 
         b.btnToggleMode.setTextColor(android.graphics.Color.WHITE)
         b.btnToggleMode.backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)

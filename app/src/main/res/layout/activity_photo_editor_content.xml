@@ -492,10 +492,10 @@
                 android:id="@+id/btnDone"
                 android:layout_width="72dp"
                 android:layout_height="match_parent"
-                android:background="@color/white"
+                android:background="@color/prime_brand"
                 android:src="@drawable/ic_arrow_forward"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:tint="@color/prime_background_blue"
+                app:tint="@color/white"
                 android:contentDescription="Отправить" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>

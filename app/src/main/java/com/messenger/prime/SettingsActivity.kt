@@ -908,13 +908,16 @@ class SettingsActivity : AppCompatActivity() {
                 .addItem(4, "Стиль в чате", R.drawable.ic_tema) {
                     smoothScrollToView(b.nestedScrollView, b.cardChatStyleSection)
                 }
-                .addItem(5, "Скругление блоков в чате", R.drawable.ic_perspective) {
+                .addItem(5, "Открытие профиля собеседника", R.drawable.ic_person) {
+                    b.cardPartnerInfoOpenModeSection?.root?.let { smoothScrollToView(b.nestedScrollView, it) }
+                }
+                .addItem(6, "Скругление блоков в чате", R.drawable.ic_perspective) {
                     b.tvTitleBottomBarRadius?.let { smoothScrollToView(b.nestedScrollView, it) }
                 }
-                .addItem(6, "Информация о собеседнике", R.drawable.ic_person) {
+                .addItem(7, "Информация о собеседнике", R.drawable.ic_person) {
                     smoothScrollToView(b.nestedScrollView, b.cardPartnerInfoSection)
                 }
-                .addItem(7, "Форма кружков (Видео)", R.drawable.ic_camera) {
+                .addItem(8, "Форма кружков (Видео)", R.drawable.ic_camera) {
                     b.cardVideoNotesSection?.let { smoothScrollToView(b.nestedScrollView, it) }
                 }
                 .show()
@@ -1487,6 +1490,7 @@ class SettingsActivity : AppCompatActivity() {
                 setupBubbleRadiusSection(b)
                 setupAvatarRadiusSection(b)
                 setupChatStyleSection(b)
+                setupPartnerInfoOpenModeSection(b)
                 setupPartnerInfoSection(b)
                 setupM3EShapesChatSection(b)
                 setupBottomBarRadiusSection(b)
@@ -1625,13 +1629,175 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupPartnerInfoOpenModeSection(b: ActivitySettingsContentBinding) {
+        val sec = b.cardPartnerInfoOpenModeSection ?: return
+        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        var currentMode = sharedPrefs.getString("settings_partner_info_open_mode", "drag") ?: "drag"
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+
+        val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
+        val isDark = when (themePref) {
+            "dark" -> true
+            "light" -> false
+            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        }
+
+        sec.tvTitlePartnerInfoOpenMode.setTextColor(accentColor)
+        sec.ivPreviewPartnerAvatar.imageTintList = ColorStateList.valueOf(accentColor)
+        sec.ivPreviewGestureIcon.imageTintList = ColorStateList.valueOf(accentColor)
+        sec.tvPreviewGestureHint.setTextColor(accentColor)
+
+        var isAnimationRunning = false
+        val runPreviewAnimation = { mode: String ->
+            val chatFg = sec.vPreviewChatForeground
+            val chatHeader = sec.vPreviewChatHeader
+            if (!isAnimationRunning) {
+                isAnimationRunning = true
+                chatFg.animate().cancel()
+                chatHeader.animate().cancel()
+
+                chatFg.translationX = 0f
+                chatFg.scaleX = 1f
+                chatFg.scaleY = 1f
+                chatFg.alpha = 1f
+                chatHeader.translationY = 0f
+
+                if (mode == "swipe") {
+                    val targetX = -chatFg.width.toFloat() * 0.45f
+                    chatFg.animate()
+                        .translationX(if (targetX != 0f) targetX else -160f)
+                        .scaleX(0.96f)
+                        .scaleY(0.96f)
+                        .alpha(0.7f)
+                        .setDuration(450)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator())
+                        .withEndAction {
+                            chatFg.postDelayed({
+                                chatFg.animate()
+                                    .translationX(0f)
+                                    .scaleX(1.0f)
+                                    .scaleY(1.0f)
+                                    .alpha(1.0f)
+                                    .setDuration(400)
+                                    .setInterpolator(android.view.animation.DecelerateInterpolator())
+                                    .withEndAction { isAnimationRunning = false }
+                                    .start()
+                            }, 500)
+                        }
+                        .start()
+                } else {
+                    val density = resources.displayMetrics.density
+                    chatHeader.animate()
+                        .translationY(22f * density)
+                        .setDuration(400)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator())
+                        .withEndAction {
+                            chatHeader.postDelayed({
+                                chatHeader.animate()
+                                    .translationY(0f)
+                                    .setDuration(350)
+                                    .setInterpolator(android.view.animation.DecelerateInterpolator())
+                                    .withEndAction { isAnimationRunning = false }
+                                    .start()
+                            }, 500)
+                        }
+                        .start()
+                }
+            }
+        }
+
+        val updateModeUi = { mode: String, triggerAnim: Boolean ->
+            currentMode = mode
+            val isDrag = mode == "drag"
+
+            val activeColorStateList = ColorStateList.valueOf(accentColor)
+            val transparentColorStateList = ColorStateList.valueOf(Color.TRANSPARENT)
+            val unselectedTextColor = if (isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B")
+
+            sec.btnPartnerInfoModeDrag.backgroundTintList = if (isDrag) activeColorStateList else transparentColorStateList
+            sec.btnPartnerInfoModeDrag.setTextColor(if (isDrag) Color.WHITE else unselectedTextColor)
+
+            sec.btnPartnerInfoModeSwipe.backgroundTintList = if (!isDrag) activeColorStateList else transparentColorStateList
+            sec.btnPartnerInfoModeSwipe.setTextColor(if (!isDrag) Color.WHITE else unselectedTextColor)
+
+            if (isDrag) {
+                sec.tvPreviewGestureHint.text = "Потяните вниз для инфо"
+                sec.ivPreviewGestureIcon.setImageResource(R.drawable.ic_arrow_back)
+                sec.ivPreviewGestureIcon.rotation = -90f
+            } else {
+                sec.tvPreviewGestureHint.text = "Свайп справа налево для инфо"
+                sec.ivPreviewGestureIcon.setImageResource(R.drawable.ic_arrow_back)
+                sec.ivPreviewGestureIcon.rotation = 0f
+            }
+
+            if (isDrag) {
+                b.cardPartnerInfoSection.alpha = 1.0f
+                b.switchPartnerInfo.isEnabled = true
+                val savedPullState = sharedPrefs.getBoolean("settings_partner_info_enabled", true)
+                b.switchPartnerInfo.isChecked = savedPullState
+                b.tvSubtitlePartnerInfo.text = "Переходить в профиль при перетягивании с верхнего края чата"
+            } else {
+                b.cardPartnerInfoSection.alpha = 0.45f
+                b.switchPartnerInfo.isEnabled = false
+                b.switchPartnerInfo.isChecked = false
+                b.tvSubtitlePartnerInfo.text = "Недоступно: выбран свайп справа налево"
+            }
+
+            if (triggerAnim) {
+                sec.vPreviewChatForeground.post {
+                    runPreviewAnimation(mode)
+                }
+            }
+        }
+
+        updateModeUi(currentMode, false)
+        sec.vPreviewChatForeground.post {
+            runPreviewAnimation(currentMode)
+        }
+
+        sec.btnPartnerInfoModeDrag.setOnClickListener {
+            if (currentMode != "drag") {
+                sharedPrefs.edit().putString("settings_partner_info_open_mode", "drag").apply()
+                updateModeUi("drag", true)
+            }
+        }
+
+        sec.btnPartnerInfoModeSwipe.setOnClickListener {
+            if (currentMode != "swipe") {
+                sharedPrefs.edit().putString("settings_partner_info_open_mode", "swipe").apply()
+                updateModeUi("swipe", true)
+            }
+        }
+
+        sec.btnResetPartnerInfoOpenMode.setOnClickListener {
+            if (currentMode != "drag") {
+                sharedPrefs.edit().putString("settings_partner_info_open_mode", "drag").apply()
+                updateModeUi("drag", true)
+            }
+        }
+    }
+
     private fun setupPartnerInfoSection(b: ActivitySettingsContentBinding) {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val openMode = sharedPrefs.getString("settings_partner_info_open_mode", "drag") ?: "drag"
         val isEnabled = sharedPrefs.getBoolean("settings_partner_info_enabled", true)
-        b.switchPartnerInfo.isChecked = isEnabled
+
+        if (openMode == "swipe") {
+            b.switchPartnerInfo.isChecked = false
+            b.switchPartnerInfo.isEnabled = false
+            b.cardPartnerInfoSection.alpha = 0.45f
+            b.tvSubtitlePartnerInfo.text = "Недоступно: выбран свайп справа налево"
+        } else {
+            b.switchPartnerInfo.isChecked = isEnabled
+            b.switchPartnerInfo.isEnabled = true
+            b.cardPartnerInfoSection.alpha = 1.0f
+            b.tvSubtitlePartnerInfo.text = "Переходить в профиль при перетягивании с верхнего края чата"
+        }
 
         b.switchPartnerInfo.setOnCheckedChangeListener { _, isChecked ->
-            sharedPrefs.edit().putBoolean("settings_partner_info_enabled", isChecked).apply()
+            if (b.switchPartnerInfo.isEnabled) {
+                sharedPrefs.edit().putBoolean("settings_partner_info_enabled", isChecked).apply()
+            }
         }
     }
 
@@ -1983,7 +2149,7 @@ class SettingsActivity : AppCompatActivity() {
                 .setDuration(180)
                 .start()
 
-            iconView?.setColorFilter(accentColor)
+            iconView?.setColorFilter(inactiveColor)
             iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
         }
     }

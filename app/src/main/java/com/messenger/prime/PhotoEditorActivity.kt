@@ -211,6 +211,7 @@ class PhotoEditorActivity : AppCompatActivity() {
 
                         setupTitleSwitcher(b)
                         setupAspectSelector(b)
+                        applyAccentColors(b)
 
                         val isProfilePhoto = intent.getBooleanExtra("IS_PROFILE_PHOTO", false)
                         val isStickerMode = intent.getBooleanExtra("IS_STICKER_MODE", false)
@@ -510,14 +511,17 @@ class PhotoEditorActivity : AppCompatActivity() {
         b.toolGeometry.setOnClickListener { toggleToolGroup(b, b.layoutGroupGeometry, "Геометрия") }
         b.toolBrushGroup.setOnClickListener { toggleToolGroup(b, b.layoutGroupBrush, "Рисование") }
 
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
         var isHdQuality = intent.getBooleanExtra("IS_HD_QUALITY", true)
         val updateHdQualityUi = {
             if (isHdQuality) {
                 b.btnHdQualityToggle.text = "HD"
                 b.btnHdQualityToggle.setBackgroundResource(R.drawable.bg_circular_mode_active)
+                b.btnHdQualityToggle.backgroundTintList = ColorStateList.valueOf(accentColor)
             } else {
                 b.btnHdQualityToggle.text = "SD 480p"
                 b.btnHdQualityToggle.setBackgroundResource(R.drawable.bg_circular_mode_idle)
+                b.btnHdQualityToggle.backgroundTintList = null
             }
         }
         updateHdQualityUi()
@@ -647,6 +651,27 @@ class PhotoEditorActivity : AppCompatActivity() {
         }
 
         b.btnDone.setOnClickListener { saveAndFinish(b) }
+    }
+
+    private fun applyAccentColors(b: ActivityPhotoEditorContentBinding) {
+        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
+        val accentCsl = ColorStateList.valueOf(accentColor)
+
+        b.btnDone.backgroundTintList = accentCsl
+        b.btnDone.imageTintList = ColorStateList.valueOf(android.graphics.Color.WHITE)
+
+        b.pbCloseTimer.progressTintList = accentCsl
+
+        val sliders = listOf(
+            b.sliderBrightness, b.sliderContrast, b.sliderSaturation,
+            b.sliderTemperature, b.sliderTint, b.sliderScale,
+            b.sliderRotate, b.sliderPerspective, b.sliderBrushSize,
+            b.sliderBrushHardness
+        )
+        for (slider in sliders) {
+            slider.thumbTintList = accentCsl
+            slider.trackActiveTintList = accentCsl
+        }
     }
 
     private fun sampleColor(b: ActivityPhotoEditorContentBinding, x: Float, y: Float) {

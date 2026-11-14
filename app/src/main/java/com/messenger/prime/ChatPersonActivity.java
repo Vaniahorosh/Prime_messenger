@@ -3,6 +3,7 @@ package com.messenger.prime;
 import android.Manifest;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.DatePickerDialog;
@@ -334,6 +335,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private BottomSheetDialog attachmentDialog;
     private View btnConfirmAttachment;
     private View layoutConfirmContainer;
+    private View hsvAttachmentTabs;
     private TextView tvConfirmBadgeCounter;
     private int lastConfirmCount = -1;
     private View layoutAttachmentPanel;
@@ -820,8 +822,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
 
 
-            boolean isTabletDevice = getResources().getConfiguration().smallestScreenWidthDp >= 600;
-            if (isTabletDevice) {
+            boolean isMultiPaneSupported = getResources().getConfiguration().screenWidthDp >= 600;
+            boolean alreadyRedirected = getIntent().getBooleanExtra("EXTRA_EMBEDDING_REDIRECTED", false);
+            if (isMultiPaneSupported && !alreadyRedirected) {
                 boolean isEmbedded = false;
                 try {
                     isEmbedded = androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this);
@@ -833,6 +836,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     startActivity(chatListIntent);
 
                     Intent selfIntent = new Intent(getIntent());
+                    selfIntent.putExtra("EXTRA_EMBEDDING_REDIRECTED", true);
                     startActivity(selfIntent);
                     finish();
                     return;
@@ -840,6 +844,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
 
             setContentView(R.layout.activity_chat_person_content);
+            getWindow().setBackgroundDrawableResource(R.color.prime_base);
+            if (getWindow().getDecorView() != null) {
+                getWindow().getDecorView().setBackgroundResource(R.color.prime_base);
+            }
 
         try {
         } catch (Exception ignored) {}
@@ -1516,7 +1524,21 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         setupSwipeToDismiss(layoutReplyBar, this::cancelReplyMode);
         setupSwipeToDismiss(layoutEditBar, this::exitEditMode);
 
-        btnBack.setOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
+        ImageButton btnCloseEmbeddedChat = findViewById(R.id.btnCloseEmbeddedChat);
+        boolean isEmbeddedChat = false;
+        try {
+            isEmbeddedChat = androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this);
+        } catch (Exception ignored) {}
+
+        if (isEmbeddedChat && btnCloseEmbeddedChat != null) {
+            btnBack.setVisibility(View.GONE);
+            btnCloseEmbeddedChat.setVisibility(View.VISIBLE);
+            btnCloseEmbeddedChat.setOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
+        } else {
+            btnBack.setVisibility(View.VISIBLE);
+            if (btnCloseEmbeddedChat != null) btnCloseEmbeddedChat.setVisibility(View.GONE);
+            btnBack.setOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
+        }
         if (ivChatAvatar != null) {
             ViewCompat.setTransitionName(ivChatAvatar, "transition_avatar");
             ivChatAvatar.setOnClickListener(v -> showAvatarMenu(ivChatAvatar));
@@ -1670,6 +1692,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             @Override
             public int getSwipeDirs(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
                 if (!isConnectionActive()) {
+                    return 0;
+                }
+                SharedPreferences sp = recyclerView.getContext().getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                String openMode = sp.getString("settings_partner_info_open_mode", "drag");
+                if ("swipe".equals(openMode)) {
                     return 0;
                 }
                 int pos = viewHolder.getBindingAdapterPosition();
@@ -2968,6 +2995,24 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             super.onNewIntent(intent);
             setIntent(intent);
             if (intent != null) {
+                // Save draft of current conversation before switching
+                if (!isChatDeleted && etMessage != null && targetUsername != null && !targetUsername.isEmpty()) {
+                    ChatHistoryManager.saveDraft(this, targetUsername, etMessage.getText().toString());
+                }
+                if (videoMessageRecorder != null && videoMessageRecorder.isRecordingOrPreviewing()) {
+                    videoMessageRecorder.cancelRecording();
+                }
+                if (isMultiSelectionActive) {
+                    exitMultiSelectionMode();
+                }
+                if (isEditMode) {
+                    exitEditMode();
+                }
+                cancelReplyMode();
+                if (isAttachmentPanelOpen && attachmentDialog != null && attachmentDialog.isShowing()) {
+                    attachmentDialog.dismiss();
+                }
+
                 String newTarget = intent.getStringExtra("EXTRA_CHAT_NAME");
                 String newAddress = intent.getStringExtra("EXTRA_DEVICE_ADDRESS");
 
@@ -2980,6 +3025,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                 activeChatPersonAddress = this.deviceAddress;
                 activeChatPersonName = this.targetUsername;
+                PrimeApplication.currentActiveChatAddress = this.deviceAddress;
+                PrimeApplication.currentActiveChatName = this.targetUsername;
 
                 BluetoothSocketHolder.setActiveDeviceAddress(this.deviceAddress);
                 BluetoothSocketHolder.setActiveTargetUsername(this.targetUsername);
@@ -2998,6 +3045,35 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 String contactAvatar = AvatarManager.getContactAvatarUriOrFile(this, this.targetUsername, this.targetUsername, this.deviceAddress);
                 if (contactAvatar == null) contactAvatar = remoteAvatarUri;
                 updateAvatarUi(contactAvatar, this.targetUsername);
+
+                MaterialShapesWallpaperView vWallpaper = findViewById(R.id.vWallpaperBackground);
+                if (vWallpaper != null) {
+                    vWallpaper.setContactKey(this.targetUsername);
+                    vWallpaper.refreshWallpaper();
+                    vWallpaper.startEntranceAnimation();
+                }
+
+                setupPinnedMessageBar();
+
+                String draftText = ChatHistoryManager.getDraft(this, this.targetUsername);
+                if (etMessage != null) {
+                    etMessage.setText(draftText != null ? draftText : "");
+                    if (draftText != null && !draftText.isEmpty()) {
+                        etMessage.setSelection(draftText.length());
+                    }
+                }
+
+                ImageButton btnClose = findViewById(R.id.btnCloseEmbeddedChat);
+                ImageButton btnB = findViewById(R.id.btnBack);
+                boolean isEmb = false;
+                try {
+                    isEmb = androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this);
+                } catch (Exception ignored) {}
+                if (isEmb && btnClose != null && btnB != null) {
+                    btnB.setVisibility(View.GONE);
+                    btnClose.setVisibility(View.VISIBLE);
+                    btnClose.setOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
+                }
 
                 reloadMessagesFromHistory();
                 sendReadReceiptsForUnreadMessages();
@@ -3057,6 +3133,58 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         ImageButton btnIslandSend = findViewById(R.id.btnVideoRecordSend);
         if (btnIslandSend != null) btnIslandSend.setImageTintList(colorStateList);
+
+        // Pinned, Reply, Edit bars dynamic accent
+        TextView tvPinnedTitle = findViewById(R.id.tvPinnedMessageTitle);
+        if (tvPinnedTitle != null) tvPinnedTitle.setTextColor(accentColor);
+        ImageView ivPinnedIcon = findViewById(R.id.ivPinnedMessageIcon);
+        if (ivPinnedIcon != null) ivPinnedIcon.setImageTintList(colorStateList);
+
+        TextView tvReplyTitle = findViewById(R.id.tvReplyBarTitle);
+        if (tvReplyTitle != null) tvReplyTitle.setTextColor(accentColor);
+        ImageView ivReplyIcon = findViewById(R.id.ivReplyBarIcon);
+        if (ivReplyIcon != null) ivReplyIcon.setImageTintList(colorStateList);
+
+        TextView tvEditTitle = findViewById(R.id.tvEditBarTitle);
+        if (tvEditTitle != null) tvEditTitle.setTextColor(accentColor);
+        ImageView ivEditIcon = findViewById(R.id.ivEditIcon);
+        if (ivEditIcon != null) ivEditIcon.setImageTintList(colorStateList);
+
+        // Scroll down floating panel button
+        com.google.android.material.floatingactionbutton.FloatingActionButton btnScrollDown = findViewById(R.id.fabScrollToBottom);
+        if (btnScrollDown != null) btnScrollDown.setBackgroundTintList(colorStateList);
+
+        // Input island buttons
+        ImageButton btnEmoji = findViewById(R.id.btnEmojiToggle);
+        if (btnEmoji != null) btnEmoji.setImageTintList(colorStateList);
+        ImageButton btnFormat = findViewById(R.id.btnFormat);
+        if (btnFormat != null) btnFormat.setImageTintList(colorStateList);
+        ImageButton btnVoiceSend = findViewById(R.id.btnVoiceRecordSend);
+        if (btnVoiceSend != null) btnVoiceSend.setImageTintList(colorStateList);
+
+        // In-chat search bar panel icon
+        ImageView ivSearch = findViewById(R.id.ivInChatSearchIcon);
+        if (ivSearch != null) ivSearch.setImageTintList(colorStateList);
+
+        // Music playback island
+        TextView tvMusicTime = findViewById(R.id.tvMusicIslandTime);
+        if (tvMusicTime != null) tvMusicTime.setTextColor(accentColor);
+        ProgressBar pbMusic = findViewById(R.id.pbMusicIslandProgress);
+        if (pbMusic != null) pbMusic.setProgressTintList(colorStateList);
+
+        // Video record panels (sliders & buttons)
+        com.google.android.material.slider.RangeSlider sliderTrim = findViewById(R.id.sliderVideoTrim);
+        if (sliderTrim != null) {
+            sliderTrim.setThumbTintList(colorStateList);
+            sliderTrim.setTrackActiveTintList(colorStateList);
+        }
+        com.google.android.material.slider.Slider sliderZoom = findViewById(R.id.sliderVideoZoom);
+        if (sliderZoom != null) {
+            sliderZoom.setThumbTintList(colorStateList);
+            sliderZoom.setTrackActiveTintList(colorStateList);
+        }
+        ImageButton btnVideoFinish = findViewById(R.id.btnVideoRecordFinishLocked);
+        if (btnVideoFinish != null) btnVideoFinish.setImageTintList(colorStateList);
     }
 
     @Override
@@ -4831,6 +4959,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         setOpeningSubActivity(true);
         PrimeTransitions.startActivityWithTransition(this, intent);
+        SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+        String openMode = sp.getString("settings_partner_info_open_mode", "drag");
+        if ("swipe".equals(openMode)) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN, R.anim.prime_open_enter, R.anim.prime_open_exit);
+            } else {
+                overridePendingTransition(R.anim.prime_open_enter, R.anim.prime_open_exit);
+            }
+        }
     }
 
     private void showSearchDialog() {
@@ -7239,6 +7376,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     @Override
     public void finish() {
         super.finish();
+        boolean isEmbedded = false;
+        try {
+            isEmbedded = androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this);
+        } catch (Exception ignored) {}
+        if (isEmbedded) {
+            Intent placeholderIntent = new Intent(this, ChatPlaceholderActivity.class);
+            placeholderIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(placeholderIntent);
+        }
         PrimeTransitions.applyCloseTransition(this);
     }
 
@@ -9316,9 +9462,22 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             rvFilesGrid.setAdapter(filesAdapter);
         }
 
+        hsvAttachmentTabs = dialogView.findViewById(R.id.hsvAttachmentTabs);
         layoutConfirmContainer = dialogView.findViewById(R.id.layoutConfirmContainer);
         tvConfirmBadgeCounter = dialogView.findViewById(R.id.tvConfirmBadgeCounter);
         btnConfirmAttachment = dialogView.findViewById(R.id.btnConfirmAttachment);
+
+        int currentAccent = ColorAccentManager.getCurrentAccentColor(this);
+        if (btnConfirmAttachment instanceof com.google.android.material.floatingactionbutton.FloatingActionButton) {
+            ((com.google.android.material.floatingactionbutton.FloatingActionButton) btnConfirmAttachment)
+                    .setBackgroundTintList(ColorStateList.valueOf(currentAccent));
+        } else if (btnConfirmAttachment != null) {
+            btnConfirmAttachment.setBackgroundTintList(ColorStateList.valueOf(currentAccent));
+        }
+        if (tvConfirmBadgeCounter != null) {
+            tvConfirmBadgeCounter.setTextColor(currentAccent);
+        }
+
         if (btnConfirmAttachment != null) {
             btnConfirmAttachment.setOnClickListener(v -> {
                 if (!isConnectionActive()) {
@@ -9339,6 +9498,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
 
         View btnOpenSystemGallery = dialogView.findViewById(R.id.btnOpenSystemGallery);
+        if (btnOpenSystemGallery instanceof com.google.android.material.button.MaterialButton) {
+            com.google.android.material.button.MaterialButton mb = (com.google.android.material.button.MaterialButton) btnOpenSystemGallery;
+            mb.setTextColor(currentAccent);
+            mb.setIconTint(ColorStateList.valueOf(currentAccent));
+        }
         if (btnOpenSystemGallery != null) {
             btnOpenSystemGallery.setOnClickListener(v -> {
                 if (!isConnectionActive()) {
@@ -9358,6 +9522,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
 
         View btnOpenSystemFileManager = dialogView.findViewById(R.id.btnOpenSystemFileManager);
+        if (btnOpenSystemFileManager instanceof com.google.android.material.button.MaterialButton) {
+            com.google.android.material.button.MaterialButton mb = (com.google.android.material.button.MaterialButton) btnOpenSystemFileManager;
+            mb.setTextColor(currentAccent);
+            mb.setIconTint(ColorStateList.valueOf(currentAccent));
+        }
         if (btnOpenSystemFileManager != null) {
             btnOpenSystemFileManager.setOnClickListener(v -> {
                 if (!isConnectionActive()) {
@@ -9370,6 +9539,26 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     pickSystemFileLauncher.launch("*/*");
                 }
             });
+        }
+
+        View btnPickGifFromGallery = dialogView.findViewById(R.id.btnPickGifFromGallery);
+        if (btnPickGifFromGallery instanceof com.google.android.material.button.MaterialButton) {
+            com.google.android.material.button.MaterialButton mb = (com.google.android.material.button.MaterialButton) btnPickGifFromGallery;
+            mb.setTextColor(currentAccent);
+        }
+
+        View btnOpenSystemAudioPicker = dialogView.findViewById(R.id.btnOpenSystemAudioPicker);
+        if (btnOpenSystemAudioPicker instanceof com.google.android.material.button.MaterialButton) {
+            com.google.android.material.button.MaterialButton mb = (com.google.android.material.button.MaterialButton) btnOpenSystemAudioPicker;
+            mb.setTextColor(currentAccent);
+            mb.setIconTint(ColorStateList.valueOf(currentAccent));
+        }
+
+        if (btnMusicTabDevice instanceof com.google.android.material.button.MaterialButton) {
+            ((com.google.android.material.button.MaterialButton) btnMusicTabDevice).setBackgroundTintList(ColorStateList.valueOf(currentAccent));
+        }
+        if (btnMusicTabSaved instanceof com.google.android.material.button.MaterialButton) {
+            ((com.google.android.material.button.MaterialButton) btnMusicTabSaved).setTextColor(currentAccent);
         }
 
         if (layoutModePhoto != null) layoutModePhoto.setOnClickListener(v -> {
@@ -9826,6 +10015,17 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 lastConfirmCount = totalCount;
             }
 
+            int activeBrand = ColorAccentManager.getCurrentAccentColor(this);
+            if (btnConfirmAttachment instanceof com.google.android.material.floatingactionbutton.FloatingActionButton) {
+                ((com.google.android.material.floatingactionbutton.FloatingActionButton) btnConfirmAttachment)
+                        .setBackgroundTintList(ColorStateList.valueOf(activeBrand));
+            } else if (btnConfirmAttachment != null) {
+                btnConfirmAttachment.setBackgroundTintList(ColorStateList.valueOf(activeBrand));
+            }
+            if (tvConfirmBadgeCounter != null) {
+                tvConfirmBadgeCounter.setTextColor(activeBrand);
+            }
+
             if (layoutConfirmContainer.getVisibility() != View.VISIBLE) {
                 layoutConfirmContainer.setVisibility(View.VISIBLE);
                 layoutConfirmContainer.setAlpha(0f);
@@ -9839,9 +10039,43 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         .setDuration(220)
                         .setInterpolator(new OvershootInterpolator(1.4f))
                         .start();
+
+                if (hsvAttachmentTabs != null) {
+                    final int targetMargin = (int) (60 * getResources().getDisplayMetrics().density);
+                    ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) hsvAttachmentTabs.getLayoutParams();
+                    if (lp.getMarginEnd() != targetMargin) {
+                        ValueAnimator animator = ValueAnimator.ofInt(lp.getMarginEnd(), targetMargin);
+                        animator.setDuration(200);
+                        animator.setInterpolator(new DecelerateInterpolator());
+                        animator.addUpdateListener(animation -> {
+                            if (hsvAttachmentTabs != null) {
+                                ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) hsvAttachmentTabs.getLayoutParams();
+                                params.setMarginEnd((Integer) animation.getAnimatedValue());
+                                hsvAttachmentTabs.setLayoutParams(params);
+                            }
+                        });
+                        animator.start();
+                    }
+                }
             }
         } else {
             lastConfirmCount = -1;
+            if (hsvAttachmentTabs != null) {
+                ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) hsvAttachmentTabs.getLayoutParams();
+                if (lp.getMarginEnd() != 0) {
+                    ValueAnimator animator = ValueAnimator.ofInt(lp.getMarginEnd(), 0);
+                    animator.setDuration(180);
+                    animator.setInterpolator(new DecelerateInterpolator());
+                    animator.addUpdateListener(animation -> {
+                        if (hsvAttachmentTabs != null) {
+                            ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) hsvAttachmentTabs.getLayoutParams();
+                            params.setMarginEnd((Integer) animation.getAnimatedValue());
+                            hsvAttachmentTabs.setLayoutParams(params);
+                        }
+                    });
+                    animator.start();
+                }
+            }
             if (layoutConfirmContainer.getVisibility() == View.VISIBLE) {
                 layoutConfirmContainer.animate().cancel();
                 layoutConfirmContainer.animate()
@@ -9872,13 +10106,25 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         currentAttachmentMode = newMode;
 
-        int activeBrand = ContextCompat.getColor(this, R.color.prime_brand);
+        int activeBrand = ColorAccentManager.getCurrentAccentColor(this);
         int idleSecondary = ContextCompat.getColor(this, R.color.prime_text_secondary);
 
-        if (vModePhotoBg != null) vModePhotoBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
-        if (vModeFilesBg != null) vModeFilesBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
-        if (vModeCameraBg != null) vModeCameraBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
-        if (vModeMusicBg != null) vModeMusicBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
+        if (vModePhotoBg != null) {
+            vModePhotoBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
+            vModePhotoBg.setBackgroundTintList(null);
+        }
+        if (vModeFilesBg != null) {
+            vModeFilesBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
+            vModeFilesBg.setBackgroundTintList(null);
+        }
+        if (vModeCameraBg != null) {
+            vModeCameraBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
+            vModeCameraBg.setBackgroundTintList(null);
+        }
+        if (vModeMusicBg != null) {
+            vModeMusicBg.setBackgroundResource(R.drawable.bg_circular_mode_idle);
+            vModeMusicBg.setBackgroundTintList(null);
+        }
 
         if (ivModePhotoIcon != null) ImageViewCompat.setImageTintList(ivModePhotoIcon, ColorStateList.valueOf(idleSecondary));
         if (ivModeFilesIcon != null) ImageViewCompat.setImageTintList(ivModeFilesIcon, ColorStateList.valueOf(idleSecondary));
@@ -9890,27 +10136,42 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (tvModeCameraLabel != null) tvModeCameraLabel.setTextColor(idleSecondary);
         if (tvModeMusicLabel != null) tvModeMusicLabel.setTextColor(idleSecondary);
 
+        View activeBg = null;
+        ImageView activeIcon = null;
+        TextView activeLabel = null;
+
         if (newMode == 0) { // Фото и видео
-            if (vModePhotoBg != null) vModePhotoBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
-            if (ivModePhotoIcon != null) ImageViewCompat.setImageTintList(ivModePhotoIcon, ColorStateList.valueOf(activeBrand));
-            if (tvModePhotoLabel != null) tvModePhotoLabel.setTextColor(activeBrand);
+            activeBg = vModePhotoBg;
+            activeIcon = ivModePhotoIcon;
+            activeLabel = tvModePhotoLabel;
             loadGalleryMediaAsync();
         } else if (newMode == 1) { // Файлы
-            if (vModeFilesBg != null) vModeFilesBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
-            if (ivModeFilesIcon != null) ImageViewCompat.setImageTintList(ivModeFilesIcon, ColorStateList.valueOf(activeBrand));
-            if (tvModeFilesLabel != null) tvModeFilesLabel.setTextColor(activeBrand);
+            activeBg = vModeFilesBg;
+            activeIcon = ivModeFilesIcon;
+            activeLabel = tvModeFilesLabel;
             loadFilesAsync();
         } else if (newMode == 2) { // GIF
-            if (vModeCameraBg != null) vModeCameraBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
-            if (ivModeCameraIcon != null) ImageViewCompat.setImageTintList(ivModeCameraIcon, ColorStateList.valueOf(activeBrand));
-            if (tvModeCameraLabel != null) tvModeCameraLabel.setTextColor(activeBrand);
+            activeBg = vModeCameraBg;
+            activeIcon = ivModeCameraIcon;
+            activeLabel = tvModeCameraLabel;
             fetchTenorGifs("");
         } else if (newMode == 3) { // Музыка
-            if (vModeMusicBg != null) vModeMusicBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
-            if (ivModeMusicIcon != null) ImageViewCompat.setImageTintList(ivModeMusicIcon, ColorStateList.valueOf(activeBrand));
-            if (tvModeMusicLabel != null) tvModeMusicLabel.setTextColor(activeBrand);
+            activeBg = vModeMusicBg;
+            activeIcon = ivModeMusicIcon;
+            activeLabel = tvModeMusicLabel;
             initMusicSection();
             loadMusicTracksAsync();
+        }
+
+        if (activeBg != null) {
+            activeBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
+            activeBg.setBackgroundTintList(ColorStateList.valueOf(activeBrand));
+        }
+        if (activeIcon != null) {
+            ImageViewCompat.setImageTintList(activeIcon, ColorStateList.valueOf(Color.WHITE));
+        }
+        if (activeLabel != null) {
+            activeLabel.setTextColor(activeBrand);
         }
 
         if (oldView == null || newView == null || oldView == newView) {
@@ -11027,14 +11288,18 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         final float touchSlop = ViewConfiguration.get(this).getScaledTouchSlop();
         final float pullThresholdPx = 130f * density;
         final float maxTranslationPx = 110f * density;
+        final boolean[] isSwipeToOpenActive = {false};
 
         rvMessages.addOnItemTouchListener(new RecyclerView.OnItemTouchListener() {
             @Override
             public boolean onInterceptTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
                 SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-                boolean isPartnerInfoEnabled = sp.getBoolean("settings_partner_info_enabled", true);
+                String openMode = sp.getString("settings_partner_info_open_mode", "drag");
+                boolean isSwipeMode = "swipe".equals(openMode);
+                boolean isPartnerInfoEnabled = isSwipeMode || sp.getBoolean("settings_partner_info_enabled", true);
                 if (!isPartnerInfoEnabled) {
                     isPullToOpenActive = false;
+                    isSwipeToOpenActive[0] = false;
                     return false;
                 }
                 int action = e.getActionMasked();
@@ -11043,6 +11308,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         pullStartY = e.getRawY();
                         pullStartX = e.getRawX();
                         isPullToOpenActive = false;
+                        isSwipeToOpenActive[0] = false;
                         stage1HapticTriggered = false;
                         break;
 
@@ -11050,13 +11316,24 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         float dy = e.getRawY() - pullStartY;
                         float dx = e.getRawX() - pullStartX;
 
-                        if (!rv.canScrollVertically(-1) && dy > touchSlop && dy > Math.abs(dx) * 1.2f) {
-                            isPullToOpenActive = true;
-                            MotionEvent cancelEvent = MotionEvent.obtain(e);
-                            cancelEvent.setAction(MotionEvent.ACTION_CANCEL);
-                            rv.onTouchEvent(cancelEvent);
-                            cancelEvent.recycle();
-                            return true;
+                        if (isSwipeMode) {
+                            if (dx < -touchSlop && Math.abs(dx) > Math.abs(dy) * 1.2f) {
+                                isSwipeToOpenActive[0] = true;
+                                MotionEvent cancelEvent = MotionEvent.obtain(e);
+                                cancelEvent.setAction(MotionEvent.ACTION_CANCEL);
+                                rv.onTouchEvent(cancelEvent);
+                                cancelEvent.recycle();
+                                return true;
+                            }
+                        } else {
+                            if (!rv.canScrollVertically(-1) && dy > touchSlop && dy > Math.abs(dx) * 1.2f) {
+                                isPullToOpenActive = true;
+                                MotionEvent cancelEvent = MotionEvent.obtain(e);
+                                cancelEvent.setAction(MotionEvent.ACTION_CANCEL);
+                                rv.onTouchEvent(cancelEvent);
+                                cancelEvent.recycle();
+                                return true;
+                            }
                         }
                         break;
                 }
@@ -11066,6 +11343,43 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             @Override
             public void onTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
                 SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                String openMode = sp.getString("settings_partner_info_open_mode", "drag");
+                boolean isSwipeMode = "swipe".equals(openMode);
+
+                if (isSwipeMode) {
+                    if (!isSwipeToOpenActive[0]) return;
+                    int action = e.getActionMasked();
+                    float dx = e.getRawX() - pullStartX;
+                    if (dx > 0) dx = 0;
+
+                    float screenWidth = getResources().getDisplayMetrics().widthPixels;
+                    float swipeThreshold = screenWidth * 0.35f;
+
+                    switch (action) {
+                        case MotionEvent.ACTION_MOVE: {
+                            float progress = Math.min(1.0f, Math.abs(dx) / swipeThreshold);
+                            updateSwipeRightUi(progress, dx);
+
+                            if (progress >= 0.5f && !stage1HapticTriggered) {
+                                stage1HapticTriggered = true;
+                                triggerHapticVibration();
+                            } else if (progress < 0.5f && stage1HapticTriggered) {
+                                stage1HapticTriggered = false;
+                            }
+                            break;
+                        }
+                        case MotionEvent.ACTION_UP:
+                        case MotionEvent.ACTION_CANCEL: {
+                            isSwipeToOpenActive[0] = false;
+                            float finalDx = e.getRawX() - pullStartX;
+                            float finalProgress = Math.min(1.0f, Math.abs(Math.min(0f, finalDx)) / swipeThreshold);
+                            finishSwipeRightGesture(finalProgress);
+                            break;
+                        }
+                    }
+                    return;
+                }
+
                 boolean isPartnerInfoEnabled = sp.getBoolean("settings_partner_info_enabled", true);
                 if (!isPartnerInfoEnabled) {
                     isPullToOpenActive = false;
@@ -11237,6 +11551,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 @Override
                 public boolean onTouch(View v, MotionEvent e) {
                     SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                    String openMode = sp.getString("settings_partner_info_open_mode", "drag");
+                    if ("swipe".equals(openMode)) {
+                        return false;
+                    }
                     boolean isPartnerInfoEnabled = sp.getBoolean("settings_partner_info_enabled", true);
                     if (!isPartnerInfoEnabled) {
                         return false;
@@ -11398,6 +11716,130 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 }
             }
         } catch (Exception ignored) {}
+    }
+
+    private void updateSwipeRightUi(float progress, float dx) {
+        float density = getResources().getDisplayMetrics().density;
+        // Rubber-band resistance translation: moves left up to 80dp
+        float dampenedDx = -Math.min(80f * density, Math.abs(dx) * 0.35f);
+        float scale = 1.0f - (0.04f * progress);
+
+        View layoutHeader = findViewById(R.id.layoutHeader);
+        View bottomContainer = findViewById(R.id.bottomContainer);
+        View tvFloatingDate = findViewById(R.id.tvFloatingDate);
+        View indicator = findViewById(R.id.layoutSwipeRightIndicator);
+        ImageView ivIcon = findViewById(R.id.ivSwipeRightIcon);
+        ImageView ivCheck = findViewById(R.id.ivSwipeRightCheck);
+
+        if (rvMessages != null) {
+            rvMessages.setTranslationX(dampenedDx);
+            rvMessages.setScaleX(scale);
+            rvMessages.setScaleY(scale);
+        }
+        if (layoutHeader != null) {
+            layoutHeader.setTranslationX(dampenedDx);
+            layoutHeader.setScaleX(scale);
+            layoutHeader.setScaleY(scale);
+        }
+        if (bottomContainer != null) {
+            bottomContainer.setTranslationX(dampenedDx);
+            bottomContainer.setScaleX(scale);
+            bottomContainer.setScaleY(scale);
+        }
+        if (tvFloatingDate != null && tvFloatingDate.getAlpha() > 0) {
+            tvFloatingDate.setTranslationX(dampenedDx);
+        }
+
+        if (indicator != null) {
+            if (indicator.getVisibility() != View.VISIBLE) {
+                indicator.setVisibility(View.VISIBLE);
+                int accentColor = ColorAccentManager.getCurrentAccentColor(this);
+                if (ivIcon != null) {
+                    ivIcon.setImageTintList(ColorStateList.valueOf(accentColor));
+                }
+            }
+            indicator.setAlpha(Math.min(1.0f, progress * 1.6f));
+            float maxIndicatorShift = 24f * density;
+            indicator.setTranslationX((1.0f - progress) * maxIndicatorShift);
+        }
+
+        if (ivCheck != null) {
+            ivCheck.setVisibility(progress >= 0.70f ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void finishSwipeRightGesture(float finalProgress) {
+        View layoutHeader = findViewById(R.id.layoutHeader);
+        View bottomContainer = findViewById(R.id.bottomContainer);
+        View tvFloatingDate = findViewById(R.id.tvFloatingDate);
+        View indicator = findViewById(R.id.layoutSwipeRightIndicator);
+        ImageView ivCheck = findViewById(R.id.ivSwipeRightCheck);
+
+        long duration = 240L;
+        DecelerateInterpolator interpolator = new DecelerateInterpolator(1.5f);
+
+        if (finalProgress >= 0.40f) {
+            if (rvMessages != null) {
+                rvMessages.animate().translationX(-getResources().getDisplayMetrics().widthPixels * 0.20f)
+                        .scaleX(0.96f).scaleY(0.96f).setDuration(duration).setInterpolator(interpolator).start();
+            }
+            if (layoutHeader != null) {
+                layoutHeader.animate().translationX(-getResources().getDisplayMetrics().widthPixels * 0.20f)
+                        .scaleX(0.96f).scaleY(0.96f).setDuration(duration).setInterpolator(interpolator).start();
+            }
+            if (bottomContainer != null) {
+                bottomContainer.animate().translationX(-getResources().getDisplayMetrics().widthPixels * 0.20f)
+                        .scaleX(0.96f).scaleY(0.96f).setDuration(duration).setInterpolator(interpolator).start();
+            }
+            if (indicator != null) {
+                indicator.animate().alpha(0f).setDuration(160).withEndAction(() -> indicator.setVisibility(View.GONE)).start();
+            }
+
+            openPersonInformationActivity();
+
+            if (rvMessages != null) {
+                rvMessages.postDelayed(() -> {
+                    if (rvMessages != null) {
+                        rvMessages.setTranslationX(0f);
+                        rvMessages.setScaleX(1f);
+                        rvMessages.setScaleY(1f);
+                    }
+                    if (layoutHeader != null) {
+                        layoutHeader.setTranslationX(0f);
+                        layoutHeader.setScaleX(1f);
+                        layoutHeader.setScaleY(1f);
+                    }
+                    if (bottomContainer != null) {
+                        bottomContainer.setTranslationX(0f);
+                        bottomContainer.setScaleX(1f);
+                        bottomContainer.setScaleY(1f);
+                    }
+                    if (tvFloatingDate != null) {
+                        tvFloatingDate.setTranslationX(0f);
+                    }
+                }, 400);
+            }
+        } else {
+            if (rvMessages != null) {
+                rvMessages.animate().translationX(0f).scaleX(1f).scaleY(1f).setDuration(duration).setInterpolator(interpolator).start();
+            }
+            if (layoutHeader != null) {
+                layoutHeader.animate().translationX(0f).scaleX(1f).scaleY(1f).setDuration(duration).setInterpolator(interpolator).start();
+            }
+            if (bottomContainer != null) {
+                bottomContainer.animate().translationX(0f).scaleX(1f).scaleY(1f).setDuration(duration).setInterpolator(interpolator).start();
+            }
+            if (tvFloatingDate != null) {
+                tvFloatingDate.animate().translationX(0f).setDuration(duration).setInterpolator(interpolator).start();
+            }
+            if (indicator != null) {
+                indicator.animate().alpha(0f).setDuration(duration).setInterpolator(interpolator)
+                        .withEndAction(() -> {
+                            indicator.setVisibility(View.GONE);
+                            if (ivCheck != null) ivCheck.setVisibility(View.GONE);
+                        }).start();
+            }
+        }
     }
 
     private void updateActionButtonsVisibility(boolean animate) {

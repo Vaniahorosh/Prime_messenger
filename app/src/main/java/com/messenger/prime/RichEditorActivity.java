@@ -45,6 +45,7 @@ public class RichEditorActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
+        ColorAccentManager.applyAccentToActivity(this);
         getWindow().requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS);
         
         float density = getResources().getDisplayMetrics().density;
@@ -241,6 +242,15 @@ public class RichEditorActivity extends AppCompatActivity {
                 setResult(RESULT_OK, data);
                 finish();
             }));
+        }
+
+        int accentColor = ColorAccentManager.getCurrentAccentColor(this);
+        if (btnToggleToolbar instanceof android.widget.ImageView) {
+            ((android.widget.ImageView) btnToggleToolbar).setImageTintList(android.content.res.ColorStateList.valueOf(accentColor));
+        }
+        android.widget.ImageView ivDoneSend = findViewById(R.id.ivDoneSend);
+        if (ivDoneSend != null) {
+            ivDoneSend.setImageTintList(android.content.res.ColorStateList.valueOf(accentColor));
         }
     }
 

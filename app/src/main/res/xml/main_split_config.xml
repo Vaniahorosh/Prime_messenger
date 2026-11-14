@@ -12,7 +12,7 @@
             window:activityName="com.messenger.prime.ChatListActivity" />
     </SplitPlaceholderRule>
 
-    <!-- 2. Split Pair Rule: Primary Left Pane (ChatListActivity) + Secondary Right Pane (ChatPersonActivity) -->
+    <!-- 2. Split Pair Rule: Primary Left Pane (ChatListActivity) + Secondary Right Pane (ChatPersonActivity, AiChatActivity) -->
     <!-- clearTop="false" guarantees that the active Chat on the right pane NEVER closes when navigating left-side screens -->
     <SplitPairRule
         window:clearTop="false"
@@ -24,6 +24,9 @@
         <SplitPairFilter
             window:primaryActivityName="com.messenger.prime.ChatListActivity"
             window:secondaryActivityName="com.messenger.prime.ChatPersonActivity" />
+        <SplitPairFilter
+            window:primaryActivityName="com.messenger.prime.ChatListActivity"
+            window:secondaryActivityName="com.messenger.prime.AiChatActivity" />
     </SplitPairRule>
 
     <!-- 3. Full Screen / Always Expand Rules for Auth, Media, Editor and Modal-like activities -->
@@ -39,6 +42,9 @@
         <ActivityFilter window:activityName="com.messenger.prime.GlobalSearchActivity" />
         <ActivityFilter window:activityName="com.messenger.prime.SettingsActivity" />
         <ActivityFilter window:activityName="com.messenger.prime.PersonInformationActivity" />
+        <ActivityFilter window:activityName="com.messenger.prime.DownloadsActivity" />
+        <ActivityFilter window:activityName="com.messenger.prime.WallpaperEditorActivity" />
+        <ActivityFilter window:activityName="com.messenger.prime.RichEditorActivity" />
     </ActivityRule>
 
 </resources>

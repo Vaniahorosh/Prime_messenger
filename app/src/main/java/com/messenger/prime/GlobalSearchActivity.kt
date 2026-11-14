@@ -221,7 +221,7 @@ class GlobalSearchActivity : AppCompatActivity() {
                 .setDuration(180)
                 .start()
 
-            iconView?.setColorFilter(accentColor)
+            iconView?.setColorFilter(inactiveColor)
             iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
         }
     }

@@ -120,6 +120,14 @@ class ChatListAdapter(
     var isSelectionMode = false
         private set
 
+    var activeChatId: String? = null
+        set(value) {
+            if (field != value) {
+                field = value
+                notifyDataSetChanged()
+            }
+        }
+
     val selectedItems = mutableSetOf<String>()
     var onSelectionChanged: ((Set<String>) -> Unit)? = null
 
@@ -186,6 +194,29 @@ class ChatListAdapter(
 
         return RippleDrawable(
             ColorStateList.valueOf(ColorUtils.setAlphaComponent(accentColor, 90)),
+            shape,
+            mask
+        )
+    }
+
+    private fun getActiveChatBackground(context: Context): Drawable {
+        val accentColor = ColorAccentManager.getCurrentAccentColor(context)
+        val alphaAccent = ColorUtils.setAlphaComponent(accentColor, 38)
+        val radiusPx = 24 * context.resources.displayMetrics.density
+
+        val shape = GradientDrawable().apply {
+            setColor(alphaAccent)
+            cornerRadius = radiusPx
+            setStroke((1.5f * context.resources.displayMetrics.density).toInt(), ColorUtils.setAlphaComponent(accentColor, 180))
+        }
+
+        val mask = GradientDrawable().apply {
+            setColor(android.graphics.Color.WHITE)
+            cornerRadius = radiusPx
+        }
+
+        return RippleDrawable(
+            ColorStateList.valueOf(ColorUtils.setAlphaComponent(accentColor, 70)),
             shape,
             mask
         )
@@ -663,7 +694,13 @@ class ChatListAdapter(
                         binding.layoutContent.setBackgroundResource(R.drawable.bg_chat_item_light)
                     }
                 } else {
-                    binding.layoutContent.setBackgroundResource(R.drawable.bg_chat_item_light)
+                    val isTablet = context.resources.configuration.screenWidthDp >= 600 || context.resources.configuration.smallestScreenWidthDp >= 600
+                    val isActive = isTablet && activeChatId != null && (chat.id.equals(activeChatId, ignoreCase = true) || chat.name.equals(activeChatId, ignoreCase = true))
+                    if (isActive) {
+                        binding.layoutContent.background = getActiveChatBackground(context)
+                    } else {
+                        binding.layoutContent.setBackgroundResource(R.drawable.bg_chat_item_light)
+                    }
                 }
 
                 binding.layoutContent.setOnClickListener {

@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/layoutPartnerInfoOpenModeRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvTitlePartnerInfoOpenMode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Открытие профиля собеседника"
+                android:textColor="@color/prime_brand"
+                android:textSize="14sp"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Выберите жест для перехода в профиль"
+                android:textColor="@color/prime_text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Кнопка возврата по умолчанию в виде аккуратной серой иконки обновления -->
+        <ImageView
+            android:id="@+id/btnResetPartnerInfoOpenMode"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginStart="8dp"
+            android:padding="3dp"
+            android:src="@drawable/ic_refresh"
+            app:tint="@color/prime_text_secondary"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="По умолчанию" />
+    </LinearLayout>
+
+    <!-- Сегментированный переключатель: Перетягивание | Свайп справа налево -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_date_bubble"
+        android:orientation="horizontal"
+        android:padding="3dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPartnerInfoModeDrag"
+            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="Перетягивание"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:fontFamily="sans-serif-medium"
+            app:cornerRadius="20dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPartnerInfoModeSwipe"
+            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="Свайп справа налево"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:fontFamily="sans-serif-medium"
+            app:cornerRadius="20dp" />
+    </LinearLayout>
+
+    <!-- Блок предпросмотра (имитация чата с анимацией демонстрации жеста) -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="145dp"
+        android:layout_marginTop="10dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="@color/prime_divider"
+        app:cardBackgroundColor="@color/prime_base">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipChildren="true">
+
+            <!-- Фоновый слой профиля собеседника -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_date_bubble"
+                android:padding="14dp">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageView
+                        android:id="@+id/ivPreviewPartnerAvatar"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:src="@drawable/ic_person"
+                        app:tint="@color/prime_brand" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Профиль собеседника"
+                        android:textColor="@color/prime_text_primary"
+                        android:textSize="13sp"
+                        android:fontFamily="sans-serif-medium" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Информация и медиафайлы"
+                        android:textColor="@color/prime_text_secondary"
+                        android:textSize="11sp" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <!-- Основной слой имитации чата (сверху) -->
+            <LinearLayout
+                android:id="@+id/vPreviewChatForeground"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/prime_base"
+                android:orientation="vertical"
+                android:padding="10dp">
+
+                <!-- Микро-шапка чата -->
+                <LinearLayout
+                    android:id="@+id/vPreviewChatHeader"
+                    android:layout_width="match_parent"
+                    android:layout_height="32dp"
+                    android:background="@drawable/bg_date_bubble"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp">
+
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:src="@drawable/ic_arrow_back"
+                        app:tint="@color/prime_brand" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:text="Собеседник"
+                        android:textColor="@color/prime_text_primary"
+                        android:textSize="12sp"
+                        android:fontFamily="sans-serif-medium" />
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_person"
+                        app:tint="@color/prime_brand" />
+                </LinearLayout>
+
+                <!-- Сообщения в имитации чата -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:gravity="center_vertical"
+                    android:orientation="vertical"
+                    android:paddingTop="4dp">
+
+                    <!-- Входящее сообщение -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_date_bubble"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:text="Получается, если потянуть вниз за самую верхнюю часть шапки собеседника в чате, профиль откроется корректно?"
+                        android:textColor="@color/prime_text_primary"
+                        android:textSize="11sp" />
+
+                    <!-- Исходящее сообщение -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="end"
+                        android:layout_marginTop="4dp"
+                        android:background="@drawable/bg_date_bubble"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:text="Да, но при свайпе справа налево вместо функции ответа срабатывает открытие профиля собеседника!"
+                        android:textColor="@color/prime_text_primary"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <!-- Подсказка жеста внизу -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:id="@+id/ivPreviewGestureIcon"
+                        android:layout_width="14dp"
+                        android:layout_height="14dp"
+                        android:src="@drawable/ic_arrow_back"
+                        app:tint="@color/prime_brand" />
+
+                    <TextView
+                        android:id="@+id/tvPreviewGestureHint"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:text="Потяните вниз для инфо"
+                        android:textColor="@color/prime_brand"
+                        android:textSize="10sp"
+                        android:fontFamily="sans-serif-medium" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </FrameLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+</LinearLayout>

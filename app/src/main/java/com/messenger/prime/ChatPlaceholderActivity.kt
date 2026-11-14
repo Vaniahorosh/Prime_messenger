@@ -40,10 +40,22 @@ class ChatPlaceholderActivity : AppCompatActivity() {
         val overlayColor = getDefaultBlurOverlayColor(this)
         blur.setupBlur(binding.root, 16f, overlayColor, wallpaper.background)
 
+        // Clear active chat tracking when placeholder is showing
+        PrimeApplication.currentActiveChatAddress = null
+        PrimeApplication.currentActiveChatName = null
+        ChatListNotifier.notifyChanged()
+
         // Make the placeholder functional: tap to open AiChatActivity
         blur.setOnClickListener {
             val intent = android.content.Intent(this, AiChatActivity::class.java)
             startActivity(intent)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        PrimeApplication.currentActiveChatAddress = null
+        PrimeApplication.currentActiveChatName = null
+        ChatListNotifier.notifyChanged()
     }
 }

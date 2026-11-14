@@ -112,7 +112,7 @@ fun PrimeEmojiStickerPanel(
     val panelBorder = if (isDark) Color(0x3394A3B8) else Color(0x260F172A)
     val textPrimary = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
     val textSecondary = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
-    val brandAccent = if (isDark) Color(0xFF4D9FFF) else Color(0xFF154B87)
+    val brandAccent = Color(com.messenger.prime.ColorAccentManager.getCurrentAccentColor(context))
     val searchBg = if (isDark) Color(0x33000000) else Color(0x1F000000)
 
     var currentTab by remember { mutableStateOf(PanelTab.EMOJIS) }

@@ -60,15 +60,20 @@ object PrimeTransitions {
             return
         }
         val isTablet = activity.resources.getBoolean(R.bool.isTablet)
+        val isEmbedded = try {
+            androidx.window.embedding.ActivityEmbeddingController.getInstance(activity).isActivityEmbedded(activity)
+        } catch (_: Exception) {
+            false
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             activity.overrideActivityTransition(
                 Activity.OVERRIDE_TRANSITION_OPEN,
                 if (!isTablet) 0 else R.anim.prime_open_enter,
-                if (!isTablet) 0 else R.anim.prime_open_exit
+                if (!isTablet || isEmbedded) 0 else R.anim.prime_open_exit
             )
             activity.overrideActivityTransition(
                 Activity.OVERRIDE_TRANSITION_CLOSE,
-                if (!isTablet) 0 else R.anim.prime_close_enter,
+                if (!isTablet || isEmbedded) 0 else R.anim.prime_close_enter,
                 if (!isTablet) 0 else R.anim.prime_close_exit
             )
         }
@@ -104,10 +109,16 @@ object PrimeTransitions {
         }
 
         val isTablet = activity.resources.getBoolean(R.bool.isTablet)
+        val isEmbedded = try {
+            androidx.window.embedding.ActivityEmbeddingController.getInstance(activity).isActivityEmbedded(activity)
+        } catch (_: Exception) {
+            false
+        }
         // Disable XML transitions for phones (custom PrimePredictiveBack handles Enter transition)
+        // In dual-pane split on tablets, never animate/shift the calling primary activity (ChatListActivity)
         val enterAnim = if (!isTablet) 0 else R.anim.prime_open_enter
-        val exitAnim = if (!isTablet) 0 else R.anim.prime_open_exit
-        val closeEnterAnim = if (!isTablet) 0 else R.anim.prime_close_enter
+        val exitAnim = if (!isTablet || isEmbedded) 0 else R.anim.prime_open_exit
+        val closeEnterAnim = if (!isTablet || isEmbedded) 0 else R.anim.prime_close_enter
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             activity.overrideActivityTransition(
@@ -165,8 +176,13 @@ object PrimeTransitions {
         }
 
         val isTablet = activity.resources.getBoolean(R.bool.isTablet)
+        val isEmbedded = try {
+            androidx.window.embedding.ActivityEmbeddingController.getInstance(activity).isActivityEmbedded(activity)
+        } catch (_: Exception) {
+            false
+        }
         // Disable XML transitions for phones (custom PrimePredictiveBack handles Exit transition)
-        val enterAnim = if (!isTablet) 0 else R.anim.prime_close_enter
+        val enterAnim = if (!isTablet || isEmbedded) 0 else R.anim.prime_close_enter
         val exitAnim = if (!isTablet) 0 else R.anim.prime_close_exit
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

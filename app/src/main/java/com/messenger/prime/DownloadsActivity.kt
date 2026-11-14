@@ -159,6 +159,7 @@ class DownloadsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         applyIslandHeaderColor()
+        setupFilterChips()
         setupBottomNav()
         loadDownloadsData()
     }
@@ -342,6 +343,7 @@ class DownloadsActivity : AppCompatActivity() {
                 binding.chipUpdates to "UPDATES"
             )
 
+            val unselectedStrokeColor = ContextCompat.getColor(this, R.color.prime_divider)
             for ((btn, category) in chips) {
                 if (category == activeCategoryFilter) {
                     btn.backgroundTintList = ColorStateList.valueOf(accentColor)
@@ -350,7 +352,7 @@ class DownloadsActivity : AppCompatActivity() {
                 } else {
                     btn.backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
                     btn.setTextColor(ContextCompat.getColor(this, R.color.prime_text_primary))
-                    btn.strokeColor = ColorStateList.valueOf(Color.parseColor("#33FFFFFF"))
+                    btn.strokeColor = ColorStateList.valueOf(unselectedStrokeColor)
                     btn.strokeWidth = (1 * resources.displayMetrics.density).toInt()
                 }
             }
