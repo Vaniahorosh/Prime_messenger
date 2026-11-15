@@ -9,7 +9,6 @@ import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.ImageButton
 import android.widget.TextView
-import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -66,7 +65,7 @@ class PrimeVoiceRecorderController(
         Log.d("VoiceDebug", "PrimeVoiceRecorderController.startRecordingProcess called")
         
         if (!checkAudioPermission()) {
-            Toast.makeText(activity, "Предоставьте разрешение на запись аудио", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(activity, "Предоставьте разрешение на запись аудио")
             ActivityCompat.requestPermissions(
                 activity,
                 arrayOf(Manifest.permission.RECORD_AUDIO),
@@ -85,7 +84,7 @@ class PrimeVoiceRecorderController(
 
         val file = AudioRecordManager.startRecording(activity)
         if (file == null) {
-            Toast.makeText(activity, "Ошибка запуска записи звука", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(activity, "Ошибка запуска записи звука")
             PrimePredictiveBack.isGestureLocked = false
             return
         }

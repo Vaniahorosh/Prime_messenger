@@ -586,9 +586,10 @@ class LoginActivity : AppCompatActivity() {
         val titleColor = if (darkTheme) android.graphics.Color.parseColor("#F1F5F9") else android.graphics.Color.parseColor("#0F172A")
         val subtitleColor = if (darkTheme) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
         val iconTint = if (darkTheme) android.graphics.Color.WHITE else android.graphics.Color.parseColor("#1E293B")
-        val lightGrayColor = android.graphics.Color.parseColor("#94A3B8")
-        val hintColorList = android.content.res.ColorStateList.valueOf(lightGrayColor)
-        val boxBgColor = if (darkTheme) android.graphics.Color.parseColor("#1AFFFFFF") else android.graphics.Color.parseColor("#10000000")
+        val inputTextColor = if (darkTheme) android.graphics.Color.parseColor("#E2E8F0") else android.graphics.Color.parseColor("#0F172A")
+        val hintColor = if (darkTheme) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
+        val hintColorList = android.content.res.ColorStateList.valueOf(hintColor)
+        val boxBgColor = if (darkTheme) android.graphics.Color.parseColor("#1AFFFFFF") else android.graphics.Color.parseColor("#140F172A")
         val defaultStrokeColor = if (darkTheme) android.graphics.Color.parseColor("#33FFFFFF") else android.graphics.Color.parseColor("#E2E8F0")
         val strokeColorList = android.content.res.ColorStateList(
             arrayOf(
@@ -605,13 +606,13 @@ class LoginActivity : AppCompatActivity() {
         b.tvSubtitle.setTextColor(subtitleColor)
         b.btnBack.setColorFilter(iconTint)
         
-        b.etLogin.setTextColor(lightGrayColor)
-        b.etName.setTextColor(lightGrayColor)
-        b.etPassword.setTextColor(lightGrayColor)
+        b.etLogin.setTextColor(inputTextColor)
+        b.etName.setTextColor(inputTextColor)
+        b.etPassword.setTextColor(inputTextColor)
 
-        b.etLogin.setHintTextColor(lightGrayColor)
-        b.etName.setHintTextColor(lightGrayColor)
-        b.etPassword.setHintTextColor(lightGrayColor)
+        b.etLogin.setHintTextColor(hintColor)
+        b.etName.setHintTextColor(hintColor)
+        b.etPassword.setHintTextColor(hintColor)
         
         b.inputLayoutLogin.defaultHintTextColor = hintColorList
         b.inputLayoutName.defaultHintTextColor = hintColorList

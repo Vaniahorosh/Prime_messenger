@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -24,7 +25,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import com.bumptech.glide.Glide
@@ -673,9 +673,17 @@ class PersonInformationActivity : AppCompatActivity() {
 
     private fun updateHeaderPhoto() {
         val history = getCombinedContactAvatarHistory()
+        val defaultAvatarDrawable = {
+            createLetterAvatarDrawable(
+                this,
+                targetUsername.ifEmpty { "Prime" },
+                14f * resources.displayMetrics.density,
+                (240 * resources.displayMetrics.density).toInt()
+            )
+        }
 
         if (history.isEmpty()) {
-            binding.ivPhotoCard.setImageResource(R.drawable.ic_person)
+            binding.ivPhotoCard.setImageDrawable(defaultAvatarDrawable())
             animateAvatarCounterBadge(binding.tvAvatarCounter, 0, 0)
             avatarUriStr = null
             return
@@ -704,7 +712,7 @@ class PersonInformationActivity : AppCompatActivity() {
                         .centerCrop()
                         .signature(signatureKey)
                         .transition(DrawableTransitionOptions.withCrossFade(300))
-                        .placeholder(R.drawable.ic_person)
+                        .placeholder(defaultAvatarDrawable())
                         .into(binding.ivPhotoCard)
                 } else {
                     Glide.with(this)
@@ -712,14 +720,14 @@ class PersonInformationActivity : AppCompatActivity() {
                         .transform(CenterCrop(), RoundedCorners(radiusPx))
                         .signature(signatureKey)
                         .transition(DrawableTransitionOptions.withCrossFade(300))
-                        .placeholder(R.drawable.ic_person)
+                        .placeholder(defaultAvatarDrawable())
                         .into(binding.ivPhotoCard)
                 }
             } else {
-                binding.ivPhotoCard.setImageResource(R.drawable.ic_person)
+                binding.ivPhotoCard.setImageDrawable(defaultAvatarDrawable())
             }
         } catch (_: Exception) {
-            binding.ivPhotoCard.setImageResource(R.drawable.ic_person)
+            binding.ivPhotoCard.setImageDrawable(defaultAvatarDrawable())
         }
     }
 
@@ -871,7 +879,7 @@ class PersonInformationActivity : AppCompatActivity() {
         binding.tvStatusWP.animateSlideDownText(statusText)
         binding.tvStatusWP.setTextColor(
             if (isConnected) ContextCompat.getColor(this, R.color.prime_success)
-            else ContextCompat.getColor(this, R.color.white)
+            else Color.parseColor("#E6FFFFFF")
         )
 
         val isDesktop = AvatarManager.isDesktopContact(this, targetUsername, deviceAddress)
@@ -901,7 +909,7 @@ class PersonInformationActivity : AppCompatActivity() {
                 } else {
                     "Пользователь использует более новую версию клиента"
                 }
-                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+                PrimeNotification.show(this, msg)
             }
         } else {
             binding.ivVersionStatusBadge.visibility = View.GONE
@@ -932,8 +940,11 @@ class PersonInformationActivity : AppCompatActivity() {
         )
         val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
         val btnBgColor = if (isNight) ContextCompat.getColor(this, R.color.glass_white_20) else ContextCompat.getColor(this, R.color.prime_search_bg)
+        val iconColor = if (isNight) Color.WHITE else ContextCompat.getColor(this, R.color.prime_text_primary)
 
         for ((index, btn) in leftButtons.withIndex()) {
+            btn.tag = "do_not_tint"
+            btn.backgroundTintList = null
             btn.outlineProvider = null
             btn.clipToOutline = false
             btn.elevation = 0f
@@ -941,6 +952,11 @@ class PersonInformationActivity : AppCompatActivity() {
                 shape = shapes.random(),
                 color = btnBgColor
             )
+            if (btn == binding.btnDeleteChat) {
+                btn.iconTint = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.prime_danger))
+            } else {
+                btn.iconTint = ColorStateList.valueOf(iconColor)
+            }
 
             btn.scaleX = 0.5f
             btn.scaleY = 0.5f
@@ -1082,7 +1098,7 @@ class PersonInformationActivity : AppCompatActivity() {
         }
         sendBroadcast(chatDeletedIntent)
 
-        Toast.makeText(this, "Переписка и устройство полностью удалены", Toast.LENGTH_SHORT).show()
+        PrimeNotification.show(this, "Переписка и устройство полностью удалены")
 
         val mainIntent = Intent(this, ChatListActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)

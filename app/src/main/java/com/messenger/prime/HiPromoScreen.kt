@@ -291,9 +291,11 @@ fun PrimeFeaturePromoCard(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    val darkTheme = isSystemInDarkTheme()
+
                     Text(
                         text = feature.title,
-                        color = Color.White,
+                        color = if (darkTheme) Color.White else Color(0xFF0F172A),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold,
                         textAlign = TextAlign.Center
@@ -303,7 +305,7 @@ fun PrimeFeaturePromoCard(
 
                     Text(
                         text = feature.description,
-                        color = Color.White.copy(alpha = 0.88f),
+                        color = if (darkTheme) Color.White.copy(alpha = 0.88f) else Color(0xFF475569),
                         fontSize = 14.sp,
                         textAlign = TextAlign.Center,
                         lineHeight = 20.sp,
@@ -315,6 +317,7 @@ fun PrimeFeaturePromoCard(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Клики по сегментам прогресс-бара для быстрого выбора слайда
+            val isDark = isSystemInDarkTheme()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -337,7 +340,7 @@ fun PrimeFeaturePromoCard(
                                 .height(4.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    if (isSelected) currentFeature.accentColor else Color.White.copy(alpha = 0.25f)
+                                    if (isSelected) currentFeature.accentColor else if (isDark) Color.White.copy(alpha = 0.25f) else Color(0xFF0F172A).copy(alpha = 0.15f)
                                 )
                         )
                     }

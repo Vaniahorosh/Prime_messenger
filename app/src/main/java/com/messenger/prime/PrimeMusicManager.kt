@@ -17,7 +17,6 @@ import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
-import android.widget.Toast
 import java.io.File
 import java.io.FileOutputStream
 import java.lang.ref.WeakReference
@@ -70,7 +69,7 @@ object PrimeMusicManager {
     private fun showToastOnUi(context: Context, text: String) {
         handler.post {
             try {
-                Toast.makeText(context.applicationContext, text, Toast.LENGTH_SHORT).show()
+                PrimeNotification.show(context, text)
             } catch (e: Exception) {
                 e.printStackTrace()
             }

@@ -166,21 +166,35 @@ object PrimeNotification {
         }
     }
 
+    private fun findActivity(context: Context?): Activity? {
+        var ctx = context
+        while (ctx is android.content.ContextWrapper) {
+            if (ctx is Activity) return ctx
+            ctx = ctx.baseContext
+        }
+        return null
+    }
+
     @JvmStatic
-    fun show(activity: Activity?, message: String, onUndo: (() -> Unit)?) {
-        showInternal(activity, message, 0, null, onUndo)
+    fun show(context: Context?, message: String, onUndo: (() -> Unit)?) {
+        show(context, message, 0, null, onUndo)
     }
 
     @JvmStatic
     @JvmOverloads
     fun show(
-        activity: Activity?,
+        context: Context?,
         message: String,
         iconRes: Int = 0,
         iconTint: Int? = null,
         onUndo: (() -> Unit)? = null
     ) {
-        showInternal(activity, message, iconRes, iconTint, onUndo)
+        val activity = findActivity(context)
+        if (activity != null) {
+            showInternal(activity, message, iconRes, iconTint, onUndo)
+        } else if (context != null) {
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun showInternal(

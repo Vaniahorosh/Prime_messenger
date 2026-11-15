@@ -1,0 +1,191 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+
+  <!-- Outer Glowing Glass Badge Circle -->
+  <path
+      android:fillColor="#FFD80032"
+      android:pathData="M48,48m-44,0a44,44 0 1,0 88,0a44,44 0 1,0 -88,0"/>
+
+  <!-- Inner Soft Light Ring -->
+  <path
+      android:fillColor="#25FFFFFF"
+      android:pathData="M48,48m-40,0a40,40 0 1,0 80,0a40,40 0 1,0 -80,0"/>
+
+  <!-- Back Hair Mass Base -->
+  <path
+      android:fillColor="#FF990022"
+      android:pathData="M24,32 C24,18 32,12 48,12 C64,12 72,18 72,32 C72,44 64,50 48,50 C32,50 24,44 24,32 Z"/>
+
+  <!-- Left Twin Drill Hair (Multi-layered Spirals) -->
+  <path
+      android:fillColor="#FFFF3355"
+      android:pathData="M21,30 C15,21 6,24 9,36 C12,45 3,54 12,63 C18,69 24,60 21,51 C18,42 24,36 21,30 Z"/>
+  <path
+      android:fillColor="#FFD80032"
+      android:pathData="M18,33 C13.5,27 7.5,28.5 10.5,36 C13.5,43.5 7.5,51 13.5,57 C18,61.5 21,55.5 19.5,48 C16.5,40.5 19.5,36 18,33 Z"/>
+  <path
+      android:fillColor="#FFB30026"
+      android:pathData="M15,36 C12,31.5 8.5,32 10.5,37 C12.5,42 8.5,47.5 13,52 C16,55 18,50.5 17,45 C15.5,39.5 17,37 15,36 Z"/>
+  <!-- Left Drill Hair Ribbon Clip -->
+  <path
+      android:fillColor="#FF2B1014"
+      android:pathData="M20,28 L24,28 L25,32 L19,32 Z"/>
+  <!-- Left Drill Shine Highlights -->
+  <path
+      android:strokeColor="#FFFFB3C1"
+      android:strokeWidth="1.8"
+      android:strokeLineCap="round"
+      android:fillColor="#00000000"
+      android:pathData="M11,33 C12.5,37.5 9.5,42 12.5,46.5 M12.5,51 C15,55.5 13.5,58.5 16.5,60"/>
+
+  <!-- Right Twin Drill Hair (Multi-layered Spirals) -->
+  <path
+      android:fillColor="#FFFF3355"
+      android:pathData="M75,30 C81,21 90,24 87,36 C84,45 93,54 84,63 C78,69 72,60 75,51 C78,42 72,36 75,30 Z"/>
+  <path
+      android:fillColor="#FFD80032"
+      android:pathData="M78,33 C82.5,27 88.5,28.5 85.5,36 C82.5,43.5 88.5,51 82.5,57 C78,61.5 75,55.5 76.5,48 C79.5,40.5 76.5,36 78,33 Z"/>
+  <path
+      android:fillColor="#FFB30026"
+      android:pathData="M81,36 C84,31.5 87.5,32 85.5,37 C83.5,42 87.5,47.5 83,52 C80,55 78,50.5 79,45 C80.5,39.5 79,37 81,36 Z"/>
+  <!-- Right Drill Hair Ribbon Clip -->
+  <path
+      android:fillColor="#FF2B1014"
+      android:pathData="M72,28 L76,28 L77,32 L71,32 Z"/>
+  <!-- Right Drill Shine Highlights -->
+  <path
+      android:strokeColor="#FFFFB3C1"
+      android:strokeWidth="1.8"
+      android:strokeLineCap="round"
+      android:fillColor="#00000000"
+      android:pathData="M85,33 C83.5,37.5 86.5,42 83.5,46.5 M83.5,51 C81,55.5 82.5,58.5 79.5,60"/>
+
+  <!-- Face Skin Base -->
+  <path
+      android:fillColor="#FFFFF0F3"
+      android:pathData="M30,36 C30,24 37.5,21 48,21 C58.5,21 66,24 66,36 C66,48 57,57 48,57 C39,57 30,48 30,36 Z"/>
+
+  <!-- Headset Top Band -->
+  <path
+      android:strokeColor="#FF2B1014"
+      android:strokeWidth="3.5"
+      android:strokeLineCap="round"
+      android:fillColor="#00000000"
+      android:pathData="M27,30 C33,18 63,18 69,30"/>
+  <!-- Headset Left & Right Earcups -->
+  <path
+      android:fillColor="#FFD80032"
+      android:strokeColor="#FF2B1014"
+      android:strokeWidth="1.5"
+      android:pathData="M24,31.5 A4.5,6 0 1,0 24,43.5 A4.5,6 0 1,0 24,31.5 M72,31.5 A4.5,6 0 1,0 72,43.5 A4.5,6 0 1,0 72,31.5"/>
+  <!-- Headset Earcup Inner Light -->
+  <path
+      android:fillColor="#FFFFB3C1"
+      android:pathData="M23,34.5 A1.5,3 0 1,0 23,40.5 A1.5,3 0 1,0 23,34.5 M73,34.5 A1.5,3 0 1,0 73,40.5 A1.5,3 0 1,0 73,34.5"/>
+  <!-- Headset Microphone Boom Arm & Mic Tip -->
+  <path
+      android:strokeColor="#FF2B1014"
+      android:strokeWidth="1.8"
+      android:strokeLineCap="round"
+      android:fillColor="#00000000"
+      android:pathData="M24,40 C28,45 36,49 42,48"/>
+  <path
+      android:fillColor="#FFD80032"
+      android:pathData="M42,46.5 A1.5,1.5 0 1,0 42,49.5 A1.5,1.5 0 1,0 42,46.5"/>
+
+  <!-- Hair Bangs Layer -->
+  <path
+      android:fillColor="#FFFF3355"
+      android:pathData="M27,33 C33,33 36,42 39,34 C40.5,30 45,39 46.5,33 C48,28.5 52.5,39 55.5,31.5 C58.5,34.5 63,31.5 66,31.5 C66,22.5 58.5,19.5 48,19.5 C37.5,19.5 30,22.5 27,33 Z"/>
+  <!-- Front Hair Shine Band -->
+  <path
+      android:strokeColor="#50FFFFFF"
+      android:strokeWidth="2.5"
+      android:strokeLineCap="round"
+      android:fillColor="#00000000"
+      android:pathData="M32,24 C38,22 58,22 64,24"/>
+  <!-- Ahoge (Curled Top Hair Strand) -->
+  <path
+      android:strokeColor="#FFFF3355"
+      android:strokeWidth="3"
+      android:strokeLineCap="round"
+      android:fillColor="#00000000"
+      android:pathData="M48,19.5 C45,10.5 54,7.5 51,3 C46.5,0 42,7.5 46.5,15"/>
+
+  <!-- Left Eye (Ruby Red Multi-layer) -->
+  <path
+      android:fillColor="#FF660015"
+      android:pathData="M36,39 A3.5,6 0 1,0 36,51 A3.5,6 0 1,0 36,39"/>
+  <path
+      android:fillColor="#FFFF3355"
+      android:pathData="M36,43.5 A2.5,3.8 0 1,0 36,51 A2.5,3.8 0 1,0 36,43.5"/>
+  <path
+      android:fillColor="#FFFFFFFF"
+      android:pathData="M34.8,41.2 A1.2,1.8 0 1,0 34.8,44.8 A1.2,1.8 0 1,0 34.8,41.2"/>
+  <path
+      android:fillColor="#FFFFFFFF"
+      android:pathData="M37.2,47.5 A0.6,0.9 0 1,0 37.2,49.3 A0.6,0.9 0 1,0 37.2,47.5"/>
+
+  <!-- Right Eye (Ruby Red Multi-layer) -->
+  <path
+      android:fillColor="#FF660015"
+      android:pathData="M60,39 A3.5,6 0 1,0 60,51 A3.5,6 0 1,0 60,39"/>
+  <path
+      android:fillColor="#FFFF3355"
+      android:pathData="M60,43.5 A2.5,3.8 0 1,0 60,51 A2.5,3.8 0 1,0 60,43.5"/>
+  <path
+      android:fillColor="#FFFFFFFF"
+      android:pathData="M58.8,41.2 A1.2,1.8 0 1,0 58.8,44.8 A1.2,1.8 0 1,0 58.8,41.2"/>
+  <path
+      android:fillColor="#FFFFFFFF"
+      android:pathData="M61.2,47.5 A0.6,0.9 0 1,0 61.2,49.3 A0.6,0.9 0 1,0 61.2,47.5"/>
+
+  <!-- Eyelashes & Brows -->
+  <path
+      android:strokeColor="#FF2B1014"
+      android:strokeWidth="1.8"
+      android:strokeLineCap="round"
+      android:fillColor="#00000000"
+      android:pathData="M31.5,39 C34.5,36 39,37.5 40.5,40.5 M55.5,40.5 C57,37.5 61.5,36 64.5,39 M34.5,34.5 C37.5,33 40.5,34.5 42,36 M54,36 C55.5,34.5 58.5,33 61.5,34.5"/>
+
+  <!-- Cheeks Blush & Cute Smile -->
+  <path
+      android:fillColor="#40FF3355"
+      android:pathData="M33,48 A3.5,1.8 0 1,0 33,51.6 A3.5,1.8 0 1,0 33,48 M63,48 A3.5,1.8 0 1,0 63,51.6 A3.5,1.8 0 1,0 63,48"/>
+  <path
+      android:strokeColor="#FFD80032"
+      android:strokeWidth="1.8"
+      android:strokeLineCap="round"
+      android:fillColor="#00000000"
+      android:pathData="M45,49.5 C46.5,51.8 49.5,51.8 51,49.5"/>
+
+  <!-- Uniform Body Base -->
+  <path
+      android:fillColor="#FF2B1014"
+      android:pathData="M30,60 L66,60 L72,84 L24,84 Z"/>
+  <!-- Collar -->
+  <path
+      android:fillColor="#FFFFFFFF"
+      android:pathData="M36,60 L48,70.5 L60,60 L51,60 L48,64.5 L45,60 Z"/>
+  <!-- Red Tie -->
+  <path
+      android:fillColor="#FFD80032"
+      android:pathData="M45,63 L51,63 L52.5,78 L48,81 L43.5,78 Z"/>
+  <!-- Gold Tie Clip -->
+  <path
+      android:fillColor="#FFFFD166"
+      android:pathData="M44,69 L52,69 L52,71 L44,71 Z"/>
+  <!-- UTAU 0401 Shoulder Badge -->
+  <path
+      android:fillColor="#FFFF3355"
+      android:pathData="M27,66 L33,66 L31.5,75 L25.5,75 Z"/>
+  <path
+      android:strokeColor="#FFFFFFFF"
+      android:strokeWidth="1"
+      android:strokeLineCap="round"
+      android:fillColor="#00000000"
+      android:pathData="M27,70.5 L31.5,70.5"/>
+</vector>

@@ -274,7 +274,7 @@
 
                             <!-- Контейнер для текста -->
                             <androidx.constraintlayout.widget.ConstraintLayout
-                                android:id="@+id/layoutPhotoInternal"
+                                
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent">
 
@@ -812,7 +812,7 @@
 
                             <!-- Горизонтальная прокрутка выбора темы (Вид экрана телефона) -->
                             <HorizontalScrollView
-                                android:id="@+id/scrollThemeOptions"
+                                
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="16dp"
@@ -822,7 +822,7 @@
                                 android:scrollbars="none">
 
                                 <LinearLayout
-                                    android:id="@+id/layoutThemeOptions"
+                                    
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:gravity="center"
@@ -947,7 +947,7 @@
                                         </com.google.android.material.card.MaterialCardView>
 
                                         <TextView
-                                            android:id="@+id/tvThemeSystemLabel"
+                                            
                                             android:layout_width="wrap_content"
                                             android:layout_height="20dp"
                                             android:layout_marginTop="8dp"
@@ -1004,63 +1004,151 @@
                                             <FrameLayout
                                                 android:layout_width="match_parent"
                                                 android:layout_height="match_parent"
-                                                android:background="#FFFFFF">
+                                                android:background="#F8FAFC">
 
                                                 <LinearLayout
                                                     android:layout_width="match_parent"
                                                     android:layout_height="match_parent"
                                                     android:orientation="vertical"
-                                                    android:paddingTop="12dp">
+                                                    android:paddingHorizontal="4dp"
+                                                    android:paddingTop="3dp"
+                                                    android:paddingBottom="4dp">
 
-                                                    <!-- Mini Status Bar -->
-                                                    <View
+                                                    <!-- Mini Status Bar & Notch -->
+                                                    <FrameLayout
                                                         android:layout_width="match_parent"
-                                                        android:layout_height="8dp"
-                                                        android:background="#F8FAFC" />
+                                                        android:layout_height="8dp">
+                                                        <View
+                                                            android:layout_width="14dp"
+                                                            android:layout_height="2.5dp"
+                                                            android:layout_gravity="center"
+                                                            android:background="@drawable/bg_m3_active_indicator"
+                                                            android:backgroundTint="#20000000" />
+                                                    </FrameLayout>
 
-                                                    <!-- Mini Incoming Bubble -->
-                                                    <View
-                                                        android:layout_width="44dp"
+                                                    <!-- Mini Floating Island Header -->
+                                                    <LinearLayout
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="14dp"
+                                                        android:background="@drawable/bg_floating_island"
+                                                        android:backgroundTint="#FFFFFF"
+                                                        android:gravity="center_vertical"
+                                                        android:paddingHorizontal="3dp"
+                                                        android:orientation="horizontal">
+                                                        <View
+                                                            android:layout_width="6dp"
+                                                            android:layout_height="6dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#94A3B8" />
+                                                        <LinearLayout
+                                                            android:layout_width="0dp"
+                                                            android:layout_height="wrap_content"
+                                                            android:layout_weight="1"
+                                                            android:layout_marginStart="3dp"
+                                                            android:orientation="vertical">
+                                                            <View
+                                                                android:layout_width="18dp"
+                                                                android:layout_height="2dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#0F172A" />
+                                                            <View
+                                                                android:layout_width="12dp"
+                                                                android:layout_height="1.5dp"
+                                                                android:layout_marginTop="1dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#94A3B8" />
+                                                        </LinearLayout>
+                                                        <View
+                                                            android:layout_width="8dp"
+                                                            android:layout_height="8dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#154B87" />
+                                                    </LinearLayout>
+
+                                                    <!-- Messages Area -->
+                                                    <FrameLayout
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="0dp"
+                                                        android:layout_weight="1"
+                                                        android:paddingTop="5dp">
+                                                        <!-- Incoming Bubble -->
+                                                        <LinearLayout
+                                                            android:layout_width="40dp"
+                                                            android:layout_height="wrap_content"
+                                                            android:layout_gravity="top|start"
+                                                            android:background="@drawable/bg_bubble_incoming"
+                                                            android:backgroundTint="#E2E8F0"
+                                                            android:orientation="vertical"
+                                                            android:padding="2.5dp">
+                                                            <View
+                                                                android:layout_width="30dp"
+                                                                android:layout_height="2dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#1E293B" />
+                                                            <View
+                                                                android:layout_width="20dp"
+                                                                android:layout_height="1.5dp"
+                                                                android:layout_marginTop="1.5dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#64748B" />
+                                                        </LinearLayout>
+                                                        <!-- Outgoing Bubble -->
+                                                        <LinearLayout
+                                                            android:layout_width="42dp"
+                                                            android:layout_height="wrap_content"
+                                                            android:layout_gravity="bottom|end"
+                                                            android:layout_marginBottom="2dp"
+                                                            android:background="@drawable/bg_bubble_outgoing"
+                                                            android:backgroundTint="#154B87"
+                                                            android:orientation="vertical"
+                                                            android:padding="2.5dp">
+                                                            <View
+                                                                android:layout_width="34dp"
+                                                                android:layout_height="2dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#FFFFFF" />
+                                                            <View
+                                                                android:layout_width="24dp"
+                                                                android:layout_height="1.5dp"
+                                                                android:layout_marginTop="1.5dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#E0F2FE" />
+                                                        </LinearLayout>
+                                                    </FrameLayout>
+
+                                                    <!-- Mini Floating Footer / Input Bar -->
+                                                    <LinearLayout
+                                                        android:layout_width="match_parent"
                                                         android:layout_height="12dp"
-                                                        android:layout_marginStart="6dp"
-                                                        android:layout_marginTop="12dp"
-                                                        android:background="@drawable/bg_bubble_incoming"
-                                                        android:backgroundTint="#F1F5F9" />
-
-                                                    <!-- Mini Outgoing Bubble 1 -->
-                                                    <View
-                                                        android:layout_width="48dp"
-                                                        android:layout_height="12dp"
-                                                        android:layout_gravity="end"
-                                                        android:layout_marginEnd="6dp"
-                                                        android:layout_marginTop="6dp"
-                                                        android:background="@drawable/bg_bubble_outgoing"
-                                                        android:backgroundTint="@color/prime_brand" />
-
-                                                    <!-- Mini Outgoing Bubble 2 -->
-                                                    <View
-                                                        android:layout_width="32dp"
-                                                        android:layout_height="10dp"
-                                                        android:layout_gravity="end"
-                                                        android:layout_marginEnd="6dp"
-                                                        android:layout_marginTop="4dp"
-                                                        android:background="@drawable/bg_bubble_outgoing"
-                                                        android:backgroundTint="@color/prime_brand" />
+                                                        android:background="@drawable/bg_floating_island"
+                                                        android:backgroundTint="#FFFFFF"
+                                                        android:gravity="center_vertical"
+                                                        android:paddingHorizontal="3dp"
+                                                        android:orientation="horizontal">
+                                                        <View
+                                                            android:layout_width="5dp"
+                                                            android:layout_height="5dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#154B87" />
+                                                        <View
+                                                            android:layout_width="0dp"
+                                                            android:layout_height="5dp"
+                                                            android:layout_weight="1"
+                                                            android:layout_marginHorizontal="2dp"
+                                                            android:background="@drawable/bg_search_input"
+                                                            android:backgroundTint="#F1F5F9" />
+                                                        <View
+                                                            android:layout_width="5dp"
+                                                            android:layout_height="5dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#154B87" />
+                                                    </LinearLayout>
                                                 </LinearLayout>
-
-                                                <!-- Dynamic Island / Camera Notch -->
-                                                <View
-                                                    android:layout_width="16dp"
-                                                    android:layout_height="4dp"
-                                                    android:layout_gravity="top|center_horizontal"
-                                                    android:layout_marginTop="5dp"
-                                                    android:background="@drawable/bg_m3_active_indicator"
-                                                    android:backgroundTint="#20000000" />
                                             </FrameLayout>
                                         </com.google.android.material.card.MaterialCardView>
 
                                         <TextView
-                                            android:id="@+id/tvThemeLightLabel"
+                                            
                                             android:layout_width="wrap_content"
                                             android:layout_height="20dp"
                                             android:layout_marginTop="8dp"
@@ -1123,57 +1211,145 @@
                                                     android:layout_width="match_parent"
                                                     android:layout_height="match_parent"
                                                     android:orientation="vertical"
-                                                    android:paddingTop="12dp">
+                                                    android:paddingHorizontal="4dp"
+                                                    android:paddingTop="3dp"
+                                                    android:paddingBottom="4dp">
 
-                                                    <!-- Mini Status Bar -->
-                                                    <View
+                                                    <!-- Mini Status Bar & Notch -->
+                                                    <FrameLayout
                                                         android:layout_width="match_parent"
-                                                        android:layout_height="8dp"
-                                                        android:background="#1E293B" />
+                                                        android:layout_height="8dp">
+                                                        <View
+                                                            android:layout_width="14dp"
+                                                            android:layout_height="2.5dp"
+                                                            android:layout_gravity="center"
+                                                            android:background="@drawable/bg_m3_active_indicator"
+                                                            android:backgroundTint="#40FFFFFF" />
+                                                    </FrameLayout>
 
-                                                    <!-- Mini Incoming Bubble -->
-                                                    <View
-                                                        android:layout_width="44dp"
+                                                    <!-- Mini Floating Island Header -->
+                                                    <LinearLayout
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="14dp"
+                                                        android:background="@drawable/bg_floating_island"
+                                                        android:backgroundTint="#1E293B"
+                                                        android:gravity="center_vertical"
+                                                        android:paddingHorizontal="3dp"
+                                                        android:orientation="horizontal">
+                                                        <View
+                                                            android:layout_width="6dp"
+                                                            android:layout_height="6dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#64748B" />
+                                                        <LinearLayout
+                                                            android:layout_width="0dp"
+                                                            android:layout_height="wrap_content"
+                                                            android:layout_weight="1"
+                                                            android:layout_marginStart="3dp"
+                                                            android:orientation="vertical">
+                                                            <View
+                                                                android:layout_width="18dp"
+                                                                android:layout_height="2dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#F8FAFC" />
+                                                            <View
+                                                                android:layout_width="12dp"
+                                                                android:layout_height="1.5dp"
+                                                                android:layout_marginTop="1dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#64748B" />
+                                                        </LinearLayout>
+                                                        <View
+                                                            android:layout_width="8dp"
+                                                            android:layout_height="8dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#4D9FFF" />
+                                                    </LinearLayout>
+
+                                                    <!-- Messages Area -->
+                                                    <FrameLayout
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="0dp"
+                                                        android:layout_weight="1"
+                                                        android:paddingTop="5dp">
+                                                        <!-- Incoming Bubble -->
+                                                        <LinearLayout
+                                                            android:layout_width="40dp"
+                                                            android:layout_height="wrap_content"
+                                                            android:layout_gravity="top|start"
+                                                            android:background="@drawable/bg_bubble_incoming"
+                                                            android:backgroundTint="#263343"
+                                                            android:orientation="vertical"
+                                                            android:padding="2.5dp">
+                                                            <View
+                                                                android:layout_width="30dp"
+                                                                android:layout_height="2dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#F8FAFC" />
+                                                            <View
+                                                                android:layout_width="20dp"
+                                                                android:layout_height="1.5dp"
+                                                                android:layout_marginTop="1.5dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#94A3B8" />
+                                                        </LinearLayout>
+                                                        <!-- Outgoing Bubble -->
+                                                        <LinearLayout
+                                                            android:layout_width="42dp"
+                                                            android:layout_height="wrap_content"
+                                                            android:layout_gravity="bottom|end"
+                                                            android:layout_marginBottom="2dp"
+                                                            android:background="@drawable/bg_bubble_outgoing"
+                                                            android:backgroundTint="#4D9FFF"
+                                                            android:orientation="vertical"
+                                                            android:padding="2.5dp">
+                                                            <View
+                                                                android:layout_width="34dp"
+                                                                android:layout_height="2dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#FFFFFF" />
+                                                            <View
+                                                                android:layout_width="24dp"
+                                                                android:layout_height="1.5dp"
+                                                                android:layout_marginTop="1.5dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#E0F2FE" />
+                                                        </LinearLayout>
+                                                    </FrameLayout>
+
+                                                    <!-- Mini Floating Footer / Input Bar -->
+                                                    <LinearLayout
+                                                        android:layout_width="match_parent"
                                                         android:layout_height="12dp"
-                                                        android:layout_marginStart="6dp"
-                                                        android:layout_marginTop="12dp"
-                                                        android:background="@drawable/bg_bubble_incoming"
-                                                        android:backgroundTint="#1E293B" />
-
-                                                    <!-- Mini Outgoing Bubble 1 -->
-                                                    <View
-                                                        android:layout_width="48dp"
-                                                        android:layout_height="12dp"
-                                                        android:layout_gravity="end"
-                                                        android:layout_marginEnd="6dp"
-                                                        android:layout_marginTop="6dp"
-                                                        android:background="@drawable/bg_bubble_outgoing"
-                                                        android:backgroundTint="@color/prime_brand" />
-
-                                                    <!-- Mini Outgoing Bubble 2 -->
-                                                    <View
-                                                        android:layout_width="32dp"
-                                                        android:layout_height="10dp"
-                                                        android:layout_gravity="end"
-                                                        android:layout_marginEnd="6dp"
-                                                        android:layout_marginTop="4dp"
-                                                        android:background="@drawable/bg_bubble_outgoing"
-                                                        android:backgroundTint="@color/prime_brand" />
+                                                        android:background="@drawable/bg_floating_island"
+                                                        android:backgroundTint="#1E293B"
+                                                        android:gravity="center_vertical"
+                                                        android:paddingHorizontal="3dp"
+                                                        android:orientation="horizontal">
+                                                        <View
+                                                            android:layout_width="5dp"
+                                                            android:layout_height="5dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#4D9FFF" />
+                                                        <View
+                                                            android:layout_width="0dp"
+                                                            android:layout_height="5dp"
+                                                            android:layout_weight="1"
+                                                            android:layout_marginHorizontal="2dp"
+                                                            android:background="@drawable/bg_search_input"
+                                                            android:backgroundTint="#0F172A" />
+                                                        <View
+                                                            android:layout_width="5dp"
+                                                            android:layout_height="5dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#4D9FFF" />
+                                                    </LinearLayout>
                                                 </LinearLayout>
-
-                                                <!-- Dynamic Island / Camera Notch -->
-                                                <View
-                                                    android:layout_width="16dp"
-                                                    android:layout_height="4dp"
-                                                    android:layout_gravity="top|center_horizontal"
-                                                    android:layout_marginTop="5dp"
-                                                    android:background="@drawable/bg_m3_active_indicator"
-                                                    android:backgroundTint="#40FFFFFF" />
                                             </FrameLayout>
                                         </com.google.android.material.card.MaterialCardView>
 
                                         <TextView
-                                            android:id="@+id/tvThemeDarkLabel"
+                                            
                                             android:layout_width="wrap_content"
                                             android:layout_height="20dp"
                                             android:layout_marginTop="8dp"
@@ -1202,8 +1378,478 @@
                                             android:clickable="false"
                                             android:focusable="false" />
                                     </LinearLayout>
+
+                                    <!-- Вариант: Касане Тето (Светлая) -->
+                                    <LinearLayout
+                                        android:id="@+id/itemThemeTetoLight"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:layout_marginHorizontal="2dp"
+                                        android:gravity="center_horizontal"
+                                        android:orientation="vertical"
+                                        android:clickable="true"
+                                        android:focusable="true"
+                                        android:background="?attr/selectableItemBackground"
+                                        android:padding="4dp">
+
+                                        <com.google.android.material.card.MaterialCardView
+                                            android:id="@+id/cardThemeTetoLight"
+                                            android:layout_width="76dp"
+                                            android:layout_height="138dp"
+                                            android:layout_gravity="center_horizontal"
+                                            app:cardCornerRadius="18dp"
+                                            app:cardElevation="0dp"
+                                            app:strokeWidth="1dp"
+                                            app:strokeColor="#1A000000">
+
+                                            <FrameLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:background="#FFF0F3">
+
+                                                <LinearLayout
+                                                    android:layout_width="match_parent"
+                                                    android:layout_height="match_parent"
+                                                    android:orientation="vertical"
+                                                    android:paddingHorizontal="4dp"
+                                                    android:paddingTop="3dp"
+                                                    android:paddingBottom="4dp">
+
+                                                    <!-- Mini Status Bar & Notch -->
+                                                    <FrameLayout
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="8dp">
+                                                        <View
+                                                            android:layout_width="14dp"
+                                                            android:layout_height="2.5dp"
+                                                            android:layout_gravity="center"
+                                                            android:background="@drawable/bg_m3_active_indicator"
+                                                            android:backgroundTint="#20D80032" />
+                                                    </FrameLayout>
+
+                                                    <!-- Mini Floating Island Header -->
+                                                    <LinearLayout
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="14dp"
+                                                        android:background="@drawable/bg_floating_island"
+                                                        android:backgroundTint="#FFFFFF"
+                                                        android:gravity="center_vertical"
+                                                        android:paddingHorizontal="3dp"
+                                                        android:orientation="horizontal">
+                                                        <ImageView
+                                                            android:layout_width="8dp"
+                                                            android:layout_height="8dp"
+                                                            android:src="@drawable/ic_teto_avatar" />
+                                                        <LinearLayout
+                                                            android:layout_width="0dp"
+                                                            android:layout_height="wrap_content"
+                                                            android:layout_weight="1"
+                                                            android:layout_marginStart="3dp"
+                                                            android:orientation="vertical">
+                                                            <View
+                                                                android:layout_width="18dp"
+                                                                android:layout_height="2dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#D80032" />
+                                                            <View
+                                                                android:layout_width="12dp"
+                                                                android:layout_height="1.5dp"
+                                                                android:layout_marginTop="1dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#FFB3C1" />
+                                                        </LinearLayout>
+                                                        <View
+                                                            android:layout_width="8dp"
+                                                            android:layout_height="8dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#D80032" />
+                                                    </LinearLayout>
+
+                                                    <!-- Messages Area -->
+                                                    <FrameLayout
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="0dp"
+                                                        android:layout_weight="1"
+                                                        android:paddingTop="5dp">
+                                                        <!-- Incoming Bubble -->
+                                                        <LinearLayout
+                                                            android:layout_width="40dp"
+                                                            android:layout_height="wrap_content"
+                                                            android:layout_gravity="top|start"
+                                                            android:background="@drawable/bg_bubble_incoming"
+                                                            android:backgroundTint="#FFEBF0"
+                                                            android:orientation="vertical"
+                                                            android:padding="2.5dp">
+                                                            <View
+                                                                android:layout_width="30dp"
+                                                                android:layout_height="2dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#2B1014" />
+                                                            <View
+                                                                android:layout_width="20dp"
+                                                                android:layout_height="1.5dp"
+                                                                android:layout_marginTop="1.5dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#D80032" />
+                                                        </LinearLayout>
+                                                        <!-- Outgoing Bubble -->
+                                                        <LinearLayout
+                                                            android:layout_width="42dp"
+                                                            android:layout_height="wrap_content"
+                                                            android:layout_gravity="bottom|end"
+                                                            android:layout_marginBottom="2dp"
+                                                            android:background="@drawable/bg_bubble_outgoing"
+                                                            android:backgroundTint="#D80032"
+                                                            android:orientation="vertical"
+                                                            android:padding="2.5dp">
+                                                            <View
+                                                                android:layout_width="34dp"
+                                                                android:layout_height="2dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#FFFFFF" />
+                                                            <View
+                                                                android:layout_width="24dp"
+                                                                android:layout_height="1.5dp"
+                                                                android:layout_marginTop="1.5dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#FFEBF0" />
+                                                        </LinearLayout>
+                                                    </FrameLayout>
+
+                                                    <!-- Mini Floating Footer / Input Bar -->
+                                                    <LinearLayout
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="12dp"
+                                                        android:background="@drawable/bg_floating_island"
+                                                        android:backgroundTint="#FFFFFF"
+                                                        android:gravity="center_vertical"
+                                                        android:paddingHorizontal="3dp"
+                                                        android:orientation="horizontal">
+                                                        <View
+                                                            android:layout_width="5dp"
+                                                            android:layout_height="5dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#D80032" />
+                                                        <View
+                                                            android:layout_width="0dp"
+                                                            android:layout_height="5dp"
+                                                            android:layout_weight="1"
+                                                            android:layout_marginHorizontal="2dp"
+                                                            android:background="@drawable/bg_search_input"
+                                                            android:backgroundTint="#FFF0F3" />
+                                                        <View
+                                                            android:layout_width="5dp"
+                                                            android:layout_height="5dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#D80032" />
+                                                    </LinearLayout>
+                                                </LinearLayout>
+                                            </FrameLayout>
+                                        </com.google.android.material.card.MaterialCardView>
+
+                                        <TextView
+                                            
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="20dp"
+                                            android:layout_marginTop="8dp"
+                                            android:layout_gravity="center_horizontal"
+                                            android:gravity="center"
+                                            android:textAlignment="center"
+                                            android:singleLine="true"
+                                            android:text="Тето (Светлая)"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textSize="11sp"
+                                            android:fontFamily="sans-serif-medium" />
+
+                                        <RadioButton
+                                            android:id="@+id/rbThemeTetoLight"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:layout_gravity="center_horizontal"
+                                            android:minWidth="0dp"
+                                            android:minHeight="0dp"
+                                            android:paddingStart="0dp"
+                                            android:paddingEnd="0dp"
+                                            android:paddingLeft="0dp"
+                                            android:paddingRight="0dp"
+                                            android:gravity="center"
+                                            android:clickable="false"
+                                            android:focusable="false" />
+                                    </LinearLayout>
+
+                                    <!-- Вариант: Касане Тето (Темная) -->
+                                    <LinearLayout
+                                        android:id="@+id/itemThemeTetoDark"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:layout_marginHorizontal="2dp"
+                                        android:gravity="center_horizontal"
+                                        android:orientation="vertical"
+                                        android:clickable="true"
+                                        android:focusable="true"
+                                        android:background="?attr/selectableItemBackground"
+                                        android:padding="4dp">
+
+                                        <com.google.android.material.card.MaterialCardView
+                                            android:id="@+id/cardThemeTetoDark"
+                                            android:layout_width="76dp"
+                                            android:layout_height="138dp"
+                                            android:layout_gravity="center_horizontal"
+                                            app:cardCornerRadius="18dp"
+                                            app:cardElevation="0dp"
+                                            app:strokeWidth="1dp"
+                                            app:strokeColor="#1A000000">
+
+                                            <FrameLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:background="#1F0A0E">
+
+                                                <LinearLayout
+                                                    android:layout_width="match_parent"
+                                                    android:layout_height="match_parent"
+                                                    android:orientation="vertical"
+                                                    android:paddingHorizontal="4dp"
+                                                    android:paddingTop="3dp"
+                                                    android:paddingBottom="4dp">
+
+                                                    <!-- Mini Status Bar & Notch -->
+                                                    <FrameLayout
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="8dp">
+                                                        <View
+                                                            android:layout_width="14dp"
+                                                            android:layout_height="2.5dp"
+                                                            android:layout_gravity="center"
+                                                            android:background="@drawable/bg_m3_active_indicator"
+                                                            android:backgroundTint="#40FF4D6D" />
+                                                    </FrameLayout>
+
+                                                    <!-- Mini Floating Island Header -->
+                                                    <LinearLayout
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="14dp"
+                                                        android:background="@drawable/bg_floating_island"
+                                                        android:backgroundTint="#2B1014"
+                                                        android:gravity="center_vertical"
+                                                        android:paddingHorizontal="3dp"
+                                                        android:orientation="horizontal">
+                                                        <ImageView
+                                                            android:layout_width="8dp"
+                                                            android:layout_height="8dp"
+                                                            android:src="@drawable/ic_teto_avatar" />
+                                                        <LinearLayout
+                                                            android:layout_width="0dp"
+                                                            android:layout_height="wrap_content"
+                                                            android:layout_weight="1"
+                                                            android:layout_marginStart="3dp"
+                                                            android:orientation="vertical">
+                                                            <View
+                                                                android:layout_width="18dp"
+                                                                android:layout_height="2dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#FF4D6D" />
+                                                            <View
+                                                                android:layout_width="12dp"
+                                                                android:layout_height="1.5dp"
+                                                                android:layout_marginTop="1dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#FF8099" />
+                                                        </LinearLayout>
+                                                        <View
+                                                            android:layout_width="8dp"
+                                                            android:layout_height="8dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#FF4D6D" />
+                                                    </LinearLayout>
+
+                                                    <!-- Messages Area -->
+                                                    <FrameLayout
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="0dp"
+                                                        android:layout_weight="1"
+                                                        android:paddingTop="5dp">
+                                                        <!-- Incoming Bubble -->
+                                                        <LinearLayout
+                                                            android:layout_width="40dp"
+                                                            android:layout_height="wrap_content"
+                                                            android:layout_gravity="top|start"
+                                                            android:background="@drawable/bg_bubble_incoming"
+                                                            android:backgroundTint="#3D171E"
+                                                            android:orientation="vertical"
+                                                            android:padding="2.5dp">
+                                                            <View
+                                                                android:layout_width="30dp"
+                                                                android:layout_height="2dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#FFF0F3" />
+                                                            <View
+                                                                android:layout_width="20dp"
+                                                                android:layout_height="1.5dp"
+                                                                android:layout_marginTop="1.5dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#FF4D6D" />
+                                                        </LinearLayout>
+                                                        <!-- Outgoing Bubble -->
+                                                        <LinearLayout
+                                                            android:layout_width="42dp"
+                                                            android:layout_height="wrap_content"
+                                                            android:layout_gravity="bottom|end"
+                                                            android:layout_marginBottom="2dp"
+                                                            android:background="@drawable/bg_bubble_outgoing"
+                                                            android:backgroundTint="#FF4D6D"
+                                                            android:orientation="vertical"
+                                                            android:padding="2.5dp">
+                                                            <View
+                                                                android:layout_width="34dp"
+                                                                android:layout_height="2dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#FFFFFF" />
+                                                            <View
+                                                                android:layout_width="24dp"
+                                                                android:layout_height="1.5dp"
+                                                                android:layout_marginTop="1.5dp"
+                                                                android:background="@drawable/bg_date_bubble"
+                                                                android:backgroundTint="#FFEBF0" />
+                                                        </LinearLayout>
+                                                    </FrameLayout>
+
+                                                    <!-- Mini Floating Footer / Input Bar -->
+                                                    <LinearLayout
+                                                        android:layout_width="match_parent"
+                                                        android:layout_height="12dp"
+                                                        android:background="@drawable/bg_floating_island"
+                                                        android:backgroundTint="#2B1014"
+                                                        android:gravity="center_vertical"
+                                                        android:paddingHorizontal="3dp"
+                                                        android:orientation="horizontal">
+                                                        <View
+                                                            android:layout_width="5dp"
+                                                            android:layout_height="5dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#FF4D6D" />
+                                                        <View
+                                                            android:layout_width="0dp"
+                                                            android:layout_height="5dp"
+                                                            android:layout_weight="1"
+                                                            android:layout_marginHorizontal="2dp"
+                                                            android:background="@drawable/bg_search_input"
+                                                            android:backgroundTint="#1F0A0E" />
+                                                        <View
+                                                            android:layout_width="5dp"
+                                                            android:layout_height="5dp"
+                                                            android:background="@drawable/bg_circular_mode_active"
+                                                            android:backgroundTint="#FF4D6D" />
+                                                    </LinearLayout>
+                                                </LinearLayout>
+                                            </FrameLayout>
+                                        </com.google.android.material.card.MaterialCardView>
+
+                                        <TextView
+                                            
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="20dp"
+                                            android:layout_marginTop="8dp"
+                                            android:layout_gravity="center_horizontal"
+                                            android:gravity="center"
+                                            android:textAlignment="center"
+                                            android:singleLine="true"
+                                            android:text="Тето (Темная)"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textSize="11sp"
+                                            android:fontFamily="sans-serif-medium" />
+
+                                        <RadioButton
+                                            android:id="@+id/rbThemeTetoDark"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:layout_gravity="center_horizontal"
+                                            android:minWidth="0dp"
+                                            android:minHeight="0dp"
+                                            android:paddingStart="0dp"
+                                            android:paddingEnd="0dp"
+                                            android:paddingLeft="0dp"
+                                            android:paddingRight="0dp"
+                                            android:gravity="center"
+                                            android:clickable="false"
+                                            android:focusable="false" />
+                                    </LinearLayout>
                                 </LinearLayout>
                             </HorizontalScrollView>
+
+                            <!-- Панель Касане Тето -->
+                            <com.google.android.material.card.MaterialCardView
+                                android:id="@+id/cardTetoBanner"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:visibility="gone"
+                                app:cardBackgroundColor="@color/prime_base"
+                                app:cardCornerRadius="20dp"
+                                app:cardElevation="2dp"
+                                app:strokeColor="#40D80032"
+                                app:strokeWidth="1.5dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="vertical"
+                                    android:padding="16dp">
+
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:orientation="horizontal"
+                                        android:gravity="center_vertical">
+
+                                        <ImageView
+                                            android:layout_width="52dp"
+                                            android:layout_height="52dp"
+                                            android:src="@drawable/ic_teto_avatar" />
+
+                                        <LinearLayout
+                                            android:layout_width="0dp"
+                                            android:layout_height="wrap_content"
+                                            android:layout_weight="1"
+                                            android:layout_marginStart="14dp"
+                                            android:orientation="vertical">
+
+                                            <TextView
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:text="Касане Тето • UTAU"
+                                                android:textColor="#D80032"
+                                                android:textSize="15sp"
+                                                android:fontFamily="sans-serif-medium" />
+
+                                            <TextView
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:layout_marginTop="3dp"
+                                                android:text="Эксклюзивная тема в стиле культовой викалоид-химеры Касане Тето. Включает фирменные малиново-красные оттенки, уникальный фон чата и кастомные иконки."
+                                                android:textColor="@color/prime_text_secondary"
+                                                android:textSize="12sp"
+                                                android:lineSpacingExtra="2dp" />
+                                        </LinearLayout>
+
+                                        <com.google.android.material.button.MaterialButton
+                                            android:id="@+id/btnTetoSoundEasterEgg"
+                                            style="@style/Widget.Material3.Button.TonalButton"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="36dp"
+                                            android:layout_marginStart="8dp"
+                                            android:paddingHorizontal="12dp"
+                                            android:text="🎤 Голос"
+                                            android:textSize="11.5sp"
+                                            android:textColor="#D80032"
+                                            app:cornerRadius="18dp" />
+                                    </LinearLayout>
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
 
                             <!-- Невидимая полоса разделения -->
                             <View
@@ -1639,7 +2285,7 @@
 
                                 <!-- Горизонтальная палитра -->
                                 <HorizontalScrollView
-                                    android:id="@+id/scrollPalette"
+                                    
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:overScrollMode="never"
@@ -1911,7 +2557,7 @@
 
                                 <!-- Горизонтальная прокрутка карточек обоев -->
                                 <HorizontalScrollView
-                                    android:id="@+id/scrollWallpaperOptions"
+                                    
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="16dp"
@@ -2214,7 +2860,7 @@
                                 android:orientation="vertical">
 
                                 <TextView
-                                    android:id="@+id/tvTitleChatStyle"
+                                    
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:text="Выбрать стиль в чате"
@@ -2879,7 +3525,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="vertical"
-                            android:padding="20dp">
+                            android:padding="16dp">
 
                             <!-- Заголовок хранилища -->
                             <LinearLayout
@@ -2900,7 +3546,7 @@
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
-                                    android:layout_marginStart="14dp"
+                                    android:layout_marginStart="16dp"
                                     android:orientation="vertical">
 
                                     <TextView
@@ -2910,7 +3556,7 @@
                                         android:text="Память Прайма"
                                         android:textColor="@color/prime_brand"
                                         android:textSize="16sp"
-                                        android:textStyle="bold" />
+                                        android:fontFamily="sans-serif-medium" />
 
                                     <TextView
                                         android:id="@+id/tvStorageTotalSize"
@@ -2919,17 +3565,16 @@
                                         android:layout_marginTop="2dp"
                                         android:text="Загрузка данных..."
                                         android:textColor="@color/prime_text_secondary"
-                                        android:textSize="13sp" />
+                                        android:textSize="14sp" />
                                 </LinearLayout>
                             </LinearLayout>
 
                             <!-- Разноцветная диаграмма полосы памяти (Storage Chart) -->
                             <LinearLayout
-                                android:id="@+id/layoutStorageChart"
                                 android:layout_width="match_parent"
-                                android:layout_height="14dp"
-                                android:layout_marginTop="16dp"
-                                android:layout_marginBottom="16dp"
+                                android:layout_height="12dp"
+                                android:layout_marginTop="24dp"
+                                android:layout_marginBottom="24dp"
                                 android:background="@drawable/bg_storage_chart_track"
                                 android:clipToOutline="true"
                                 android:orientation="horizontal">
@@ -2939,7 +3584,7 @@
                                     android:layout_width="0dp"
                                     android:layout_height="match_parent"
                                     android:layout_weight="1"
-                                    android:background="#2196F3" />
+                                    android:background="#4285F4" />
 
                                 <View
                                     android:id="@+id/vChartVideos"
@@ -2967,7 +3612,7 @@
                                     android:layout_width="0dp"
                                     android:layout_height="match_parent"
                                     android:layout_weight="1"
-                                    android:background="#4CAF50" />
+                                    android:background="#34A853" />
 
                                 <View
                                     android:id="@+id/vChartAvatars"
@@ -2995,22 +3640,22 @@
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
-                                    android:text="Детальная выборка"
+                                    android:text="Очистить кэш"
                                     android:textColor="@color/prime_text_secondary"
-                                    android:textSize="12sp"
-                                    android:textStyle="bold" />
+                                    android:textSize="14sp"
+                                    android:fontFamily="sans-serif-medium" />
 
                                 <TextView
                                     android:id="@+id/tvSelectAllStorage"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:paddingHorizontal="8dp"
-                                    android:paddingVertical="4dp"
+                                    android:paddingHorizontal="16dp"
+                                    android:paddingVertical="12dp"
                                     android:text="Снять всё"
                                     android:textColor="@color/prime_brand"
-                                    android:textSize="12sp"
-                                    android:textStyle="bold"
-                                    android:background="?attr/selectableItemBackground"
+                                    android:textSize="14sp"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:background="?attr/selectableItemBackgroundBorderless"
                                     android:clickable="true"
                                     android:focusable="true" />
                             </LinearLayout>
@@ -3021,14 +3666,12 @@
                                 android:layout_marginBottom="8dp"
                                 android:background="@color/prime_divider" />
 
-                            <!-- Список категорий кэша с чекбоксами -->
-
                             <!-- 1. Фотографии -->
                             <LinearLayout
                                 android:id="@+id/rowStoragePhotos"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:paddingVertical="8dp"
+                                android:paddingVertical="12dp"
                                 android:gravity="center_vertical"
                                 android:background="?attr/selectableItemBackground"
                                 android:clickable="true"
@@ -3042,33 +3685,34 @@
                                     app:buttonTint="@color/prime_brand" />
 
                                 <ImageView
-                                    android:layout_width="22dp"
-                                    android:layout_height="22dp"
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
                                     android:src="@drawable/ic_photo"
-                                    app:tint="#2196F3"
+                                    app:tint="#4285F4"
                                     android:contentDescription="Фото"
-                                    android:layout_marginStart="8dp" />
+                                    android:layout_marginStart="12dp" />
 
                                 <LinearLayout
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
-                                    android:layout_marginStart="12dp"
+                                    android:layout_marginStart="16dp"
                                     android:orientation="vertical">
 
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Фотографии и изображения"
+                                        android:text="Фотографии"
                                         android:textColor="@color/prime_text_primary"
-                                        android:textSize="14sp" />
+                                        android:textSize="16sp" />
 
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Картинки и фото-вложения из чатов"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Вложения из чатов"
                                         android:textColor="@color/prime_text_secondary"
-                                        android:textSize="11sp" />
+                                        android:textSize="12sp" />
                                 </LinearLayout>
 
                                 <TextView
@@ -3077,8 +3721,8 @@
                                     android:layout_height="wrap_content"
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
-                                    android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:textSize="14sp"
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- 2. Видео -->
@@ -3086,7 +3730,7 @@
                                 android:id="@+id/rowStorageVideos"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:paddingVertical="8dp"
+                                android:paddingVertical="12dp"
                                 android:gravity="center_vertical"
                                 android:background="?attr/selectableItemBackground"
                                 android:clickable="true"
@@ -3100,33 +3744,34 @@
                                     app:buttonTint="@color/prime_brand" />
 
                                 <ImageView
-                                    android:layout_width="22dp"
-                                    android:layout_height="22dp"
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
                                     android:src="@drawable/ic_video"
                                     app:tint="#9C27B0"
                                     android:contentDescription="Видео"
-                                    android:layout_marginStart="8dp" />
+                                    android:layout_marginStart="12dp" />
 
                                 <LinearLayout
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
-                                    android:layout_marginStart="12dp"
+                                    android:layout_marginStart="16dp"
                                     android:orientation="vertical">
 
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Видеозаписи и видеосообщения"
+                                        android:text="Видеозаписи"
                                         android:textColor="@color/prime_text_primary"
-                                        android:textSize="14sp" />
+                                        android:textSize="16sp" />
 
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Видеофайлы и видеокружочки"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Файлы и кружочки"
                                         android:textColor="@color/prime_text_secondary"
-                                        android:textSize="11sp" />
+                                        android:textSize="12sp" />
                                 </LinearLayout>
 
                                 <TextView
@@ -3135,8 +3780,8 @@
                                     android:layout_height="wrap_content"
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
-                                    android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:textSize="14sp"
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- 3. Аудио и голосовые -->
@@ -3144,7 +3789,7 @@
                                 android:id="@+id/rowStorageAudio"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:paddingVertical="8dp"
+                                android:paddingVertical="12dp"
                                 android:gravity="center_vertical"
                                 android:background="?attr/selectableItemBackground"
                                 android:clickable="true"
@@ -3158,33 +3803,34 @@
                                     app:buttonTint="@color/prime_brand" />
 
                                 <ImageView
-                                    android:layout_width="22dp"
-                                    android:layout_height="22dp"
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
                                     android:src="@drawable/ic_music"
                                     app:tint="#00BCD4"
                                     android:contentDescription="Аудио"
-                                    android:layout_marginStart="8dp" />
+                                    android:layout_marginStart="12dp" />
 
                                 <LinearLayout
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
-                                    android:layout_marginStart="12dp"
+                                    android:layout_marginStart="16dp"
                                     android:orientation="vertical">
 
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Аудио и голосовые сообщения"
+                                        android:text="Аудиосообщения"
                                         android:textColor="@color/prime_text_primary"
-                                        android:textSize="14sp" />
+                                        android:textSize="16sp" />
 
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
                                         android:text="Голосовые заметки и музыка"
                                         android:textColor="@color/prime_text_secondary"
-                                        android:textSize="11sp" />
+                                        android:textSize="12sp" />
                                 </LinearLayout>
 
                                 <TextView
@@ -3193,8 +3839,8 @@
                                     android:layout_height="wrap_content"
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
-                                    android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:textSize="14sp"
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- 4. GIF-анимации -->
@@ -3202,7 +3848,7 @@
                                 android:id="@+id/rowStorageGifs"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:paddingVertical="8dp"
+                                android:paddingVertical="12dp"
                                 android:gravity="center_vertical"
                                 android:background="?attr/selectableItemBackground"
                                 android:clickable="true"
@@ -3216,18 +3862,18 @@
                                     app:buttonTint="@color/prime_brand" />
 
                                 <ImageView
-                                    android:layout_width="22dp"
-                                    android:layout_height="22dp"
-                                    android:src="@drawable/ic_prime_gif"
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
+                                    android:src="@drawable/ic_gif"
                                     app:tint="#FF9800"
                                     android:contentDescription="GIF"
-                                    android:layout_marginStart="8dp" />
+                                    android:layout_marginStart="12dp" />
 
                                 <LinearLayout
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
-                                    android:layout_marginStart="12dp"
+                                    android:layout_marginStart="16dp"
                                     android:orientation="vertical">
 
                                     <TextView
@@ -3235,14 +3881,15 @@
                                         android:layout_height="wrap_content"
                                         android:text="GIF-анимации"
                                         android:textColor="@color/prime_text_primary"
-                                        android:textSize="14sp" />
+                                        android:textSize="16sp" />
 
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Анимированные GIF-файлы из сообщений"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Сохранённые анимации"
                                         android:textColor="@color/prime_text_secondary"
-                                        android:textSize="11sp" />
+                                        android:textSize="12sp" />
                                 </LinearLayout>
 
                                 <TextView
@@ -3251,8 +3898,8 @@
                                     android:layout_height="wrap_content"
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
-                                    android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:textSize="14sp"
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- 5. Файлы и документы -->
@@ -3260,7 +3907,7 @@
                                 android:id="@+id/rowStorageFiles"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:paddingVertical="8dp"
+                                android:paddingVertical="12dp"
                                 android:gravity="center_vertical"
                                 android:background="?attr/selectableItemBackground"
                                 android:clickable="true"
@@ -3274,33 +3921,34 @@
                                     app:buttonTint="@color/prime_brand" />
 
                                 <ImageView
-                                    android:layout_width="22dp"
-                                    android:layout_height="22dp"
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
                                     android:src="@drawable/ic_file"
-                                    app:tint="#4CAF50"
+                                    app:tint="#34A853"
                                     android:contentDescription="Документы"
-                                    android:layout_marginStart="8dp" />
+                                    android:layout_marginStart="12dp" />
 
                                 <LinearLayout
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
-                                    android:layout_marginStart="12dp"
+                                    android:layout_marginStart="16dp"
                                     android:orientation="vertical">
 
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Файлы и документы"
+                                        android:text="Документы"
                                         android:textColor="@color/prime_text_primary"
-                                        android:textSize="14sp" />
+                                        android:textSize="16sp" />
 
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Документы, архивы и файлы"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Текстовые файлы и архивы"
                                         android:textColor="@color/prime_text_secondary"
-                                        android:textSize="11sp" />
+                                        android:textSize="12sp" />
                                 </LinearLayout>
 
                                 <TextView
@@ -3309,8 +3957,8 @@
                                     android:layout_height="wrap_content"
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
-                                    android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:textSize="14sp"
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- 6. Кэш аватаров контактов -->
@@ -3318,7 +3966,7 @@
                                 android:id="@+id/rowStorageAvatars"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:paddingVertical="8dp"
+                                android:paddingVertical="12dp"
                                 android:gravity="center_vertical"
                                 android:background="?attr/selectableItemBackground"
                                 android:clickable="true"
@@ -3332,33 +3980,34 @@
                                     app:buttonTint="@color/prime_brand" />
 
                                 <ImageView
-                                    android:layout_width="22dp"
-                                    android:layout_height="22dp"
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
                                     android:src="@drawable/ic_person"
                                     app:tint="#E91E63"
                                     android:contentDescription="Аватары"
-                                    android:layout_marginStart="8dp" />
+                                    android:layout_marginStart="12dp" />
 
                                 <LinearLayout
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
-                                    android:layout_marginStart="12dp"
+                                    android:layout_marginStart="16dp"
                                     android:orientation="vertical">
 
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Кэш аватаров контактов"
+                                        android:text="Аватары контактов"
                                         android:textColor="@color/prime_text_primary"
-                                        android:textSize="14sp" />
+                                        android:textSize="16sp" />
 
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Сохранённые фото собеседников"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Загруженные фото профилей"
                                         android:textColor="@color/prime_text_secondary"
-                                        android:textSize="11sp" />
+                                        android:textSize="12sp" />
                                 </LinearLayout>
 
                                 <TextView
@@ -3367,8 +4016,8 @@
                                     android:layout_height="wrap_content"
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
-                                    android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:textSize="14sp"
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- 7. Кэш приложения -->
@@ -3376,7 +4025,7 @@
                                 android:id="@+id/rowStorageCache"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:paddingVertical="8dp"
+                                android:paddingVertical="12dp"
                                 android:gravity="center_vertical"
                                 android:background="?attr/selectableItemBackground"
                                 android:clickable="true"
@@ -3390,33 +4039,34 @@
                                     app:buttonTint="@color/prime_brand" />
 
                                 <ImageView
-                                    android:layout_width="22dp"
-                                    android:layout_height="22dp"
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
                                     android:src="@drawable/ic_eraser"
                                     app:tint="#9E9E9E"
                                     android:contentDescription="Кэш"
-                                    android:layout_marginStart="8dp" />
+                                    android:layout_marginStart="12dp" />
 
                                 <LinearLayout
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
-                                    android:layout_marginStart="12dp"
+                                    android:layout_marginStart="16dp"
                                     android:orientation="vertical">
 
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Системный и временный кэш"
+                                        android:text="Системный кэш"
                                         android:textColor="@color/prime_text_primary"
-                                        android:textSize="14sp" />
+                                        android:textSize="16sp" />
 
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Glide, эскизы и системный кэш"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Временные файлы и эскизы"
                                         android:textColor="@color/prime_text_secondary"
-                                        android:textSize="11sp" />
+                                        android:textSize="12sp" />
                                 </LinearLayout>
 
                                 <TextView
@@ -3425,29 +4075,26 @@
                                     android:layout_height="wrap_content"
                                     android:text="0 МБ"
                                     android:textColor="@color/prime_text_secondary"
-                                    android:textSize="13sp"
-                                    android:textStyle="bold" />
+                                    android:textSize="14sp"
+                                    android:fontFamily="sans-serif-medium" />
                             </LinearLayout>
 
                             <!-- Кнопка очистки с анимированным индикатором -->
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnClearStorage"
                                 android:layout_width="match_parent"
-                                android:layout_height="52dp"
-                                android:layout_marginTop="16dp"
+                                android:layout_height="56dp"
+                                android:layout_marginTop="24dp"
                                 android:text="Очистить: 0 МБ"
                                 android:textAllCaps="false"
                                 android:textColor="@color/white"
-                                android:textSize="15sp"
-                                android:textStyle="bold"
+                                android:textSize="16sp"
+                                android:fontFamily="sans-serif-medium"
                                 android:maxLines="1"
                                 android:ellipsize="middle"
-                                app:autoSizeTextType="uniform"
-                                app:autoSizeMinTextSize="11sp"
-                                app:autoSizeMaxTextSize="15sp"
                                 app:cornerRadius="16dp"
                                 app:backgroundTint="@color/prime_brand"
-                                app:elevation="2dp" />
+                                app:elevation="0dp" />
 
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
@@ -3550,7 +4197,7 @@
 
                     <!-- Сообщить о проблеме -->
                     <com.google.android.material.card.MaterialCardView
-                        android:id="@+id/cardReportIssue"
+                        
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="12dp"
@@ -3641,7 +4288,7 @@
                                         app:layout_constraintBottom_toBottomOf="parent" />
 
                                     <TextView
-                                        android:id="@+id/tvThanksTitle"
+                                        
                                         android:layout_width="0dp"
                                         android:layout_height="wrap_content"
                                         android:layout_marginStart="12dp"
@@ -3705,7 +4352,7 @@
                                     android:layout_marginBottom="4dp" />
 
                                 <TextView
-                                    android:id="@+id/tvThanksProgramistAuthor"
+                                    
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:text="Помощник программиста: Gemini, Claude Code"
@@ -3714,7 +4361,7 @@
                                     android:layout_marginBottom="4dp" />
 
                                 <TextView
-                                    android:id="@+id/tvThanksIdeaAuthor"
+                                    
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:text="Автор идеи: Иван"
@@ -3723,7 +4370,7 @@
                                     android:layout_marginBottom="4dp" />
 
                                 <TextView
-                                    android:id="@+id/tvThanksVisualAuthor"
+                                    
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:text="Автор визуализации: Sora 2 / Vaniahorosh"
@@ -3732,7 +4379,7 @@
                                     android:layout_marginBottom="4dp" />
 
                                 <TextView
-                                    android:id="@+id/tvThanksServerAuthor"
+                                    
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:text="Автор серверной части: ?"
@@ -3750,7 +4397,7 @@
                                     android:layout_marginBottom="4dp" />
 
                                 <TextView
-                                    android:id="@+id/tvThanksOthersList"
+                                    
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:text="• Григорий Хрюнов\n• Креветки с акулами и круто\n• Бочке регенератор\n• Финский снайпер\n• Тупейший сынище\n• Умнейший сынище\n• Леха Тайлер\n• Сургута не существует\n• Сырники\n• Игра на виолончели\n• Разгон ксеон"
@@ -3837,7 +4484,7 @@
                     app:layout_constraintBottom_toBottomOf="parent" />
 
                 <TextView
-                    android:id="@+id/tvStickyTitle"
+                    
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
@@ -3875,7 +4522,7 @@
                 android:paddingBottom="4dp">
 
                 <LinearLayout
-                    android:id="@+id/layoutStickyNavTabs"
+                    
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"

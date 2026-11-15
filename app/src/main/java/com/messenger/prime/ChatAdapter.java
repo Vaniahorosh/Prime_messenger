@@ -1604,9 +1604,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         }
                         TrackItem saved = PrimeMusicManager.INSTANCE.saveTrackToCollection(v.getContext(), path, title, artist);
                         if (saved != null) {
-                            Toast.makeText(v.getContext(), "Сохранено в коллекцию", Toast.LENGTH_SHORT).show();
+                            PrimeNotification.show(v.getContext(), "Сохранено в коллекцию");
                         } else {
-                            Toast.makeText(v.getContext(), "Трек уже в коллекции", Toast.LENGTH_SHORT).show();
+                            PrimeNotification.show(v.getContext(), "Трек уже в коллекции");
                         }
                         btnMusicDownload.setImageResource(R.drawable.ic_done);
                     });

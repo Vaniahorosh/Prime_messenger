@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
-import android.widget.Toast
 import androidx.core.app.RemoteInput
 import com.messenger.prime.events.ChatEvent
 import org.json.JSONArray
@@ -66,7 +65,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     resetUnreadCountAndUpdateLastMessage(context, chatName, targetAddr, replyText)
 
                     val displayRecipient = if (BluetoothAdapter.checkBluetoothAddress(chatName)) "собеседнику" else chatName
-                    Toast.makeText(context, "Ответ отправлен $displayRecipient", Toast.LENGTH_SHORT).show()
+                    PrimeNotification.show(context, "Ответ отправлен $displayRecipient")
                 }
 
                 if (notificationId > 0) {
@@ -81,7 +80,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
                     ChatHistoryManager.markIncomingMessagesAsRead(context, chatName, "READ_ALL")
                     resetUnreadCountAndUpdateLastMessage(context, chatName, targetAddr, null)
-                    Toast.makeText(context, "Отмечено как прочитанное", Toast.LENGTH_SHORT).show()
+                    PrimeNotification.show(context, "Отмечено как прочитанное")
                 }
 
                 if (notificationId > 0) {

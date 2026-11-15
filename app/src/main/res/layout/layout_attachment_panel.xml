@@ -458,7 +458,7 @@
                                 android:layout_height="18dp"
                                 android:layout_gravity="center"
                                 android:contentDescription="GIF"
-                                android:src="@drawable/ic_prime_gif"
+                                android:src="@drawable/ic_gif"
                                 app:tint="@color/prime_text_secondary" />
                         </FrameLayout>
 

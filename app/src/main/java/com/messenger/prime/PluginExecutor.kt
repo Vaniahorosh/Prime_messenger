@@ -13,7 +13,6 @@ import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebView
 import android.widget.LinearLayout
-import android.widget.Toast
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -32,19 +31,14 @@ class AndroidPluginBridge(private val context: Context, private val pluginName: 
     @JavascriptInterface
     fun toast(message: String) {
         Handler(Looper.getMainLooper()).post {
-            Toast.makeText(context, "🔔 [$pluginName]: $message", Toast.LENGTH_LONG).show()
+            PrimeNotification.show(context, "🔔 [$pluginName]: $message")
         }
     }
 
     @JavascriptInterface
     fun notify(title: String, message: String) {
         Handler(Looper.getMainLooper()).post {
-            val act = context as? Activity
-            if (act != null) {
-                PrimeNotification.show(act, "$title: $message")
-            } else {
-                Toast.makeText(context, "$title: $message", Toast.LENGTH_LONG).show()
-            }
+            PrimeNotification.show(context, "$title: $message")
         }
     }
 
@@ -388,12 +382,7 @@ object PluginExecutor {
                 "JSON" -> executeJsonPlugin(context, plugin, code)
                 else -> executeGenericPlugin(context, plugin, code, inputArgs)
             }
-            val act = context as? Activity
-            if (act != null) {
-                PrimeNotification.show(act, "⚡ Плагин '${plugin.name}' выполнен")
-            } else {
-                Toast.makeText(context, "⚡ Плагин '${plugin.name}' выполнен", Toast.LENGTH_SHORT).show()
-            }
+            PrimeNotification.show(context, "⚡ Плагин '${plugin.name}' выполнен")
             result
         } catch (e: Exception) {
             "❌ Ошибка при выполнении плагина '${plugin.name}': ${e.localizedMessage}"

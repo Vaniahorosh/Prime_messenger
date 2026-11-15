@@ -59,6 +59,10 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     }
 
     private var brandLogoDrawable: Drawable? = null
+    private var tetoBaguetteDrawable: Drawable? = null
+    private var tetoDrillsDrawable: Drawable? = null
+    private var tetoHeadsetDrawable: Drawable? = null
+    private var tetoAvatarDrawable: Drawable? = null
 
     private val matrix3D = Matrix()
     private val waveInterpolator = OvershootInterpolator(1.2f)
@@ -76,6 +80,10 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
 
     init {
         brandLogoDrawable = ContextCompat.getDrawable(context, R.drawable.ic_prime_statusbar)
+        tetoBaguetteDrawable = ContextCompat.getDrawable(context, R.drawable.ic_teto_baguette)
+        tetoDrillsDrawable = ContextCompat.getDrawable(context, R.drawable.ic_teto_drills)
+        tetoHeadsetDrawable = ContextCompat.getDrawable(context, R.drawable.ic_teto_headset)
+        tetoAvatarDrawable = ContextCompat.getDrawable(context, R.drawable.ic_teto_avatar)
         initUnitPaths()
         updateThemeColors()
     }
@@ -205,11 +213,13 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
 
         val customBgHex = wp.backgroundColor
         val isDefaultBg = customBgHex.isNullOrBlank() || customBgHex.equals("#151D2A", ignoreCase = true) || customBgHex.equals("#0F172A", ignoreCase = true)
+        val isTetoTheme = ColorAccentManager.isTetoTheme(context)
 
         val effectiveBgColor = when {
             !isDefaultBg -> {
                 try { Color.parseColor(customBgHex) } catch (_: Exception) { if (darkTheme) Color.parseColor("#0F172A") else Color.parseColor("#F1F5F9") }
             }
+            isTetoTheme -> if (darkTheme) Color.parseColor("#180D10") else Color.parseColor("#FFF5F6")
             darkTheme -> Color.parseColor("#0F172A")
             else -> Color.parseColor("#F1F5F9")
         }
@@ -220,7 +230,10 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         val blue = Color.blue(effectiveBgColor)
         val isLightBg = (0.299 * red + 0.587 * green + 0.114 * blue) > 160
 
-        if (isLightBg) {
+        if (isTetoTheme) {
+            baseColor = if (isLightBg) Color.parseColor("#D80032") else Color.parseColor("#FF4D6D")
+            baseAlpha = 36
+        } else if (isLightBg) {
             baseColor = ColorAccentManager.getCurrentAccentColor(context)
             baseAlpha = 42
         } else {
@@ -463,22 +476,44 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
             canvas.scale(localScale, localScale)
             canvas.rotate(shape.rotation)
 
-            when (shape.type) {
-                ShapeType.BRAND_LOGO -> {
-                    brandLogoDrawable?.let { drawable ->
-                        val logoSize = (shape.size * 1.2f).toInt()
-                        drawable.setBounds(-logoSize / 2, -logoSize / 2, logoSize / 2, logoSize / 2)
-                        drawable.setTint(baseColor)
-                        drawable.alpha = currentAlpha
-                        drawable.draw(canvas)
-                    }
+            val isTeto = ColorAccentManager.isTetoTheme(context)
+            val isSpecialTetoNode = isTeto && ((shape.col * 7 + shape.row * 13) % 4 == 0)
+
+            if (isSpecialTetoNode) {
+                val tetoIconIndex = (shape.col + shape.row) % 4
+                val drawableToDraw = when (tetoIconIndex) {
+                    0 -> tetoBaguetteDrawable
+                    1 -> tetoDrillsDrawable
+                    2 -> tetoHeadsetDrawable
+                    else -> tetoAvatarDrawable
                 }
-                else -> {
-                    unitPaths[shape.type]?.let { unitPath ->
-                        canvas.save()
-                        canvas.scale(radius, radius)
-                        canvas.drawPath(unitPath, paint)
-                        canvas.restore()
+                drawableToDraw?.let { drawable ->
+                    val iconSize = (shape.size * 1.3f).toInt()
+                    drawable.setBounds(-iconSize / 2, -iconSize / 2, iconSize / 2, iconSize / 2)
+                    if (tetoIconIndex != 3) { // Don't tint full avatar badge
+                        drawable.setTint(baseColor)
+                    }
+                    drawable.alpha = (currentAlpha * 1.2f).toInt().coerceIn(0, 255)
+                    drawable.draw(canvas)
+                }
+            } else {
+                when (shape.type) {
+                    ShapeType.BRAND_LOGO -> {
+                        brandLogoDrawable?.let { drawable ->
+                            val logoSize = (shape.size * 1.2f).toInt()
+                            drawable.setBounds(-logoSize / 2, -logoSize / 2, logoSize / 2, logoSize / 2)
+                            drawable.setTint(baseColor)
+                            drawable.alpha = currentAlpha
+                            drawable.draw(canvas)
+                        }
+                    }
+                    else -> {
+                        unitPaths[shape.type]?.let { unitPath ->
+                            canvas.save()
+                            canvas.scale(radius, radius)
+                            canvas.drawPath(unitPath, paint)
+                            canvas.restore()
+                        }
                     }
                 }
             }

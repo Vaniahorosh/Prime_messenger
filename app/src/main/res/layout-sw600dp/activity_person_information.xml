@@ -467,7 +467,7 @@
                                 android:layout_width="18dp"
                                 android:layout_height="18dp"
                                 android:contentDescription="GIF"
-                                android:src="@drawable/ic_prime_gif"
+                                android:src="@drawable/ic_gif"
                                 app:tint="@color/prime_text_secondary" />
 
                             <TextView
@@ -822,7 +822,7 @@
                             android:layout_width="16dp"
                             android:layout_height="16dp"
                             android:contentDescription="GIF"
-                            android:src="@drawable/ic_prime_gif"
+                            android:src="@drawable/ic_gif"
                             app:tint="@color/prime_text_secondary" />
 
                         <TextView

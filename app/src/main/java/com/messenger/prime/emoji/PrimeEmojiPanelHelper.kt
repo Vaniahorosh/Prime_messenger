@@ -12,7 +12,7 @@ import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageButton
-import android.widget.Toast
+import com.messenger.prime.PrimeNotification
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -162,11 +162,7 @@ class PrimeEmojiPanelHelper(
     private fun setupToggleButton() {
         btnEmojiToggle.setOnClickListener {
             if (!isAvailable) {
-                Toast.makeText(
-                    activity,
-                    "Эмодзи и стикеры недоступны без подключения к собеседнику",
-                    Toast.LENGTH_SHORT
-                ).show()
+                PrimeNotification.show(activity, "Эмодзи и стикеры недоступны без подключения к собеседнику")
                 return@setOnClickListener
             }
             togglePanel()
@@ -238,11 +234,7 @@ class PrimeEmojiPanelHelper(
 
     fun openPanel() {
         if (!isAvailable) {
-            Toast.makeText(
-                activity,
-                "Эмодзи и стикеры недоступны без подключения к собеседнику",
-                Toast.LENGTH_SHORT
-            ).show()
+            PrimeNotification.show(activity, "Эмодзи и стикеры недоступны без подключения к собеседнику")
             return
         }
 

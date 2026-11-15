@@ -48,7 +48,6 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
 import android.widget.EditText
-import android.widget.Toast
 import com.messenger.prime.events.ChatEvent
 import android.text.Editable
 import android.widget.LinearLayout
@@ -1656,7 +1655,7 @@ class ChatListActivity : AppCompatActivity() {
             val isConnected = (targetAddr.isNotEmpty() && BluetoothConnectionManager.getInstance().isConnected(targetAddr)) ||
                 BluetoothSocketHolder.isConnectedWith(activeDeviceAddress, activeTargetUsername)
             if (!isConnected) {
-                Toast.makeText(activity, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show()
+                PrimeNotification.show(activity, "Действие недоступно: нет подключения к собеседнику")
                 binding?.btnAttach?.alpha = 0.4f
                 attachmentDialog?.dismiss()
                 return
@@ -1702,7 +1701,7 @@ class ChatListActivity : AppCompatActivity() {
                 val isConn = (targetAddr.isNotEmpty() && BluetoothConnectionManager.getInstance().isConnected(targetAddr)) ||
                     BluetoothSocketHolder.isConnectedWith(activeDeviceAddress, activeTargetUsername)
                 if (!isConn) {
-                    Toast.makeText(activity, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show()
+                    PrimeNotification.show(activity, "Действие недоступно: нет подключения к собеседнику")
                     dialog.dismiss()
                     return false
                 }
@@ -5140,6 +5139,15 @@ class ChatListActivity : AppCompatActivity() {
         if (!::binding.isInitialized) return
         runOnUiThread {
             TransitionManager.beginDelayedTransition(binding.root, AutoTransition().setDuration(200))
+            val ivEmpty = binding.root.findViewById<ImageView>(R.id.ivEmptyState)
+            val isTeto = ColorAccentManager.isTetoTheme(this)
+            if (isTeto) {
+                ivEmpty?.visibility = View.VISIBLE
+                ivEmpty?.setImageResource(R.drawable.ic_teto_empty_chat)
+            } else {
+                ivEmpty?.visibility = View.GONE
+            }
+
             if (::adapter.isInitialized && adapter.isSearchActive) {
                 if (allChats.isEmpty()) {
                     binding.tvEmptyState.text = if (currentSearchQuery.isEmpty()) "Начните вводить текст для поиска" else "По запросу «$currentSearchQuery» ничего не найдено"
@@ -5152,7 +5160,7 @@ class ChatListActivity : AppCompatActivity() {
                     binding.layoutIslandHeader.vStartChatHighlightRing.clearAnimation()
                 }
             } else {
-                binding.tvEmptyState.text = "Нет активных чатов\nНажмите поиск, чтобы найти пользователей рядом"
+                binding.tvEmptyState.text = if (isTeto) "0401 UTAU • Чатов пока нет\nНажмите поиск, чтобы найти пользователей рядом" else "Нет активных чатов\nНажмите поиск, чтобы найти пользователей рядом"
                 if (chatListState.isEmpty()) {
                     binding.layoutEmptyState.visibility = View.VISIBLE
                     

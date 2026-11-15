@@ -1,0 +1,61 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+
+  <!-- Subtle Concentric Circle Base -->
+  <path
+      android:fillColor="#15D80032"
+      android:pathData="M48,48m-40,0a40,40 0 1,0 80,0a40,40 0 1,0 -80,0"/>
+  <path
+      android:strokeColor="#30D80032"
+      android:strokeWidth="1.5"
+      android:fillColor="#00000000"
+      android:pathData="M48,48m-34,0a34,34 0 1,0 68,0a34,34 0 1,0 -68,0"/>
+
+  <!-- Left Twin Drill Hair Spiral -->
+  <path
+      android:strokeColor="#FFD80032"
+      android:strokeWidth="2.4"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round"
+      android:fillColor="#15D80032"
+      android:pathData="M30,24 C38,24 42,32 34,40 C26,48 38,58 28,68 C20,58 20,44 26,36 C30,30 22,24 30,24 Z"/>
+
+  <!-- Right Twin Drill Hair Spiral -->
+  <path
+      android:strokeColor="#FFD80032"
+      android:strokeWidth="2.4"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round"
+      android:fillColor="#15D80032"
+      android:pathData="M66,24 C58,24 54,32 62,40 C70,48 58,58 68,68 C76,58 76,44 70,36 C66,30 74,24 66,24 Z"/>
+
+  <!-- Baguette Outline Capsule -->
+  <path
+      android:strokeColor="#FFD80032"
+      android:strokeWidth="2"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round"
+      android:fillColor="#20D80032"
+      android:pathData="M28,66 C24,62 24,56 28,52 L52,28 C56,24 62,24 66,28 C70,32 70,38 66,42 L42,66 C38,70 32,70 28,66 Z"/>
+
+  <!-- Baguette Cuts -->
+  <path
+      android:strokeColor="#FFD80032"
+      android:strokeWidth="1.8"
+      android:strokeLineCap="round"
+      android:fillColor="#00000000"
+      android:pathData="M35,56 L41,50 M43,48 L49,42 M51,40 L57,34"/>
+
+  <!-- 0401 UTAU Center Sparkle -->
+  <path
+      android:fillColor="#FFD80032"
+      android:pathData="M48,20 L49.5,25.5 L55,27 L49.5,28.5 L48,34 L46.5,28.5 L41,27 L46.5,25.5 Z"/>
+
+  <!-- Lower Micro Dots -->
+  <path
+      android:fillColor="#FFD80032"
+      android:pathData="M44,74 A1.5,1.5 0 1,0 44,77 A1.5,1.5 0 1,0 44,74 M52,74 A1.5,1.5 0 1,0 52,77 A1.5,1.5 0 1,0 52,74"/>
+</vector>

@@ -112,4 +112,11 @@
         <item name="colorPrimaryContainer">#CCFF4081</item>
         <item name="colorSecondary">#FF4081</item>
     </style>
+
+    <style name="ThemeOverlay.Prime.Teto" parent="">
+        <item name="colorPrimary">#FF4D6D</item>
+        <item name="colorAccent">#FF4D6D</item>
+        <item name="colorPrimaryContainer">#CCFF4D6D</item>
+        <item name="colorSecondary">#FF4D6D</item>
+    </style>
 </resources>

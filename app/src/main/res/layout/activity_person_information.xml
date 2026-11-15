@@ -321,7 +321,7 @@
                                         android:layout_marginStart="6dp"
                                         android:visibility="gone"
                                         android:contentDescription="Статус версии"
-                                        android:src="@drawable/ic_prime_warning"
+                                        android:src="@drawable/ic_error"
                                         app:tint="@color/prime_warning" />
                                 </LinearLayout>
                             </androidx.constraintlayout.widget.ConstraintLayout>
@@ -460,7 +460,7 @@
                                 android:layout_width="18dp"
                                 android:layout_height="18dp"
                                 android:contentDescription="GIF"
-                                android:src="@drawable/ic_prime_gif"
+                                android:src="@drawable/ic_gif"
                                 app:tint="@color/prime_text_secondary" />
 
                             <TextView
@@ -818,7 +818,7 @@
                             android:layout_width="16dp"
                             android:layout_height="16dp"
                             android:contentDescription="GIF"
-                            android:src="@drawable/ic_prime_gif"
+                            android:src="@drawable/ic_gif"
                             app:tint="@color/prime_text_secondary" />
 
                         <TextView

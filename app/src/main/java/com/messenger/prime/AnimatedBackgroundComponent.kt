@@ -236,8 +236,7 @@ fun AnimatedBackground(
         (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.isLowRamDevice == true
     }
     
-    val accentColorInt = ColorAccentManager.getCurrentAccentColor(context)
-    val bgColor = if (darkTheme) Color(0xFF1E293B) else Color(accentColorInt)
+    val bgColor = if (darkTheme) Color(0xFF1E293B) else Color(0xFFF8FAFC)
     
     // If animations are disabled, or setting is off, or weak device -> show static background
     if (isAnimationsDisabled || (!ignoreSettingsToggle && !isEnabled) || isLowRam) {
@@ -282,7 +281,7 @@ fun GlassCard(
             modifier = Modifier
                 .border(
                     width = 1.dp,
-                    color = Color.White.copy(alpha = 0.12f),
+                    color = if (darkTheme) Color.White.copy(alpha = 0.12f) else Color(0xFF0F172A).copy(alpha = 0.10f),
                     shape = RoundedCornerShape(32.dp)
                 )
         ) {

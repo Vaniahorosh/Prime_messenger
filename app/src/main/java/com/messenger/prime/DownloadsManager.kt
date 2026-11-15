@@ -3,7 +3,6 @@ package com.messenger.prime
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -77,7 +76,7 @@ object DownloadsManager {
             }
             TransferManager.removeTransfer(transferId)
             Handler(Looper.getMainLooper()).post {
-                Toast.makeText(context, "Скачивание отменено", Toast.LENGTH_SHORT).show()
+                PrimeNotification.show(context, "Скачивание отменено")
             }
         }
 
@@ -94,7 +93,7 @@ object DownloadsManager {
             cancelAction = cancelAction
         )
 
-        Toast.makeText(context, "Загрузка '$fileName' начата в Центре загрузок", Toast.LENGTH_SHORT).show()
+        PrimeNotification.show(context, "Загрузка '$fileName' начата в Центре загрузок")
 
         thread {
             try {
@@ -160,7 +159,7 @@ object DownloadsManager {
                 )
 
                 Handler(Looper.getMainLooper()).post {
-                    Toast.makeText(context, "Файл '$fileName' сохранен в Загрузки", Toast.LENGTH_LONG).show()
+                    PrimeNotification.show(context, "Файл '$fileName' сохранен в Загрузки")
                 }
 
             } catch (e: Exception) {
@@ -169,7 +168,7 @@ object DownloadsManager {
                     TransferManager.removeTransfer(transferId)
                     if (destFile.exists()) destFile.delete()
                     Handler(Looper.getMainLooper()).post {
-                        Toast.makeText(context, "Ошибка скачивания из браузера: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                        PrimeNotification.show(context, "Ошибка скачивания из браузера: ${e.localizedMessage}")
                     }
                 }
             }

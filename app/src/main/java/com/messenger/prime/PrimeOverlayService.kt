@@ -381,22 +381,12 @@ class PrimeOverlayService : Service() {
         fun toggleOverlayService(context: Context) {
             if (!checkOverlayPermission(context)) {
                 requestOverlayPermission(context)
-                val act = context as? android.app.Activity
-                if (act != null) {
-                    PrimeNotification.show(act, "Разрешите наложение поверх других окон")
-                } else {
-                    android.widget.Toast.makeText(context, "Разрешите наложение поверх других окон", android.widget.Toast.LENGTH_SHORT).show()
-                }
+                PrimeNotification.show(context, "Разрешите наложение поверх других окон")
                 return
             }
             val intent = Intent(context, PrimeOverlayService::class.java)
             context.startService(intent)
-            val act = context as? android.app.Activity
-            if (act != null) {
-                PrimeNotification.show(act, "AI Помощник запущен поверх окон")
-            } else {
-                android.widget.Toast.makeText(context, "AI Помощник запущен поверх окон", android.widget.Toast.LENGTH_SHORT).show()
-            }
+            PrimeNotification.show(context, "AI Помощник запущен поверх окон")
         }
     }
 }

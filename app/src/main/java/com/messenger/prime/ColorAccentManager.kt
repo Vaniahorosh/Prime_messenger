@@ -39,7 +39,8 @@ object ColorAccentManager {
         PresetColor("Янтарный", 0xFFFB8C00.toInt(), 0xFFFFB74D.toInt(), R.style.ThemeOverlay_Prime_Amber),
         PresetColor("Рубиновый", 0xFFE53935.toInt(), 0xFFFF5252.toInt(), R.style.ThemeOverlay_Prime_Ruby),
         PresetColor("Голубой", 0xFF00ACC1.toInt(), 0xFF4DD0E1.toInt(), R.style.ThemeOverlay_Prime_Cyan),
-        PresetColor("Розовый", 0xFFE91E63.toInt(), 0xFFFF4081.toInt(), R.style.ThemeOverlay_Prime_Pink)
+        PresetColor("Розовый", 0xFFE91E63.toInt(), 0xFFFF4081.toInt(), R.style.ThemeOverlay_Prime_Pink),
+        PresetColor("Касане Тето", 0xFFD80032.toInt(), 0xFFFF4D6D.toInt(), R.style.ThemeOverlay_Prime_Teto)
     )
 
     data class PresetColor(
@@ -48,6 +49,56 @@ object ColorAccentManager {
         @ColorInt val darkColor: Int,
         val overlayRes: Int
     )
+
+    @JvmStatic
+    fun isTetoTheme(context: Context): Boolean {
+        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val theme = sp.getString("app_theme", "system") ?: "system"
+        if (theme == "teto_light" || theme == "teto_dark") return true
+
+        val type = sp.getString("accent_type", ACCENT_TYPE_DEFAULT) ?: ACCENT_TYPE_DEFAULT
+        if (type == ACCENT_TYPE_CUSTOM) {
+            val customColor = sp.getInt("accent_custom_color", 0)
+            if (customColor == 0xFFD80032.toInt() || customColor == 0xFFFF4D6D.toInt()) {
+                return true
+            }
+        }
+        return false
+    }
+
+    @JvmStatic
+    fun isTetoSoundEnabled(context: Context): Boolean {
+        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        return sp.getBoolean("teto_sound_enabled", true)
+    }
+
+    @JvmStatic
+    fun setTetoSoundEnabled(context: Context, enabled: Boolean) {
+        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        sp.edit().putBoolean("teto_sound_enabled", enabled).apply()
+    }
+
+    @JvmStatic
+    fun isTetoCustomIconsEnabled(context: Context): Boolean {
+        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        return sp.getBoolean("teto_custom_icons_enabled", true)
+    }
+
+    @JvmStatic
+    fun setTetoCustomIconsEnabled(context: Context, enabled: Boolean) {
+        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        sp.edit().putBoolean("teto_custom_icons_enabled", enabled).apply()
+    }
+
+    @JvmStatic
+    fun getMicIconRes(context: Context): Int {
+        return if (isTetoTheme(context) && isTetoCustomIconsEnabled(context)) R.drawable.ic_teto_drills else R.drawable.ic_mic
+    }
+
+    @JvmStatic
+    fun getAttachIconRes(context: Context): Int {
+        return if (isTetoTheme(context) && isTetoCustomIconsEnabled(context)) R.drawable.ic_teto_baguette else R.drawable.ic_photo
+    }
 
     @JvmStatic
     fun getAccentType(context: Context): String {
@@ -281,7 +332,9 @@ object ColorAccentManager {
                         rgb == 0x00ACC1 ||
                         rgb == 0x4DD0E1 ||
                         rgb == 0xE91E63 ||
-                        rgb == 0xFF4081
+                        rgb == 0xFF4081 ||
+                        rgb == 0xD80032 ||
+                        rgb == 0xFF4D6D
 
         if (isBrandHex) return true
 

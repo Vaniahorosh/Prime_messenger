@@ -10,7 +10,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.SeekBar
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.bumptech.glide.Glide
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -110,9 +109,9 @@ class PrimeMusicPlayerDialog(private val context: Context) : PrimeMusicManager.P
             if (track != null) {
                 val saved = PrimeMusicManager.saveTrackToCollection(context, track.path, track.title, track.artist)
                 if (saved != null) {
-                    Toast.makeText(context, "Трек сохранен в коллекцию", Toast.LENGTH_SHORT).show()
+                    PrimeNotification.show(context, "Трек сохранен в коллекцию")
                 } else {
-                    Toast.makeText(context, "Трек уже в коллекции", Toast.LENGTH_SHORT).show()
+                    PrimeNotification.show(context, "Трек уже в коллекции")
                 }
             }
         }

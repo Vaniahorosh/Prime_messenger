@@ -39,7 +39,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.Toast
+import com.messenger.prime.PrimeNotification
 import androidx.core.content.ContextCompat
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -909,10 +909,10 @@ class BrowserBottomSheetDialogFragment : BottomSheetDialogFragment() {
         BrowserPreferences.setDesktopModeEnabled(requireContext(), isDesktopUserAgent)
         if (isDesktopUserAgent) {
             webView.settings.userAgentString = desktopUserAgent
-            Toast.makeText(requireContext(), "Включена версия для ПК", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(requireContext(), "Включена версия для ПК")
         } else {
             webView.settings.userAgentString = defaultMobileUserAgent
-            Toast.makeText(requireContext(), "Включена мобильная версия", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(requireContext(), "Включена мобильная версия")
         }
         webView.reload()
     }
@@ -922,7 +922,7 @@ class BrowserBottomSheetDialogFragment : BottomSheetDialogFragment() {
         val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText("URL", url)
         clipboard.setPrimaryClip(clip)
-        Toast.makeText(requireContext(), "Ссылка скопирована", Toast.LENGTH_SHORT).show()
+        PrimeNotification.show(requireContext(), "Ссылка скопирована")
     }
 
     private fun shareCurrentUrl() {
@@ -935,7 +935,7 @@ class BrowserBottomSheetDialogFragment : BottomSheetDialogFragment() {
             val shareIntent = Intent.createChooser(sendIntent, "Поделиться ссылкой")
             startActivity(shareIntent)
         } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Не удалось поделиться", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(requireContext(), "Не удалось поделиться")
         }
     }
 
@@ -945,7 +945,7 @@ class BrowserBottomSheetDialogFragment : BottomSheetDialogFragment() {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
             startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Не удалось открыть браузер", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(requireContext(), "Не удалось открыть браузер")
         }
     }
 
@@ -961,7 +961,7 @@ class BrowserBottomSheetDialogFragment : BottomSheetDialogFragment() {
     private fun clearSiteData() {
         webView.clearCache(true)
         webView.clearHistory()
-        Toast.makeText(requireContext(), "Кэш браузера очищен", Toast.LENGTH_SHORT).show()
+        PrimeNotification.show(requireContext(), "Кэш браузера очищен")
     }
 
     private fun showKeyboard(view: View) {

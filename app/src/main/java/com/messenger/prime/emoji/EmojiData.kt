@@ -219,6 +219,7 @@ object EmojiData {
         EmojiItem("❄️", EmojiCategory.ANIMALS, listOf("снежинка", "зима", "snow")),
 
         // FOOD & DRINK
+        EmojiItem("🥖", EmojiCategory.FOOD, listOf("багет", "парижский багет", "хлеб", "тето", "teto", "baguette")),
         EmojiItem("🍏", EmojiCategory.FOOD, listOf("яблоко", "зеленое яблоко", "apple")),
         EmojiItem("🍎", EmojiCategory.FOOD, listOf("яблоко", "красное яблоко", "apple")),
         EmojiItem("🍌", EmojiCategory.FOOD, listOf("банан", "banana")),

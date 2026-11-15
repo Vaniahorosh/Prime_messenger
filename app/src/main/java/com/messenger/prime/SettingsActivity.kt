@@ -25,7 +25,6 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.widget.ArrayAdapter
 import android.widget.Spinner
-import android.widget.Toast
 import android.os.Build
 import android.os.Bundle
 import android.text.Editable
@@ -158,7 +157,7 @@ class SettingsActivity : AppCompatActivity() {
                 refreshPluginsList()
                 PrimeNotification.show(this, "Плагин ${plugin.name} импортирован!")
             } else {
-                Toast.makeText(this, "Ошибка импорта плагина", Toast.LENGTH_SHORT).show()
+                PrimeNotification.show(this, "Ошибка импорта плагина")
             }
         }
     }
@@ -511,8 +510,17 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun updatePhotoCardImage(b: ActivitySettingsContentBinding) {
         val history = AvatarHistoryManager.getMyAvatarHistory(this)
+        val defaultAvatarDrawable = {
+            createLetterAvatarDrawable(
+                this,
+                "Prime",
+                14f * resources.displayMetrics.density,
+                (240 * resources.displayMetrics.density).toInt()
+            )
+        }
+
         if (history.isEmpty()) {
-            b.ivPhotoCard.setImageResource(R.drawable.ic_person)
+            b.ivPhotoCard.setImageDrawable(defaultAvatarDrawable())
             animateAvatarCounterBadge(b.tvAvatarCounter, 0, 0)
             currentAvatarUri = null
             return
@@ -541,21 +549,21 @@ class SettingsActivity : AppCompatActivity() {
                         .load(model)
                         .transform(CenterCrop(), RoundedCorners(radiusPx))
                         .signature(signatureKey)
-                        .placeholder(R.drawable.ic_person)
+                        .placeholder(defaultAvatarDrawable())
                         .into(b.ivPhotoCard)
                 } else {
                     Glide.with(this)
                         .load(model)
                         .transform(CenterCrop(), RoundedCorners(radiusPx))
                         .signature(signatureKey)
-                        .placeholder(R.drawable.ic_person)
+                        .placeholder(defaultAvatarDrawable())
                         .into(b.ivPhotoCard)
                 }
             } else {
-                b.ivPhotoCard.setImageResource(R.drawable.ic_person)
+                b.ivPhotoCard.setImageDrawable(defaultAvatarDrawable())
             }
         } catch (e: Exception) {
-            b.ivPhotoCard.setImageResource(R.drawable.ic_person)
+            b.ivPhotoCard.setImageDrawable(defaultAvatarDrawable())
         }
     }
 
@@ -620,16 +628,24 @@ class SettingsActivity : AppCompatActivity() {
                     com.messenger.prime.shapes.M3EShapes.circle
                 )
                 
-                val btnBgColor = ContextCompat.getColor(this, R.color.glass_white_20)
+                val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+                val btnBgColor = if (isNight) ContextCompat.getColor(this, R.color.glass_white_20) else ContextCompat.getColor(this, R.color.prime_search_bg)
+                val iconColor = if (isNight) Color.WHITE else ContextCompat.getColor(this, R.color.prime_text_primary)
                 
                 for ((index, btn) in buttons.withIndex()) {
                     if (btn == null) continue
                     
-                    // Use safe drawable background instead of buggy OutlineProvider
+                    btn.tag = "do_not_tint"
+                    btn.backgroundTintList = null
                     btn.outlineProvider = null
                     btn.clipToOutline = false
                     btn.elevation = 0f
                     btn.background = com.messenger.prime.shapes.M3EDrawable(shapes.random(), btnBgColor)
+                    if (btn == b.btnLogoutWP || btn == b.btnLogoutNP) {
+                        btn.iconTint = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.prime_danger))
+                    } else {
+                        btn.iconTint = ColorStateList.valueOf(iconColor)
+                    }
                     
                     // Beautiful entrance animation
                     btn.scaleX = 0.5f
@@ -1194,7 +1210,7 @@ class SettingsActivity : AppCompatActivity() {
                         }
                         pluginFilePickerLauncher.launch(intent)
                     } catch (e: Exception) {
-                        Toast.makeText(this, "Не удалось открыть выбор файлов", Toast.LENGTH_SHORT).show()
+                        PrimeNotification.show(this, "Не удалось открыть выбор файлов")
                     }
                 } else {
                     showManualPluginCreationDialog()
@@ -1386,6 +1402,8 @@ class SettingsActivity : AppCompatActivity() {
         b.tvThemeSummary.text = when(theme) {
             "light" -> "Светлая"
             "dark" -> "Темная"
+            "teto_light" -> "Тето (Светлая)"
+            "teto_dark" -> "Тето (Темная)"
             else -> "Системная"
         }
         b.cardGithub.addBounceTouchEffect()
@@ -1557,9 +1575,9 @@ class SettingsActivity : AppCompatActivity() {
             try {
                 android.webkit.CookieManager.getInstance().removeAllCookies(null)
                 android.webkit.WebStorage.getInstance().deleteAllData()
-                android.widget.Toast.makeText(context, "Кэш и данные браузера очищены", android.widget.Toast.LENGTH_SHORT).show()
+                PrimeNotification.show(context, "Кэш и данные браузера очищены")
             } catch (e: Exception) {
-                android.widget.Toast.makeText(context, "Ошибка при очистке кэша", android.widget.Toast.LENGTH_SHORT).show()
+                PrimeNotification.show(context, "Ошибка при очистке кэша")
             }
         }
     }
@@ -1643,7 +1661,6 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         sec.tvTitlePartnerInfoOpenMode.setTextColor(accentColor)
-        sec.ivPreviewPartnerAvatar.imageTintList = ColorStateList.valueOf(accentColor)
         sec.ivPreviewGestureIcon.imageTintList = ColorStateList.valueOf(accentColor)
         sec.tvPreviewGestureHint.setTextColor(accentColor)
 
@@ -1949,6 +1966,23 @@ class SettingsActivity : AppCompatActivity() {
 
             b.cardStyleBottomBar.strokeColor = if (!isIsland) accentColor else android.graphics.Color.TRANSPARENT
             b.cardStyleBottomBar.strokeWidth = if (!isIsland) (2 * resources.displayMetrics.density).toInt() else 0
+
+            val animDecel = android.view.animation.DecelerateInterpolator()
+            b.cardStyleIsland.animate().cancel()
+            b.cardStyleIsland.animate()
+                .scaleX(if (isIsland) 1.03f else 1.0f)
+                .scaleY(if (isIsland) 1.03f else 1.0f)
+                .setDuration(180)
+                .setInterpolator(animDecel)
+                .start()
+
+            b.cardStyleBottomBar.animate().cancel()
+            b.cardStyleBottomBar.animate()
+                .scaleX(if (!isIsland) 1.03f else 1.0f)
+                .scaleY(if (!isIsland) 1.03f else 1.0f)
+                .setDuration(180)
+                .setInterpolator(animDecel)
+                .start()
 
             setupBottomNav(b)
         }
@@ -3250,6 +3284,8 @@ class SettingsActivity : AppCompatActivity() {
         val isSystem = themeStr == "system"
         val isLight = themeStr == "light"
         val isDark = themeStr == "dark"
+        val isTetoLight = themeStr == "teto_light"
+        val isTetoDark = themeStr == "teto_dark"
 
         b.btnResetTheme?.visibility = if (!isSystem) View.VISIBLE else View.GONE
         b.btnResetTheme?.setOnClickListener {
@@ -3263,6 +3299,11 @@ class SettingsActivity : AppCompatActivity() {
         b.rbThemeSystem.isChecked = isSystem
         b.rbThemeLight.isChecked = isLight
         b.rbThemeDark.isChecked = isDark
+        val rbThemeTetoLight = b.root.findViewById<RadioButton>(R.id.rbThemeTetoLight)
+        val rbThemeTetoDark = b.root.findViewById<RadioButton>(R.id.rbThemeTetoDark)
+        
+        rbThemeTetoLight?.isChecked = isTetoLight
+        rbThemeTetoDark?.isChecked = isTetoDark
 
         val isNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val radioTintList = ColorStateList(
@@ -3278,10 +3319,37 @@ class SettingsActivity : AppCompatActivity() {
         b.rbThemeSystem.buttonTintList = radioTintList
         b.rbThemeLight.buttonTintList = radioTintList
         b.rbThemeDark.buttonTintList = radioTintList
+        rbThemeTetoLight?.buttonTintList = radioTintList
+        rbThemeTetoDark?.buttonTintList = radioTintList
 
         val strokeWidthActive = (3 * resources.displayMetrics.density).toInt()
         val strokeWidthInactive = (1 * resources.displayMetrics.density).toInt()
         val inactiveStrokeColor = if (isNight) android.graphics.Color.parseColor("#33FFFFFF") else android.graphics.Color.parseColor("#1A000000")
+
+        val cardThemeTetoLight = b.root.findViewById<com.google.android.material.card.MaterialCardView>(R.id.cardThemeTetoLight)
+        val cardThemeTetoDark = b.root.findViewById<com.google.android.material.card.MaterialCardView>(R.id.cardThemeTetoDark)
+
+        // Smooth hardware-accelerated scale & stroke animation
+        fun animateCardState(card: View?, isSelected: Boolean) {
+            if (card == null) return
+            val targetScale = if (isSelected) 1.04f else 1.0f
+            val targetElevation = if (isSelected) (6 * resources.displayMetrics.density) else 0f
+
+            card.animate().cancel()
+            card.animate()
+                .scaleX(targetScale)
+                .scaleY(targetScale)
+                .translationZ(targetElevation)
+                .setDuration(200)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .start()
+        }
+
+        animateCardState(b.cardThemeSystem, isSystem)
+        animateCardState(b.cardThemeLight, isLight)
+        animateCardState(b.cardThemeDark, isDark)
+        animateCardState(cardThemeTetoLight, isTetoLight)
+        animateCardState(cardThemeTetoDark, isTetoDark)
 
         b.cardThemeSystem.strokeWidth = if (isSystem) strokeWidthActive else strokeWidthInactive
         b.cardThemeSystem.strokeColor = if (isSystem) accentColor else inactiveStrokeColor
@@ -3291,6 +3359,48 @@ class SettingsActivity : AppCompatActivity() {
 
         b.cardThemeDark.strokeWidth = if (isDark) strokeWidthActive else strokeWidthInactive
         b.cardThemeDark.strokeColor = if (isDark) accentColor else inactiveStrokeColor
+
+        cardThemeTetoLight?.strokeWidth = if (isTetoLight) strokeWidthActive else strokeWidthInactive
+        cardThemeTetoLight?.strokeColor = if (isTetoLight) accentColor else inactiveStrokeColor
+        cardThemeTetoDark?.strokeWidth = if (isTetoDark) strokeWidthActive else strokeWidthInactive
+        cardThemeTetoDark?.strokeColor = if (isTetoDark) accentColor else inactiveStrokeColor
+
+        b.itemThemeSystem.setOnClickListener { if (!isSystem) applyThemeChange("system") }
+        b.itemThemeLight.setOnClickListener { if (!isLight) applyThemeChange("light") }
+        b.itemThemeDark.setOnClickListener { if (!isDark) applyThemeChange("dark") }
+        
+        b.root.findViewById<View>(R.id.itemThemeTetoLight)?.setOnClickListener { if (!isTetoLight) applyThemeChange("teto_light") }
+        b.root.findViewById<View>(R.id.itemThemeTetoDark)?.setOnClickListener { if (!isTetoDark) applyThemeChange("teto_dark") }
+
+        val cardTetoBanner = b.root.findViewById<View>(R.id.cardTetoBanner)
+        val btnTetoSoundEasterEgg = b.root.findViewById<View>(R.id.btnTetoSoundEasterEgg)
+        val swTetoSound = b.root.findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.swTetoSound)
+        val swTetoIcons = b.root.findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.swTetoIcons)
+
+        if (isTetoLight || isTetoDark) {
+            cardTetoBanner?.visibility = View.VISIBLE
+            
+            swTetoSound?.isChecked = ColorAccentManager.isTetoSoundEnabled(this)
+            swTetoSound?.setOnCheckedChangeListener { _, isChecked ->
+                ColorAccentManager.setTetoSoundEnabled(this, isChecked)
+                if (isChecked) {
+                    TetoVoiceSynthesizer.playTetoMicroChime()
+                }
+            }
+
+            swTetoIcons?.isChecked = ColorAccentManager.isTetoCustomIconsEnabled(this)
+            swTetoIcons?.setOnCheckedChangeListener { _, isChecked ->
+                ColorAccentManager.setTetoCustomIconsEnabled(this, isChecked)
+            }
+
+            btnTetoSoundEasterEgg?.setOnClickListener { v ->
+                v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                TetoVoiceSynthesizer.playTetoSound(this)
+                PrimeNotification.show(this, "🥖 Касане Тето: «0401 UTAU Синтезатор активен!»")
+            }
+        } else {
+            cardTetoBanner?.visibility = View.GONE
+        }
     }
 
     private fun setupSwatches(b: ActivitySettingsContentBinding) {
@@ -3492,13 +3602,13 @@ class SettingsActivity : AppCompatActivity() {
         
         if (enable) {
             b.btnBackWP.setIconResource(R.drawable.ic_cancel)
-            b.btnBackWP.setIconTintResource(R.color.white)
+            b.btnBackWP.setIconTintResource(R.color.prime_text_primary)
             b.tvBackLabelWP.text = "Закрыть"
             
             b.btnLogoutWP.setIconResource(R.drawable.ic_person)
-            b.btnLogoutWP.setIconTintResource(R.color.white)
+            b.btnLogoutWP.setIconTintResource(R.color.prime_text_primary)
             b.tvLogoutWP.text = "Просмотр"
-            b.tvLogoutWP.setTextColor(android.graphics.Color.WHITE)
+            b.tvLogoutWP.setTextColor(ContextCompat.getColor(this, R.color.prime_text_primary))
             
             b.btnExtraSettingsWP.setIconResource(R.drawable.ic_cancel)
             b.btnExtraSettingsWP.setIconTintResource(R.color.prime_danger_light)
@@ -3508,7 +3618,7 @@ class SettingsActivity : AppCompatActivity() {
             startWobbling(b)
         } else {
             b.btnBackWP.setIconResource(R.drawable.ic_arrow_back)
-            b.btnBackWP.setIconTintResource(R.color.white)
+            b.btnBackWP.setIconTintResource(R.color.prime_text_primary)
             b.tvBackLabelWP.text = "Назад"
             
             b.btnLogoutWP.setIconResource(R.drawable.ic_exit_to_app)
@@ -3517,9 +3627,9 @@ class SettingsActivity : AppCompatActivity() {
             b.tvLogoutWP.setTextColor(ContextCompat.getColor(this, R.color.prime_danger_light))
             
             b.btnExtraSettingsWP.setIconResource(R.drawable.ic_settings)
-            b.btnExtraSettingsWP.setIconTintResource(R.color.white)
+            b.btnExtraSettingsWP.setIconTintResource(R.color.prime_text_primary)
             b.tvExtraSettingsWP.text = "К Настройкам"
-            b.tvExtraSettingsWP.setTextColor(android.graphics.Color.WHITE)
+            b.tvExtraSettingsWP.setTextColor(ContextCompat.getColor(this, R.color.prime_text_primary))
             
             stopWobbling()
         }
@@ -4122,6 +4232,29 @@ class SettingsActivity : AppCompatActivity() {
         b.tvPreviewOutgoingText.setTextColor(android.graphics.Color.WHITE)
         b.tvPreviewOutgoingTime.setTextColor(android.graphics.Color.parseColor("#CCFFFFFF"))
         b.ivPreviewOutgoingStatus.imageTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#CCFFFFFF"))
+
+        // Light spring animation for preview message bubbles on theme update
+        val bubbleInterpolator = android.view.animation.OvershootInterpolator(1.2f)
+        b.layoutPreviewIncomingBubble.animate().cancel()
+        b.layoutPreviewIncomingBubble.scaleX = 0.94f
+        b.layoutPreviewIncomingBubble.scaleY = 0.94f
+        b.layoutPreviewIncomingBubble.animate()
+            .scaleX(1.0f)
+            .scaleY(1.0f)
+            .setDuration(220)
+            .setInterpolator(bubbleInterpolator)
+            .start()
+
+        b.layoutPreviewOutgoingBubble.animate().cancel()
+        b.layoutPreviewOutgoingBubble.scaleX = 0.94f
+        b.layoutPreviewOutgoingBubble.scaleY = 0.94f
+        b.layoutPreviewOutgoingBubble.animate()
+            .scaleX(1.0f)
+            .scaleY(1.0f)
+            .setStartDelay(50)
+            .setDuration(220)
+            .setInterpolator(bubbleInterpolator)
+            .start()
     }
 
     private fun setupBubbleRadiusSection(b: ActivitySettingsContentBinding) {
@@ -4256,15 +4389,26 @@ class SettingsActivity : AppCompatActivity() {
             sharedPrefs.edit().putString("app_theme", newTheme).apply()
             
             val mode = when (newTheme) {
-                "light" -> AppCompatDelegate.MODE_NIGHT_NO
-                "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+                "light", "teto_light" -> AppCompatDelegate.MODE_NIGHT_NO
+                "dark", "teto_dark" -> AppCompatDelegate.MODE_NIGHT_YES
                 else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
             }
             AppCompatDelegate.setDefaultNightMode(mode)
+            
+            // Если выбрали Тето, автоматически устанавливаем акцент Тето
+            if (newTheme == "teto_light" || newTheme == "teto_dark") {
+                val tetoColor = if (newTheme == "teto_light") 0xFFD80032.toInt() else 0xFFFF4D6D.toInt()
+                ColorAccentManager.setAccentCustom(this, tetoColor)
+            } else {
+                ColorAccentManager.setAccentDefault(this)
+            }
+            
             binding?.let { b ->
                 b.tvThemeSummary.text = when(newTheme) {
                     "light" -> "Светлая"
                     "dark" -> "Темная"
+                    "teto_light" -> "Тето (Светлая)"
+                    "teto_dark" -> "Тето (Темная)"
                     else -> "Системная"
                 }
                 updateThemeSelectionUI(b, newTheme)

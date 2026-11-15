@@ -202,6 +202,13 @@
         <item name="colorSecondary">#E91E63</item>
     </style>
 
+    <style name="ThemeOverlay.Prime.Teto" parent="">
+        <item name="colorPrimary">#D80032</item>
+        <item name="colorAccent">#D80032</item>
+        <item name="colorPrimaryContainer">#CCD80032</item>
+        <item name="colorSecondary">#D80032</item>
+    </style>
+
     <style name="Widget.Prime.PopupMenu" parent="Widget.AppCompat.PopupMenu">
         <item name="android:popupBackground">@drawable/bg_glass_dropdown</item>
         <item name="android:dropDownVerticalOffset">4dp</item>

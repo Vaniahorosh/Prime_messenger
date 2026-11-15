@@ -69,8 +69,8 @@ class PrimePopupMenu private constructor(
         val accentColor = ColorAccentManager.getCurrentAccentColor(context)
         val isDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
-        val blurBgColor = if (isDark) Color.parseColor("#450F172A") else Color.parseColor("#45154B87")
-        val strokeColor = if (isDark) Color.parseColor("#33FFFFFF") else Color.parseColor("#20FFFFFF")
+        val blurBgColor = if (isDark) Color.parseColor("#450F172A") else Color.parseColor("#E6FFFFFF")
+        val strokeColor = if (isDark) Color.parseColor("#33FFFFFF") else Color.parseColor("#E2E8F0")
         val itemUnselectedBg = if (isDark) Color.parseColor("#15FFFFFF") else Color.parseColor("#0F000000")
         val itemTextColor = if (isDark) Color.parseColor("#F8FAFC") else Color.parseColor("#0F172A")
 

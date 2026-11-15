@@ -5,7 +5,8 @@
     android:id="@+id/chatRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/prime_base">
+    android:background="@color/prime_base"
+    android:animateLayoutChanges="true">
 
     <!-- Локальные анимированные обои из Material фигур и логотипа -->
     <com.messenger.prime.MaterialShapesWallpaperView
@@ -124,12 +125,13 @@
         android:id="@+id/layoutHeader"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginEnd="12dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:elevation="8dp"
+        android:animateLayoutChanges="true"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -386,14 +388,13 @@
         </eightbitlab.com.blurview.BlurView>
     </LinearLayout>
 
-    <!-- Островок закрепленного сообщения -->
     <eightbitlab.com.blurview.BlurView
         android:id="@+id/layoutPinnedMessageBar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginTop="6dp"
-        android:layout_marginEnd="12dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="16dp"
         android:background="@drawable/bg_floating_island"
         android:outlineProvider="background"
         android:clipToOutline="true"
@@ -470,14 +471,13 @@
         </LinearLayout>
     </eightbitlab.com.blurview.BlurView>
 
-    <!-- Островок поиска по сообщениям чата -->
     <eightbitlab.com.blurview.BlurView
         android:id="@+id/layoutInChatSearchBar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginTop="6dp"
-        android:layout_marginEnd="12dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="16dp"
         android:background="@drawable/bg_floating_island"
         android:outlineProvider="background"
         android:clipToOutline="true"
@@ -556,14 +556,13 @@
         </LinearLayout>
     </eightbitlab.com.blurview.BlurView>
 
-    <!-- Островок информации о версии и музыки (вылетает из-под шапки) -->
     <eightbitlab.com.blurview.BlurView
         android:id="@+id/layoutMusicIsland"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
+        android:layout_marginStart="16dp"
         android:layout_marginTop="8dp"
-        android:layout_marginEnd="12dp"
+        android:layout_marginEnd="16dp"
         android:background="@drawable/bg_glass_island"
         android:outlineProvider="background"
         android:elevation="24dp"
@@ -578,8 +577,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="14dp"
-            android:paddingVertical="8dp">
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="8dp"
+            android:animateLayoutChanges="true">
 
             <!-- Блок информации о версии приложения собеседника -->
             <LinearLayout
@@ -900,17 +900,17 @@
         android:id="@+id/layoutActionIsland"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="12dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
         android:layout_marginBottom="8dp"
         android:background="@drawable/bg_floating_island"
         android:elevation="12dp"
         android:translationZ="12dp"
         android:outlineProvider="background"
         android:paddingStart="8dp"
-        android:paddingTop="6dp"
+        android:paddingTop="8dp"
         android:paddingEnd="8dp"
-        android:paddingBottom="6dp"
+        android:paddingBottom="8dp"
         android:visibility="gone"
         app:layout_constraintBottom_toTopOf="@id/bottomContainer"
         app:layout_constraintEnd_toEndOf="parent"
@@ -919,7 +919,8 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:animateLayoutChanges="true">
 
             <!-- Плавающая панель прогресса отправки / передачи -->
             <LinearLayout
@@ -1025,11 +1026,12 @@
         android:id="@+id/bottomContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="12dp"
-        android:layout_marginBottom="12dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
         android:elevation="8dp"
         android:orientation="vertical"
+        android:animateLayoutChanges="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">

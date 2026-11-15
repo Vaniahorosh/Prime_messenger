@@ -20,7 +20,6 @@ import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.*
@@ -300,7 +299,7 @@ class PrimeVideoMessageRecorder(
         val provider = cameraProvider ?: return
         try {
             if (!provider.hasCamera(nextSelector)) {
-                Toast.makeText(activity, "Камера недоступна", Toast.LENGTH_SHORT).show()
+                PrimeNotification.show(activity, "Камера недоступна")
                 return
             }
         } catch (e: Exception) {
@@ -518,7 +517,7 @@ class PrimeVideoMessageRecorder(
     }
 
     private fun requestAudioPermission() {
-        Toast.makeText(activity, "Предоставьте разрешение на Запись звука", Toast.LENGTH_SHORT).show()
+        PrimeNotification.show(activity, "Предоставьте разрешение на Запись звука")
         ActivityCompat.requestPermissions(
             activity, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_CODE_PERMISSIONS
         )
@@ -538,7 +537,7 @@ class PrimeVideoMessageRecorder(
         val file = AudioRecordManager.startRecording(activity)
         if (file == null) {
             Log.e("VoiceRecord", "AudioRecordManager.startRecording failed")
-            Toast.makeText(activity, "Ошибка запуска записи звука", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(activity, "Ошибка запуска записи звука")
             return
         }
 
@@ -605,7 +604,7 @@ class PrimeVideoMessageRecorder(
     }
 
     private fun requestPermissions() {
-        Toast.makeText(activity, "Предоставьте разрешения на Камеру и Запись звука", Toast.LENGTH_SHORT).show()
+        PrimeNotification.show(activity, "Предоставьте разрешения на Камеру и Запись звука")
         ActivityCompat.requestPermissions(
             activity, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
         )
@@ -781,7 +780,7 @@ class PrimeVideoMessageRecorder(
 
     private fun processFinalRecordingsAndSend() {
         if (recordedSegments.isEmpty()) {
-            Toast.makeText(activity, "Запись слишком короткая", Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(activity, "Запись слишком короткая")
             resetUI()
             return
         }
@@ -1000,7 +999,7 @@ class PrimeVideoMessageRecorder(
                     bindCameraUseCases(p, onCameraReady)
                 } catch (e: Exception) {
                     Log.e("PrimeVideo", "CameraX initialization failed", e)
-                    Toast.makeText(activity, "Ошибка камеры: " + e.localizedMessage, Toast.LENGTH_SHORT).show()
+                    PrimeNotification.show(activity, "Ошибка камеры: " + e.localizedMessage)
                 }
             }, ContextCompat.getMainExecutor(activity))
         }
@@ -1054,7 +1053,7 @@ class PrimeVideoMessageRecorder(
             onCameraReady()
         } catch (exc: Exception) {
             Log.e("PrimeVideo", "CameraX binding failed", exc)
-            Toast.makeText(activity, "Ошибка камеры: " + exc.localizedMessage, Toast.LENGTH_SHORT).show()
+            PrimeNotification.show(activity, "Ошибка камеры: " + exc.localizedMessage)
         }
     }
 

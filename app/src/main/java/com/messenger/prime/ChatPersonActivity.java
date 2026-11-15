@@ -93,7 +93,6 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 import android.content.ContentUris;
 import android.content.res.ColorStateList;
 import android.database.Cursor;
@@ -386,7 +385,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         );
                         if (count > 0) {
                             runOnUiThread(() -> {
-                                Toast.makeText(ChatPersonActivity.this, "Добавлено стикеров: " + count, Toast.LENGTH_SHORT).show();
+                                PrimeNotification.show(ChatPersonActivity.this, "Добавлено стикеров: " + count);
                             });
                         }
                     });
@@ -1001,11 +1000,16 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (ivHeaderVersionBadge != null) {
             ivHeaderVersionBadge.setOnClickListener(v -> {
                 v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                if (ColorAccentManager.isTetoTheme(this) && (remoteVersionCode <= 0 || remoteVersionCode == getAppVersionCode(this))) {
+                    TetoVoiceSynthesizer.playTetoSound(this);
+                    PrimeNotification.show(this, "🥖 Касане Тето хранит атмосферу этого чата! (0401 UTAU)");
+                    return;
+                }
                 int myVer = getAppVersionCode(this);
                 if (remoteVersionCode > 0 && remoteVersionCode < myVer) {
-                    Toast.makeText(this, "У собеседника устаревшая версия клиента. Попросите обновить приложение!", Toast.LENGTH_SHORT).show();
+                    PrimeNotification.show(this, "У собеседника устаревшая версия клиента. Попросите обновить приложение!");
                 } else if (remoteVersionCode > myVer) {
-                    Toast.makeText(this, "Пользователь использует более новую версию клиента", Toast.LENGTH_SHORT).show();
+                    PrimeNotification.show(this, "Пользователь использует более новую версию клиента");
                 }
             });
         }
@@ -1115,7 +1119,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             btnFormat.setRotation(-25f);
             btnFormat.setOnClickListener(v -> {
                 if (!isConnectionActive()) {
-                    Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                    PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
                     return;
                 }
                 v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
@@ -1159,7 +1163,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         View btnAttach = findViewById(R.id.btnAttach);
 
         if (btnVoiceVideoNote != null && layoutVoiceRecordBar != null) {
-            btnVoiceVideoNote.setImageResource(isVideoNoteMode ? R.drawable.ic_camera : R.drawable.ic_mic);
+            btnVoiceVideoNote.setImageResource(isVideoNoteMode ? R.drawable.ic_camera : ColorAccentManager.getMicIconRes(this));
 
             final PrimeVoiceRecorderController voiceController = new PrimeVoiceRecorderController(
                 this,
@@ -1233,7 +1237,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 @Override
                 public void run() {
                     if (!isConnectionActive()) {
-                        Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                        PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
                         return;
                     }
                     isLongPressTriggered[0] = true;
@@ -1263,7 +1267,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         isVoiceLocked[0] = false;
 
                         if (!isConnectionActive()) {
-                            Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                            PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
                             return false;
                         }
 
@@ -1404,13 +1408,25 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         layoutInput = findViewById(R.id.layoutInput);
         btnAttach = findViewById(R.id.btnAttach);
         if (btnAttach != null) {
+            if (btnAttach instanceof ImageButton) {
+                ((ImageButton) btnAttach).setImageResource(ColorAccentManager.getAttachIconRes(this));
+            }
             btnAttach.setEnabled(true);
             btnAttach.setClickable(true);
             boolean activeOnStart = isConnectionActive();
             btnAttach.setAlpha(activeOnStart ? 1.0f : 0.4f);
+            btnAttach.setOnLongClickListener(v -> {
+                if (ColorAccentManager.isTetoTheme(ChatPersonActivity.this)) {
+                    TetoVoiceSynthesizer.playTetoSound(ChatPersonActivity.this);
+                    PrimeNotification.show(ChatPersonActivity.this, "🥖 Французский багет Касане Тето! (UTAU 0401)");
+                    v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                    return true;
+                }
+                return false;
+            });
             btnAttach.setOnClickListener(v -> {
                 if (!isConnectionActive()) {
-                    Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                    PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
                     v.setAlpha(0.4f);
                     closeAttachmentPanel();
                     return;
@@ -2608,11 +2624,14 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (btnSend != null) {
             btnSend.setOnClickListener(v -> {
                 if (!isConnectionActive()) {
-                    Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                    PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
                     return;
                 }
                 ChatAnimationHelper.animateBubbleSpring(btnSend);
                 btnSend.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                if (ColorAccentManager.isTetoTheme(ChatPersonActivity.this) && ColorAccentManager.isTetoSoundEnabled(ChatPersonActivity.this)) {
+                    TetoVoiceSynthesizer.playTetoMicroChime();
+                }
                 String text = etMessage.getText().toString().trim();
 
                 if (currentPendingAttachment != null && currentPendingAttachment.items != null && !currentPendingAttachment.items.isEmpty()) {
@@ -2728,7 +2747,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         bluetoothAdapter = bluetoothManager.getAdapter();
         if (bluetoothAdapter == null) {
-            Toast.makeText(this, "Bluetooth не поддерживается (Эмулятор)", Toast.LENGTH_SHORT).show();
+            PrimeNotification.show(this, "Bluetooth не поддерживается (Эмулятор)");
             setupMockMode();
             return;
         }
@@ -3081,7 +3100,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 SharedPreferences spMediaRecord = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
                 isVideoNoteMode = spMediaRecord.getBoolean("chat_media_record_mode_is_video", false);
                 if (btnVoiceVideoNote != null) {
-                    btnVoiceVideoNote.setImageResource(isVideoNoteMode ? R.drawable.ic_camera : R.drawable.ic_mic);
+                    btnVoiceVideoNote.setImageResource(isVideoNoteMode ? R.drawable.ic_camera : ColorAccentManager.getMicIconRes(this));
                 }
                 updateActionButtonsVisibility(false);
 
@@ -4324,7 +4343,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 ChatHistoryManager.deleteHistory(ChatPersonActivity.this, targetUsername);
                 deleteChatFromChatListEx(targetUsername);
                 disconnectCurrentChat();
-                Toast.makeText(ChatPersonActivity.this, "Переписка полностью удалена", Toast.LENGTH_SHORT).show();
+                PrimeNotification.show(ChatPersonActivity.this, "Переписка полностью удалена");
                 finish();
             }
         }
@@ -4336,7 +4355,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         PrimeNotification.INSTANCE.show(this, "Удаление чата с " + targetUsername + "...", () -> {
             isDeletionPending = false;
             deletionHandler.removeCallbacks(performDeletionRunnable);
-            Toast.makeText(ChatPersonActivity.this, "Удаление отменено", Toast.LENGTH_SHORT).show();
+            PrimeNotification.show(ChatPersonActivity.this, "Удаление отменено");
             return Unit.INSTANCE;
         });
 
@@ -5063,7 +5082,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         rvMessages.scrollToPosition(pos);
                         chatAdapter.highlightMessageAtPosition(pos);
                     } else {
-                        Toast.makeText(this, "Сообщение не найдено в истории", Toast.LENGTH_SHORT).show();
+                        PrimeNotification.show(this, "Сообщение не найдено в истории");
                     }
                     if (pinnedList.size() > 1) {
                         currentPinnedIndex = (currentPinnedIndex + 1) % pinnedList.size();
@@ -5332,7 +5351,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         if (chatAdapter != null) chatAdapter.setMessages(new ArrayList<>());
         disconnectCurrentChat();
-        Toast.makeText(this, "Переписка и устройство полностью удалены", Toast.LENGTH_SHORT).show();
+        PrimeNotification.show(this, "Переписка и устройство полностью удалены");
 
         Intent mainIntent = new Intent(this, ChatListActivity.class);
         mainIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -9300,7 +9319,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         attachmentDialog.setOnDismissListener(dialog -> {
             isAttachmentPanelOpen = false;
             if (btnAttach != null) {
-                btnAttach.setImageResource(R.drawable.ic_photo);
+                btnAttach.setImageResource(ColorAccentManager.getAttachIconRes(this));
             }
             if (galleryAdapter != null) galleryAdapter.clearSelection();
             if (filesAdapter != null) filesAdapter.clearSelection();
@@ -9481,7 +9500,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (btnConfirmAttachment != null) {
             btnConfirmAttachment.setOnClickListener(v -> {
                 if (!isConnectionActive()) {
-                    Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                    PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
                     closeAttachmentPanel();
                     return;
                 }
@@ -9506,7 +9525,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (btnOpenSystemGallery != null) {
             btnOpenSystemGallery.setOnClickListener(v -> {
                 if (!isConnectionActive()) {
-                    Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                    PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
                     closeAttachmentPanel();
                     return;
                 }
@@ -9530,7 +9549,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (btnOpenSystemFileManager != null) {
             btnOpenSystemFileManager.setOnClickListener(v -> {
                 if (!isConnectionActive()) {
-                    Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                    PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
                     closeAttachmentPanel();
                     return;
                 }
@@ -9563,7 +9582,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         if (layoutModePhoto != null) layoutModePhoto.setOnClickListener(v -> {
             if (!isConnectionActive()) {
-                Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
                 closeAttachmentPanel();
                 return;
             }
@@ -9573,7 +9592,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         });
         if (layoutModeFiles != null) layoutModeFiles.setOnClickListener(v -> {
             if (!isConnectionActive()) {
-                Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
                 closeAttachmentPanel();
                 return;
             }
@@ -9583,7 +9602,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         });
         if (layoutModeCamera != null) layoutModeCamera.setOnClickListener(v -> {
             if (!isConnectionActive()) {
-                Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
                 closeAttachmentPanel();
                 return;
             }
@@ -9593,7 +9612,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         });
         if (layoutModeMusic != null) layoutModeMusic.setOnClickListener(v -> {
             if (!isConnectionActive()) {
-                Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+                PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
                 closeAttachmentPanel();
                 return;
             }
@@ -9694,6 +9713,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         androidx.core.content.ContextCompat.getColor(this, R.color.prime_brand)
                 ));
             }
+        } else if (ColorAccentManager.isTetoTheme(this)) {
+            ivHeaderVersionBadge.setVisibility(View.VISIBLE);
+            ivHeaderVersionBadge.setImageResource(R.drawable.ic_teto_avatar);
+            ivHeaderVersionBadge.setImageTintList(null);
         } else {
             ivHeaderVersionBadge.setVisibility(View.GONE);
         }
@@ -9933,7 +9956,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
     private void openAttachmentPanel() {
         if (!isConnectionActive()) {
-            Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+            PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
             return;
         }
         if (emojiPanelHelper != null && emojiPanelHelper.isPanelOpen()) {
@@ -9977,7 +10000,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         updateBackCallbackState();
         sendActivityState("IDLE");
         if (btnAttach != null) {
-            btnAttach.setImageResource(R.drawable.ic_photo);
+            btnAttach.setImageResource(ColorAccentManager.getAttachIconRes(this));
         }
         if (galleryAdapter != null) galleryAdapter.clearSelection();
         if (filesAdapter != null) filesAdapter.clearSelection();
@@ -10265,7 +10288,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void setPendingAttachmentFromUri(Uri uri, boolean isVideo, String fallbackName) {
         if (uri == null) return;
         if (!isConnectionActive()) {
-            Toast.makeText(this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+            PrimeNotification.show(this, "Действие недоступно: нет подключения к собеседнику");
             closeAttachmentPanel();
             return;
         }
@@ -10309,7 +10332,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void setPendingAttachmentFromUris(List<Uri> uris) {
         if (uris == null || uris.isEmpty()) return;
         if (!isConnectionActive()) {
-            Toast.makeText(this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+            PrimeNotification.show(this, "Действие недоступно: нет подключения к собеседнику");
             closeAttachmentPanel();
             return;
         }
@@ -10327,7 +10350,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void setPendingAttachmentFromMediaItems(List<MediaItem> items, boolean closePanel) {
         if (items == null || items.isEmpty()) return;
         if (!isConnectionActive()) {
-            Toast.makeText(this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+            PrimeNotification.show(this, "Действие недоступно: нет подключения к собеседнику");
             if (closePanel) closeAttachmentPanel();
             return;
         }
@@ -10362,7 +10385,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void setPendingAttachmentFromMusic(List<com.messenger.prime.TrackItem> tracks, boolean closePanel) {
         if (tracks == null || tracks.isEmpty()) return;
         if (!isConnectionActive()) {
-            Toast.makeText(this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+            PrimeNotification.show(this, "Действие недоступно: нет подключения к собеседнику");
             if (closePanel) closeAttachmentPanel();
             return;
         }
@@ -12018,7 +12041,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void toggleVoiceVideoNoteMode() {
         if (btnVoiceVideoNote == null) return;
         if (!isConnectionActive()) {
-            Toast.makeText(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику", Toast.LENGTH_SHORT).show();
+            PrimeNotification.show(ChatPersonActivity.this, "Действие недоступно: нет подключения к собеседнику");
             return;
         }
         btnVoiceVideoNote.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
@@ -12035,7 +12058,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 .alpha(0.0f)
                 .setDuration(160)
                 .withEndAction(() -> {
-                    btnVoiceVideoNote.setImageResource(isVideoNoteMode ? R.drawable.ic_camera : R.drawable.ic_mic);
+                    btnVoiceVideoNote.setImageResource(isVideoNoteMode ? R.drawable.ic_camera : ColorAccentManager.getMicIconRes(this));
                     btnVoiceVideoNote.animate()
                             .rotationBy(180f)
                             .scaleX(1.0f)

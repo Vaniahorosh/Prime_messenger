@@ -84,6 +84,14 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/layoutIslandHeader">
 
+            <ImageView
+                android:id="@+id/ivEmptyState"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"
+                android:src="@drawable/ic_teto_empty_chat" />
+
             <TextView
                 android:id="@+id/tvEmptyState"
                 android:layout_width="wrap_content"

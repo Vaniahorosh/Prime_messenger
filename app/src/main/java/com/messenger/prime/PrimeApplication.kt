@@ -25,10 +25,17 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val theme = sharedPrefs.getString("app_theme", "system")
         when (theme) {
-            "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-            "dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            "light", "teto_light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            "dark", "teto_dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         }
+        
+        // Auto-apply Kasane Teto accent globally on app start if the theme is active
+        if (theme == "teto_light" || theme == "teto_dark") {
+            val tetoColor = if (theme == "teto_light") 0xFFD80032.toInt() else 0xFFFF4D6D.toInt()
+            ColorAccentManager.setAccentCustom(this, tetoColor)
+        }
+        
         if (ColorAccentManager.getAccentType(this) == ColorAccentManager.ACCENT_TYPE_SYSTEM) {
             DynamicColors.applyToActivitiesIfAvailable(this)
         }
