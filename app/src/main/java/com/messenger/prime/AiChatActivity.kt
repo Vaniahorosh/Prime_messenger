@@ -161,6 +161,14 @@ class AiChatActivity : AppCompatActivity() {
         val apiKey = sp.getString("ai_api_key", "") ?: ""
 
         val hasRealMessages = activeSession != null && activeSession?.messages?.isNotEmpty() == true
+        
+        val transitionSet = android.transition.TransitionSet()
+            .addTransition(android.transition.Fade())
+            .addTransition(android.transition.ChangeBounds())
+        transitionSet.duration = 200L
+        transitionSet.interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+        android.transition.TransitionManager.beginDelayedTransition(binding.rootAiChatContainer as android.view.ViewGroup, transitionSet)
+        
         if (!hasRealMessages) {
             binding.layoutAiEmptyState.visibility = View.VISIBLE
             binding.rvAiMessages.visibility = View.GONE

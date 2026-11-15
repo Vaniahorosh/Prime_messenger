@@ -192,7 +192,7 @@ fun PrimeFeaturePromoCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp, horizontal = 12.dp),
+                .padding(vertical = 8.dp, horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Верхний отцентрованный бэдж текущей подкатегории
@@ -211,14 +211,14 @@ fun PrimeFeaturePromoCard(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(6.dp)
+                                .size(8.dp)
                                 .clip(CircleShape)
                                 .background(currentFeature.accentColor)
                         )
                         Text(
                             text = currentFeature.subtitle,
                             color = currentFeature.accentColor,
-                            fontSize = 11.5.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -231,8 +231,8 @@ fun PrimeFeaturePromoCard(
             AnimatedContent(
                 targetState = currentFeature,
                 transitionSpec = {
-                    fadeIn(animationSpec = tween(500)) + slideInHorizontally { width -> width / 3 } togetherWith
-                            fadeOut(animationSpec = tween(400)) + slideOutHorizontally { width -> -width / 3 }
+                    fadeIn(animationSpec = tween(200, easing = FastOutSlowInEasing)) + expandVertically(animationSpec = tween(200, easing = FastOutSlowInEasing)) togetherWith
+                            fadeOut(animationSpec = tween(150, easing = FastOutSlowInEasing)) + shrinkVertically(animationSpec = tween(150, easing = FastOutSlowInEasing))
                 },
                 label = "SeamlessPromoLoop"
             ) { feature ->
@@ -289,37 +289,37 @@ fun PrimeFeaturePromoCard(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
                         text = feature.title,
                         color = Color.White,
-                        fontSize = 17.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold,
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         text = feature.description,
                         color = Color.White.copy(alpha = 0.88f),
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
                         textAlign = TextAlign.Center,
-                        lineHeight = 18.sp,
+                        lineHeight = 20.sp,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Клики по сегментам прогресс-бара для быстрого выбора слайда
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 primeMessengerFeatures.forEachIndexed { index, _ ->
@@ -327,14 +327,14 @@ fun PrimeFeaturePromoCard(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(20.dp)
+                            .height(24.dp)
                             .clickable { currentSlideIndex = index },
                         contentAlignment = Alignment.Center
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(if (isSelected) 4.dp else 3.dp)
+                                .height(4.dp)
                                 .clip(CircleShape)
                                 .background(
                                     if (isSelected) currentFeature.accentColor else Color.White.copy(alpha = 0.25f)

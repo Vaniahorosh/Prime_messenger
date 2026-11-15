@@ -56,7 +56,11 @@ import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.text.TextWatcher
 import android.transition.AutoTransition
+import android.transition.ChangeBounds
+import android.transition.Fade
 import android.transition.TransitionManager
+import android.transition.TransitionSet
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import android.util.Log
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -4545,6 +4549,13 @@ class ChatListActivity : AppCompatActivity() {
             .start()
 
         header.btnHeaderSearchClear.alpha = 0f
+        val transition = TransitionSet().apply {
+            addTransition(Fade())
+            addTransition(ChangeBounds())
+            interpolator = FastOutSlowInInterpolator()
+            duration = 200
+        }
+        TransitionManager.beginDelayedTransition(binding.root as ViewGroup, transition)
         header.btnHeaderSearchClear.visibility = View.VISIBLE
         header.btnHeaderSearchClear.animate()
             .alpha(1f)
@@ -4573,6 +4584,13 @@ class ChatListActivity : AppCompatActivity() {
         header.etHeaderSearch.clearFocus()
 
         header.etHeaderSearch.visibility = View.GONE
+        val transition = TransitionSet().apply {
+            addTransition(Fade())
+            addTransition(ChangeBounds())
+            interpolator = FastOutSlowInInterpolator()
+            duration = 200
+        }
+        TransitionManager.beginDelayedTransition(binding.root as ViewGroup, transition)
         header.btnHeaderSearchClear.visibility = View.GONE
 
         header.tvHeaderTitle.alpha = 0f

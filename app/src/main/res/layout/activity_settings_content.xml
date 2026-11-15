@@ -22,7 +22,7 @@
             android:layout_height="wrap_content"
             android:clipChildren="false"
             android:clipToPadding="false"
-            android:paddingBottom="40dp">
+            android:paddingBottom="48dp">
 
             <!-- Шапка с фирменным цветом -->
             <androidx.constraintlayout.widget.ConstraintLayout

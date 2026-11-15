@@ -23,9 +23,10 @@
             android:id="@+id/blurSearchHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingHorizontal="12dp"
+            android:paddingHorizontal="16dp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
+            android:elevation="4dp"
             android:background="@color/prime_surface">
 
             <LinearLayout
@@ -36,8 +37,8 @@
 
                 <ImageButton
                     android:id="@+id/btnSearchBack"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Назад"
                     android:src="@drawable/ic_arrow_back"
@@ -57,12 +58,12 @@
                     android:paddingHorizontal="16dp"
                     android:textColor="@color/prime_text_primary"
                     android:textColorHint="@color/prime_text_secondary"
-                    android:textSize="14sp" />
+                    android:textSize="16sp" />
 
                 <ImageButton
                     android:id="@+id/btnSearchClear"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Очистить"
                     android:src="@drawable/ic_cancel"

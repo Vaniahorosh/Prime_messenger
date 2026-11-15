@@ -19,19 +19,19 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutHeaderIsland"
         android:layout_width="match_parent"
-        android:layout_height="52dp"
+        android:layout_height="56dp"
         android:layout_marginHorizontal="16dp"
-        android:layout_marginTop="38dp"
+        android:layout_marginTop="40dp"
         android:background="@drawable/bg_island_brand"
-        android:paddingHorizontal="6dp"
-        android:elevation="6dp"
+        android:paddingHorizontal="8dp"
+        android:elevation="4dp"
         app:layout_constraintTop_toTopOf="parent">
 
         <!-- Back Button -->
         <ImageButton
             android:id="@+id/btnBack"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_arrow_back"
             app:tint="@color/white"
@@ -45,7 +45,7 @@
             android:id="@+id/layoutHeaderCenterContainer"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_marginHorizontal="6dp"
+            android:layout_marginHorizontal="8dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@+id/layoutHeaderActionsContainer"
             app:layout_constraintStart_toEndOf="@+id/btnBack"
@@ -99,7 +99,7 @@
         <LinearLayout
             android:id="@+id/layoutHeaderActionsContainer"
             android:layout_width="wrap_content"
-            android:layout_height="38dp"
+            android:layout_height="40dp"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -108,8 +108,8 @@
 
             <ImageButton
                 android:id="@+id/btnToggleViewMode"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_format_table"
                 app:tint="@color/white"
@@ -117,8 +117,8 @@
 
             <ImageButton
                 android:id="@+id/btnHeaderSearch"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_search"
                 app:tint="@color/white"
@@ -126,8 +126,8 @@
 
             <ImageButton
                 android:id="@+id/btnHeaderSearchClear"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_cancel"
                 android:visibility="gone"
@@ -136,8 +136,8 @@
 
             <ImageButton
                 android:id="@+id/btnHeaderMore"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_more_vert"
                 app:tint="@color/white"
@@ -165,80 +165,80 @@
                 android:id="@+id/chipAll"
                 style="@style/Widget.Material3.Button.TonalButton"
                 android:layout_width="wrap_content"
-                android:layout_height="34dp"
+                android:layout_height="32dp"
                 android:minHeight="0dp"
                 android:minWidth="0dp"
-                android:paddingHorizontal="14dp"
+                android:paddingHorizontal="16dp"
                 android:paddingVertical="0dp"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:text="Все"
-                android:textSize="13sp"
-                app:cornerRadius="17dp" />
+                android:textSize="14sp"
+                app:cornerRadius="16dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/chipMedia"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="34dp"
-                android:layout_marginStart="6dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
                 android:minHeight="0dp"
                 android:minWidth="0dp"
-                android:paddingHorizontal="14dp"
+                android:paddingHorizontal="16dp"
                 android:paddingVertical="0dp"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:text="Медиа"
-                android:textSize="13sp"
-                app:cornerRadius="17dp" />
+                android:textSize="14sp"
+                app:cornerRadius="16dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/chipDocs"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="34dp"
-                android:layout_marginStart="6dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
                 android:minHeight="0dp"
                 android:minWidth="0dp"
-                android:paddingHorizontal="14dp"
+                android:paddingHorizontal="16dp"
                 android:paddingVertical="0dp"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:text="Документы"
-                android:textSize="13sp"
-                app:cornerRadius="17dp" />
+                android:textSize="14sp"
+                app:cornerRadius="16dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/chipMusic"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="34dp"
-                android:layout_marginStart="6dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
                 android:minHeight="0dp"
                 android:minWidth="0dp"
-                android:paddingHorizontal="14dp"
+                android:paddingHorizontal="16dp"
                 android:paddingVertical="0dp"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:text="Музыка"
-                android:textSize="13sp"
-                app:cornerRadius="17dp" />
+                android:textSize="14sp"
+                app:cornerRadius="16dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/chipUpdates"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="34dp"
-                android:layout_marginStart="6dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
                 android:minHeight="0dp"
                 android:minWidth="0dp"
-                android:paddingHorizontal="14dp"
+                android:paddingHorizontal="16dp"
                 android:paddingVertical="0dp"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:text="Обновления"
-                android:textSize="13sp"
-                app:cornerRadius="17dp" />
+                android:textSize="14sp"
+                app:cornerRadius="16dp" />
         </LinearLayout>
     </HorizontalScrollView>
 
@@ -253,8 +253,8 @@
         android:focusable="true"
         app:cardBackgroundColor="@color/prime_surface"
         app:cardCornerRadius="16dp"
-        app:cardElevation="1dp"
-        app:strokeColor="#1FFFFFFF"
+        app:cardElevation="0dp"
+        app:strokeColor="?attr/colorOutlineVariant"
         app:strokeWidth="1dp"
         app:layout_constraintTop_toBottomOf="@+id/scrollCategoryFilter">
 

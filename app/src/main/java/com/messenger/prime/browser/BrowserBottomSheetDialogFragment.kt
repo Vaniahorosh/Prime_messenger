@@ -666,11 +666,15 @@ class BrowserBottomSheetDialogFragment : BottomSheetDialogFragment() {
         inactivityHandler.postDelayed(expandRunnable, 3500L)
 
         val container = layoutBottomBarContainer as? ViewGroup ?: return
+        val transition = androidx.transition.TransitionSet().apply {
+            addTransition(androidx.transition.Fade())
+            addTransition(androidx.transition.ChangeBounds())
+            duration = 200
+            interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+        }
         androidx.transition.TransitionManager.beginDelayedTransition(
             container,
-            androidx.transition.AutoTransition().apply {
-                duration = 250
-            }
+            transition
         )
         layoutControlsRow.visibility = View.GONE
     }
@@ -681,11 +685,15 @@ class BrowserBottomSheetDialogFragment : BottomSheetDialogFragment() {
         isBottomBarCollapsed = false
 
         val container = layoutBottomBarContainer as? ViewGroup ?: return
+        val transition = androidx.transition.TransitionSet().apply {
+            addTransition(androidx.transition.Fade())
+            addTransition(androidx.transition.ChangeBounds())
+            duration = 200
+            interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+        }
         androidx.transition.TransitionManager.beginDelayedTransition(
             container,
-            androidx.transition.AutoTransition().apply {
-                duration = 250
-            }
+            transition
         )
         layoutControlsRow.visibility = View.VISIBLE
     }
@@ -723,11 +731,15 @@ class BrowserBottomSheetDialogFragment : BottomSheetDialogFragment() {
         inactivityHandler.removeCallbacks(expandRunnable)
 
         val rootContainer = view as? ViewGroup ?: return
+        val transition = androidx.transition.TransitionSet().apply {
+            addTransition(androidx.transition.Fade())
+            addTransition(androidx.transition.ChangeBounds())
+            duration = 200
+            interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+        }
         androidx.transition.TransitionManager.beginDelayedTransition(
             rootContainer,
-            androidx.transition.AutoTransition().apply {
-                duration = 250
-            }
+            transition
         )
         layoutBottomBarContainer.visibility = View.GONE
         btnRestorePanel.visibility = View.VISIBLE
@@ -739,11 +751,15 @@ class BrowserBottomSheetDialogFragment : BottomSheetDialogFragment() {
         isBottomBarCollapsed = false
 
         val rootContainer = view as? ViewGroup ?: return
+        val transition = androidx.transition.TransitionSet().apply {
+            addTransition(androidx.transition.Fade())
+            addTransition(androidx.transition.ChangeBounds())
+            duration = 200
+            interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+        }
         androidx.transition.TransitionManager.beginDelayedTransition(
             rootContainer,
-            androidx.transition.AutoTransition().apply {
-                duration = 250
-            }
+            transition
         )
         btnRestorePanel.visibility = View.GONE
         btnRestorePanel.translationX = 0f

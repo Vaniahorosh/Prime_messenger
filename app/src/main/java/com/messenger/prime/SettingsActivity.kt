@@ -3687,7 +3687,14 @@ class SettingsActivity : AppCompatActivity() {
     private fun toggleAccountCollapsible(b: ActivitySettingsContentBinding) {
         val isExpanded = b.layoutAccountCollapsible.visibility == View.VISIBLE
         b.layoutAccountData.translationY = 0f
-        TransitionManager.beginDelayedTransition(b.layoutAccountData, AutoTransition().apply { duration = 200 })
+        
+        val transitionSet = android.transition.TransitionSet()
+            .addTransition(android.transition.Fade())
+            .addTransition(android.transition.ChangeBounds())
+        transitionSet.duration = 200L
+        transitionSet.interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+        android.transition.TransitionManager.beginDelayedTransition(b.layoutAccountData, transitionSet)
+        
         b.layoutAccountCollapsible.visibility = if (isExpanded) View.GONE else View.VISIBLE
         b.ivAccountArrow.animate().rotation(if (isExpanded) 90f else -90f).setDuration(200).start()
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)

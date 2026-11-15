@@ -513,9 +513,15 @@ class WallpaperEditorActivity : AppCompatActivity() {
         binding.tvLabelPhotoDim.text = "Затемнение фона: ${(photoDimOpacity * 100).toInt()}%"
 
         // Smooth layout transitions
+        val transitionSet = android.transition.TransitionSet().apply {
+            addTransition(android.transition.Fade())
+            addTransition(android.transition.ChangeBounds())
+            duration = 200
+            interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+        }
         android.transition.TransitionManager.beginDelayedTransition(
             findViewById<ViewGroup>(R.id.rootContainer),
-            android.transition.AutoTransition().apply { duration = 200 }
+            transitionSet
         )
 
         when (selectedMode) {

@@ -9765,6 +9765,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         boolean hasMusicInfo = (layoutMusicSection != null && layoutMusicSection.getVisibility() == View.VISIBLE);
         if (!hasVersionInfo && !hasMusicInfo) {
             layoutMusicIsland.animate().cancel();
+            TransitionSet transition = new TransitionSet();
+            transition.addTransition(new Fade());
+            transition.addTransition(new ChangeBounds());
+            transition.setInterpolator(new androidx.interpolator.view.animation.FastOutSlowInInterpolator());
+            transition.setDuration(200);
+            TransitionManager.beginDelayedTransition((ViewGroup) findViewById(R.id.chatRoot), transition);
             layoutMusicIsland.setVisibility(View.GONE);
             layoutMusicIsland.setTranslationY(0f);
             layoutMusicIsland.setAlpha(1f);
@@ -9794,6 +9800,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (isMusicIslandShowing && layoutMusicIsland.getVisibility() == View.VISIBLE) return;
 
         isMusicIslandShowing = true;
+        TransitionSet transition = new TransitionSet();
+        transition.addTransition(new Fade());
+        transition.addTransition(new ChangeBounds());
+        transition.setInterpolator(new androidx.interpolator.view.animation.FastOutSlowInInterpolator());
+        transition.setDuration(200);
+        TransitionManager.beginDelayedTransition((ViewGroup) findViewById(R.id.chatRoot), transition);
         layoutMusicIsland.setVisibility(View.VISIBLE);
         layoutMusicIsland.animate().cancel();
 
@@ -9820,6 +9832,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 .setDuration(200)
                 .setInterpolator(new android.view.animation.AccelerateInterpolator())
                 .withEndAction(() -> {
+                    TransitionSet transition = new TransitionSet();
+                    transition.addTransition(new Fade());
+                    transition.addTransition(new ChangeBounds());
+                    transition.setInterpolator(new androidx.interpolator.view.animation.FastOutSlowInInterpolator());
+                    transition.setDuration(200);
+                    TransitionManager.beginDelayedTransition((ViewGroup) findViewById(R.id.chatRoot), transition);
                     layoutMusicIsland.setVisibility(View.GONE);
                     layoutMusicIsland.setTranslationY(0f);
                     layoutMusicIsland.setAlpha(1f);

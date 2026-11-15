@@ -316,6 +316,12 @@ class PersonInformationActivity : AppCompatActivity() {
 
                 binding.tvSectionHeaderTitle.text = "Фото и видео"
                 binding.ivSectionHeaderIcon.setImageResource(R.drawable.ic_photo)
+                val transitionSet = android.transition.TransitionSet()
+                    .addTransition(android.transition.Fade())
+                    .addTransition(android.transition.ChangeBounds())
+                transitionSet.duration = 200L
+                transitionSet.interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+                android.transition.TransitionManager.beginDelayedTransition(binding.cardSharedContent as android.view.ViewGroup, transitionSet)
                 binding.rvSharedMedia.visibility = if (binding.tvTabPhotoCount.text == "0") View.GONE else View.VISIBLE
                 binding.rvSharedFiles.visibility = View.GONE
                 binding.rvSharedGifs.visibility = View.GONE
@@ -336,6 +342,12 @@ class PersonInformationActivity : AppCompatActivity() {
 
                 binding.tvSectionHeaderTitle.text = "Файлы"
                 binding.ivSectionHeaderIcon.setImageResource(R.drawable.ic_file)
+                val transitionSet = android.transition.TransitionSet()
+                    .addTransition(android.transition.Fade())
+                    .addTransition(android.transition.ChangeBounds())
+                transitionSet.duration = 200L
+                transitionSet.interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+                android.transition.TransitionManager.beginDelayedTransition(binding.cardSharedContent as android.view.ViewGroup, transitionSet)
                 binding.rvSharedMedia.visibility = View.GONE
                 binding.rvSharedFiles.visibility = if (binding.tvTabFilesCount.text == "0") View.GONE else View.VISIBLE
                 binding.rvSharedGifs.visibility = View.GONE
@@ -356,6 +368,12 @@ class PersonInformationActivity : AppCompatActivity() {
 
                 binding.tvSectionHeaderTitle.text = "GIF"
                 binding.ivSectionHeaderIcon.setImageResource(R.drawable.ic_prime_gif)
+                val transitionSet = android.transition.TransitionSet()
+                    .addTransition(android.transition.Fade())
+                    .addTransition(android.transition.ChangeBounds())
+                transitionSet.duration = 200L
+                transitionSet.interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+                android.transition.TransitionManager.beginDelayedTransition(binding.cardSharedContent as android.view.ViewGroup, transitionSet)
                 binding.rvSharedMedia.visibility = View.GONE
                 binding.rvSharedFiles.visibility = View.GONE
                 binding.rvSharedGifs.visibility = if (binding.tvTabGifsCount.text == "0") View.GONE else View.VISIBLE
@@ -376,6 +394,12 @@ class PersonInformationActivity : AppCompatActivity() {
 
                 binding.tvSectionHeaderTitle.text = "Музыка"
                 binding.ivSectionHeaderIcon.setImageResource(R.drawable.ic_music)
+                val transitionSet = android.transition.TransitionSet()
+                    .addTransition(android.transition.Fade())
+                    .addTransition(android.transition.ChangeBounds())
+                transitionSet.duration = 200L
+                transitionSet.interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+                android.transition.TransitionManager.beginDelayedTransition(binding.cardSharedContent as android.view.ViewGroup, transitionSet)
                 binding.rvSharedMedia.visibility = View.GONE
                 binding.rvSharedFiles.visibility = View.GONE
                 binding.rvSharedGifs.visibility = View.GONE
@@ -477,26 +501,19 @@ class PersonInformationActivity : AppCompatActivity() {
 
             if (shouldShow != isToolbarVisible) {
                 isToolbarVisible = shouldShow
-                binding.blurStickyToolbar.animate().cancel()
+                val transitionSet = android.transition.TransitionSet()
+                    .addTransition(android.transition.Fade())
+                    .addTransition(android.transition.ChangeBounds())
+                transitionSet.duration = 200L
+                transitionSet.interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+                android.transition.TransitionManager.beginDelayedTransition(binding.personInfoRoot as android.view.ViewGroup, transitionSet)
+                
                 if (shouldShow) {
                     binding.blurStickyToolbar.visibility = View.VISIBLE
-                    binding.blurStickyToolbar.animate()
-                        .alpha(1f)
-                        .setDuration(220)
-                        .setListener(null)
-                        .start()
+                    binding.blurStickyToolbar.alpha = 1f
                 } else {
-                    binding.blurStickyToolbar.animate()
-                        .alpha(0f)
-                        .setDuration(180)
-                        .setListener(object : android.animation.AnimatorListenerAdapter() {
-                            override fun onAnimationEnd(animation: android.animation.Animator) {
-                                if (!isToolbarVisible) {
-                                    binding.blurStickyToolbar.visibility = View.GONE
-                                }
-                            }
-                        })
-                        .start()
+                    binding.blurStickyToolbar.visibility = View.GONE
+                    binding.blurStickyToolbar.alpha = 0f
                 }
             }
         })

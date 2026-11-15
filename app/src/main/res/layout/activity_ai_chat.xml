@@ -22,7 +22,7 @@
         android:layout_height="match_parent"
         android:clipToPadding="false"
         android:paddingTop="88dp"
-        android:paddingBottom="75dp"
+        android:paddingBottom="72dp"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
         tools:listitem="@layout/item_chat" />
 
@@ -39,8 +39,8 @@
         tools:visibility="visible">
 
         <eightbitlab.com.blurview.BlurView
-            android:layout_width="100dp"
-            android:layout_height="100dp"
+            android:layout_width="96dp"
+            android:layout_height="96dp"
             android:layout_gravity="center"
             android:background="@drawable/bg_blur_glass_panel"
             android:elevation="0dp">
@@ -52,8 +52,8 @@
                 android:orientation="vertical">
 
                 <ImageView
-                    android:layout_width="52dp"
-                    android:layout_height="52dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:src="@drawable/ic_prime_ai"
                     app:tint="@color/prime_brand"
                     android:contentDescription="Ai" />
@@ -87,13 +87,13 @@
             style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
             android:layout_width="wrap_content"
             android:layout_height="48dp"
-            android:layout_marginTop="28dp"
+            android:layout_marginTop="32dp"
             android:text="Новый чат"
             android:textColor="?attr/colorOnPrimary"
             android:textAllCaps="false"
             android:textSize="14sp"
             android:fontFamily="sans-serif-medium"
-            app:cornerRadius="14dp"
+            app:cornerRadius="16dp"
             app:backgroundTint="?attr/colorPrimary"
             app:icon="@drawable/ic_add"
             app:iconTint="?attr/colorOnPrimary" />
@@ -103,13 +103,13 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="wrap_content"
             android:layout_height="48dp"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="16dp"
             android:text="Настроить ключ API"
             android:textColor="?attr/colorPrimary"
             android:textAllCaps="false"
             android:textSize="14sp"
             android:fontFamily="sans-serif-medium"
-            app:cornerRadius="14dp"
+            app:cornerRadius="16dp"
             app:strokeColor="?attr/colorPrimary"
             app:icon="@drawable/ic_settings"
             app:iconTint="?attr/colorPrimary" />
@@ -143,14 +143,14 @@
         android:layout_gravity="top"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingHorizontal="12dp">
+        android:paddingHorizontal="16dp">
 
         <ImageView
             android:id="@+id/btnAiBack"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="10dp"
+            android:padding="12dp"
             android:src="@drawable/ic_arrow_back"
             app:tint="@color/prime_text_primary" />
 
@@ -181,7 +181,7 @@
                     android:layout_height="wrap_content"
                     android:text="Новый чат"
                     android:textColor="@color/prime_text_primary"
-                    android:textSize="17sp"
+                    android:textSize="16sp"
                     android:fontFamily="sans-serif-medium"
                     android:maxLines="1"
                     android:ellipsize="end" />
@@ -202,10 +202,10 @@
 
         <ImageView
             android:id="@+id/btnAiHistory"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="10dp"
+            android:padding="12dp"
             android:src="@drawable/ic_clock"
             app:tint="@color/prime_text_primary"
             android:contentDescription="История чатов" />
@@ -217,18 +217,18 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:layout_marginHorizontal="12dp"
-        android:layout_marginBottom="12dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="16dp"
         android:gravity="bottom"
         android:orientation="horizontal"
-        android:elevation="10dp">
+        android:elevation="8dp">
 
         <!-- Input Box with BlurView Glassmorphism Background -->
         <eightbitlab.com.blurview.BlurView
             android:id="@+id/blurInputContainer"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:minHeight="46dp"
+            android:minHeight="48dp"
             android:layout_weight="1"
             android:background="@drawable/bg_blur_glass_panel"
             android:clipToOutline="true">
@@ -237,7 +237,7 @@
                 android:id="@+id/etAiMessageInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="46dp"
+                android:minHeight="48dp"
                 android:background="@android:color/transparent"
                 android:hint="Сообщение для AI..."
                 android:imeOptions="actionSend"
@@ -255,7 +255,7 @@
             android:id="@+id/btnAiActionRight"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:layout_marginStart="10dp"
+            android:layout_marginStart="8dp"
             android:layout_gravity="bottom"
             android:background="@drawable/bg_circular_mode_active"
             android:backgroundTint="?attr/colorPrimary"
