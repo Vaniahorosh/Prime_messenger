@@ -16,5 +16,9 @@ local.properties
 *.apk
 .kotlin/
 .artifacts/
+backups/
+rewrite_xml.py
+.idea/
+
 
 

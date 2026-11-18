@@ -1,11 +1,5 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
 
-    <style name="Widget.Material3.CardView.Elevated.Custom" parent="Widget.Material3.CardView.Elevated">
-        <item name="strokeColor">#00000000</item>
-        <item name="strokeWidth">0dp</item>
-        <item name="cardBackgroundColor">#1E293B</item>
-    </style>
-
     <style name="Theme.Prime" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/prime_brand</item>
         <item name="colorAccent">@color/prime_brand</item>
@@ -29,9 +23,28 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="p">shortEdges</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
-        <item name="materialCardViewStyle">@style/Widget.Material3.CardView.Elevated.Custom</item>
+
+        <!-- Material 3 Expressive attributes -->
+        <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Material3.HeadlineLarge</item>
+        <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Material3.HeadlineMedium</item>
+        <item name="textAppearanceTitleMedium">@style/TextAppearance.Material3.TitleMedium</item>
+        <item name="textAppearanceBodyLarge">@style/TextAppearance.Material3.BodyLarge</item>
+        <item name="textAppearanceLabelLarge">@style/TextAppearance.Material3.LabelLarge</item>
+
+        <item name="shapeAppearanceCornerExtraLarge">@style/ShapeAppearance.Material3.Expressive.ExtraLarge</item>
+        <item name="shapeAppearanceCornerLarge">@style/ShapeAppearance.Material3.Expressive.Large</item>
+        <item name="shapeAppearanceCornerMedium">@style/ShapeAppearance.Material3.Expressive.Medium</item>
+        <item name="shapeAppearanceCornerSmall">@style/ShapeAppearance.Material3.Expressive.Small</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Material3.Expressive.Large</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Material3.Expressive.Medium</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Material3.Expressive.Small</item>
+
+        <item name="materialSwitchStyle">@style/Widget.Material3.CompoundButton.MaterialSwitch</item>
+        <item name="sliderStyle">@style/Widget.Material3.Slider</item>
+
         <item name="materialAlertDialogTheme">@style/Theme.Prime.AlertDialog</item>
         <item name="popupMenuStyle">@style/Widget.Prime.PopupMenu</item>
         <item name="android:popupMenuStyle">@style/Widget.Prime.PopupMenu</item>
@@ -39,84 +52,40 @@
         <item name="android:dropDownListViewStyle">@style/Widget.Prime.DropDownListView</item>
     </style>
 
-    <style name="Widget.MaterialComponents.TextInputLayout.OutlinedBox" parent="Widget.Material3.TextInputLayout.OutlinedBox">
-        <item name="boxStrokeColor">#334155</item>
-    </style>
-
     <style name="Theme.Prime.Swipe" parent="Theme.Prime">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:colorBackgroundCacheHint">@null</item>
         <item name="android:windowShowWallpaper">false</item>
+        <item name="android:windowAnimationStyle">@style/Animation.Prime.Swipe</item>
     </style>
 
-    <style name="SquareFABShape">
-        <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">15dp</item>
-    </style>
-
-    <style name="CircleImageView">
-        <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">50%</item>
-    </style>
-
-    <style name="Rounded15PercentImageView">
-        <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">24%</item>
-    </style>
-
-    <style name="Theme.Prime.PhotoViewer" parent="Theme.Prime.Swipe">
+    <style name="Theme.Prime.RichEditor" parent="Theme.Prime">
+        <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowActivityTransitions">true</item>
+        <item name="android:windowAnimationStyle">@style/Animation.Prime.Swipe</item>
     </style>
 
-    <!-- Theme Overlays for Custom Color Accents (Dark Theme) -->
-    <style name="ThemeOverlay.Prime.Emerald" parent="">
-        <item name="colorPrimary">#26A69A</item>
-        <item name="colorAccent">#26A69A</item>
-        <item name="colorPrimaryContainer">#CC26A69A</item>
-        <item name="colorSecondary">#26A69A</item>
+    <style name="Theme.Prime.AlertDialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
+        <item name="colorPrimary">@color/prime_brand</item>
+        <item name="colorAccent">@color/prime_brand</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="colorSurface">@color/chat_island_bg</item>
+        <item name="android:colorBackground">@color/chat_island_bg</item>
+        <item name="dialogCornerRadius">26dp</item>
+        <item name="shapeAppearanceMediumComponent">@style/RoundedDialogShape</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/Widget.Prime.Dialog.Title</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/Widget.Prime.Dialog.Body</item>
+        <item name="android:textColorPrimary">@color/dialog_title_color</item>
+        <item name="android:textColorSecondary">@color/dialog_body_color</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Prime.Button.Dialog</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Prime.Button.Dialog.Negative</item>
     </style>
 
-    <style name="ThemeOverlay.Prime.Purple" parent="">
-        <item name="colorPrimary">#B388FF</item>
-        <item name="colorAccent">#B388FF</item>
-        <item name="colorPrimaryContainer">#CCB388FF</item>
-        <item name="colorSecondary">#B388FF</item>
-    </style>
-
-    <style name="ThemeOverlay.Prime.Amber" parent="">
-        <item name="colorPrimary">#FFB74D</item>
-        <item name="colorAccent">#FFB74D</item>
-        <item name="colorPrimaryContainer">#CCFFB74D</item>
-        <item name="colorSecondary">#FFB74D</item>
-    </style>
-
-    <style name="ThemeOverlay.Prime.Ruby" parent="">
-        <item name="colorPrimary">#FF5252</item>
-        <item name="colorAccent">#FF5252</item>
-        <item name="colorPrimaryContainer">#CCFF5252</item>
-        <item name="colorSecondary">#FF5252</item>
-    </style>
-
-    <style name="ThemeOverlay.Prime.Cyan" parent="">
-        <item name="colorPrimary">#4DD0E1</item>
-        <item name="colorAccent">#4DD0E1</item>
-        <item name="colorPrimaryContainer">#CC4DD0E1</item>
-        <item name="colorSecondary">#4DD0E1</item>
-    </style>
-
-    <style name="ThemeOverlay.Prime.Pink" parent="">
-        <item name="colorPrimary">#FF4081</item>
-        <item name="colorAccent">#FF4081</item>
-        <item name="colorPrimaryContainer">#CCFF4081</item>
-        <item name="colorSecondary">#FF4081</item>
-    </style>
-
-    <style name="ThemeOverlay.Prime.Teto" parent="">
-        <item name="colorPrimary">#FF4D6D</item>
-        <item name="colorAccent">#FF4D6D</item>
-        <item name="colorPrimaryContainer">#CCFF4D6D</item>
-        <item name="colorSecondary">#FF4D6D</item>
-    </style>
 </resources>

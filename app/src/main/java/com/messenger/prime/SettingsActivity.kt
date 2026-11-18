@@ -252,6 +252,89 @@ class SettingsActivity : AppCompatActivity() {
         PrimeNotification.show(this, "GIF-аватарка добавлена")
     }
 
+    private val coverEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val coverUriStr = result.data?.getStringExtra("COVER_URI")
+            val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+            val currentUser = sp.getString("current_user", "") ?: ""
+
+            val finalCoverUri = if (!coverUriStr.isNullOrBlank()) {
+                coverUriStr
+            } else {
+                sp.getString("${currentUser}_cover", null) ?: sp.getString("my_profile_cover", null)
+            }
+
+            if (!finalCoverUri.isNullOrBlank()) {
+                sp.edit()
+                    .putString("${currentUser}_cover", finalCoverUri)
+                    .putString("my_profile_cover", finalCoverUri)
+                    .apply()
+            }
+
+            updateHeaderCover()
+            Executors.newSingleThreadExecutor().execute { sendProfileUpdateOverBluetooth() }
+            sendBroadcast(Intent("com.messenger.prime.COVER_CHANGED").setPackage(packageName))
+            PrimeNotification.show(this, "Обложка обновлена")
+        }
+    }
+
+    private fun updateHeaderCover() {
+        val b = binding ?: return
+        val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        val currentUser = sp.getString("current_user", "") ?: ""
+        val coverUriStr = sp.getString("${currentUser}_cover", null)
+            ?: sp.getString("my_profile_cover", null)
+
+        val iv = b.ivProfileCover
+        if (!coverUriStr.isNullOrBlank()) {
+            iv?.visibility = View.VISIBLE
+            iv?.let {
+                Glide.with(this)
+                    .load(Uri.parse(coverUriStr))
+                    .centerCrop()
+                    .into(it)
+            }
+        } else {
+            iv?.visibility = View.GONE
+        }
+    }
+
+    private fun showCoverOptionDialog() {
+        val b = binding ?: return
+        val anchorView = b.btnEditCover ?: return
+        val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        val currentUser = sp.getString("current_user", "") ?: ""
+        val coverUriStr = sp.getString("${currentUser}_cover", null)
+            ?: sp.getString("my_profile_cover", null)
+
+        val hasCover = !coverUriStr.isNullOrBlank()
+        val menu = PrimePopupMenu.create(this, anchorView)
+
+        if (hasCover) {
+            menu.addItem("Изменить обложку", R.drawable.ic_edit) {
+                val intent = Intent(this, CoverEditorActivity::class.java)
+                coverEditorLauncher.launch(intent)
+            }
+            menu.addItem("Удалить обложку", R.drawable.ic_trash) {
+                sp.edit()
+                    .remove("${currentUser}_cover")
+                    .remove("my_profile_cover")
+                    .apply()
+                updateHeaderCover()
+                Executors.newSingleThreadExecutor().execute { sendProfileUpdateOverBluetooth() }
+                sendBroadcast(Intent("com.messenger.prime.COVER_CHANGED").setPackage(packageName))
+                PrimeNotification.show(this, "Обложка удалена")
+            }
+        } else {
+            menu.addItem("Выбрать обложку", R.drawable.ic_edit) {
+                val intent = Intent(this, CoverEditorActivity::class.java)
+                coverEditorLauncher.launch(intent)
+            }
+        }
+
+        menu.show()
+    }
+
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
             val uriStr = it.toString().lowercase()
@@ -352,6 +435,7 @@ class SettingsActivity : AppCompatActivity() {
         setupComposePhoto(b)
         setupListeners(b)
         applyAvatarState(savedAvatarUri)
+        updateHeaderCover()
 
         // Инициализация живого фона в шапке
         b.composeHeaderBackground.apply {
@@ -372,36 +456,52 @@ class SettingsActivity : AppCompatActivity() {
         val sysDensity = resources.displayMetrics.density
         val initialExtraPadding = (12 * sysDensity).toInt()
         val initialTopInset = getStatusBarHeight()
+        val bottomCompactPadding = (4 * sysDensity).toInt()
 
-        b.headerStaticBlock.updatePadding(top = 0)
+        b.headerStaticBlock.updatePadding(top = 0, bottom = 0)
         b.layoutWithPhoto.updatePadding(
             top = initialTopInset + initialExtraPadding,
-            bottom = initialExtraPadding
+            bottom = bottomCompactPadding
         )
         b.layoutNoPhoto.updatePadding(
             top = initialTopInset + initialExtraPadding,
-            bottom = initialExtraPadding
+            bottom = bottomCompactPadding
         )
+
+        b.btnEditCover?.let { btn ->
+            (btn.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+                lp.topMargin = initialTopInset + (16 * sysDensity).toInt()
+                btn.layoutParams = lp
+            }
+        }
 
         ViewCompat.setOnApplyWindowInsetsListener(b.root) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
             val sDensity = resources.displayMetrics.density
             val extraPadding = (12 * sDensity).toInt()
+            val compactPadding = (4 * sDensity).toInt()
             val topInset = if (systemBars.top > 0) systemBars.top else getStatusBarHeight()
 
             b.root.setPadding(cutout.left, 0, cutout.right, 0)
 
-            b.headerStaticBlock.updatePadding(top = 0)
+            b.headerStaticBlock.updatePadding(top = 0, bottom = 0)
             b.layoutWithPhoto.updatePadding(
                 top = maxOf(topInset, cutout.top) + extraPadding,
-                bottom = extraPadding
+                bottom = compactPadding
             )
             b.layoutNoPhoto.updatePadding(
                 top = maxOf(topInset, cutout.top) + extraPadding,
-                bottom = extraPadding
+                bottom = compactPadding
             )
-            
+
+            b.btnEditCover?.let { btn ->
+                (btn.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+                    lp.topMargin = maxOf(topInset, cutout.top) + (16 * sDensity).toInt()
+                    btn.layoutParams = lp
+                }
+            }
+
             b.nestedScrollView.updatePadding(bottom = maxOf(systemBars.bottom, cutout.bottom))
             insets
         }
@@ -617,7 +717,8 @@ class SettingsActivity : AppCompatActivity() {
             b.nestedScrollView.postDelayed({
                 val buttons = listOf(
                     b.btnBackWP, b.btnChangePhotoWP, b.btnLogoutWP, b.btnExtraSettingsWP,
-                    b.btnBackNP, b.btnChangePhotoNP, b.btnLogoutNP, b.btnExtraSettingsNP
+                    b.btnBackNP, b.btnChangePhotoNP, b.btnLogoutNP, b.btnExtraSettingsNP,
+                    b.btnEditCover
                 )
                 
                 val shapes = listOf(
@@ -711,6 +812,10 @@ class SettingsActivity : AppCompatActivity() {
         b.btnLogoutNP.setOnClickListener { showLogoutDialog() }
         b.btnExtraSettingsNP.setOnClickListener { 
             b.layoutSettingsHeader?.let { smoothScrollToView(b.nestedScrollView, it) }
+        }
+
+        b.btnEditCover?.setOnClickListener {
+            showCoverOptionDialog()
         }
 
         b.btnCheckUpdate.setOnClickListener {
@@ -4430,7 +4535,8 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupVideoMessageSection(b: ActivitySettingsContentBinding) {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
 
-        val savedRadiusPercent = sharedPrefs.getInt("video_message_corner_radius", 50)
+        val savedShape = sharedPrefs.getString("video_message_shape", "50") ?: "50"
+        val savedRadiusPercent = sharedPrefs.getInt("video_message_corner_radius", VideoNoteShapeHelper.getCornerRadiusPercent(savedShape, 50))
         val savedSizeDp = sharedPrefs.getInt("video_message_size_dp", 180)
 
         val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
@@ -4450,8 +4556,13 @@ class SettingsActivity : AppCompatActivity() {
         }
         b.cardVideoNotePreviewBlock?.strokeColor = if (isDark) Color.parseColor("#33FFFFFF") else Color.parseColor("#1A000000")
 
-        fun updatePreviewAndLabels(radiusPercent: Int, sizeDp: Int) {
+        fun updatePreviewAndLabels(shapeTag: String, radiusPercent: Int, sizeDp: Int) {
+            val shapeOption = VideoNoteShapeHelper.AVAILABLE_SHAPES.firstOrNull { it.tag.equals(shapeTag, ignoreCase = true) }
+            val shapeName = shapeOption?.displayName ?: if (radiusPercent >= 50) "Круг" else if (radiusPercent == 0) "Квадрат" else "$radiusPercent%"
+            b.tvVideoShapeValue?.text = shapeName
+
             val labelText = when {
+                VideoNoteShapeHelper.isM3EShape(shapeTag) -> shapeName
                 radiusPercent >= 50 -> "$radiusPercent% (Круг)"
                 radiusPercent == 0 -> "0% (Квадрат)"
                 else -> "$radiusPercent% (Сквиркл)"
@@ -4471,20 +4582,12 @@ class SettingsActivity : AppCompatActivity() {
                     frame.layoutParams = lp
                 }
 
-                val cornerRadiusPx = (previewSizePx * (radiusPercent / 100f))
-
-                frame.clipToOutline = true
-                frame.outlineProvider = object : ViewOutlineProvider() {
-                    override fun getOutline(view: View, outline: Outline) {
-                        outline.setRoundRect(0, 0, view.width, view.height, cornerRadiusPx)
-                    }
-                }
-                frame.invalidateOutline()
+                VideoNoteShapeHelper.applyShapeToView(frame, shapeTag, radiusPercent)
             }
 
             b.pbVideoNotePreviewFrame?.let { pb ->
                 pb.isBorderProgressMode = true
-                pb.staticShapeType = radiusPercent.toString()
+                pb.staticShapeType = shapeTag
                 val accentColor = ColorAccentManager.getCurrentAccentColor(this)
                 pb.setIndicatorColor(accentColor)
                 pb.progress = 65
@@ -4502,22 +4605,95 @@ class SettingsActivity : AppCompatActivity() {
         b.sliderVideoCornerRadius?.value = savedRadiusPercent.toFloat().coerceIn(0f, 50f)
         b.sliderVideoSize?.value = savedSizeDp.toFloat().coerceIn(120f, 260f)
 
-        updatePreviewAndLabels(savedRadiusPercent, savedSizeDp)
+        // Setup M3E Shape Chips
+        b.chipGroupVideoShapes?.let { chipGroup ->
+            chipGroup.removeAllViews()
+            val availableShapes = VideoNoteShapeHelper.AVAILABLE_SHAPES
+            val currentShape = sharedPrefs.getString("video_message_shape", "50") ?: "50"
+
+            availableShapes.forEach { shape ->
+                val chip = com.google.android.material.chip.Chip(this).apply {
+                    id = View.generateViewId()
+                    text = shape.displayName
+                    isCheckable = true
+                    isClickable = true
+                    tag = shape.tag
+                    isChecked = shape.tag.equals(currentShape, ignoreCase = true)
+                    setChipBackgroundColorResource(R.color.glass_white_10)
+                    setTextColor(getColor(R.color.prime_text_primary))
+                    chipStrokeWidth = 1f * resources.displayMetrics.density
+                    chipStrokeColor = android.content.res.ColorStateList.valueOf(
+                        if (isChecked) ColorAccentManager.getCurrentAccentColor(this@SettingsActivity)
+                        else getColor(R.color.glass_white_20)
+                    )
+                    setOnClickListener {
+                        chipGroup.check(id)
+                    }
+                }
+                chipGroup.addView(chip)
+            }
+
+            chipGroup.setOnCheckedStateChangeListener { group, checkedIds ->
+                val checkedId = checkedIds.firstOrNull() ?: return@setOnCheckedStateChangeListener
+                val selectedChip = group.findViewById<com.google.android.material.chip.Chip>(checkedId) ?: return@setOnCheckedStateChangeListener
+                val selectedTag = selectedChip.tag as? String ?: return@setOnCheckedStateChangeListener
+
+                val currentRadius = when {
+                    selectedTag == "0" -> 0
+                    selectedTag == "50" -> 50
+                    else -> VideoNoteShapeHelper.getCornerRadiusPercent(selectedTag, b.sliderVideoCornerRadius?.value?.toInt() ?: 50)
+                }
+                val currentSize = b.sliderVideoSize?.value?.toInt() ?: 180
+
+                sharedPrefs.edit()
+                    .putString("video_message_shape", selectedTag)
+                    .putInt("video_message_corner_radius", currentRadius)
+                    .apply()
+
+                b.sliderVideoCornerRadius?.value = currentRadius.toFloat()
+                updatePreviewAndLabels(selectedTag, currentRadius, currentSize)
+                updateResetBtnsVisibility(currentRadius, currentSize)
+
+                for (i in 0 until group.childCount) {
+                    val child = group.getChildAt(i) as? com.google.android.material.chip.Chip ?: continue
+                    val isChildChecked = (child.id == checkedId)
+                    child.chipStrokeColor = android.content.res.ColorStateList.valueOf(
+                        if (isChildChecked) ColorAccentManager.getCurrentAccentColor(this@SettingsActivity)
+                        else getColor(R.color.glass_white_20)
+                    )
+                }
+            }
+        }
+
+        updatePreviewAndLabels(savedShape, savedRadiusPercent, savedSizeDp)
         updateResetBtnsVisibility(savedRadiusPercent, savedSizeDp)
 
         btnResetCorner?.setOnClickListener {
             sharedPrefs.edit().putInt("video_message_corner_radius", 50).putString("video_message_shape", "50").apply()
             b.sliderVideoCornerRadius?.value = 50f
             val currentSize = b.sliderVideoSize?.value?.toInt() ?: 180
-            updatePreviewAndLabels(50, currentSize)
+            updatePreviewAndLabels("50", 50, currentSize)
             updateResetBtnsVisibility(50, currentSize)
+
+            b.chipGroupVideoShapes?.let { group ->
+                for (i in 0 until group.childCount) {
+                    val chip = group.getChildAt(i) as? com.google.android.material.chip.Chip ?: continue
+                    val matches = chip.tag == "50"
+                    chip.isChecked = matches
+                    chip.chipStrokeColor = android.content.res.ColorStateList.valueOf(
+                        if (matches) ColorAccentManager.getCurrentAccentColor(this@SettingsActivity)
+                        else getColor(R.color.glass_white_20)
+                    )
+                }
+            }
         }
 
         btnResetSize?.setOnClickListener {
             sharedPrefs.edit().putInt("video_message_size_dp", 180).apply()
             b.sliderVideoSize?.value = 180f
+            val currentShapeTag = sharedPrefs.getString("video_message_shape", "50") ?: "50"
             val currentRadius = b.sliderVideoCornerRadius?.value?.toInt() ?: 50
-            updatePreviewAndLabels(currentRadius, 180)
+            updatePreviewAndLabels(currentShapeTag, currentRadius, 180)
             updateResetBtnsVisibility(currentRadius, 180)
         }
 
@@ -4526,18 +4702,33 @@ class SettingsActivity : AppCompatActivity() {
             val currentSize = b.sliderVideoSize?.value?.toInt() ?: 180
             updateResetBtnsVisibility(radius, currentSize)
             if (fromUser) {
-                sharedPrefs.edit().putInt("video_message_corner_radius", radius).putString("video_message_shape", radius.toString()).apply()
-                updatePreviewAndLabels(radius, currentSize)
+                val shapeTag = radius.toString()
+                sharedPrefs.edit().putInt("video_message_corner_radius", radius).putString("video_message_shape", shapeTag).apply()
+                updatePreviewAndLabels(shapeTag, radius, currentSize)
+
+                b.chipGroupVideoShapes?.let { group ->
+                    for (i in 0 until group.childCount) {
+                        val chip = group.getChildAt(i) as? com.google.android.material.chip.Chip ?: continue
+                        val tag = chip.tag as? String
+                        val matches = (radius >= 50 && tag == "50") || (radius == 0 && tag == "0")
+                        chip.isChecked = matches
+                        chip.chipStrokeColor = android.content.res.ColorStateList.valueOf(
+                            if (matches) ColorAccentManager.getCurrentAccentColor(this@SettingsActivity)
+                            else getColor(R.color.glass_white_20)
+                        )
+                    }
+                }
             }
         }
 
         b.sliderVideoSize?.addOnChangeListener { _, value, fromUser ->
             val size = value.toInt()
+            val currentShapeTag = sharedPrefs.getString("video_message_shape", "50") ?: "50"
             val currentRadius = b.sliderVideoCornerRadius?.value?.toInt() ?: 50
             updateResetBtnsVisibility(currentRadius, size)
             if (fromUser) {
                 sharedPrefs.edit().putInt("video_message_size_dp", size).apply()
-                updatePreviewAndLabels(currentRadius, size)
+                updatePreviewAndLabels(currentShapeTag, currentRadius, size)
             }
         }
 

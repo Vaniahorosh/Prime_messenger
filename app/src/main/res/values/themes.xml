@@ -72,11 +72,19 @@
         <item name="cornerSize">12dp</item>
     </style>
 
+    <style name="Animation.Prime.Swipe" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/prime_open_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/prime_open_exit</item>
+        <item name="android:activityCloseEnterAnimation">@anim/prime_close_enter</item>
+        <item name="android:activityCloseExitAnimation">@anim/prime_close_exit</item>
+    </style>
+
     <style name="Theme.Prime.Swipe" parent="Theme.Prime">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:colorBackgroundCacheHint">@null</item>
         <item name="android:windowShowWallpaper">false</item>
+        <item name="android:windowAnimationStyle">@style/Animation.Prime.Swipe</item>
     </style>
 
     <style name="SquareFABShape">
@@ -229,5 +237,6 @@
         <item name="android:windowIsFloating">false</item>
         <item name="android:backgroundDimEnabled">false</item>
         <item name="android:windowActivityTransitions">true</item>
+        <item name="android:windowAnimationStyle">@style/Animation.Prime.Swipe</item>
     </style>
 </resources>

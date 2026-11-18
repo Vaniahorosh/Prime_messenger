@@ -24,27 +24,65 @@
             android:clipToPadding="false"
             android:paddingBottom="48dp">
 
+            <!-- Live Wallpaper Background (240dp height for 50/50 avatar overlap) -->
+            <androidx.compose.ui.platform.ComposeView
+                android:id="@+id/composeHeaderBackground"
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+            <!-- Profile Cover Image (Renders ON TOP of Live Wallpaper) -->
+            <ImageView
+                android:id="@+id/ivProfileCover"
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                android:scaleType="centerCrop"
+                android:visibility="gone"
+                android:contentDescription="Обложка профиля"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+            <!-- Кнопка редактирования обложки (Карандашик) -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEditCover"
+                style="@style/Widget.MaterialComponents.Button.Icon"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginEnd="16dp"
+                android:backgroundTint="@color/glass_white_20"
+                android:elevation="20dp"
+                android:padding="0dp"
+                android:insetLeft="0dp"
+                android:insetTop="0dp"
+                android:insetRight="0dp"
+                android:insetBottom="0dp"
+                android:contentDescription="Изменить обложку"
+                app:cornerRadius="16dp"
+                app:icon="@drawable/ic_edit"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconSize="24dp"
+                app:iconTint="@color/prime_text_primary"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
             <!-- Шапка с фирменным цветом -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/headerStaticBlock"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="135dp"
                 android:elevation="4dp"
-                android:paddingBottom="24dp"
+                android:paddingBottom="0dp"
                 android:clipChildren="false"
                 android:clipToPadding="false"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
-
-                <androidx.compose.ui.platform.ComposeView
-                    android:id="@+id/composeHeaderBackground"
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
 
                 <!-- Режим с ФОТО -->
                 <androidx.constraintlayout.widget.ConstraintLayout
@@ -52,7 +90,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:paddingTop="16dp"
-                    android:paddingBottom="16dp"
+                    android:paddingBottom="4dp"
                     android:clipChildren="false"
                     android:clipToPadding="false"
                     app:layout_constraintWidth_max="650dp"
@@ -60,170 +98,17 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent">
 
-                    <!-- Кнопка Назад -->
-                    <LinearLayout
-                        android:id="@+id/btnBackWPLayout"
-                        android:layout_width="110dp"
-                        android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:orientation="vertical"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent">
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnBackWP"
-                            style="@style/Widget.MaterialComponents.Button.Icon"
-                            android:layout_width="56dp"
-                            android:layout_height="56dp"
-                            android:backgroundTint="@color/glass_white_20"
-                            android:padding="0dp"
-                            android:insetLeft="0dp"
-                            android:insetTop="0dp"
-                            android:insetRight="0dp"
-                            android:insetBottom="0dp"
-                            app:cornerRadius="16dp"
-                            app:icon="@drawable/ic_arrow_back"
-                            app:iconGravity="textStart"
-                            app:iconPadding="0dp"
-                            app:iconSize="24dp"
-                            app:iconTint="@color/prime_text_primary" />
-                        <TextView
-                            android:id="@+id/tvBackLabelWP"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Назад"
-                            android:textColor="@color/prime_text_primary"
-                            android:alpha="0.8"
-                            android:textSize="11sp"
-                            android:fontFamily="sans-serif-medium" />
-                    </LinearLayout>
-
-                    <!-- Левая колонка кнопок -->
-                    <LinearLayout
-                        android:id="@+id/layoutLeftColumn"
-                        android:layout_width="110dp"
-                        android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:orientation="vertical"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/btnBackWPLayout"
-                        android:layout_marginTop="8dp">
-
-                        <LinearLayout
-                            android:id="@+id/btnChangePhotoWPLayout"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:gravity="center"
-                            android:orientation="vertical">
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnChangePhotoWP"
-                                style="@style/Widget.MaterialComponents.Button.Icon"
-                                android:layout_width="56dp"
-                                android:layout_height="56dp"
-                                android:backgroundTint="@color/glass_white_20"
-                                android:padding="0dp"
-                                android:insetLeft="0dp"
-                                android:insetTop="0dp"
-                                android:insetRight="0dp"
-                                android:insetBottom="0dp"
-                                app:cornerRadius="16dp"
-                                app:icon="@drawable/ic_add"
-                                app:iconGravity="textStart"
-                                app:iconPadding="0dp"
-                                app:iconSize="24dp"
-                                app:iconTint="@color/prime_text_primary" />
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Фото"
-                                android:textColor="@color/prime_text_primary"
-                                android:alpha="0.8"
-                                android:textSize="11sp"
-                                android:fontFamily="sans-serif-medium" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/btnLogoutWPLayout"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:gravity="center"
-                            android:orientation="vertical">
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnLogoutWP"
-                                style="@style/Widget.MaterialComponents.Button.Icon"
-                                android:layout_width="56dp"
-                                android:layout_height="56dp"
-                                android:backgroundTint="@color/glass_white_20"
-                                android:padding="0dp"
-                                android:insetLeft="0dp"
-                                android:insetTop="0dp"
-                                android:insetRight="0dp"
-                                android:insetBottom="0dp"
-                                app:cornerRadius="16dp"
-                                app:icon="@drawable/ic_exit_to_app"
-                                app:iconGravity="textStart"
-                                app:iconPadding="0dp"
-                                app:iconSize="24dp"
-                                app:iconTint="@color/prime_danger" />
-                            <TextView
-                                android:id="@+id/tvLogoutWP"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Выход"
-                                android:textColor="@color/prime_danger"
-                                android:textSize="11sp"
-                                android:fontFamily="sans-serif-medium" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/btnExtraSettingsWPLayout"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:gravity="center"
-                            android:orientation="vertical">
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnExtraSettingsWP"
-                                style="@style/Widget.MaterialComponents.Button.Icon"
-                                android:layout_width="56dp"
-                                android:layout_height="56dp"
-                                android:backgroundTint="@color/glass_white_20"
-                                android:padding="0dp"
-                                android:insetLeft="0dp"
-                                android:insetTop="0dp"
-                                android:insetRight="0dp"
-                                android:insetBottom="0dp"
-                                app:cornerRadius="16dp"
-                                app:icon="@drawable/ic_settings"
-                                app:iconGravity="textStart"
-                                app:iconPadding="0dp"
-                                app:iconSize="24dp"
-                                app:iconTint="@color/prime_text_primary" />
-                            <TextView
-                                android:id="@+id/tvExtraSettingsWP"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="К Настройкам"
-                                android:textColor="@color/prime_text_primary"
-                                android:alpha="0.8"
-                                android:textSize="11sp"
-                                android:fontFamily="sans-serif-medium" />
-                        </LinearLayout>
-                    </LinearLayout>
-
-                    <!-- Карточка с фото -->
+                    <!-- Avatar card in center (Extra Large 210dp) -->
                     <androidx.cardview.widget.CardView
                         android:id="@+id/photoCard"
-                        android:layout_width="0dp"
-                        android:layout_height="0dp"
-                        android:layout_marginEnd="16dp"
+                        android:layout_width="210dp"
+                        android:layout_height="210dp"
                         app:cardBackgroundColor="@color/glass_white_10"
-                        app:cardCornerRadius="24dp"
+                        app:cardCornerRadius="38dp"
                         app:cardElevation="8dp"
-                        app:layout_constraintBottom_toBottomOf="@+id/layoutLeftColumn"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toEndOf="@+id/layoutLeftColumn"
-                        app:layout_constraintTop_toTopOf="parent">
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent">
 
                         <androidx.constraintlayout.widget.ConstraintLayout
                             android:layout_width="match_parent"
@@ -233,7 +118,8 @@
                                 android:id="@+id/ivPhotoCard"
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
-                                android:scaleType="centerCrop" />
+                                android:scaleType="centerCrop"
+                                android:contentDescription="Аватар профиля" />
 
                             <TextView
                                 android:id="@+id/tvAvatarCounter"
@@ -257,52 +143,207 @@
                                 tools:visibility="visible"
                                 tools:alpha="1"
                                 tools:translationY="0dp" />
-
-                            <View
-                                android:layout_width="match_parent"
-                                android:layout_height="90dp"
-                                android:background="@drawable/bg_photo_info_gradient"
-                                app:layout_constraintBottom_toBottomOf="parent" />
-
-                            <!-- Контейнер для текста -->
-                            <androidx.constraintlayout.widget.ConstraintLayout
-                                
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent">
-
-                                <TextView
-                                    android:id="@+id/tvUserNameWP"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginStart="12dp"
-                                    android:layout_marginEnd="16dp"
-                                    android:layout_marginBottom="2dp"
-                                    android:textColor="@color/white"
-                                    android:textSize="22sp"
-                                    android:fontFamily="sans-serif-medium"
-                                    android:singleLine="true"
-                                    android:ellipsize="marquee"
-                                    android:marqueeRepeatLimit="marquee_forever"
-                                    android:scrollHorizontally="true"
-                                    android:focusable="true"
-                                    android:focusableInTouchMode="true"
-                                    app:layout_constraintBottom_toTopOf="@+id/tvStatusWP"
-                                    app:layout_constraintEnd_toEndOf="parent"
-                                    app:layout_constraintStart_toStartOf="parent" />
-
-                                <TextView
-                                    android:id="@+id/tvStatusWP"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginBottom="12dp"
-                                    android:text="в сети"
-                                    android:textColor="#E6FFFFFF"
-                                    android:textSize="12sp"
-                                    app:layout_constraintBottom_toBottomOf="parent"
-                                    app:layout_constraintStart_toStartOf="@+id/tvUserNameWP" />
-                            </androidx.constraintlayout.widget.ConstraintLayout>
                         </androidx.constraintlayout.widget.ConstraintLayout>
                     </androidx.cardview.widget.CardView>
+
+                    <!-- Имя пользователя по центру под аватаркой -->
+                    <TextView
+                        android:id="@+id/tvUserNameWP"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:layout_marginHorizontal="24dp"
+                        android:textColor="@color/prime_text_primary"
+                        android:textSize="24sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:singleLine="true"
+                        android:gravity="center"
+                        android:ellipsize="marquee"
+                        android:marqueeRepeatLimit="marquee_forever"
+                        android:scrollHorizontally="true"
+                        android:focusable="true"
+                        android:focusableInTouchMode="true"
+                        app:layout_constraintTop_toBottomOf="@id/photoCard"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <!-- Статус "в сети" по центру под именем -->
+                    <TextView
+                        android:id="@+id/tvStatusWP"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="В сети"
+                        android:textColor="@color/prime_text_secondary"
+                        android:textSize="14sp"
+                        android:fontFamily="sans-serif"
+                        app:layout_constraintTop_toBottomOf="@id/tvUserNameWP"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <!-- Left Column Action Buttons (All 4 buttons on left side) -->
+                    <LinearLayout
+                        android:id="@+id/layoutLeftColumn"
+                        android:layout_width="110dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:elevation="16dp"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
+                        app:layout_constraintEnd_toStartOf="@id/photoCard"
+                        app:layout_constraintTop_toTopOf="@id/photoCard"
+                        app:layout_constraintBottom_toBottomOf="@id/photoCard">
+
+                        <!-- 1. Кнопка Назад -->
+                        <LinearLayout
+                            android:id="@+id/btnBackWPLayout"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnBackWP"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_arrow_back"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="24dp"
+                                app:iconTint="@color/prime_text_primary" />
+
+                            <TextView
+                                android:id="@+id/tvBackLabelWP"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Назад"
+                                android:textColor="@color/prime_text_primary"
+                                android:alpha="0.8"
+                                android:textSize="10sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <!-- 2. Кнопка Фото -->
+                        <LinearLayout
+                            android:id="@+id/btnChangePhotoWPLayout"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnChangePhotoWP"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_add"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="24dp"
+                                app:iconTint="@color/prime_text_primary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Фото"
+                                android:textColor="@color/prime_text_primary"
+                                android:alpha="0.8"
+                                android:textSize="10sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <!-- 3. Кнопка Выход -->
+                        <LinearLayout
+                            android:id="@+id/btnLogoutWPLayout"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnLogoutWP"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_exit_to_app"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="24dp"
+                                app:iconTint="@color/prime_danger" />
+
+                            <TextView
+                                android:id="@+id/tvLogoutWP"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Выход"
+                                android:textColor="@color/prime_danger"
+                                android:textSize="10sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <!-- 4. Кнопка К Настройкам -->
+                        <LinearLayout
+                            android:id="@+id/btnExtraSettingsWPLayout"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnExtraSettingsWP"
+                                style="@style/Widget.MaterialComponents.Button.Icon"
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:backgroundTint="@color/glass_white_20"
+                                android:padding="0dp"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="16dp"
+                                app:icon="@drawable/ic_settings"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="24dp"
+                                app:iconTint="@color/prime_text_primary" />
+
+                            <TextView
+                                android:id="@+id/tvExtraSettingsWP"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="К Настройкам"
+                                android:textColor="@color/prime_text_primary"
+                                android:alpha="0.8"
+                                android:textSize="10sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+                    </LinearLayout>
                 </androidx.constraintlayout.widget.ConstraintLayout>
 
                 <!-- Режим БЕЗ фото -->
@@ -498,7 +539,7 @@
                     android:id="@+id/layoutAccountData"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
+                    android:layout_marginTop="8dp"
                     android:layout_marginHorizontal="24dp"
                     android:orientation="vertical"
                     android:padding="20dp"
@@ -3540,6 +3581,47 @@
                                     app:labelBehavior="withinBounds"
                                     app:thumbColor="@color/prime_brand"
                                     app:trackColorActive="@color/prime_brand" />
+
+                                <!-- Селектор M3E Фигур видеокружка -->
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal"
+                                    android:layout_marginTop="10dp"
+                                    android:layout_marginBottom="4dp">
+                                    <TextView
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:text="Форма кружка (M3E)"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="14sp"
+                                        android:fontFamily="sans-serif-medium" />
+                                    <TextView
+                                        android:id="@+id/tvVideoShapeValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Круг"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="12sp"
+                                        android:fontFamily="sans-serif-medium" />
+                                </LinearLayout>
+
+                                <HorizontalScrollView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:scrollbars="none"
+                                    android:overScrollMode="never"
+                                    android:layout_marginBottom="8dp">
+
+                                    <com.google.android.material.chip.ChipGroup
+                                        android:id="@+id/chipGroupVideoShapes"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        app:singleSelection="true"
+                                        app:singleLine="true" />
+                                </HorizontalScrollView>
 
                                 <!-- Скриптор 2: Локальный размер -->
                                 <LinearLayout

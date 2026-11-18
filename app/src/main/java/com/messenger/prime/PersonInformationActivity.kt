@@ -484,36 +484,26 @@ class PersonInformationActivity : AppCompatActivity() {
 
         updateStickyHeaderData()
 
-        binding.nestedScrollView.setOnScrollChangeListener(androidx.core.widget.NestedScrollView.OnScrollChangeListener { _, _, _, _, _ ->
+        binding.nestedScrollView.setOnScrollChangeListener(androidx.core.widget.NestedScrollView.OnScrollChangeListener { _, _, scrollY, _, _ ->
             val photoCard = binding.photoCard
             if (!photoCard.isAttachedToWindow) return@OnScrollChangeListener
 
-            val locationPhoto = IntArray(2)
-            photoCard.getLocationOnScreen(locationPhoto)
-
-            val locationScroll = IntArray(2)
-            binding.nestedScrollView.getLocationOnScreen(locationScroll)
-
-            val photoBottomRelative = (locationPhoto[1] + photoCard.height) - locationScroll[1]
-            val toolbarHeight = binding.blurStickyToolbar.height.coerceAtLeast(1)
-
-            val shouldShow = hasAnySharedMedia && (photoBottomRelative <= toolbarHeight + 12)
+            val shouldShow = hasAnySharedMedia && (scrollY > 250)
 
             if (shouldShow != isToolbarVisible) {
                 isToolbarVisible = shouldShow
-                val transitionSet = android.transition.TransitionSet()
-                    .addTransition(android.transition.Fade())
-                    .addTransition(android.transition.ChangeBounds())
-                transitionSet.duration = 200L
-                transitionSet.interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
-                android.transition.TransitionManager.beginDelayedTransition(binding.personInfoRoot as android.view.ViewGroup, transitionSet)
-                
+                binding.blurStickyToolbar.animate().cancel()
                 if (shouldShow) {
                     binding.blurStickyToolbar.visibility = View.VISIBLE
-                    binding.blurStickyToolbar.alpha = 1f
+                    binding.blurStickyToolbar.animate().alpha(1f).setDuration(200).setListener(null).start()
                 } else {
-                    binding.blurStickyToolbar.visibility = View.GONE
-                    binding.blurStickyToolbar.alpha = 0f
+                    binding.blurStickyToolbar.animate().alpha(0f).setDuration(180).setListener(object : android.animation.AnimatorListenerAdapter() {
+                        override fun onAnimationEnd(animation: android.animation.Animator) {
+                            if (!isToolbarVisible) {
+                                binding.blurStickyToolbar.visibility = View.GONE
+                            }
+                        }
+                    }).start()
                 }
             }
         })
@@ -668,7 +658,32 @@ class PersonInformationActivity : AppCompatActivity() {
 
         setupAvatarCardSwipe()
         updateHeaderPhoto()
+        updateHeaderCover()
         updateStickyHeaderData()
+    }
+
+    private fun updateHeaderCover() {
+        val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+        val currentUser = sp.getString("current_user", "") ?: ""
+        val coverUriStr = if (isNotes) {
+            sp.getString("${currentUser}_cover", null) ?: sp.getString("my_profile_cover", null)
+        } else {
+            val fromUser = if (!targetUsername.isNullOrEmpty()) sp.getString("contact_cover_$targetUsername", null) else null
+            val fromAddr = if (!deviceAddress.isNullOrEmpty()) sp.getString("contact_cover_$deviceAddress", null) else null
+            fromUser ?: fromAddr
+        }
+
+        binding.ivProfileCover?.let { iv ->
+            if (!coverUriStr.isNullOrBlank()) {
+                iv.visibility = View.VISIBLE
+                Glide.with(this)
+                    .load(Uri.parse(coverUriStr))
+                    .centerCrop()
+                    .into(iv)
+            } else {
+                iv.visibility = View.GONE
+            }
+        }
     }
 
     private fun updateHeaderPhoto() {
@@ -984,10 +999,10 @@ class PersonInformationActivity : AppCompatActivity() {
         val sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val isReaderMode = sp.getBoolean("reader_mode_${deviceAddress ?: targetUsername}", false)
         if (isReaderMode) {
-            binding.tvReaderModeLabel.text = "Выкл. читателя"
+            binding.tvReaderModeLabel?.text = "Выкл. читателя"
             binding.btnReaderMode.setIconResource(R.drawable.ic_close)
         } else {
-            binding.tvReaderModeLabel.text = "Читатель"
+            binding.tvReaderModeLabel?.text = "Читатель"
             binding.btnReaderMode.setIconResource(R.drawable.ic_book)
         }
 
@@ -1005,11 +1020,11 @@ class PersonInformationActivity : AppCompatActivity() {
                 val disconnectIntent = Intent("com.messenger.prime.DISCONNECT_REQUESTED").setPackage(packageName)
                 sendBroadcast(disconnectIntent)
                 
-                binding.tvReaderModeLabel.text = "Выкл. читателя"
+                binding.tvReaderModeLabel?.text = "Выкл. читателя"
                 binding.btnReaderMode.setIconResource(R.drawable.ic_close)
                 PrimeNotification.show(this, "Включен режим читателя")
             } else {
-                binding.tvReaderModeLabel.text = "Читатель"
+                binding.tvReaderModeLabel?.text = "Читатель"
                 binding.btnReaderMode.setIconResource(R.drawable.ic_book)
                 PrimeNotification.show(this, "Режим читателя отключен")
             }

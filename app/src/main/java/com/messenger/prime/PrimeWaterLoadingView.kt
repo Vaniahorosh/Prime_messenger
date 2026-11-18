@@ -253,6 +253,23 @@ class PrimeWaterLoadingView @JvmOverloads constructor(
         val radius = (min(w, h) / 2f) - strokeHalf
         reusableNativePath.rewind()
 
+        val shapePath = VideoNoteShapeHelper.getShapePath(staticShapeType, w, h, strokeHalf)
+        if (shapePath != null) {
+            reusableNativePath.set(shapePath)
+            // Track frame
+            canvas.drawPath(reusableNativePath, trackPaint)
+
+            // Active perimeter progress
+            pathMeasure.setPath(reusableNativePath, false)
+            val length = pathMeasure.length
+            val fillPercent = if (max > 0) progress.toFloat() / max.toFloat() else 0f
+
+            segmentPath.rewind()
+            pathMeasure.getSegment(0f, length * fillPercent, segmentPath, true)
+            canvas.drawPath(segmentPath, activeProgressPaint)
+            return
+        }
+
         val density = resources.displayMetrics.density
         var cornerRadiusPx = radius
         try {

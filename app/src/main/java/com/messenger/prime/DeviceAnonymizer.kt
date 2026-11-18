@@ -44,10 +44,12 @@ object DeviceAnonymizer {
     @JvmStatic
     fun getAnonymizedName(rawName: String?, macAddress: String? = null): String {
         val candidate = rawName?.trim()
+        if (candidate == "Prime Собеседник") {
+            return "Prime Собеседник"
+        }
         if (!candidate.isNullOrBlank() && 
             !isMacAddress(candidate) && 
             candidate != "Собеседник" && 
-            candidate != "Prime Собеседник" &&
             candidate != "Bluetooth-устройство" &&
             candidate != "Устройство Bluetooth" &&
             !candidate.startsWith("Собеседник #")) {

@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -21,53 +20,162 @@
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:clipChildren="false"
-            android:clipToPadding="false"
             android:paddingBottom="40dp">
 
-            <!-- Шапка с живым фоном -->
+            <!-- Live Wallpaper Background (Underneath) -->
+            <androidx.compose.ui.platform.ComposeView
+                android:id="@+id/composeHeaderBackground"
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+            <!-- Profile Cover Image (Renders ON TOP of Live Wallpaper) -->
+            <ImageView
+                android:id="@+id/ivProfileCover"
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                android:scaleType="centerCrop"
+                android:visibility="gone"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+            <!-- Content with Photo and Buttons -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/headerStaticBlock"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:elevation="4dp"
+                android:layout_marginTop="135dp"
                 android:paddingBottom="24dp"
                 android:clipChildren="false"
                 android:clipToPadding="false"
-                app:layout_constraintTop_toTopOf="parent">
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
 
-                <androidx.compose.ui.platform.ComposeView
-                    android:id="@+id/composeHeaderBackground"
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
-
-                <!-- Контент с фото и кнопками -->
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/layoutWithPhoto"
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:paddingTop="16dp"
-                    android:paddingBottom="16dp"
                     android:clipChildren="false"
                     android:clipToPadding="false"
+                    app:layout_constraintWidth_max="650dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent">
 
-                    <!-- Левая колонка кнопок -->
+                    <!-- Avatar card in center (Extra Large 210dp, 50/50 overlap) -->
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/photoCard"
+                        android:layout_width="210dp"
+                        android:layout_height="210dp"
+                        app:cardBackgroundColor="@color/glass_white_10"
+                        app:cardCornerRadius="38dp"
+                        app:cardElevation="8dp"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent">
+
+                        <androidx.constraintlayout.widget.ConstraintLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+
+                            <ImageView
+                                android:id="@+id/ivPhotoCard"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:scaleType="centerCrop"
+                                android:transitionName="transition_avatar"
+                                android:contentDescription="Фото собеседника" />
+
+                            <TextView
+                                android:id="@+id/tvAvatarCounter"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:background="@drawable/bg_date_bubble"
+                                android:textColor="@color/white"
+                                android:textSize="12sp"
+                                android:textStyle="bold"
+                                android:paddingHorizontal="12dp"
+                                android:paddingVertical="4dp"
+                                android:elevation="10dp"
+                                android:alpha="0"
+                                android:translationY="-30dp"
+                                android:visibility="gone"
+                                app:layout_constraintTop_toTopOf="parent"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                tools:text="1 из 3"
+                                tools:visibility="visible"
+                                tools:alpha="1"
+                                tools:translationY="0dp" />
+                        </androidx.constraintlayout.widget.ConstraintLayout>
+                    </androidx.cardview.widget.CardView>
+
+                    <TextView
+                        android:id="@+id/tvUserNameWP"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:layout_marginHorizontal="24dp"
+                        android:textColor="@color/prime_text_primary"
+                        android:textSize="24sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:singleLine="true"
+                        android:gravity="center"
+                        android:transitionName="transition_name"
+                        app:layout_constraintTop_toBottomOf="@id/photoCard"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <LinearLayout
+                        android:id="@+id/layoutStatusWPContainer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        app:layout_constraintTop_toBottomOf="@id/tvUserNameWP"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent">
+
+                        <TextView
+                            android:id="@+id/tvStatusWP"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="в сети"
+                            android:textColor="@color/prime_text_secondary"
+                            android:textSize="14sp" />
+
+                        <ImageView
+                            android:id="@+id/ivVersionStatusBadge"
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:layout_marginStart="6dp"
+                            android:visibility="gone"
+                            android:contentDescription="Статус версии"
+                            android:src="@drawable/ic_error"
+                            app:tint="@color/prime_warning" />
+                    </LinearLayout>
+
+                    <!-- Left Column Action Buttons with Text Labels (Top-most Z-order) -->
                     <LinearLayout
                         android:id="@+id/layoutLeftColumn"
                         android:layout_width="110dp"
                         android:layout_height="wrap_content"
                         android:gravity="center"
                         android:orientation="vertical"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        android:layout_marginTop="8dp">
+                        android:elevation="16dp"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
+                        app:layout_constraintEnd_toStartOf="@id/photoCard"
+                        app:layout_constraintTop_toTopOf="@id/photoCard"
+                        app:layout_constraintBottom_toBottomOf="@id/photoCard">
 
-                        <!-- 1. Кнопка Назад -->
+                        <!-- 1. Button Back -->
                         <LinearLayout
                             android:id="@+id/btnBackLayout"
                             android:layout_width="wrap_content"
@@ -80,8 +188,7 @@
                                 style="@style/Widget.MaterialComponents.Button.Icon"
                                 android:layout_width="56dp"
                                 android:layout_height="56dp"
-                                app:backgroundTint="@android:color/transparent"
-                                app:elevation="0dp"
+                                android:backgroundTint="@color/glass_white_20"
                                 android:padding="0dp"
                                 android:insetLeft="0dp"
                                 android:insetTop="0dp"
@@ -105,7 +212,7 @@
                                 android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
-                        <!-- 2. Кнопка Просмотр фото -->
+                        <!-- 2. Button View Photo -->
                         <LinearLayout
                             android:id="@+id/btnViewPhotoLayout"
                             android:layout_width="wrap_content"
@@ -142,7 +249,7 @@
                                 android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
-                        <!-- 3. Кнопка Режим читателя -->
+                        <!-- 3. Button Reader Mode -->
                         <LinearLayout
                             android:id="@+id/btnReaderModeLayout"
                             android:layout_width="wrap_content"
@@ -180,7 +287,7 @@
                                 android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
-                        <!-- 4. Кнопка Удалить чат -->
+                        <!-- 4. Button Delete Chat -->
                         <LinearLayout
                             android:id="@+id/btnDeleteChatLayout"
                             android:layout_width="wrap_content"
@@ -216,121 +323,9 @@
                                 android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
                     </LinearLayout>
-
-                    <!-- Карточка с фото собеседника -->
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/photoCard"
-                        android:layout_width="0dp"
-                        android:layout_height="0dp"
-                        android:layout_marginEnd="16dp"
-                        app:cardBackgroundColor="@color/glass_white_10"
-                        app:cardCornerRadius="24dp"
-                        app:cardElevation="4dp"
-                        app:layout_constraintBottom_toBottomOf="@+id/layoutLeftColumn"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toEndOf="@+id/layoutLeftColumn"
-                        app:layout_constraintTop_toTopOf="parent">
-
-                        <androidx.constraintlayout.widget.ConstraintLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent">
-
-                            <ImageView
-                                android:id="@+id/ivPhotoCard"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:scaleType="centerCrop"
-                                android:transitionName="transition_avatar"
-                                android:contentDescription="Фото собеседника" />
-
-                            <TextView
-                                android:id="@+id/tvAvatarCounter"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="12dp"
-                                android:background="@drawable/bg_date_bubble"
-                                android:textColor="@color/white"
-                                android:textSize="12sp"
-                                android:textStyle="bold"
-                                android:paddingHorizontal="12dp"
-                                android:paddingVertical="4dp"
-                                android:elevation="10dp"
-                                android:alpha="0"
-                                android:translationY="-30dp"
-                                android:visibility="gone"
-                                app:layout_constraintTop_toTopOf="parent"
-                                app:layout_constraintStart_toStartOf="parent"
-                                app:layout_constraintEnd_toEndOf="parent"
-                                tools:text="1 из 3"
-                                tools:visibility="visible"
-                                tools:alpha="1"
-                                tools:translationY="0dp" />
-
-                            <View
-                                android:id="@+id/viewPhotoInfoGradient"
-                                android:layout_width="match_parent"
-                                android:layout_height="90dp"
-                                android:background="@drawable/bg_photo_info_gradient"
-                                app:layout_constraintBottom_toBottomOf="parent" />
-
-                            <!-- Текст поверх фото -->
-                            <androidx.constraintlayout.widget.ConstraintLayout
-                                android:id="@+id/layoutPhotoInternal"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent">
-
-                                <TextView
-                                    android:id="@+id/tvUserNameWP"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginStart="16dp"
-                                    android:layout_marginEnd="16dp"
-                                    android:layout_marginBottom="4dp"
-                                    android:textColor="@color/white"
-                                    android:textSize="20sp"
-                                    android:fontFamily="sans-serif-medium"
-                                    android:singleLine="true"
-                                    android:ellipsize="marquee"
-                                    android:transitionName="transition_name"
-                                    app:layout_constraintBottom_toTopOf="@+id/layoutStatusWPContainer"
-                                    app:layout_constraintEnd_toEndOf="parent"
-                                    app:layout_constraintStart_toStartOf="parent" />
-
-                                <LinearLayout
-                                    android:id="@+id/layoutStatusWPContainer"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginBottom="16dp"
-                                    android:gravity="center_vertical"
-                                    android:orientation="horizontal"
-                                    app:layout_constraintBottom_toBottomOf="parent"
-                                    app:layout_constraintStart_toStartOf="@+id/tvUserNameWP">
-
-                                    <TextView
-                                        android:id="@+id/tvStatusWP"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="в сети"
-                                        android:textColor="#E6FFFFFF"
-                                        android:textSize="12sp" />
-
-                                    <ImageView
-                                        android:id="@+id/ivVersionStatusBadge"
-                                        android:layout_width="14dp"
-                                        android:layout_height="14dp"
-                                        android:layout_marginStart="6dp"
-                                        android:visibility="gone"
-                                        android:contentDescription="Статус версии"
-                                        android:src="@drawable/ic_error"
-                                        app:tint="@color/prime_warning" />
-                                </LinearLayout>
-                            </androidx.constraintlayout.widget.ConstraintLayout>
-                        </androidx.constraintlayout.widget.ConstraintLayout>
-                    </androidx.cardview.widget.CardView>
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <!-- Сетка медиафайлов и список файлов -->
             <LinearLayout
                 android:id="@+id/layoutContentSection"
                 android:layout_width="match_parent"

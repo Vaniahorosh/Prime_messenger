@@ -229,6 +229,11 @@
             </intent-filter>
         </receiver>
 
+        <activity
+            android:name=".CoverEditorActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Prime.Swipe" />
+
     </application>
 
 </manifest>

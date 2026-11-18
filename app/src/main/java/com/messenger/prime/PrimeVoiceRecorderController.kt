@@ -117,7 +117,8 @@ class PrimeVoiceRecorderController(
                 AudioRecordManager.recordingDuration.collect { durationMs ->
                     val sec = (durationMs / 1000) % 60
                     val min = (durationMs / 1000) / 60
-                    tvTimer.text = String.format(Locale.US, "%d:%02d", min, sec)
+                    val newTime = String.format(Locale.US, "%d:%02d", min, sec)
+                    tvTimer.animateSlideDownText(newTime)
                 }
             }
             launch {

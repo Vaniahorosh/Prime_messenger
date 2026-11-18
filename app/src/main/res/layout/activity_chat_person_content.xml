@@ -6,6 +6,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/prime_base"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     android:animateLayoutChanges="true">
 
     <!-- Локальные анимированные обои из Material фигур и логотипа -->
@@ -33,6 +35,7 @@
         android:id="@+id/rvMessages"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:clipChildren="false"
         android:clipToPadding="false"
         android:paddingStart="8dp"
         android:paddingTop="88dp"
@@ -1497,38 +1500,51 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:paddingTop="8dp">
 
                 <!-- Кнопка Отмена (Крестик) -->
                 <ImageButton
                     android:id="@+id/btnVideoRecordCancel"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:padding="13dp"
+                    android:scaleType="fitCenter"
+                    android:background="@drawable/bg_circle_danger_button"
                     android:src="@drawable/ic_cancel"
                     app:tint="#FF5252" />
 
-                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
 
                 <!-- Кнопка Перезапись -->
                 <ImageButton
                     android:id="@+id/btnVideoRecordRetry"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:padding="13dp"
+                    android:scaleType="fitCenter"
+                    android:background="@drawable/bg_circle_glass_button"
                     android:src="@drawable/ic_undo"
                     app:tint="#FFFFFF" />
 
-                <View android:layout_width="16dp" android:layout_height="1dp" />
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
 
                 <!-- Кнопка Отправить -->
                 <ImageButton
                     android:id="@+id/btnVideoRecordSend"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:padding="13dp"
+                    android:scaleType="fitCenter"
+                    android:background="@drawable/bg_circle_primary_button"
                     android:src="@drawable/ic_send"
-                    app:tint="@color/prime_brand" />
+                    app:tint="#FFFFFF" />
             </LinearLayout>
         </LinearLayout>
 
@@ -1646,9 +1662,12 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|center_horizontal"
-            android:layout_marginBottom="24dp"
+            android:layout_marginBottom="28dp"
             android:gravity="center"
             android:orientation="horizontal"
+            android:background="@drawable/bg_floating_island"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="10dp"
             android:visibility="gone">
 
             <!-- 1. Кнопка Отмена / Мусорка -->
@@ -1656,8 +1675,10 @@
                 android:id="@+id/btnVideoRecordCancelMid"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:layout_marginEnd="12dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:layout_marginHorizontal="6dp"
+                android:padding="11dp"
+                android:scaleType="fitCenter"
+                android:background="@drawable/bg_circle_danger_button"
                 android:src="@drawable/ic_trash"
                 app:tint="#FF5252" />
 
@@ -1666,17 +1687,22 @@
                 android:id="@+id/btnVideoRecordFlipMid"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:layout_marginEnd="12dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:layout_marginHorizontal="6dp"
+                android:padding="11dp"
+                android:scaleType="fitCenter"
+                android:background="@drawable/bg_circle_glass_button"
                 android:src="@drawable/ic_flip_camera"
                 app:tint="#FFFFFF" />
 
             <!-- 3. Кнопка Паузы / Возобновления -->
             <ImageButton
                 android:id="@+id/btnVideoRecordPauseResume"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginHorizontal="6dp"
+                android:padding="11dp"
+                android:scaleType="fitCenter"
+                android:background="@drawable/bg_circle_glass_button"
                 android:src="@drawable/ic_media_pause"
                 app:tint="#FFFFFF" />
 
@@ -1685,10 +1711,12 @@
                 android:id="@+id/btnVideoRecordFinishLocked"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:layout_marginStart="12dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:layout_marginHorizontal="6dp"
+                android:padding="11dp"
+                android:scaleType="fitCenter"
+                android:background="@drawable/bg_circle_primary_button"
                 android:src="@drawable/ic_send"
-                app:tint="@color/prime_brand" />
+                app:tint="#FFFFFF" />
         </LinearLayout>
 
         <!-- Кнопка Стоп (появляется при свайпе вверх) -->
@@ -1698,28 +1726,47 @@
             android:layout_height="72dp"
             android:layout_gravity="bottom|center_horizontal"
             android:layout_marginBottom="32dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="16dp"
+            android:scaleType="fitCenter"
+            android:background="@drawable/bg_circle_danger_button"
             android:src="@drawable/ic_cancel"
             android:visibility="gone"
             app:tint="#FF5252" />
 
-        <!-- Верхняя панель управления (Настройки слева) -->
+        <!-- Верхняя панель управления (Настройки слева, Переворот справа) -->
         <LinearLayout
             android:id="@+id/layoutVideoTopControls"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="top"
-            android:layout_marginTop="40dp"
-            android:paddingHorizontal="16dp"
+            android:layout_marginTop="48dp"
+            android:paddingHorizontal="24dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <ImageButton
                 android:id="@+id/btnVideoRecordSettings"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:padding="10dp"
+                android:scaleType="fitCenter"
+                android:background="@drawable/bg_circle_glass_button"
                 android:src="@drawable/ic_settings"
+                app:tint="#FFFFFF" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <ImageButton
+                android:id="@+id/btnVideoRecordFlipTop"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:padding="10dp"
+                android:scaleType="fitCenter"
+                android:background="@drawable/bg_circle_glass_button"
+                android:src="@drawable/ic_flip_camera"
                 app:tint="#FFFFFF" />
         </LinearLayout>
     </FrameLayout>

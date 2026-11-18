@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/coverEditorRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/prime_base"
+    tools:context=".CoverEditorActivity">
+
+    <!-- Top Toolbar (Quiet Chrome) -->
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/blurHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:elevation="8dp"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp">
+
+            <ImageButton
+                android:id="@+id/btnCancel"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Назад"
+                android:src="@drawable/ic_arrow_back"
+                app:tint="@color/prime_text_primary" />
+
+            <TextView
+                android:id="@+id/tvTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Обложка профиля"
+                android:textColor="@color/prime_text_primary"
+                android:textSize="18sp"
+                android:fontFamily="sans-serif-medium" />
+
+            <!-- Balancing Spacer to keep title centered -->
+            <View
+                android:layout_width="40dp"
+                android:layout_height="40dp" />
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
+
+    <!-- Preview & Hint Container -->
+    <LinearLayout
+        android:id="@+id/layoutPreviewContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        app:layout_constraintTop_toBottomOf="@id/blurHeader"
+        app:layout_constraintBottom_toTopOf="@id/layoutBottomBar">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="240dp"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="12dp"
+            app:cardBackgroundColor="@color/glass_white_10"
+            app:strokeColor="@color/glass_white_20"
+            app:strokeWidth="1dp">
+
+            <ImageView
+                android:id="@+id/ivCoverPreview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="matrix"
+                android:contentDescription="Предпросмотр обложки" />
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Перетаскивайте и масштабируйте двумя пальцами"
+            android:textColor="@color/prime_text_secondary"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif"
+            android:gravity="center" />
+    </LinearLayout>
+
+    <!-- Bottom Actions Bar -->
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/layoutBottomBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:elevation="8dp"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="16dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSelectAnother"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton.Icon"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="Выбрать фото"
+                android:textColor="@color/prime_text_primary"
+                android:textSize="14sp"
+                android:fontFamily="sans-serif-medium"
+                app:cornerRadius="16dp"
+                app:icon="@drawable/ic_photo"
+                app:iconTint="@color/prime_text_primary"
+                app:iconSize="20dp"
+                app:strokeColor="@color/glass_white_20"
+                app:strokeWidth="1dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnApplyCover"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:text="Установить"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:fontFamily="sans-serif-medium"
+                app:backgroundTint="@color/prime_brand"
+                app:cornerRadius="16dp" />
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

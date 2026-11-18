@@ -1823,6 +1823,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
         super.onAttachedToRecyclerView(recyclerView);
         this.mRecyclerView = recyclerView;
+        recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView rv, int newState) {
+                if (newState == RecyclerView.SCROLL_STATE_DRAGGING && currentlyPlayingPosition >= 0) {
+                    for (int i = 0; i < rv.getChildCount(); i++) {
+                        rv.getChildAt(i).animate().translationY(0f).setDuration(120).start();
+                    }
+                }
+            }
+        });
     }
 
     @Override
@@ -1848,44 +1858,94 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private void disableParentClipping(View child) {
         if (child == null) return;
+        child.setClipToOutline(false);
         android.view.ViewParent p = child.getParent();
         while (p != null) {
             if (p instanceof android.view.ViewGroup) {
-                ((android.view.ViewGroup) p).setClipChildren(false);
-                ((android.view.ViewGroup) p).setClipToPadding(false);
+                android.view.ViewGroup vg = (android.view.ViewGroup) p;
+                vg.setClipChildren(false);
+                vg.setClipToPadding(false);
+                vg.setClipToOutline(false);
+                if (vg.getLayerType() != View.LAYER_TYPE_NONE) {
+                    vg.setLayerType(View.LAYER_TYPE_NONE, null);
+                }
             }
             p = p.getParent();
         }
     }
 
-    private void animateExpandVideoNoteContainer(View vnContainer, boolean isOutgoing) {
+    private void animateExpandVideoNoteContainer(View vnContainer, boolean isOutgoing, int position) {
         if (vnContainer == null) return;
+        disableParentClipping(vnContainer);
         vnContainer.bringToFront();
         vnContainer.animate().cancel();
-        vnContainer.setPivotX(vnContainer.getWidth() / 2f);
-        vnContainer.setPivotY(vnContainer.getHeight() / 2f);
+        
         float density = vnContainer.getContext().getResources().getDisplayMetrics().density;
+        float w = vnContainer.getWidth() > 0 ? vnContainer.getWidth() : (200f * density);
+        float h = vnContainer.getHeight() > 0 ? vnContainer.getHeight() : (200f * density);
+        
+        // Balanced pivot to preserve full shape boundaries without screen border clipping
+        vnContainer.setPivotX(isOutgoing ? (w * 0.85f) : (w * 0.15f));
+        vnContainer.setPivotY(h / 2f);
         
         vnContainer.animate()
-            .scaleX(1.18f)
-            .scaleY(1.18f)
-            .translationZ(12f * density)
-            .setDuration(220)
-            .setInterpolator(new android.view.animation.DecelerateInterpolator())
+            .scaleX(1.20f)
+            .scaleY(1.20f)
+            .translationZ(16f * density)
+            .setDuration(240)
+            .setInterpolator(new android.view.animation.OvershootInterpolator(1.05f))
             .start();
+
+        if (mRecyclerView != null) {
+            float shiftY = 24f * density;
+            for (int i = 0; i < mRecyclerView.getChildCount(); i++) {
+                View child = mRecyclerView.getChildAt(i);
+                RecyclerView.ViewHolder vh = mRecyclerView.getChildViewHolder(child);
+                if (vh != null) {
+                    int pos = vh.getAdapterPosition();
+                    if (pos != RecyclerView.NO_POSITION) {
+                        if (pos == position) {
+                            child.bringToFront();
+                            child.setElevation(24f * density);
+                            child.setTranslationZ(24f * density);
+                        } else {
+                            float targetY = (pos < position) ? -shiftY : shiftY;
+                            child.animate()
+                                .translationY(targetY)
+                                .setDuration(240)
+                                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                                .start();
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private void animateShrinkVideoNoteContainer(View vnContainer) {
-        if (vnContainer == null) return;
-        vnContainer.animate().cancel();
-        vnContainer.animate()
-            .scaleX(1.0f)
-            .scaleY(1.0f)
-            .translationX(0f)
-            .translationZ(0f)
-            .setDuration(180)
-            .setInterpolator(new android.view.animation.AccelerateInterpolator())
-            .start();
+        if (vnContainer != null) {
+            vnContainer.animate().cancel();
+            vnContainer.animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .translationX(0f)
+                .translationZ(0f)
+                .setDuration(180)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .start();
+        }
+        if (mRecyclerView != null) {
+            for (int i = 0; i < mRecyclerView.getChildCount(); i++) {
+                View child = mRecyclerView.getChildAt(i);
+                child.setElevation(0f);
+                child.setTranslationZ(0f);
+                child.animate()
+                    .translationY(0f)
+                    .setDuration(180)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                    .start();
+            }
+        }
     }
 
     public void stopCurrentlyPlayingVideoNote() {
@@ -1911,6 +1971,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 
                 com.messenger.prime.PrimeWaterLoadingView pb = holder.itemView.findViewById(R.id.pbVideoNoteFrameProgress);
                 if (pb != null) pb.setProgress(0);
+            }
+        }
+        if (mRecyclerView != null) {
+            for (int i = 0; i < mRecyclerView.getChildCount(); i++) {
+                View child = mRecyclerView.getChildAt(i);
+                child.setElevation(0f);
+                child.setTranslationZ(0f);
+                child.animate()
+                    .translationY(0f)
+                    .setDuration(180)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                    .start();
             }
         }
         currentlyPlayingVideoNote = null;
@@ -2158,6 +2230,15 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (layoutBubble != null) {
             layoutBubble.setBackground(null);
             layoutBubble.setPadding(0, 0, 0, 0);
+            layoutBubble.setLayerType(View.LAYER_TYPE_NONE, null);
+            if (layoutBubble instanceof ViewGroup) {
+                ((ViewGroup) layoutBubble).setClipChildren(false);
+                ((ViewGroup) layoutBubble).setClipToPadding(false);
+            }
+        }
+        if (itemView instanceof ViewGroup) {
+            ((ViewGroup) itemView).setClipChildren(false);
+            ((ViewGroup) itemView).setClipToPadding(false);
         }
 
         View layoutMediaContainer = itemView.findViewById(R.id.layoutMediaContainer);
@@ -2183,16 +2264,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             ((LinearLayout) block).setGravity(isOutgoing ? (Gravity.END | Gravity.RIGHT) : (Gravity.START | Gravity.LEFT));
         }
 
-        String text = message.getText();
-        String shape = "circle";
-        if (text != null && text.startsWith("VIDEO_NOTE:")) {
-            shape = text.substring("VIDEO_NOTE:".length()).trim();
-        } else if (message.getFileName() != null && message.getFileName().startsWith("vn_")) {
-            String[] parts = message.getFileName().replace(".mp4", "").split("_");
-            if (parts.length >= 3) {
-                shape = parts[2].trim();
-            }
-        }
+        String shape = message != null ? message.getVideoNoteShapeTag() : "50";
 
         if (pbFrame != null) {
             pbFrame.setBorderProgressMode(true);
@@ -2225,9 +2297,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             vnContainer.setScaleY(1.0f);
             vnContainer.setTranslationZ(0f);
         } else {
-            vnContainer.setScaleX(1.35f);
-            vnContainer.setScaleY(1.35f);
-            vnContainer.setTranslationZ(16f * itemView.getContext().getResources().getDisplayMetrics().density);
+            disableParentClipping(vnContainer);
+            vnContainer.bringToFront();
+            float density = itemView.getContext().getResources().getDisplayMetrics().density;
+            float w = vnContainer.getWidth() > 0 ? vnContainer.getWidth() : (200f * density);
+            float h = vnContainer.getHeight() > 0 ? vnContainer.getHeight() : (200f * density);
+            vnContainer.setPivotX(isOutgoing ? w * 0.90f : w * 0.10f);
+            vnContainer.setPivotY(h / 2f);
+            vnContainer.setScaleX(1.28f);
+            vnContainer.setScaleY(1.28f);
+            vnContainer.setTranslationZ(16f * density);
         }
 
         String videoPath = message.getImagePath();
@@ -2263,7 +2342,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         vvPlayer.setVisibility(View.VISIBLE);
                         if (ivPlayIcon != null) ivPlayIcon.setVisibility(View.GONE);
 
-                        animateExpandVideoNoteContainer(vnContainer, isOutgoing);
+                        currentlyPlayingPosition = position;
+                        animateExpandVideoNoteContainer(vnContainer, isOutgoing, position);
                         vvPlayer.setVideoPath(videoPath);
                         vvPlayer.setOnFirstFrameRenderedListener(() -> {
                             if (ivImg != null) {
@@ -2420,23 +2500,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         SharedPreferences sharedPrefs = container.getContext().getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
         int sizeDp = sharedPrefs.getInt("video_message_size_dp", 180);
 
-        int radiusPercent = 50; // По умолчанию идеальный круг
-        if (shape != null && !shape.isEmpty()) {
-            try {
-                radiusPercent = Integer.parseInt(shape.trim());
-            } catch (NumberFormatException e) {
-                if ("square".equalsIgnoreCase(shape)) {
-                    radiusPercent = 0;
-                } else if ("star".equalsIgnoreCase(shape)) {
-                    radiusPercent = 35;
-                } else if ("prime".equalsIgnoreCase(shape)) {
-                    radiusPercent = 25;
-                } else if ("circle".equalsIgnoreCase(shape)) {
-                    radiusPercent = 50;
-                }
-            }
-        }
-
         float density = container.getContext().getResources().getDisplayMetrics().density;
         int sizePx = (int) (sizeDp * density);
 
@@ -2447,29 +2510,25 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             container.setLayoutParams(lp);
         }
 
-        final int targetPercent = radiusPercent;
-        final float cornerRadiusPx = (targetPercent >= 50) ? (sizePx / 2f) : (sizePx * (targetPercent / 100f));
-
+        boolean isM3E = com.messenger.prime.VideoNoteShapeHelper.isM3EShape(shape);
         if (container instanceof com.google.android.material.card.MaterialCardView) {
             com.google.android.material.card.MaterialCardView card = (com.google.android.material.card.MaterialCardView) container;
-            card.setRadius(cornerRadiusPx);
-        } else {
-            android.view.ViewOutlineProvider provider = new android.view.ViewOutlineProvider() {
-                @Override
-                public void getOutline(View view, android.graphics.Outline outline) {
-                    int w = view.getWidth() > 0 ? view.getWidth() : sizePx;
-                    int h = view.getHeight() > 0 ? view.getHeight() : sizePx;
-                    float r = (targetPercent >= 50) ? (Math.min(w, h) / 2f) : (Math.min(w, h) * (targetPercent / 100f));
-                    outline.setRoundRect(0, 0, w, h, r);
-                }
-            };
-            container.setOutlineProvider(provider);
-            container.setClipToOutline(true);
-            container.invalidateOutline();
+            if (!isM3E) {
+                int radiusPercent = com.messenger.prime.VideoNoteShapeHelper.getCornerRadiusPercent(shape, 50);
+                float cornerRadiusPx = (radiusPercent >= 50) ? (sizePx / 2f) : (sizePx * (radiusPercent / 100f));
+                card.setRadius(cornerRadiusPx);
+            } else {
+                card.setRadius(0f);
+            }
         }
+        com.messenger.prime.VideoNoteShapeHelper.applyShapeToView(container, shape, 50);
 
         if (img != null) {
+            com.messenger.prime.VideoNoteShapeHelper.applyShapeToView(img, shape, 50);
             img.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        }
+        if (vv != null) {
+            com.messenger.prime.VideoNoteShapeHelper.applyShapeToView(vv, shape, 50);
         }
     }
 
@@ -2729,8 +2788,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             container.invalidateOutline();
         }
 
-        if (message != null && message.getText() != null && message.getText().startsWith("VIDEO_NOTE:")) {
-            String shape = message.getText().substring("VIDEO_NOTE:".length()).trim();
+        if (message != null && (message.isVideoNote() || (message.getText() != null && message.getText().startsWith("VIDEO_NOTE:")))) {
+            String shape = message.getVideoNoteShapeTag();
             applyShapeToMediaViews(container, img, vv, shape);
         }
         ImageView play = ivPlay != null ? ivPlay : container.findViewById(R.id.ivVideoPlayBadge);

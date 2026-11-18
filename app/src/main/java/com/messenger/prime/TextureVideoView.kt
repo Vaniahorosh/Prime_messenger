@@ -361,22 +361,13 @@ class TextureVideoView @JvmOverloads constructor(
         val rotation = getRotationDegrees()
         val isSwapped = (rotation == 90 || rotation == 270)
 
-        val realWidth = if (isSwapped) rawVideoHeight.toFloat() else rawVideoWidth.toFloat()
-        val realHeight = if (isSwapped) rawVideoWidth.toFloat() else rawVideoHeight.toFloat()
+        val displayedVideoWidth = if (isSwapped) rawVideoHeight.toFloat() else rawVideoWidth.toFloat()
+        val displayedVideoHeight = if (isSwapped) rawVideoWidth.toFloat() else rawVideoHeight.toFloat()
 
-        val videoAspect = realWidth / realHeight
-        val viewAspect = viewWidth / viewHeight
+        val scale = maxOf(viewWidth / displayedVideoWidth, viewHeight / displayedVideoHeight)
 
-        val scaleX: Float
-        val scaleY: Float
-
-        if (videoAspect > viewAspect) {
-            scaleX = videoAspect / viewAspect
-            scaleY = 1.0f
-        } else {
-            scaleX = 1.0f
-            scaleY = viewAspect / videoAspect
-        }
+        val scaleX = (rawVideoWidth.toFloat() * scale) / viewWidth
+        val scaleY = (rawVideoHeight.toFloat() * scale) / viewHeight
 
         val cx = viewWidth / 2f
         val cy = viewHeight / 2f

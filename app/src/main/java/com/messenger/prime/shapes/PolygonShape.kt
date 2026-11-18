@@ -43,3 +43,31 @@ class PathShape(private val pathProvider: (width: Float, height: Float) -> andro
         return Outline.Generic(androidPath.asComposePath())
     }
 }
+
+class MorphShape(
+    private val morph: androidx.graphics.shapes.Morph,
+    private val progress: Float
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val androidPath = morph.toPath(progress)
+        val bounds = android.graphics.RectF()
+        androidPath.computeBounds(bounds, true)
+
+        if (bounds.width() > 0 && bounds.height() > 0) {
+            val scaleX = size.width / bounds.width()
+            val scaleY = size.height / bounds.height()
+
+            val matrix = Matrix()
+            matrix.postTranslate(-bounds.left, -bounds.top)
+            matrix.postScale(scaleX, scaleY)
+
+            androidPath.transform(matrix)
+        }
+
+        return Outline.Generic(androidPath.asComposePath())
+    }
+}

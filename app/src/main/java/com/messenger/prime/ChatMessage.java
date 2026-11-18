@@ -388,6 +388,27 @@ public class ChatMessage {
         return false;
     }
 
+    public String getVideoNoteShapeTag() {
+        if (text != null && text.startsWith("VIDEO_NOTE:")) {
+            return text.substring("VIDEO_NOTE:".length()).trim();
+        }
+        if (fileName != null && fileName.startsWith("vn_")) {
+            String[] parts = fileName.replace(".mp4", "").split("_");
+            if (parts.length >= 3) {
+                return parts[2].trim();
+            }
+        }
+        if (imagePath != null && imagePath.contains("vn_")) {
+            int idx = imagePath.lastIndexOf("vn_");
+            String sub = imagePath.substring(idx);
+            String[] parts = sub.replace(".mp4", "").split("_");
+            if (parts.length >= 3) {
+                return parts[2].trim();
+            }
+        }
+        return "50";
+    }
+
     public boolean isVideo() {
         if (isVideoNote()) return false;
         if (messageType == MessageType.VIDEO) return true;

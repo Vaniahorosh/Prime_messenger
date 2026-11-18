@@ -12153,8 +12153,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         runOnUiThread(this::stopAllVideoNotePlayback);
 
         SharedPreferences sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
-        int radiusPercent = sharedPrefs.getInt("video_message_corner_radius", 50);
-        final String finalShapeTag = String.valueOf(radiusPercent);
+        String shape = sharedPrefs.getString("video_message_shape", null);
+        if (shape == null || shape.isEmpty()) {
+            int radiusPercent = sharedPrefs.getInt("video_message_corner_radius", 50);
+            shape = String.valueOf(radiusPercent);
+        }
+        final String finalShapeTag = shape;
 
         File storageDir = new File(getFilesDir(), "video_notes");
         if (!storageDir.exists()) storageDir.mkdirs();
@@ -12375,11 +12379,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         int firstVisible = lm.findFirstVisibleItemPosition();
                         int lastVisible = lm.findLastVisibleItemPosition();
 
-                        String text = activeMsg.getText();
-                        String shape = "circle";
-                        if (text != null && text.startsWith("VIDEO_NOTE:")) {
-                            shape = text.substring("VIDEO_NOTE:".length()).trim();
-                        }
+                        String shape = activeMsg.getVideoNoteShapeTag();
 
                         if (activePos < firstVisible || activePos > lastVisible) {
                             if (floatingPipManager != null && activeMsg.getImagePath() != null && !floatingPipManager.isShowing()) {

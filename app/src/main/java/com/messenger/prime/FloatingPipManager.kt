@@ -26,16 +26,9 @@ class FloatingPipManager(
 
     fun setupShapeClipping(shape: String? = null) {
         val sharedPrefs = pipView.context.getSharedPreferences("PrimeLocalDB", android.content.Context.MODE_PRIVATE)
-        val radiusPercent = sharedPrefs.getInt("video_message_corner_radius", 50)
-
-        pipView.clipToOutline = true
-        pipView.outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: Outline) {
-                val cornerRadiusPx = view.width * (radiusPercent / 100f)
-                outline.setRoundRect(0, 0, view.width, view.height, cornerRadiusPx)
-            }
-        }
-        pipView.invalidateOutline()
+        val finalShape = shape ?: sharedPrefs.getString("video_message_shape", "50") ?: "50"
+        VideoNoteShapeHelper.applyShapeToView(pipView, finalShape)
+        VideoNoteShapeHelper.applyShapeToView(videoView, finalShape)
     }
 
     @SuppressLint("ClickableViewAccessibility")

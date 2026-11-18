@@ -1,13 +1,20 @@
 package com.messenger.prime.shapes
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.TimeInterpolator
+import android.animation.ValueAnimator
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import android.graphics.Path
 import android.graphics.RectF
+import android.view.animation.PathInterpolator
 import androidx.graphics.shapes.CornerRounding
+import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.graphics.shapes.star
 import androidx.graphics.shapes.toPath
@@ -16,49 +23,143 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 class M3EDrawable(
-    private val shape: RoundedPolygon,
-    private val color: Int
+    shape: RoundedPolygon,
+    color: Int
 ) : Drawable() {
+    var shape: RoundedPolygon = shape
+        set(value) {
+            field = value
+            morphAnimator?.cancel()
+            activeMorph = null
+            lastShape = null
+            invalidateSelf()
+        }
+
+    var color: Int = color
+        set(value) {
+            field = value
+            paint.color = value
+            invalidateSelf()
+        }
+
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        this.color = this@M3EDrawable.color
+        this.color = color
         style = Paint.Style.FILL
     }
+    private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+    }
+
+    var strokeColor: Int = Color.TRANSPARENT
+        set(value) {
+            field = value
+            strokePaint.color = value
+            invalidateSelf()
+        }
+
+    var strokeWidth: Float = 0f
+        set(value) {
+            field = value
+            strokePaint.strokeWidth = value
+            invalidateSelf()
+        }
+
     private val path = Path()
     private var lastWidth = 0
     private var lastHeight = 0
+    private var lastShape: RoundedPolygon? = null
+
+    private var activeMorph: Morph? = null
+    private var morphProgress: Float = 0f
+    private var morphAnimator: ValueAnimator? = null
+
+    /**
+     * Morphs smoothly from current shape to targetShape using AndroidX Graphics Shapes Morph.
+     */
+    fun morphTo(
+        targetShape: RoundedPolygon,
+        durationMs: Long = 400L,
+        interpolator: TimeInterpolator = PathInterpolator(0.2f, 0f, 0f, 1f),
+        onEnd: (() -> Unit)? = null
+    ) {
+        if (shape == targetShape) {
+            onEnd?.invoke()
+            return
+        }
+        morphAnimator?.cancel()
+        activeMorph = Morph(shape, targetShape)
+        morphProgress = 0f
+        val anim = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = durationMs
+            this.interpolator = interpolator
+            addUpdateListener { va ->
+                morphProgress = va.animatedValue as Float
+                invalidateSelf()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    shape = targetShape
+                    activeMorph = null
+                    lastShape = null
+                    invalidateSelf()
+                    onEnd?.invoke()
+                }
+            })
+        }
+        morphAnimator = anim
+        anim.start()
+    }
 
     override fun draw(canvas: Canvas) {
         val b = bounds
         if (b.width() == 0 || b.height() == 0) return
-        if (b.width() != lastWidth || b.height() != lastHeight) {
+
+        val isMorphing = activeMorph != null
+        if (isMorphing || b.width() != lastWidth || b.height() != lastHeight || lastShape !== shape) {
             lastWidth = b.width()
             lastHeight = b.height()
+            lastShape = shape
 
-            val androidPath = shape.toPath()
+            val rawPath = if (isMorphing) {
+                activeMorph!!.toPath(morphProgress)
+            } else {
+                shape.toPath()
+            }
+
             val pathBounds = RectF()
-            androidPath.computeBounds(pathBounds, true)
+            rawPath.computeBounds(pathBounds, true)
 
             if (pathBounds.width() > 0 && pathBounds.height() > 0) {
-                val scaleX = b.width().toFloat() / pathBounds.width()
-                val scaleY = b.height().toFloat() / pathBounds.height()
+                val pad = strokeWidth / 2f
+                val availW = (b.width() - pad * 2f).coerceAtLeast(1f)
+                val availH = (b.height() - pad * 2f).coerceAtLeast(1f)
+
+                val scaleX = availW / pathBounds.width()
+                val scaleY = availH / pathBounds.height()
                 val matrix = android.graphics.Matrix()
                 matrix.postTranslate(-pathBounds.left, -pathBounds.top)
                 matrix.postScale(scaleX, scaleY)
-                androidPath.transform(matrix)
+                matrix.postTranslate(b.left + pad, b.top + pad)
+                rawPath.transform(matrix)
 
                 path.rewind()
-                path.addPath(androidPath)
+                path.addPath(rawPath)
             }
         }
         canvas.drawPath(path, paint)
+        if (strokeWidth > 0f && Color.alpha(strokeColor) > 0) {
+            canvas.drawPath(path, strokePaint)
+        }
     }
 
     override fun setAlpha(alpha: Int) {
         paint.alpha = alpha
+        strokePaint.alpha = alpha
         invalidateSelf()
     }
     override fun setColorFilter(colorFilter: ColorFilter?) {
         paint.colorFilter = colorFilter
+        strokePaint.colorFilter = colorFilter
         invalidateSelf()
     }
     @Deprecated("Deprecated in Java")
@@ -169,5 +270,19 @@ object M3EShapes {
         path.addRoundRect(RectF(0f, 0f, width, height * 0.45f), width * 0.2f, width * 0.2f, Path.Direction.CW)
         path.addRoundRect(RectF(0f, height * 0.55f, width, height), width * 0.2f, width * 0.2f, Path.Direction.CW)
         return path
+    }
+
+    val allPolygons: List<RoundedPolygon> by lazy {
+        listOf(
+            cookie6Sided, flower, verySunny, cookie7Sided, clover4Leaf,
+            pentagon, gem, cookie4Sided, cookie9Sided, cookie12Sided,
+            puffy, burst, clover8Leaf, puffyDiamond, sunny, softBurst,
+            clamshell, triangle, circle
+        )
+    }
+
+    fun getRandomShape(exclude: RoundedPolygon? = null): RoundedPolygon {
+        val pool = if (exclude != null) allPolygons.filter { it != exclude } else allPolygons
+        return pool.random()
     }
 }

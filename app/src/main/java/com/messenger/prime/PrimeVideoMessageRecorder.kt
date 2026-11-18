@@ -81,6 +81,7 @@ class PrimeVideoMessageRecorder(
     private var layoutVideoZoomControls: View? = null
     private var btnCancelMid: ImageButton? = null
     private var btnFlipMid: ImageButton? = null
+    private var btnFlipTop: ImageButton? = null
     private var btnPauseResume: ImageButton? = null
     private var btnFinishLocked: ImageButton? = null
     private var layoutVideoCenterControls: View? = null
@@ -125,7 +126,8 @@ class PrimeVideoMessageRecorder(
                 val totalMs = (accumulatedDurationMs + currentSegmentMs).toInt()
 
                 val seconds = totalMs / 1000
-                tvTimer.text = String.format(Locale.US, "%02d:%02d", seconds / 60, seconds % 60)
+                val newTime = String.format(Locale.US, "%02d:%02d", seconds / 60, seconds % 60)
+                tvTimer.animateSlideDownText(newTime)
                 pbVideoRecordTime.max = 120000
                 pbVideoRecordTime.progress = totalMs.coerceIn(0, 120000)
 
@@ -221,6 +223,7 @@ class PrimeVideoMessageRecorder(
         layoutVideoCenterControls = overlayView.findViewById(R.id.layoutVideoCenterControls)
         btnCancelMid = overlayView.findViewById(R.id.btnVideoRecordCancelMid)
         btnFlipMid = overlayView.findViewById(R.id.btnVideoRecordFlipMid)
+        btnFlipTop = overlayView.findViewById(R.id.btnVideoRecordFlipTop)
         btnPauseResume = overlayView.findViewById(R.id.btnVideoRecordPauseResume)
         btnFinishLocked = overlayView.findViewById(R.id.btnVideoRecordFinishLocked)
 
@@ -311,7 +314,9 @@ class PrimeVideoMessageRecorder(
 
             if (isRecording) {
                 isFlippingCamera = true
-                recording?.stop()
+                startCamera {
+                    isFlippingCamera = false
+                }
             } else if (overlayView.visibility == View.VISIBLE) {
                 startCamera {}
             }
@@ -346,6 +351,7 @@ class PrimeVideoMessageRecorder(
             }
         }
         btnFlipMid?.setOnClickListener { flipCameraProcess() }
+        btnFlipTop?.setOnClickListener { flipCameraProcess() }
 
         btnPauseResume?.setOnClickListener {
             triggerHaptic(HapticFeedbackConstants.KEYBOARD_TAP)
@@ -559,7 +565,8 @@ class PrimeVideoMessageRecorder(
                     AudioRecordManager.recordingDuration.collect { durationMs ->
                         val sec = (durationMs / 1000) % 60
                         val min = (durationMs / 1000) / 60
-                        tvTimer.text = String.format(Locale.US, "%02d:%02d", min, sec)
+                        val newTime = String.format(Locale.US, "%02d:%02d", min, sec)
+                        tvTimer.animateSlideDownText(newTime)
                     }
                 }
                 launch {
@@ -612,25 +619,12 @@ class PrimeVideoMessageRecorder(
 
     private fun applyShapeClipping(container: FrameLayout) {
         val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val shape = sharedPrefs.getString("video_message_shape", "circle") ?: "circle"
+        val shape = sharedPrefs.getString("video_message_shape", "50") ?: "50"
         val radiusPercent = try {
             sharedPrefs.getInt("video_message_corner_radius", 50)
         } catch (e: Exception) { 50 }
 
-        container.clipToOutline = true
-        container.outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: Outline) {
-                val cornerRadiusPx = when (shape) {
-                    "square" -> 16f * view.resources.displayMetrics.density
-                    "circle" -> view.width / 2f
-                    "star" -> view.width * 0.35f
-                    "prime" -> view.width * 0.25f
-                    else -> (view.width / 2f) * (radiusPercent / 50f)
-                }
-                outline.setRoundRect(0, 0, view.width, view.height, cornerRadiusPx)
-            }
-        }
-        container.invalidateOutline()
+        VideoNoteShapeHelper.applyShapeToView(container, shape, radiusPercent)
     }
 
     private fun startRecordingProcess() {
@@ -640,7 +634,7 @@ class PrimeVideoMessageRecorder(
         segmentStartTimestamp = 0L
 
         val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val shape = sharedPrefs.getString("video_message_shape", "circle") ?: "circle"
+        val shape = sharedPrefs.getString("video_message_shape", "50") ?: "50"
 
         val accentColor = ColorAccentManager.getCurrentAccentColor(activity)
         pbVideoRecordTime.isBorderProgressMode = true
@@ -654,9 +648,13 @@ class PrimeVideoMessageRecorder(
         overlayView.bringToFront()
         overlayView.visibility = View.VISIBLE
         overlayView.alpha = 0f
-        overlayView.scaleX = 0.5f
-        overlayView.scaleY = 0.5f
-        overlayView.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(250).setInterpolator(android.view.animation.OvershootInterpolator()).start()
+        overlayView.scaleX = 1f
+        overlayView.scaleY = 1f
+        overlayView.animate().alpha(1f).setDuration(200).start()
+        previewContainer.scaleX = 0.55f
+        previewContainer.scaleY = 0.55f
+        previewContainer.alpha = 1f
+        previewContainer.animate().scaleX(1f).scaleY(1f).setDuration(240).setInterpolator(android.view.animation.OvershootInterpolator(1.1f)).start()
         
         blurView?.setBlurAutoUpdate(true)
 
@@ -714,10 +712,12 @@ class PrimeVideoMessageRecorder(
         val recordingSession = currentRecordingSessionId
 
         try {
-            recording = videoCapture.output
+            val pendingRecording = videoCapture.output
                 .prepareRecording(activity, outputOptions)
+                .asPersistentRecording()
                 .withAudioEnabled()
-                .start(ContextCompat.getMainExecutor(activity)) { recordEvent ->
+
+            recording = pendingRecording.start(ContextCompat.getMainExecutor(activity)) { recordEvent ->
                     if (recordingSession == currentRecordingSessionId) {
                         when (recordEvent) {
                             is VideoRecordEvent.Start -> {
@@ -937,12 +937,13 @@ class PrimeVideoMessageRecorder(
             stopPlayback()
             visibility = View.GONE
         }
-        blurView?.setBlurAutoUpdate(false)
-        overlayView.animate().alpha(0f).scaleX(0.5f).scaleY(0.5f).setDuration(200).withEndAction {
+        previewContainer.animate().scaleX(0.7f).scaleY(0.7f).alpha(0f).setDuration(180).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+        overlayView.animate().alpha(0f).setDuration(180).withEndAction {
             overlayView.visibility = View.GONE
-            overlayView.alpha = 1f
-            overlayView.scaleX = 1f
-            overlayView.scaleY = 1f
+            blurView?.setBlurAutoUpdate(false)
+            previewContainer.scaleX = 1f
+            previewContainer.scaleY = 1f
+            previewContainer.alpha = 1f
         }.start()
         layoutVideoLockIndicator?.visibility = View.GONE
         layoutVideoCancelContainer?.visibility = View.GONE
@@ -1024,18 +1025,33 @@ class PrimeVideoMessageRecorder(
         // Устанавливаем 0 (SD) как качество по умолчанию для кружков (чтобы файл весил меньше и передавался в разы быстрее)
         val savedQuality = sharedPrefs.getInt("video_message_quality", 0)
         val qualitySelector = when (savedQuality) {
-            0 -> QualitySelector.from(Quality.SD)
-            1 -> QualitySelector.from(Quality.HD)
-            else -> QualitySelector.from(Quality.FHD)
+            0 -> QualitySelector.fromOrderedList(
+                listOf(Quality.SD, Quality.HD),
+                FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)
+            )
+            1 -> QualitySelector.fromOrderedList(
+                listOf(Quality.HD, Quality.SD),
+                FallbackStrategy.lowerQualityOrHigherThan(Quality.HD)
+            )
+            else -> QualitySelector.fromOrderedList(
+                listOf(Quality.FHD, Quality.HD, Quality.SD),
+                FallbackStrategy.lowerQualityOrHigherThan(Quality.FHD)
+            )
         }
 
-        val recorder = Recorder.Builder()
-            .setQualitySelector(qualitySelector)
-            .build()
+        val existingVc = videoCapture
+        val vc = if (isFlippingCamera && isRecording && existingVc != null) {
+            existingVc
+        } else {
+            val recorder = Recorder.Builder()
+                .setQualitySelector(qualitySelector)
+                .build()
 
-        videoCapture = VideoCapture.Builder(recorder)
-            .setTargetRotation(captureTargetRotation)
-            .build()
+            VideoCapture.Builder(recorder)
+                .setTargetRotation(captureTargetRotation)
+                .setMirrorMode(MirrorMode.MIRROR_MODE_ON_FRONT_ONLY)
+                .build().also { videoCapture = it }
+        }
 
         try {
             if (!cameraProvider.hasCamera(cameraSelector)) {
@@ -1048,11 +1064,16 @@ class PrimeVideoMessageRecorder(
         try {
             cameraProvider.unbindAll()
             camera = cameraProvider.bindToLifecycle(
-                lifecycleOwner, cameraSelector, preview, videoCapture
+                lifecycleOwner, cameraSelector, preview, vc
             )
             onCameraReady()
         } catch (exc: Exception) {
             Log.e("PrimeVideo", "CameraX binding failed", exc)
+            if (isFlippingCamera && isRecording) {
+                try {
+                    recording?.stop()
+                } catch (ignored: Exception) {}
+            }
             PrimeNotification.show(activity, "Ошибка камеры: " + exc.localizedMessage)
         }
     }

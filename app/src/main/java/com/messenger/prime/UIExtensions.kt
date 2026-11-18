@@ -44,6 +44,50 @@ fun View.addBounceTouchEffect() {
     }
 }
 
+/**
+ * Material 3 Expressive tactile spring bounce touch effect.
+ * Compresses slightly on press, and bounces back with an expressive overshoot spring upon release.
+ */
+fun View.addM3EBounceEffect(
+    scaleDown: Float = 0.96f,
+    onClick: (() -> Unit)? = null
+) {
+    val decelerate = DecelerateInterpolator()
+    val springOvershoot = OvershootInterpolator(2.2f)
+
+    if (onClick != null) {
+        isClickable = true
+        isFocusable = true
+        setOnClickListener {
+            onClick.invoke()
+        }
+    }
+
+    setOnTouchListener { v, event ->
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                v.animate().cancel()
+                v.animate()
+                    .scaleX(scaleDown)
+                    .scaleY(scaleDown)
+                    .setDuration(110)
+                    .setInterpolator(decelerate)
+                    .start()
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                v.animate().cancel()
+                v.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(280)
+                    .setInterpolator(springOvershoot)
+                    .start()
+            }
+        }
+        false
+    }
+}
+
 fun applyBottomNavLabelsVisibility(navView: View, showLabels: Boolean) {
     val labels = listOfNotNull(
         navView.findViewById<TextView>(R.id.tvNavChatsLabel),

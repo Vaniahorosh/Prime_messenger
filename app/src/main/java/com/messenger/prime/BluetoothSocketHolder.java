@@ -298,6 +298,26 @@ public class BluetoothSocketHolder {
                 } catch (Exception ignored) {}
             }
 
+            String localCoverUri = sharedPrefs.getString("my_profile_cover", null);
+            byte[] coverBytes = new byte[0];
+            if (localCoverUri != null && !localCoverUri.isEmpty()) {
+                try {
+                    try (InputStream is = context.getContentResolver().openInputStream(Uri.parse(localCoverUri))) {
+                        if (is != null) {
+                            Bitmap bitmap = BitmapFactory.decodeStream(is);
+                            if (bitmap != null) {
+                                Bitmap scaled = Bitmap.createScaledBitmap(bitmap, 480, 480, false);
+                                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                                scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos);
+                                coverBytes = baos.toByteArray();
+                                if (scaled != bitmap && !scaled.isRecycled()) scaled.recycle();
+                                if (!bitmap.isRecycled()) bitmap.recycle();
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
             Set<Object> uniqueThreads = new HashSet<>(threadMap.values());
             if (connectedThreadInstance != null) {
                 uniqueThreads.add(connectedThreadInstance);
@@ -311,6 +331,9 @@ public class BluetoothSocketHolder {
                     sendPacketMethod.invoke(threadObj, (byte) 0x0F, handshakeBytes);
                     if (avatarBytes != null && avatarBytes.length > 0) {
                         sendPacketMethod.invoke(threadObj, (byte) 0x07, avatarBytes);
+                    }
+                    if (coverBytes != null && coverBytes.length > 0) {
+                        sendPacketMethod.invoke(threadObj, (byte) 0x11, coverBytes);
                     }
                 } catch (Exception ignored) {}
             }
