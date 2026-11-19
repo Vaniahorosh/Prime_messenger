@@ -195,66 +195,66 @@ fun PrimeFeaturePromoCard(
                 .padding(vertical = 8.dp, horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Верхний отцентрованный бэдж текущей подкатегории
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = currentFeature.accentColor.copy(alpha = 0.22f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(currentFeature.accentColor)
-                        )
-                        Text(
-                            text = currentFeature.subtitle,
-                            color = currentFeature.accentColor,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Основной анимированный слайд
+            // Оборачиваем ВЕСЬ меняющийся контент в AnimatedContent для плавного кроссфейда
             AnimatedContent(
                 targetState = currentFeature,
                 transitionSpec = {
-                    fadeIn(animationSpec = tween(200, easing = FastOutSlowInEasing)) + expandVertically(animationSpec = tween(200, easing = FastOutSlowInEasing)) togetherWith
-                            fadeOut(animationSpec = tween(150, easing = FastOutSlowInEasing)) + shrinkVertically(animationSpec = tween(150, easing = FastOutSlowInEasing))
+                    fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing)) togetherWith
+                            fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
                 },
                 label = "SeamlessPromoLoop"
             ) { feature ->
-                val randomShape = remember(feature.id) {
-                    m3ePromoShapes.random()
-                }
-
-                val infiniteTransition = rememberInfiniteTransition(label = "M3ERotation")
-                val rotationAngle by infiniteTransition.animateFloat(
-                    initialValue = 0f,
-                    targetValue = 360f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(durationMillis = 10000, easing = LinearEasing),
-                        repeatMode = RepeatMode.Restart
-                    ),
-                    label = "rotationAngle"
-                )
-
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
+                    // Верхний отцентрованный бэдж текущей подкатегории
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = feature.accentColor.copy(alpha = 0.22f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(feature.accentColor)
+                                )
+                                Text(
+                                    text = feature.subtitle,
+                                    color = feature.accentColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val randomShape = remember(feature.id) {
+                        m3ePromoShapes.random()
+                    }
+
+                    val infiniteTransition = rememberInfiniteTransition(label = "M3ERotation")
+                    val rotationAngle by infiniteTransition.animateFloat(
+                        initialValue = 0f,
+                        targetValue = 360f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 10000, easing = LinearEasing),
+                            repeatMode = RepeatMode.Restart
+                        ),
+                        label = "rotationAngle"
+                    )
+
                     // Контейнер иконки с постоянно вращающейся на месте M3E формой
                     Box(
                         modifier = Modifier.size(56.dp),

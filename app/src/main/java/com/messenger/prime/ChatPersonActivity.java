@@ -843,10 +843,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
 
             setContentView(R.layout.activity_chat_person_content);
-            getWindow().setBackgroundDrawableResource(R.color.prime_base);
-            if (getWindow().getDecorView() != null) {
-                getWindow().getDecorView().setBackgroundResource(R.color.prime_base);
-            }
 
         try {
         } catch (Exception ignored) {}
@@ -5875,6 +5871,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     public boolean isConnectionActive() {
+        if (isNotesChat()) return true;
         if (isRemoteUserOnline) return true;
         if (isRemoteDesktop || "PrimeDesktop".equalsIgnoreCase(deviceAddress) || "PrimeDesktop".equalsIgnoreCase(targetUsername)) {
             if (PrimeCompanionServer.INSTANCE.hasConnectedClients()) return true;
@@ -7240,7 +7237,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (connected) {
             isRemoteUserOnline = true;
         }
-        boolean active = connected || isConnectionActive();
+        boolean active = connected || isConnectionActive() || isNotesChat();
         runOnUiThread(() -> {
             if (layoutInput != null) {
                 layoutInput.setVisibility(View.VISIBLE);
@@ -7313,7 +7310,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         @Override
         public void run() {
             if (!isFinishing() && !isDestroyed() && isActivityForeground) {
-                boolean active = isConnectionActive();
+                boolean active = isConnectionActive() || isNotesChat();
                 if (btnAttach != null) {
                     btnAttach.setEnabled(active);
                     btnAttach.setClickable(active);

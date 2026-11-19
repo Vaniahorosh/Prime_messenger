@@ -1364,6 +1364,13 @@ class ChatListActivity : AppCompatActivity() {
             val b = binding ?: return
             activity.runOnUiThread {
                 val user = activeTargetUsername ?: return@runOnUiThread
+                val isNotes = user.equals("Заметки", ignoreCase = true) || user.equals("notes_chat_item", ignoreCase = true)
+                if (isNotes) {
+                    b.tvChatStatus.text = "Личное пространство"
+                    b.tvChatStatus.setTextColor(ContextCompat.getColor(activity, R.color.prime_brand))
+                    return@runOnUiThread
+                }
+
                 val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
 
                 val typingUntil = sharedPrefs.getLong("typing_until_$user", 0L)
@@ -1424,22 +1431,25 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         fun updateInputState(isConnected: Boolean) {
-            updateChatStatus(isConnected)
+            val user = activeTargetUsername
+            val isNotes = user != null && (user.equals("Заметки", ignoreCase = true) || user.equals("notes_chat_item", ignoreCase = true))
+            val effectiveConnected = if (isNotes) true else isConnected
+            updateChatStatus(effectiveConnected)
             val b = binding ?: return
             activity.runOnUiThread {
-                b.etMessage.isEnabled = isConnected
-                b.etMessage.isFocusable = isConnected
-                b.etMessage.isFocusableInTouchMode = isConnected
-                if (isConnected) {
-                    b.etMessage.hint = "Сообщение..."
+                b.etMessage.isEnabled = effectiveConnected
+                b.etMessage.isFocusable = effectiveConnected
+                b.etMessage.isFocusableInTouchMode = effectiveConnected
+                if (effectiveConnected) {
+                    b.etMessage.hint = if (isNotes) "Создать заметку..." else "Сообщение..."
                     b.etMessage.alpha = 1.0f
                 } else {
                     b.etMessage.hint = "Не в сети"
                     b.etMessage.alpha = 0.5f
                 }
 
-                b.btnSend.isEnabled = isConnected
-                b.btnSend.alpha = if (isConnected) 1.0f else 0.4f
+                b.btnSend.isEnabled = effectiveConnected
+                b.btnSend.alpha = if (effectiveConnected) 1.0f else 0.4f
 
                 b.btnAttach.isEnabled = true
                 b.btnAttach.isClickable = true
@@ -2316,12 +2326,18 @@ class ChatListActivity : AppCompatActivity() {
                 chatAdapter?.setMessages(history)
                 binding?.rvMessages?.scrollToPosition(history.size - 1)
 
-                val isConnected = BluetoothConnectionManager.getInstance().isConnected(activeDeviceAddress ?: activeTargetUsername)
-                binding?.tvChatStatus?.text = if (isConnected) "в сети" else "не в сети"
-                binding?.tvChatStatus?.setTextColor(
-                    if (isConnected) ContextCompat.getColor(activity, R.color.prime_success)
-                    else ContextCompat.getColor(activity, R.color.prime_text_secondary)
-                )
+                val isNotes = targetUser.equals("Заметки", ignoreCase = true) || targetUser.equals("notes_chat_item", ignoreCase = true)
+                if (isNotes) {
+                    binding?.tvChatStatus?.text = "Личное пространство"
+                    binding?.tvChatStatus?.setTextColor(ContextCompat.getColor(activity, R.color.prime_brand))
+                } else {
+                    val isConnected = BluetoothConnectionManager.getInstance().isConnected(activeDeviceAddress ?: activeTargetUsername)
+                    binding?.tvChatStatus?.text = if (isConnected) "в сети" else "не в сети"
+                    binding?.tvChatStatus?.setTextColor(
+                        if (isConnected) ContextCompat.getColor(activity, R.color.prime_success)
+                        else ContextCompat.getColor(activity, R.color.prime_text_secondary)
+                    )
+                }
             }
         }
     }

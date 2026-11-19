@@ -19,6 +19,31 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
     override fun onCreate() {
         super.onCreate()
         appContext = this.applicationContext
+
+        // Android 17 (Baklava) UI Stability & Strict Mode Support
+        // Detects any attempts to modify attached Views off the main thread, 
+        // which prevents Sync Barrier Leak ANRs.
+        if (android.os.Build.VERSION.SDK_INT >= 37) {
+            android.view.View.registerCalledFromWrongThreadListener {
+                android.util.Log.e("PrimeApp", "Android 17: UI thread violation detected! This causes ANRs in older versions.", java.lang.Exception())
+            }
+        }
+
+        if (BuildConfig.DEBUG) {
+            android.os.StrictMode.setThreadPolicy(
+                android.os.StrictMode.ThreadPolicy.Builder()
+                    .detectAll()
+                    .penaltyLog()
+                    .build()
+            )
+            android.os.StrictMode.setVmPolicy(
+                android.os.StrictMode.VmPolicy.Builder()
+                    .detectAll()
+                    .penaltyLog()
+                    .build()
+            )
+        }
+
         PrimeTransitions.applyGlobalAnimationScale(this)
         registerActivityLifecycleCallbacks(this)
         sanitizeLocalUserProfile(this)

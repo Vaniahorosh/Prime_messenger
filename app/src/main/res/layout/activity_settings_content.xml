@@ -53,8 +53,8 @@
                 android:layout_height="48dp"
                 android:layout_marginTop="16dp"
                 android:layout_marginEnd="16dp"
-                android:backgroundTint="@color/glass_white_20"
-                android:elevation="20dp"
+                android:backgroundTint="@color/glass_white_30"
+                android:elevation="2dp"
                 android:padding="0dp"
                 android:insetLeft="0dp"
                 android:insetTop="0dp"
@@ -93,19 +93,20 @@
                     android:paddingBottom="4dp"
                     android:clipChildren="false"
                     android:clipToPadding="false"
-                    app:layout_constraintWidth_max="650dp"
+                    app:layout_constraintWidth_max="640dp"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent">
 
-                    <!-- Avatar card in center (Extra Large 210dp) -->
-                    <androidx.cardview.widget.CardView
+                    <!-- Avatar card in center (Extra Large 208dp) -->
+                    <com.google.android.material.card.MaterialCardView
                         android:id="@+id/photoCard"
-                        android:layout_width="210dp"
-                        android:layout_height="210dp"
+                        android:layout_width="208dp"
+                        android:layout_height="208dp"
                         app:cardBackgroundColor="@color/glass_white_10"
-                        app:cardCornerRadius="38dp"
-                        app:cardElevation="8dp"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Expressive.ExtraLarge"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintEnd_toEndOf="parent">
@@ -144,7 +145,7 @@
                                 tools:alpha="1"
                                 tools:translationY="0dp" />
                         </androidx.constraintlayout.widget.ConstraintLayout>
-                    </androidx.cardview.widget.CardView>
+                    </com.google.android.material.card.MaterialCardView>
 
                     <!-- Имя пользователя по центру под аватаркой -->
                     <TextView
@@ -228,7 +229,7 @@
                                 android:text="Назад"
                                 android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
-                                android:textSize="10sp"
+                                android:textSize="12sp"
                                 android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
@@ -265,7 +266,7 @@
                                 android:text="Фото"
                                 android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
-                                android:textSize="10sp"
+                                android:textSize="12sp"
                                 android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
@@ -300,9 +301,9 @@
                                 android:id="@+id/tvLogoutWP"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Выход"
+                                android:text="Выйти"
                                 android:textColor="@color/prime_danger"
-                                android:textSize="10sp"
+                                android:textSize="12sp"
                                 android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
@@ -337,10 +338,10 @@
                                 android:id="@+id/tvExtraSettingsWP"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="К Настройкам"
+                                android:text="Настройки"
                                 android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
-                                android:textSize="10sp"
+                                android:textSize="12sp"
                                 android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
                     </LinearLayout>
@@ -418,7 +419,7 @@
                                 android:text="Назад"
                                 android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
-                                android:textSize="11sp"
+                                android:textSize="12sp"
                                 android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
@@ -451,7 +452,7 @@
                                 android:text="Фото"
                                 android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
-                                android:textSize="11sp"
+                                android:textSize="12sp"
                                 android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
@@ -480,9 +481,9 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Выход"
+                                android:text="Выйти"
                                 android:textColor="@color/prime_danger"
-                                android:textSize="11sp"
+                                android:textSize="12sp"
                                 android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
 
@@ -515,7 +516,7 @@
                                 android:text="Настройки"
                                 android:textColor="@color/prime_text_primary"
                                 android:alpha="0.8"
-                                android:textSize="11sp"
+                                android:textSize="12sp"
                                 android:fontFamily="sans-serif-medium" />
                         </LinearLayout>
                     </LinearLayout>
@@ -528,7 +529,8 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                app:layout_constraintWidth_max="650dp"
+                android:animateLayoutChanges="true"
+                app:layout_constraintWidth_max="640dp"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/headerStaticBlock"
@@ -543,6 +545,7 @@
                     android:layout_marginHorizontal="24dp"
                     android:orientation="vertical"
                     android:padding="20dp"
+                    android:animateLayoutChanges="true"
                     android:background="@drawable/bg_settings_block_gray">
 
                     <!-- Шапка выпадающего списка -->
@@ -557,7 +560,7 @@
                             android:id="@+id/tvAccountHeaderLabel"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Вы в прайме,"
+                            android:text="Аккаунт"
                             android:textColor="@color/prime_text_secondary"
                             android:textSize="12sp"
                             android:fontFamily="sans-serif-medium"
@@ -888,13 +891,12 @@
 
                                         <com.google.android.material.card.MaterialCardView
                                             android:id="@+id/cardThemeSystem"
-                                            android:layout_width="76dp"
-                                            android:layout_height="138dp"
+                                            android:layout_width="80dp"
+                                            android:layout_height="144dp"
                                             android:layout_gravity="center_horizontal"
                                             app:cardCornerRadius="18dp"
-                                            app:cardElevation="0dp"
-                                            app:strokeWidth="1dp"
-                                            app:strokeColor="#1A000000">
+                                            app:cardElevation="2dp"
+                                            app:strokeWidth="0dp">
 
                                             <FrameLayout
                                                 android:layout_width="match_parent"
@@ -1037,13 +1039,12 @@
 
                                         <com.google.android.material.card.MaterialCardView
                                             android:id="@+id/cardThemeLight"
-                                            android:layout_width="76dp"
-                                            android:layout_height="138dp"
+                                            android:layout_width="80dp"
+                                            android:layout_height="144dp"
                                             android:layout_gravity="center_horizontal"
                                             app:cardCornerRadius="18dp"
-                                            app:cardElevation="0dp"
-                                            app:strokeWidth="1dp"
-                                            app:strokeColor="#1A000000">
+                                            app:cardElevation="2dp"
+                                            app:strokeWidth="0dp">
 
                                             <FrameLayout
                                                 android:layout_width="match_parent"
@@ -1154,9 +1155,8 @@
                                             android:layout_height="138dp"
                                             android:layout_gravity="center_horizontal"
                                             app:cardCornerRadius="18dp"
-                                            app:cardElevation="0dp"
-                                            app:strokeWidth="1dp"
-                                            app:strokeColor="#1A000000">
+                                            app:cardElevation="2dp"
+                                            app:strokeWidth="0dp">
 
                                             <FrameLayout
                                                 android:layout_width="match_parent"
@@ -1267,9 +1267,8 @@
                                             android:layout_height="138dp"
                                             android:layout_gravity="center_horizontal"
                                             app:cardCornerRadius="18dp"
-                                            app:cardElevation="0dp"
-                                            app:strokeWidth="1dp"
-                                            app:strokeColor="#1A000000">
+                                            app:cardElevation="2dp"
+                                            app:strokeWidth="0dp">
 
                                             <FrameLayout
                                                 android:layout_width="match_parent"
@@ -1427,7 +1426,7 @@
                                             android:singleLine="true"
                                             android:text="Тето (Светлая)"
                                             android:textColor="@color/prime_text_primary"
-                                            android:textSize="11sp"
+                                            android:textSize="12sp"
                                             android:fontFamily="sans-serif-medium" />
 
                                         <RadioButton
@@ -1467,9 +1466,8 @@
                                             android:layout_height="138dp"
                                             android:layout_gravity="center_horizontal"
                                             app:cardCornerRadius="18dp"
-                                            app:cardElevation="0dp"
-                                            app:strokeWidth="1dp"
-                                            app:strokeColor="#1A000000">
+                                            app:cardElevation="2dp"
+                                            app:strokeWidth="0dp">
 
                                             <FrameLayout
                                                 android:layout_width="match_parent"
@@ -1627,7 +1625,7 @@
                                             android:singleLine="true"
                                             android:text="Тето (Темная)"
                                             android:textColor="@color/prime_text_primary"
-                                            android:textSize="11sp"
+                                            android:textSize="12sp"
                                             android:fontFamily="sans-serif-medium" />
 
                                         <RadioButton
@@ -1658,9 +1656,8 @@
                                 android:visibility="gone"
                                 app:cardBackgroundColor="@color/prime_base"
                                 app:cardCornerRadius="20dp"
-                                app:cardElevation="0dp"
-                                app:strokeColor="#30D80032"
-                                app:strokeWidth="1.5dp">
+                                app:cardElevation="2dp"
+                                app:strokeWidth="0dp">
 
                                 <LinearLayout
                                     android:layout_width="match_parent"
@@ -2400,7 +2397,7 @@
 
                                     <com.google.android.material.button.MaterialButton
                                         android:tag="btnAddCustomCategory"
-                                        style="@style/Widget.Material3.Button.OutlinedButton"
+                                        style="@style/Widget.Material3.Button.TonalButton"
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:text="Добавить свою категорию"
@@ -2527,7 +2524,7 @@
                                 <!-- Кнопка вызова точного спектра -->
                                 <com.google.android.material.button.MaterialButton
                                     android:id="@+id/btnCustomPicker"
-                                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                                    style="@style/Widget.Material3.Button.TonalButton"
                                     android:layout_width="match_parent"
                                     android:layout_height="48dp"
                                     android:text="Спектр"
@@ -3192,8 +3189,7 @@
                                             android:layout_height="wrap_content"
                                             app:cardCornerRadius="20dp"
                                             app:cardElevation="2dp"
-                                            app:strokeColor="@color/prime_brand"
-                                            app:strokeWidth="1dp"
+                                            app:strokeWidth="0dp"
                                             app:cardBackgroundColor="@color/prime_base">
 
                                             <LinearLayout
@@ -3230,7 +3226,7 @@
                                                         android:layout_height="wrap_content"
                                                         android:text="В сети"
                                                         android:textColor="@color/prime_success"
-                                                        android:textSize="11sp" />
+                                                        android:textSize="12sp" />
                                                 </LinearLayout>
 
                                                 <ImageView
@@ -3425,8 +3421,7 @@
                                         app:cardCornerRadius="24dp"
                                         app:cardElevation="1dp"
                                         app:cardBackgroundColor="@color/prime_base"
-                                        app:strokeColor="@color/prime_brand"
-                                        app:strokeWidth="1dp">
+                                        app:strokeWidth="0dp">
 
                                         <LinearLayout
                                             android:layout_width="match_parent"
@@ -3467,8 +3462,7 @@
                                         app:cardCornerRadius="24dp"
                                         app:cardElevation="1dp"
                                         app:cardBackgroundColor="@color/prime_base"
-                                        app:strokeColor="@color/prime_brand"
-                                        app:strokeWidth="1dp">
+                                        app:strokeWidth="0dp">
 
                                         <LinearLayout
                                             android:layout_width="match_parent"
@@ -3681,8 +3675,7 @@
                                     android:layout_marginBottom="16dp"
                                     app:cardCornerRadius="16dp"
                                     app:cardElevation="0dp"
-                                    app:strokeWidth="1dp"
-                                    app:strokeColor="#1A000000">
+                                    app:strokeWidth="0dp">
 
                                     <LinearLayout
                                         android:id="@+id/layoutVideoNotePreviewBg"
@@ -3732,7 +3725,7 @@
                                                     android:layout_height="wrap_content"
                                                     android:text="12:34"
                                                     android:textColor="#FFFFFF"
-                                                    android:textSize="11sp"
+                                                    android:textSize="12sp"
                                                     android:fontFamily="sans-serif-medium" />
 
                                                 <ImageView
