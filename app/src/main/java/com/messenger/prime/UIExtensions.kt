@@ -17,16 +17,16 @@ import java.io.File
 
 fun View.addBounceTouchEffect() {
     val decelerate = DecelerateInterpolator()
-    val overshoot = OvershootInterpolator(2.0f)
 
     setOnTouchListener { v, event ->
+        if (PrimeTransitions.areAnimationsDisabled(v.context)) return@setOnTouchListener false
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 v.animate().cancel()
                 v.animate()
-                    .scaleX(0.96f)
-                    .scaleY(0.96f)
-                    .setDuration(120)
+                    .scaleX(0.97f)
+                    .scaleY(0.97f)
+                    .setDuration(80)
                     .setInterpolator(decelerate)
                     .start()
             }
@@ -35,8 +35,8 @@ fun View.addBounceTouchEffect() {
                 v.animate()
                     .scaleX(1.0f)
                     .scaleY(1.0f)
-                    .setDuration(220)
-                    .setInterpolator(overshoot)
+                    .setDuration(120)
+                    .setInterpolator(decelerate)
                     .start()
             }
         }

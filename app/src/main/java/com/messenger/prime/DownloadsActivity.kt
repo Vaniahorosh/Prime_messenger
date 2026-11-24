@@ -183,29 +183,36 @@ class DownloadsActivity : AppCompatActivity() {
     private fun setupSystemBarInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.layoutDownloadsRoot) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val isImeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
             val density = resources.displayMetrics.density
 
+            binding.layoutDownloadsRoot.setPadding(cutout.left, 0, cutout.right, 0)
+
+            val safeTop = maxOf(systemBars.top, cutout.top)
+            val safeBottom = maxOf(systemBars.bottom, cutout.bottom)
+
             val lpHeader = binding.layoutHeaderIsland.layoutParams as ViewGroup.MarginLayoutParams
-            val targetHeaderTop = systemBars.top + (10 * density).toInt()
+            val targetHeaderTop = safeTop + (10 * density).toInt()
             if (lpHeader.topMargin != targetHeaderTop) {
                 lpHeader.topMargin = targetHeaderTop
                 binding.layoutHeaderIsland.layoutParams = lpHeader
             }
 
             val navView = findViewById<View>(R.id.blurBottomNav)
-            if (navView != null && navView.visibility == View.VISIBLE) {
-                val lpNav = navView.layoutParams as? ViewGroup.MarginLayoutParams
-                if (lpNav != null) {
-                    val targetNavBottom = systemBars.bottom + (16 * density).toInt()
-                    if (lpNav.bottomMargin != targetNavBottom) {
-                        lpNav.bottomMargin = targetNavBottom
-                        navView.layoutParams = lpNav
-                    }
-                }
+            val navEnabled = PrimeBottomNavHelper.isBottomBarEnabled(this, hideOnTabletOrEmbedded = true)
+            PrimeBottomNavHelper.updateForIme(navView, isImeVisible, navEnabled)
+            if (navView != null && navEnabled && !isImeVisible) {
+                PrimeBottomNavHelper.applyBottomMargin(navView, safeBottom)
             }
 
-            val hasBottomNav = navView != null && navView.visibility == View.VISIBLE
-            val bottomPadding = systemBars.bottom + ((if (hasBottomNav) 88 else 24) * density).toInt()
+            val listBottomInset = maxOf(safeBottom, imeInsets.bottom)
+            val bottomPadding = if (navEnabled && !isImeVisible) {
+                safeBottom + (88 * density).toInt()
+            } else {
+                listBottomInset + (24 * density).toInt()
+            }
 
             binding.rvDownloads.setPadding(
                 binding.rvDownloads.paddingLeft,
@@ -769,246 +776,17 @@ class DownloadsActivity : AppCompatActivity() {
     // =========================================================================
 
     private fun setupBottomNav() {
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-        val navStyle = sharedPrefs.getString("navigation_style", "bottom_bar") ?: "bottom_bar"
-        val navView = findViewById<View>(R.id.blurBottomNav) ?: return
-
-        val density = resources.displayMetrics.density
-
-        val isTablet = resources.configuration.smallestScreenWidthDp >= 600
-        val isEmbedded = try {
-            androidx.window.embedding.ActivityEmbeddingController.getInstance(this).isActivityEmbedded(this)
-        } catch (_: Exception) {
-            false
-        }
-
-        if (navStyle != "bottom_bar" || isTablet || isEmbedded) {
-            navView.visibility = View.GONE
-            binding.rvDownloads.setPadding(
-                binding.rvDownloads.paddingLeft,
-                binding.rvDownloads.paddingTop,
-                binding.rvDownloads.paddingRight,
-                (24 * density).toInt()
-            )
-            return
-        }
-
-        navView.visibility = View.VISIBLE
-        navView.bringToFront()
-
-        val insets = ViewCompat.getRootWindowInsets(binding.layoutDownloadsRoot) ?: ViewCompat.getRootWindowInsets(window.decorView)
-        val systemBarsBottom = insets?.getInsets(WindowInsetsCompat.Type.systemBars())?.bottom ?: 0
-
-        val lp = navView.layoutParams as? ViewGroup.MarginLayoutParams
-        if (lp != null) {
-            val targetMargin = systemBarsBottom + (16 * density).toInt()
-            if (lp.bottomMargin != targetMargin) {
-                lp.bottomMargin = targetMargin
-                navView.layoutParams = lp
+        val blurTarget = window.decorView.findViewById<ViewGroup>(android.R.id.content)
+        PrimeBottomNavHelper.setup(
+            activity = this,
+            activeTab = PrimeBottomNavHelper.NavTab.DOWNLOADS,
+            blurTargetRoot = blurTarget,
+            hideOnTabletOrEmbedded = true,
+            onSameTabReselect = {
+                binding.rvDownloads.smoothScrollToPosition(0)
             }
-        }
-
-        binding.rvDownloads.setPadding(
-            binding.rvDownloads.paddingLeft,
-            binding.rvDownloads.paddingTop,
-            binding.rvDownloads.paddingRight,
-            systemBarsBottom + (88 * density).toInt()
         )
-
-        val btnNavChats = navView.findViewById<View>(R.id.btnNavChats)
-        val btnNavDevices = navView.findViewById<View>(R.id.btnNavDevices)
-        val btnNavAi = navView.findViewById<View>(R.id.btnNavAi)
-        val btnNavSearch = navView.findViewById<View>(R.id.btnNavSearch)
-        val btnNavDownloads = navView.findViewById<View>(R.id.btnNavDownloads)
-        val btnNavProfile = navView.findViewById<View>(R.id.btnNavProfile)
-
-        val navContainer = (navView as? ViewGroup)?.getChildAt(0) as? ViewGroup
-        if (navContainer != null) {
-            val defaultOrder = "chats,devices,ai,search,downloads,profile"
-            val currentOrderStr = sharedPrefs.getString("nav_buttons_order", defaultOrder) ?: defaultOrder
-            val currentOrder = currentOrderStr.split(",").filter { it.isNotEmpty() }
-
-            navContainer.removeAllViews()
-
-            val allNavIds = listOf("chats", "devices", "ai", "search", "downloads", "profile")
-            val orderToUse = if (currentOrder.containsAll(allNavIds)) currentOrder else defaultOrder.split(",")
-
-            for (id in orderToUse) {
-                val view = when (id) {
-                    "chats" -> btnNavChats
-                    "devices" -> btnNavDevices
-                    "ai" -> btnNavAi
-                    "search" -> btnNavSearch
-                    "downloads" -> btnNavDownloads
-                    "profile" -> btnNavProfile
-                    else -> null
-                }
-                view?.let {
-                    val isVisible = sharedPrefs.getBoolean("nav_button_${id}_visible", true)
-                    it.visibility = if (isVisible || id == "profile") View.VISIBLE else View.GONE
-                    navContainer.addView(it)
-                }
-            }
-        }
-
-        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
-
-        val vNavChatsIndicator = navView.findViewById<View>(R.id.vNavChatsIndicator)
-        val vNavDevicesIndicator = navView.findViewById<View>(R.id.vNavDevicesIndicator)
-        val vNavAiIndicator = navView.findViewById<View>(R.id.vNavAiIndicator)
-        val vNavSearchIndicator = navView.findViewById<View>(R.id.vNavSearchIndicator)
-        val vNavDownloadsIndicator = navView.findViewById<View>(R.id.vNavDownloadsIndicator)
-        val vNavProfileIndicator = navView.findViewById<View>(R.id.vNavProfileIndicator)
-
-        val ivNavChatsIcon = navView.findViewById<ImageView>(R.id.ivNavChatsIcon)
-        val ivNavDevicesIcon = navView.findViewById<ImageView>(R.id.ivNavDevicesIcon)
-        val ivNavAiIcon = navView.findViewById<ImageView>(R.id.ivNavAiIcon)
-        val ivNavSearchIcon = navView.findViewById<ImageView>(R.id.ivNavSearchIcon)
-        val ivNavDownloadsIcon = navView.findViewById<ImageView>(R.id.ivNavDownloadsIcon)
-
-        applyBottomNavLabelsVisibility(navView, sharedPrefs.getBoolean("nav_show_labels", false))
-
-        updateM3TabState(false, vNavChatsIndicator, ivNavChatsIcon, accentColor)
-        updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, accentColor)
-        updateM3TabState(false, vNavAiIndicator, ivNavAiIcon, accentColor)
-        updateM3TabState(false, vNavSearchIndicator, ivNavSearchIcon, accentColor)
-        updateM3TabState(true, vNavDownloadsIndicator, ivNavDownloadsIcon, accentColor)
-        updateM3TabState(false, vNavProfileIndicator, null, accentColor)
-        updateNavUnreadBadge(navView)
-
-        val profileAvatarIv = navView.findViewById<ImageView>(R.id.ivNavProfileAvatar)
-        if (profileAvatarIv != null) {
-            val myAvatar = AvatarManager.getMyAvatarUri(this)
-            val myName = AvatarManager.getMyDisplayName(this)
-            loadAvatarIntoView(this, myAvatar, profileAvatarIv, myName)
-        }
-
-        val blurNavView = navView as? eightbitlab.com.blurview.BlurView
-        if (blurNavView != null) {
-            val overlayColor = com.messenger.prime.getDefaultBlurOverlayColor(this)
-            val targetRootView = (window.decorView.findViewById<ViewGroup>(android.R.id.content))
-                ?: (window.decorView as ViewGroup)
-            blurNavView.setupBlur(targetRootView, 18f, overlayColor, window.decorView.background)
-        }
-
-        val hapticTap = { view: View ->
-            try {
-                view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-            } catch (_: Exception) {}
-        }
-
-        btnNavChats?.setOnClickListener { v ->
-            hapticTap(v)
-            val intent = Intent(this, ChatListActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-            startActivity(intent)
-            PrimeTransitions.applyPageFlipTransition(this, isForward = false)
-            finish()
-        }
-
-        btnNavDevices?.setOnClickListener { v ->
-            hapticTap(v)
-            val intent = Intent(this, ChatListActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra("OPEN_DEVICE_SCAN", true)
-            }
-            startActivity(intent)
-            finish()
-        }
-
-        btnNavAi?.setOnClickListener { v ->
-            hapticTap(v)
-            val intent = Intent(this, AiChatActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-            startActivity(intent)
-            PrimeTransitions.applyOpenTransition(this)
-            finish()
-        }
-
-        btnNavSearch?.setOnClickListener { v ->
-            hapticTap(v)
-            val intent = Intent(this, GlobalSearchActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-            startActivity(intent)
-            PrimeTransitions.applyPageFlipTransition(this, isForward = true)
-            finish()
-        }
-
-        btnNavDownloads?.setOnClickListener { v ->
-            hapticTap(v)
-            binding.rvDownloads.smoothScrollToPosition(0)
-        }
-
-        btnNavProfile?.setOnClickListener { v ->
-            hapticTap(v)
-            val intent = Intent(this, SettingsActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-            startActivity(intent)
-            PrimeTransitions.applyOpenTransition(this)
-            finish()
-        }
-    }
-
-    private fun updateNavUnreadBadge(navView: View) {
-        val tvNavChatsUnreadBadge = navView.findViewById<TextView>(R.id.tvNavChatsUnreadBadge) ?: return
-        var totalUnread = 0
-        try {
-            val json = ChatHistoryManager.getPersistedChatsJson(this)
-            val array = org.json.JSONArray(json)
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                totalUnread += obj.optInt("unreadCount", 0)
-            }
-        } catch (_: Exception) {}
-
-        if (totalUnread > 0) {
-            tvNavChatsUnreadBadge.text = if (totalUnread > 99) "99+" else totalUnread.toString()
-            tvNavChatsUnreadBadge.visibility = View.VISIBLE
-        } else {
-            tvNavChatsUnreadBadge.visibility = View.GONE
-        }
-    }
-
-    private fun updateM3TabState(
-        isActive: Boolean,
-        indicatorView: View?,
-        iconView: ImageView?,
-        accentColor: Int
-    ) {
-        if (indicatorView == null) return
-        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val activeIconColor = if (isDark) Color.parseColor("#0F172A") else Color.WHITE
-
-        indicatorView.visibility = View.VISIBLE
-
-        if (isActive) {
-            indicatorView.backgroundTintList = ColorStateList.valueOf(accentColor)
-            indicatorView.animate()
-                .scaleX(1.0f)
-                .scaleY(1.0f)
-                .alpha(1.0f)
-                .setDuration(220)
-                .setInterpolator(OvershootInterpolator(1.2f))
-                .start()
-
-            iconView?.setColorFilter(activeIconColor)
-            iconView?.animate()?.scaleX(1.1f)?.scaleY(1.1f)?.setDuration(180)?.start()
-        } else {
-            indicatorView.backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
-            indicatorView.animate()
-                .scaleX(0.7f)
-                .scaleY(0.7f)
-                .alpha(0f)
-                .setDuration(180)
-                .start()
-
-            iconView?.setColorFilter(if (isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B"))
-            iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
-        }
+        ViewCompat.requestApplyInsets(binding.layoutDownloadsRoot)
     }
 
     // Active Transfers RecyclerView Adapter

@@ -102,6 +102,7 @@ fun PrimeEmojiStickerPanel(
     onAddStickerRequested: (packId: String) -> Unit,
     onCloseRequested: () -> Unit,
     onResizeRequested: ((Float) -> Unit)? = null,
+    onResizeFinished: (() -> Unit)? = null,
     onDeleteBackwardRequested: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -182,7 +183,10 @@ fun PrimeEmojiStickerPanel(
                     .fillMaxWidth()
                     .padding(top = 2.dp, bottom = 6.dp)
                     .pointerInput(Unit) {
-                        detectVerticalDragGestures { change, dragAmount ->
+                        detectVerticalDragGestures(
+                            onDragEnd = { onResizeFinished?.invoke() },
+                            onDragCancel = { onResizeFinished?.invoke() }
+                        ) { change, dragAmount ->
                             change.consume()
                             onResizeRequested?.invoke(-dragAmount)
                         }

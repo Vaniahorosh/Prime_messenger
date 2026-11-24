@@ -12,8 +12,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.animation.AccelerateInterpolator
-import android.view.animation.DecelerateInterpolator
-import android.view.animation.OvershootInterpolator
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -49,13 +47,17 @@ class VideoNoteIslandManager(
             }
         }
 
-    private val speedMenuBlur: BlurView? = (islandView.parent as? ViewGroup)?.findViewById(R.id.layoutVideoSpeedMenuBlur)
+    private val speedMenuBlur: BlurView? = (islandView.context as? Activity)?.findViewById(R.id.layoutVideoSpeedMenuBlur)
+        ?: islandView.rootView?.findViewById(R.id.layoutVideoSpeedMenuBlur)
     private val speedItemsContainer: LinearLayout? = speedMenuBlur?.findViewById(R.id.layoutVideoSpeedItemsContainer)
-    private val speedMenuDismissView: View? = (islandView.parent as? ViewGroup)?.findViewById(R.id.viewVideoSpeedMenuDismiss)
+    private val speedMenuDismissView: View? = (islandView.context as? Activity)?.findViewById(R.id.viewVideoSpeedMenuDismiss)
+        ?: islandView.rootView?.findViewById(R.id.viewVideoSpeedMenuDismiss)
 
     private val speeds = arrayOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 2.5f, 3.0f, 5.0f)
     private var currentDurationMs = 0
     private var isSpeedMenuOpen = false
+    private var isBlurInitialized = false
+    private var isSpeedMenuBlurInitialized = false
 
     init {
         btnPlayPause.setOnClickListener {
@@ -105,13 +107,15 @@ class VideoNoteIslandManager(
         val currentSpeed = getSavedSpeed(context)
         val density = context.resources.displayMetrics.density
         val accentColor = ColorAccentManager.getCurrentAccentColor(context)
+        val primaryTextColor = androidx.core.content.ContextCompat.getColor(context, R.color.prime_text_primary)
+        val idleBgColor = androidx.core.content.ContextCompat.getColor(context, R.color.glass_white_10)
 
-        speeds.forEachIndexed { index, speed ->
+        speeds.forEach { speed ->
             val isSelected = Math.abs(speed - currentSpeed) < 0.05f
             val itemTv = TextView(context).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    (34 * density).toInt()
+                    (36 * density).toInt()
                 ).apply {
                     setMargins(0, (2 * density).toInt(), 0, (2 * density).toInt())
                 }
@@ -124,21 +128,21 @@ class VideoNoteIslandManager(
                 }
                 text = label
                 textSize = 12f
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
 
                 if (isSelected) {
                     setTextColor(Color.WHITE)
                     background = android.graphics.drawable.GradientDrawable().apply {
                         shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                        cornerRadius = 12f * density
+                        cornerRadius = 10f * density
                         setColor(accentColor)
                     }
                 } else {
-                    setTextColor(Color.parseColor("#E2E8F0"))
+                    setTextColor(primaryTextColor)
                     background = android.graphics.drawable.GradientDrawable().apply {
                         shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                        cornerRadius = 12f * density
-                        setColor(Color.parseColor("#15FFFFFF"))
+                        cornerRadius = 10f * density
+                        setColor(idleBgColor)
                     }
                 }
 
@@ -155,11 +159,14 @@ class VideoNoteIslandManager(
 
     private fun openSpeedMenuAnimated() {
         val menu = speedMenuBlur ?: return
-        val container = speedItemsContainer ?: return
         val context = menu.context
 
         buildSpeedMenuItems(context)
-        setupSpeedMenuBlur(menu)
+        if (!isSpeedMenuBlurInitialized) {
+            setupSpeedMenuBlur(menu)
+            isSpeedMenuBlurInitialized = true
+        }
+        setBlurAutoUpdateSafe(menu, true)
 
         isSpeedMenuOpen = true
         speedMenuDismissView?.visibility = View.VISIBLE
@@ -168,12 +175,10 @@ class VideoNoteIslandManager(
         menu.visibility = View.VISIBLE
         menu.bringToFront()
 
-        val density = context.resources.displayMetrics.density
-
         menu.pivotX = menu.width.toFloat().coerceAtLeast(100f)
         menu.pivotY = 0f
-        menu.scaleX = 0.2f
-        menu.scaleY = 0.2f
+        menu.scaleX = 0.92f
+        menu.scaleY = 0.92f
         menu.alpha = 0f
 
         menu.animate().cancel()
@@ -181,23 +186,9 @@ class VideoNoteIslandManager(
             .scaleX(1.0f)
             .scaleY(1.0f)
             .alpha(1.0f)
-            .setDuration(280)
-            .setInterpolator(OvershootInterpolator(1.2f))
+            .setDuration(160)
+            .setInterpolator(androidx.interpolator.view.animation.FastOutSlowInInterpolator())
             .start()
-
-        for (i in 0 until container.childCount) {
-            val child = container.getChildAt(i)
-            child.alpha = 0f
-            child.translationY = -20f * density
-            child.animate().cancel()
-            child.animate()
-                .alpha(1.0f)
-                .translationY(0f)
-                .setDuration(200)
-                .setStartDelay(i * 25L)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-        }
     }
 
     private fun closeSpeedMenuAnimated(onComplete: (() -> Unit)? = null) {
@@ -209,33 +200,19 @@ class VideoNoteIslandManager(
         }
 
         isSpeedMenuOpen = false
-        val container = speedItemsContainer
-        val density = menu.context.resources.displayMetrics.density
-
-        if (container != null) {
-            for (i in 0 until container.childCount) {
-                val child = container.getChildAt(i)
-                child.animate().cancel()
-                child.animate()
-                    .alpha(0f)
-                    .translationY(-15f * density)
-                    .setDuration(150)
-                    .start()
-            }
-        }
-
         menu.animate().cancel()
         menu.animate()
-            .scaleX(0.2f)
-            .scaleY(0.2f)
+            .scaleX(0.92f)
+            .scaleY(0.92f)
             .alpha(0f)
-            .setDuration(220)
+            .setDuration(130)
             .setInterpolator(AccelerateInterpolator())
             .withEndAction {
                 menu.visibility = View.GONE
                 menu.scaleX = 1.0f
                 menu.scaleY = 1.0f
                 menu.alpha = 1.0f
+                setBlurAutoUpdateSafe(menu, false)
                 onComplete?.invoke()
             }
             .start()
@@ -376,19 +353,23 @@ class VideoNoteIslandManager(
 
         if (!isAlreadyVisible) {
             islandView.animate().cancel()
-            islandView.translationY = -120f
+            islandView.translationY = -24f
             islandView.alpha = 0f
             islandView.visibility = View.VISIBLE
-            islandView.elevation = 24f * islandView.context.resources.displayMetrics.density
+            islandView.elevation = 8f * islandView.context.resources.displayMetrics.density
             islandView.bringToFront()
 
-            setupBlur()
+            if (!isBlurInitialized) {
+                setupBlur()
+                isBlurInitialized = true
+            }
+            setBlurAutoUpdateSafe(islandView, true)
 
             islandView.animate()
                 .translationY(0f)
                 .alpha(1f)
-                .setDuration(300)
-                .setInterpolator(DecelerateInterpolator())
+                .setDuration(180)
+                .setInterpolator(androidx.interpolator.view.animation.FastOutSlowInInterpolator())
                 .start()
         }
 
@@ -402,18 +383,25 @@ class VideoNoteIslandManager(
         speedMenuDismissView?.visibility = View.GONE
         speedMenuBlur?.animate()?.cancel()
         speedMenuBlur?.visibility = View.GONE
+        setBlurAutoUpdateSafe(speedMenuBlur, false)
         isSpeedMenuOpen = false
+
+        if (islandView.visibility != View.VISIBLE) {
+            setBlurAutoUpdateSafe(islandView, false)
+            return
+        }
 
         islandView.animate().cancel()
         islandView.animate()
-            .translationY(-120f)
+            .translationY(-20f)
             .alpha(0f)
-            .setDuration(250)
+            .setDuration(150)
             .setInterpolator(AccelerateInterpolator())
             .withEndAction {
                 islandView.visibility = View.GONE
                 islandView.translationY = 0f
                 islandView.alpha = 1f
+                setBlurAutoUpdateSafe(islandView, false)
             }
             .start()
     }

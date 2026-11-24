@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginVertical="4dp"
-    android:background="@drawable/bg_date_bubble"
+    android:background="@drawable/bg_editor_input_box"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?attr/selectableItemBackground"
@@ -27,18 +27,18 @@
             android:id="@+id/ivPluginIcon"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:contentDescription="Плагин"
             android:src="@drawable/ic_file"
-            app:tint="@color/white"
-            android:contentDescription="Плагин" />
+            app:tint="@color/white" />
     </FrameLayout>
 
     <!-- Plugin Details -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
         android:layout_marginStart="12dp"
         android:layout_marginEnd="8dp"
+        android:layout_weight="1"
         android:orientation="vertical">
 
         <TextView
@@ -46,10 +46,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
             android:maxLines="1"
             android:textColor="@color/prime_text_primary"
             android:textSize="14sp"
-            android:textStyle="bold"
             tools:text="CustomPlugin.java" />
 
         <TextView

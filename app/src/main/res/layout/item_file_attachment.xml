@@ -50,22 +50,31 @@
         </LinearLayout>
 
         <FrameLayout
-            android:id="@+id/layoutSelectionBadge"
-            android:layout_width="22dp"
-            android:layout_height="22dp"
+            android:id="@+id/flSelectionTapTarget"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:layout_gravity="top|end"
-            android:layout_margin="4dp"
-            android:background="@drawable/bg_circular_mode_active"
-            android:visibility="gone">
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="6dp">
 
-            <TextView
-                android:id="@+id/tvSelectionIndex"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:textColor="@color/white"
-                android:textSize="11sp"
-                android:textStyle="bold" />
+            <FrameLayout
+                android:id="@+id/layoutSelectionBadge"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="top|end"
+                android:background="@drawable/bg_gallery_check_idle">
+
+                <TextView
+                    android:id="@+id/tvSelectionIndex"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:fontFeatureSettings="tnum"
+                    android:textColor="@color/white"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </FrameLayout>
         </FrameLayout>
     </FrameLayout>
 </com.google.android.material.card.MaterialCardView>

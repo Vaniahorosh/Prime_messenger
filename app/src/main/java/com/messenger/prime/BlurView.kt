@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.doOnPreDraw
 import androidx.core.view.doOnLayout
+import androidx.core.view.isVisible
 import eightbitlab.com.blurview.BlurView as EightBitBlurView
 import eightbitlab.com.blurview.RenderEffectBlur
 import eightbitlab.com.blurview.RenderScriptBlur
@@ -129,9 +130,9 @@ fun View.applyM3EPathProvider(pathProvider: (width: Float, height: Float) -> Pat
 fun getDefaultBlurOverlayColor(context: Context): Int {
     val isDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
     return if (isDark) {
-        android.graphics.Color.parseColor("#400F172A")
+        android.graphics.Color.parseColor("#800F172A")
     } else {
-        android.graphics.Color.parseColor("#40FFFFFF") // Better for light theme
+        android.graphics.Color.parseColor("#BFFFFFFF") // Crisp contrast in light theme
     }
 }
 
@@ -305,7 +306,7 @@ fun EightBitBlurView.setupBlur(
                 setupWith(targetRoot, algorithm)
                     .setBlurRadius(blurRadius.coerceIn(1f, 25f))
                     .setOverlayColor(actualTintColor)
-                    .setBlurAutoUpdate(true)
+                    .setBlurAutoUpdate(isVisible)
                     .apply {
                         if (frameClearDrawable != null) {
                             setFrameClearDrawable(frameClearDrawable)
@@ -340,6 +341,14 @@ fun EightBitBlurView.setupBlur(
                 }
             }
         })
+    }
+}
+
+fun setBlurAutoUpdateSafe(view: View?, enabled: Boolean) {
+    if (view is EightBitBlurView) {
+        try {
+            view.setBlurAutoUpdate(enabled)
+        } catch (_: Throwable) {}
     }
 }
 

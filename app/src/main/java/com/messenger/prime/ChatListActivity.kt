@@ -732,9 +732,37 @@ class ChatListActivity : AppCompatActivity() {
 
     private var activeEmbeddedChatViewController: EmbeddedChatViewController? = null
 
+    private val embeddedEditPhotoLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK && result.data != null) {
+            val editedUriStr = result.data?.getStringExtra("EDITED_IMAGE_URI")
+                ?: result.data?.getStringExtra("EXTRA_IMAGE_URI")
+            val caption = result.data?.getStringExtra("EXTRA_CAPTION")
+            if (!editedUriStr.isNullOrBlank()) {
+                activeEmbeddedChatViewController?.sendImageUri(editedUriStr.toUri(), caption)
+            }
+        }
+    }
+
     private val pickEmbeddedImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
-            activeEmbeddedChatViewController?.sendImageUri(uri)
+            val mime = try { contentResolver.getType(uri) } catch (_: Exception) { null }
+            val isGif = uri.toString().lowercase(Locale.US).endsWith(".gif") ||
+                "image/gif".equals(mime, ignoreCase = true)
+            if (isGif) {
+                activeEmbeddedChatViewController?.sendImageUri(uri)
+            } else {
+                val controller = activeEmbeddedChatViewController
+                if (controller != null) {
+                    val intent = Intent(this, PhotoEditorActivity::class.java).apply {
+                        setDataAndType(uri, "image/*")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        putExtra("EXTRA_IMAGE_URI", uri.toString())
+                        putExtra("EXTRA_CONTACT_NAME", controller.getTargetTitle())
+                        putExtra("IS_HD_QUALITY", true)
+                    }
+                    embeddedEditPhotoLauncher.launch(intent)
+                }
+            }
         }
     }
 
@@ -1506,7 +1534,13 @@ class ChatListActivity : AppCompatActivity() {
             }
         }
 
-        fun sendImageUri(uri: Uri) {
+        fun getTargetTitle(): String {
+            return binding?.tvChatName?.text?.toString()?.takeIf { it.isNotBlank() }
+                ?: activeTargetUsername
+                ?: "Чат"
+        }
+
+        fun sendImageUri(uri: Uri, caption: String? = null) {
             val targetUser = activeTargetUsername ?: return
             val targetAddr = if (!activeDeviceAddress.isNullOrEmpty()) activeDeviceAddress!! else targetUser
             val sharedPrefs = activity.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
@@ -1542,7 +1576,17 @@ class ChatListActivity : AppCompatActivity() {
                         val file = ChatHistoryManager.saveBytesToAtomicFile(activity, "sent_photo_${timestamp}_$ext", bytes)
                         val photoPath = file?.absolutePath ?: uri.toString()
 
-                        val msg = ChatMessage("Фотография", time, myDisplayName, true, null, timestamp, photoPath, messageId)
+                        val cleanCaption = caption?.trim().orEmpty()
+                        val msg = ChatMessage(
+                            cleanCaption.ifEmpty { "Фотография" },
+                            time,
+                            myDisplayName,
+                            true,
+                            null,
+                            timestamp,
+                            photoPath,
+                            messageId
+                        )
                         msg.messageStatus = MessageStatus.SENT
 
                         ChatHistoryManager.saveMessage(activity, targetUser, msg)
@@ -1550,6 +1594,10 @@ class ChatListActivity : AppCompatActivity() {
                         val payloadStr = "$messageId:::$photoPath"
                         val payload = payloadStr.toByteArray(java.nio.charset.StandardCharsets.UTF_8)
                         BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x02.toByte(), payload)
+                        if (cleanCaption.isNotEmpty()) {
+                            val captionPayload = "${messageId}_cap:::$cleanCaption".toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+                            BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x01.toByte(), captionPayload)
+                        }
 
                         activity.runOnUiThread {
                             chatAdapter?.addMessage(msg)
@@ -1688,6 +1736,20 @@ class ChatListActivity : AppCompatActivity() {
             val dialogView = inflater.inflate(R.layout.layout_attachment_panel, null)
             dialog.setContentView(dialogView)
 
+            val layoutAttachmentPanel = dialogView.findViewById<View>(R.id.layoutAttachmentPanel)
+            if (layoutAttachmentPanel != null) {
+                val basePadBottom = (10 * activity.resources.displayMetrics.density).toInt()
+                ViewCompat.setOnApplyWindowInsetsListener(layoutAttachmentPanel) { v, insets ->
+                    val sysBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                    val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+                    val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+                    val safeBottom = maxOf(sysBars.bottom, cutout.bottom, ime.bottom)
+                    v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, basePadBottom + safeBottom)
+                    insets
+                }
+                ViewCompat.requestApplyInsets(layoutAttachmentPanel)
+            }
+
             dialog.setOnShowListener {
                 val bottomSheetView = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
                 if (bottomSheetView != null) {
@@ -1703,6 +1765,17 @@ class ChatListActivity : AppCompatActivity() {
                     behavior.isFitToContents = false
                     behavior.expandedOffset = 0
                 }
+                if (layoutAttachmentPanel is eightbitlab.com.blurview.BlurView && dialog.window != null) {
+                    val decorView = dialog.window?.decorView as? ViewGroup
+                    if (decorView != null) {
+                        layoutAttachmentPanel.setupBlur(decorView, 16f, getDefaultBlurOverlayColor(activity), decorView.background)
+                        setBlurAutoUpdateSafe(layoutAttachmentPanel, true)
+                    }
+                }
+            }
+
+            dialog.setOnDismissListener {
+                setBlurAutoUpdateSafe(layoutAttachmentPanel, false)
             }
 
             if (dialog.window != null) {
@@ -1726,7 +1799,7 @@ class ChatListActivity : AppCompatActivity() {
             btnPickGifFromGallery?.setOnClickListener {
                 if (!checkConn()) return@setOnClickListener
                 dialog.dismiss()
-                activity.pickEmbeddedImageLauncher.launch("image/*")
+                activity.pickEmbeddedImageLauncher.launch("image/gif")
             }
 
             val btnOpenSystemGallery = dialogView.findViewById<View>(R.id.btnOpenSystemGallery)
@@ -1753,6 +1826,15 @@ class ChatListActivity : AppCompatActivity() {
             val layoutSectionFiles = dialogView.findViewById<View>(R.id.layoutSectionFiles)
             val layoutSectionMusic = dialogView.findViewById<View>(R.id.layoutSectionMusic)
 
+            val tvGalleryEmpty = dialogView.findViewById<TextView>(R.id.tvGalleryEmpty)
+            val tvFilesEmpty = dialogView.findViewById<TextView>(R.id.tvFilesEmpty)
+            val tvGifEmpty = dialogView.findViewById<TextView>(R.id.tvGifEmpty)
+            tvGalleryEmpty?.text = "Выберите фото через системную галерею"
+            tvGalleryEmpty?.visibility = View.VISIBLE
+            tvFilesEmpty?.text = "Откройте файловый менеджер"
+            tvFilesEmpty?.visibility = View.VISIBLE
+            tvGifEmpty?.visibility = View.VISIBLE
+
             val rvMusicGrid = dialogView.findViewById<RecyclerView>(R.id.rvMusicGrid)
             val btnMusicTabDevice = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnMusicTabDevice)
             val btnMusicTabSaved = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnMusicTabSaved)
@@ -1775,30 +1857,30 @@ class ChatListActivity : AppCompatActivity() {
             val ivModeMusicIcon = dialogView.findViewById<ImageView>(R.id.ivModeMusicIcon)
 
             fun switchMode(mode: Int) {
-                layoutSectionCamera?.visibility = if (mode == 0) View.VISIBLE else View.GONE
-                layoutSectionPhoto?.visibility = if (mode == 1) View.VISIBLE else View.GONE
-                layoutSectionFiles?.visibility = if (mode == 2) View.VISIBLE else View.GONE
+                layoutSectionPhoto?.visibility = if (mode == 0) View.VISIBLE else View.GONE
+                layoutSectionFiles?.visibility = if (mode == 1) View.VISIBLE else View.GONE
+                layoutSectionCamera?.visibility = if (mode == 2) View.VISIBLE else View.GONE
                 layoutSectionMusic?.visibility = if (mode == 3) View.VISIBLE else View.GONE
 
-                vModeCameraBg?.setBackgroundResource(if (mode == 0) R.drawable.bg_circular_mode_active else R.drawable.bg_circular_mode_idle)
-                vModePhotoBg?.setBackgroundResource(if (mode == 1) R.drawable.bg_circular_mode_active else R.drawable.bg_circular_mode_idle)
-                vModeFilesBg?.setBackgroundResource(if (mode == 2) R.drawable.bg_circular_mode_active else R.drawable.bg_circular_mode_idle)
+                vModePhotoBg?.setBackgroundResource(if (mode == 0) R.drawable.bg_circular_mode_active else R.drawable.bg_circular_mode_idle)
+                vModeFilesBg?.setBackgroundResource(if (mode == 1) R.drawable.bg_circular_mode_active else R.drawable.bg_circular_mode_idle)
+                vModeCameraBg?.setBackgroundResource(if (mode == 2) R.drawable.bg_circular_mode_active else R.drawable.bg_circular_mode_idle)
                 vModeMusicBg?.setBackgroundResource(if (mode == 3) R.drawable.bg_circular_mode_active else R.drawable.bg_circular_mode_idle)
 
                 val activeCol = ColorAccentManager.getCurrentAccentColor(activity)
                 val idleCol = ContextCompat.getColor(activity, R.color.prime_text_secondary)
 
-                tvModeCameraLabel?.setTextColor(if (mode == 0) activeCol else idleCol)
-                tvModePhotoLabel?.setTextColor(if (mode == 1) activeCol else idleCol)
-                tvModeFilesLabel?.setTextColor(if (mode == 2) activeCol else idleCol)
+                tvModePhotoLabel?.setTextColor(if (mode == 0) activeCol else idleCol)
+                tvModeFilesLabel?.setTextColor(if (mode == 1) activeCol else idleCol)
+                tvModeCameraLabel?.setTextColor(if (mode == 2) activeCol else idleCol)
                 tvModeMusicLabel?.setTextColor(if (mode == 3) activeCol else idleCol)
 
                 val whiteList = ColorStateList.valueOf(android.graphics.Color.WHITE)
                 val idleList = ColorStateList.valueOf(idleCol)
 
-                ivModeCameraIcon?.imageTintList = if (mode == 0) whiteList else idleList
-                ivModePhotoIcon?.imageTintList = if (mode == 1) whiteList else idleList
-                ivModeFilesIcon?.imageTintList = if (mode == 2) whiteList else idleList
+                ivModePhotoIcon?.imageTintList = if (mode == 0) whiteList else idleList
+                ivModeFilesIcon?.imageTintList = if (mode == 1) whiteList else idleList
+                ivModeCameraIcon?.imageTintList = if (mode == 2) whiteList else idleList
                 ivModeMusicIcon?.imageTintList = if (mode == 3) whiteList else idleList
             }
 
@@ -1816,13 +1898,13 @@ class ChatListActivity : AppCompatActivity() {
             fun loadMusicTab(tab: Int) {
                 val accentCol = ColorAccentManager.getCurrentAccentColor(activity)
                 val accentList = ColorStateList.valueOf(accentCol)
+                val searchBgList = ColorStateList.valueOf(ContextCompat.getColor(activity, R.color.prime_search_bg))
 
                 if (tab == 0) {
                     btnMusicTabDevice?.backgroundTintList = accentList
                     btnMusicTabDevice?.setTextColor(android.graphics.Color.WHITE)
-                    btnMusicTabSaved?.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+                    btnMusicTabSaved?.backgroundTintList = searchBgList
                     btnMusicTabSaved?.setTextColor(accentCol)
-                    btnMusicTabSaved?.setStrokeColor(accentList)
 
                     activity.lifecycleScope.launch(Dispatchers.IO) {
                         val tracks = PrimeMusicManager.getDeviceTracks(activity)
@@ -1834,9 +1916,8 @@ class ChatListActivity : AppCompatActivity() {
                 } else {
                     btnMusicTabSaved?.backgroundTintList = accentList
                     btnMusicTabSaved?.setTextColor(android.graphics.Color.WHITE)
-                    btnMusicTabDevice?.backgroundTintList = ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+                    btnMusicTabDevice?.backgroundTintList = searchBgList
                     btnMusicTabDevice?.setTextColor(accentCol)
-                    btnMusicTabDevice?.setStrokeColor(accentList)
 
                     activity.lifecycleScope.launch(Dispatchers.IO) {
                         val tracks = PrimeMusicManager.getSavedTracks(activity)
@@ -1851,20 +1932,21 @@ class ChatListActivity : AppCompatActivity() {
             btnMusicTabDevice?.setOnClickListener { loadMusicTab(0) }
             btnMusicTabSaved?.setOnClickListener { loadMusicTab(1) }
 
-            layoutModeCamera?.setOnClickListener { switchMode(0) }
-            layoutModePhoto?.setOnClickListener { switchMode(1) }
-            layoutModeFiles?.setOnClickListener { switchMode(2) }
+            layoutModePhoto?.setOnClickListener { switchMode(0) }
+            layoutModeFiles?.setOnClickListener { switchMode(1) }
+            layoutModeCamera?.setOnClickListener { switchMode(2) }
             layoutModeMusic?.setOnClickListener {
                 switchMode(3)
                 loadMusicTab(0)
             }
 
             btnOpenSystemAudioPicker?.setOnClickListener {
+                if (!checkConn()) return@setOnClickListener
                 dialog.dismiss()
                 activity.pickEmbeddedFileLauncher.launch("audio/*")
             }
 
-            switchMode(1)
+            switchMode(0)
 
             attachmentDialog = dialog
         }
@@ -4011,64 +4093,7 @@ class ChatListActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateNavUnreadBadge(navView: View) {
-        val tvNavChatsUnreadBadge = navView.findViewById<TextView>(R.id.tvNavChatsUnreadBadge) ?: return
-        var totalUnread = 0
-        try {
-            val json = ChatHistoryManager.getPersistedChatsJson(this)
-            val array = org.json.JSONArray(json)
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                totalUnread += obj.optInt("unreadCount", 0)
-            }
-        } catch (_: Exception) {}
 
-        if (totalUnread > 0) {
-            tvNavChatsUnreadBadge.text = if (totalUnread > 99) "99+" else totalUnread.toString()
-            tvNavChatsUnreadBadge.visibility = View.VISIBLE
-        } else {
-            tvNavChatsUnreadBadge.visibility = View.GONE
-        }
-    }
-
-    private fun updateM3TabState(
-        isActive: Boolean,
-        indicatorView: View?,
-        iconView: ImageView?,
-        accentColor: Int
-    ) {
-        if (indicatorView == null) return
-        val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val inactiveColor = if (isDark) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
-        val activeIconColor = if (isDark) android.graphics.Color.parseColor("#0F172A") else android.graphics.Color.WHITE
-
-        indicatorView.visibility = View.VISIBLE
-
-        if (isActive) {
-            indicatorView.backgroundTintList = android.content.res.ColorStateList.valueOf(accentColor)
-            indicatorView.animate()
-                .scaleX(1.0f)
-                .scaleY(1.0f)
-                .alpha(1.0f)
-                .setDuration(220)
-                .setInterpolator(android.view.animation.OvershootInterpolator(1.1f))
-                .start()
-
-            iconView?.setColorFilter(activeIconColor)
-            iconView?.animate()?.scaleX(1.1f)?.scaleY(1.1f)?.setDuration(180)?.start()
-        } else {
-            indicatorView.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
-            indicatorView.animate()
-                .scaleX(0.7f)
-                .scaleY(0.7f)
-                .alpha(0f)
-                .setDuration(180)
-                .start()
-
-            iconView?.setColorFilter(inactiveColor)
-            iconView?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(180)?.start()
-        }
-    }
 
     private fun updateFoldableDualPaneLayout() {
         if (!::binding.isInitialized) return
@@ -4367,112 +4392,40 @@ class ChatListActivity : AppCompatActivity() {
 
     private fun setupBottomNav() {
         if (!::binding.isInitialized) return
-        val navView = findViewById<View>(R.id.blurBottomNav) ?: return
-        val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val navStyle = sharedPrefs.getString("navigation_style", "bottom_bar") ?: "bottom_bar"
-
-        if (navStyle != "bottom_bar") {
-            navView.visibility = View.GONE
-            return
-        }
-
-        navView.visibility = View.VISIBLE
-        navView.bringToFront()
-
-        val density = resources.displayMetrics.density
+        val blurTarget = (binding.root as? ViewGroup)
+            ?: window.decorView.findViewById<ViewGroup>(android.R.id.content)
+        val navView = PrimeBottomNavHelper.setup(
+            activity = this,
+            activeTab = PrimeBottomNavHelper.NavTab.CHATS,
+            blurTargetRoot = blurTarget,
+            hideOnTabletOrEmbedded = false,
+            onBeforeNavigate = {
+                if (isContactDialogVisible.value) {
+                    isContactDialogVisible.value = false
+                    stopBluetoothScan()
+                }
+            },
+            onSameTabReselect = {
+                binding.recyclerViewChats.smoothScrollToPosition(0)
+            },
+            onTabClickOverride = { tab ->
+                if (tab == PrimeBottomNavHelper.NavTab.DEVICES) {
+                    onStartChatClicked()
+                    true
+                } else {
+                    false
+                }
+            }
+        ) ?: return
 
         ViewCompat.setOnApplyWindowInsetsListener(navView) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val lp = v.layoutParams as? ViewGroup.MarginLayoutParams
-            if (lp != null) {
-                val targetMargin = systemBars.bottom + (12 * density).toInt()
-                if (lp.bottomMargin != targetMargin) {
-                    lp.bottomMargin = targetMargin
-                    v.layoutParams = lp
-                }
-            }
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            val safeBottom = maxOf(systemBars.bottom, cutout.bottom)
+            PrimeBottomNavHelper.applyBottomMargin(v, safeBottom)
             insets
         }
-
-        val btnNavChats = navView.findViewById<View>(R.id.btnNavChats)
-        val btnNavDevices = navView.findViewById<View>(R.id.btnNavDevices)
-        val btnNavAi = navView.findViewById<View>(R.id.btnNavAi)
-        val btnNavSearch = navView.findViewById<View>(R.id.btnNavSearch)
-        val btnNavDownloads = navView.findViewById<View>(R.id.btnNavDownloads)
-        val btnNavProfile = navView.findViewById<View>(R.id.btnNavProfile)
-
-        val navContainer = (navView as? ViewGroup)?.getChildAt(0) as? ViewGroup
-        if (navContainer != null) {
-            val sharedPrefs = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-            val defaultOrder = "chats,devices,ai,search,downloads,profile"
-            val currentOrderStr = sharedPrefs.getString("nav_buttons_order", defaultOrder) ?: defaultOrder
-            val currentOrder = currentOrderStr.split(",").filter { it.isNotEmpty() }
-
-            navContainer.removeAllViews()
-
-            val allNavIds = listOf("chats", "devices", "ai", "search", "downloads", "profile")
-            val orderToUse = if (currentOrder.containsAll(allNavIds)) currentOrder else defaultOrder.split(",")
-
-            for (id in orderToUse) {
-                val view = when (id) {
-                    "chats" -> btnNavChats
-                    "devices" -> btnNavDevices
-                    "ai" -> btnNavAi
-                    "search" -> btnNavSearch
-                    "downloads" -> btnNavDownloads
-                    "profile" -> btnNavProfile
-                    else -> null
-                }
-                view?.let {
-                    val isVisible = sharedPrefs.getBoolean("nav_button_${id}_visible", true)
-                    it.visibility = if (isVisible || id == "profile") View.VISIBLE else View.GONE
-                    navContainer.addView(it)
-                }
-            }
-        }
-
-        val showLabels = sharedPrefs.getBoolean("nav_show_labels", false)
-        applyBottomNavLabelsVisibility(navView, showLabels)
-
-        val accentColor = ColorAccentManager.getCurrentAccentColor(this)
-        val secondaryColor = ContextCompat.getColor(this, R.color.prime_text_secondary)
-
-        val vNavChatsIndicator = navView.findViewById<View>(R.id.vNavChatsIndicator)
-        val vNavDevicesIndicator = navView.findViewById<View>(R.id.vNavDevicesIndicator)
-        val vNavAiIndicator = navView.findViewById<View>(R.id.vNavAiIndicator)
-        val vNavSearchIndicator = navView.findViewById<View>(R.id.vNavSearchIndicator)
-        val vNavDownloadsIndicator = navView.findViewById<View>(R.id.vNavDownloadsIndicator)
-        val vNavProfileIndicator = navView.findViewById<View>(R.id.vNavProfileIndicator)
-
-        val ivNavChatsIcon = navView.findViewById<ImageView>(R.id.ivNavChatsIcon)
-        val ivNavDevicesIcon = navView.findViewById<ImageView>(R.id.ivNavDevicesIcon)
-        val ivNavAiIcon = navView.findViewById<ImageView>(R.id.ivNavAiIcon)
-        val ivNavSearchIcon = navView.findViewById<ImageView>(R.id.ivNavSearchIcon)
-        val ivNavDownloadsIcon = navView.findViewById<ImageView>(R.id.ivNavDownloadsIcon)
-
-        updateM3TabState(true, vNavChatsIndicator, ivNavChatsIcon, accentColor)
-        updateM3TabState(false, vNavDevicesIndicator, ivNavDevicesIcon, accentColor)
-        updateM3TabState(false, vNavAiIndicator, ivNavAiIcon, accentColor)
-        updateM3TabState(false, vNavSearchIndicator, ivNavSearchIcon, accentColor)
-        updateM3TabState(false, vNavDownloadsIndicator, ivNavDownloadsIcon, accentColor)
-        updateM3TabState(false, vNavProfileIndicator, null, accentColor)
-        updateNavUnreadBadge(navView)
-
-        val profileAvatarIv = navView.findViewById<ImageView>(R.id.ivNavProfileAvatar)
-        if (profileAvatarIv != null) {
-            val myAvatar = AvatarManager.getMyAvatarUri(this)
-            val myName = AvatarManager.getMyDisplayName(this)
-            loadAvatarIntoView(this, myAvatar, profileAvatarIv, myName)
-        }
-
-        val blurNavView = navView as? eightbitlab.com.blurview.BlurView
-        if (blurNavView != null) {
-             val overlayColor = com.messenger.prime.getDefaultBlurOverlayColor(this)
-            val targetRootView = (binding.root as? ViewGroup)
-                ?: (window.decorView.findViewById<ViewGroup>(android.R.id.content))
-                ?: (window.decorView as ViewGroup)
-            blurNavView.setupBlur(targetRootView, 18f, overlayColor, window.decorView.background)
-        }
+        ViewCompat.requestApplyInsets(navView)
 
         val hapticTap = { view: View ->
             try {
@@ -4480,11 +4433,7 @@ class ChatListActivity : AppCompatActivity() {
             } catch (_: Exception) {}
         }
 
-        btnNavChats?.setOnClickListener { v ->
-            hapticTap(v)
-            binding.recyclerViewChats.smoothScrollToPosition(0)
-        }
-        btnNavChats?.setOnLongClickListener { v ->
+        navView.findViewById<View>(R.id.btnNavChats)?.setOnLongClickListener { v ->
             hapticTap(v)
             PrimePopupMenu.create(this, v)
                 .addItem("В начало списка", R.drawable.ic_arrow_up) {
@@ -4497,11 +4446,7 @@ class ChatListActivity : AppCompatActivity() {
             true
         }
 
-        btnNavDevices?.setOnClickListener { v ->
-            hapticTap(v)
-            onStartChatClicked()
-        }
-        btnNavDevices?.setOnLongClickListener { v ->
+        navView.findViewById<View>(R.id.btnNavDevices)?.setOnLongClickListener { v ->
             hapticTap(v)
             PrimePopupMenu.create(this, v)
                 .addItem("Поиск устройств", R.drawable.ic_refresh) {
@@ -4511,19 +4456,7 @@ class ChatListActivity : AppCompatActivity() {
             true
         }
 
-        btnNavAi?.setOnClickListener { v ->
-            hapticTap(v)
-            if (isContactDialogVisible.value) {
-                isContactDialogVisible.value = false
-                stopBluetoothScan()
-            }
-            val intent = Intent(this, AiChatActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-            startActivity(intent)
-            PrimeTransitions.applyOpenTransition(this)
-        }
-        btnNavAi?.setOnLongClickListener { v ->
+        navView.findViewById<View>(R.id.btnNavAi)?.setOnLongClickListener { v ->
             hapticTap(v)
             if (isContactDialogVisible.value) {
                 isContactDialogVisible.value = false
@@ -4541,45 +4474,11 @@ class ChatListActivity : AppCompatActivity() {
             true
         }
 
-        btnNavSearch?.setOnClickListener { v ->
-            hapticTap(v)
-            if (isContactDialogVisible.value) {
-                isContactDialogVisible.value = false
-                stopBluetoothScan()
-            }
-            val intent = Intent(this, GlobalSearchActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-            startActivity(intent)
-            PrimeTransitions.applyPageFlipTransition(this, isForward = true)
-        }
-
-        btnNavDownloads?.setOnClickListener { v ->
-            hapticTap(v)
-            if (isContactDialogVisible.value) {
-                isContactDialogVisible.value = false
-                stopBluetoothScan()
-            }
-            DownloadsActivity.openWithPermissionCheck(this)
-        }
-
-        btnNavProfile?.setOnClickListener { v ->
-            hapticTap(v)
-            if (isContactDialogVisible.value) {
-                isContactDialogVisible.value = false
-                stopBluetoothScan()
-            }
-            val intent = Intent(this, SettingsActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-            startActivity(intent)
-            PrimeTransitions.applyPageFlipTransition(this, isForward = true)
-        }
-        btnNavProfile?.setOnLongClickListener { v ->
+        navView.findViewById<View>(R.id.btnNavProfile)?.setOnLongClickListener { v ->
             hapticTap(v)
             PrimePopupMenu.create(this, v)
                 .addItem("Настройки навигации", R.drawable.ic_settings) {
-                    val intent = Intent(this, SettingsActivity::class.java).apply {
+                    val intent = Intent(this, SettingsAppearanceActivity::class.java).apply {
                         flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                     }
                     startActivity(intent)

@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<eightbitlab.com.blurview.BlurView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/blurPhotoPicker"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_floating_island"
+    android:clipToOutline="true"
+    android:outlineProvider="background">
+
+    <LinearLayout
+        android:id="@+id/layoutPhotoPickerContent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="16dp">
+
+        <!-- Drag handle -->
+        <View
+            android:layout_width="36dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="10dp"
+            android:alpha="0.45"
+            android:background="@drawable/bg_date_bubble" />
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingBottom="10dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvPickerTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="Выбор фото"
+                    android:textColor="@color/prime_text_primary"
+                    android:textSize="18sp" />
+
+                <TextView
+                    android:id="@+id/tvPickerSubtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:fontFeatureSettings="tnum"
+                    android:text="Недавние изображения"
+                    android:textColor="@color/prime_text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnPickerSystemGallery"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:fontFamily="sans-serif-medium"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingHorizontal="14dp"
+                android:text="Галерея"
+                android:textSize="13sp"
+                app:backgroundTint="@color/prime_search_bg"
+                app:cornerRadius="16dp"
+                app:icon="@drawable/ic_photo"
+                app:iconSize="16dp"
+                app:strokeWidth="0dp" />
+        </LinearLayout>
+
+        <!-- Optional preset avatars -->
+        <LinearLayout
+            android:id="@+id/layoutPresetAvatars"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:orientation="vertical"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:fontFamily="sans-serif-medium"
+                android:text="Готовые аватары"
+                android:textColor="@color/prime_text_secondary"
+                android:textSize="12sp" />
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingVertical="2dp">
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/ivPresetAvatar1"
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:layout_marginEnd="10dp"
+                        android:contentDescription="Аватар 1"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/avatar_1"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full" />
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/ivPresetAvatar2"
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:layout_marginEnd="10dp"
+                        android:contentDescription="Аватар 2"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/avatar_2"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full" />
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/ivPresetAvatar3"
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:layout_marginEnd="10dp"
+                        android:contentDescription="Аватар 3"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/avatar_3"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full" />
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/ivPresetAvatar4"
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:layout_marginEnd="10dp"
+                        android:contentDescription="Аватар 4"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/avatar_4"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full" />
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/ivPresetAvatar5"
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:contentDescription="Аватар 5"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/avatar_5"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full" />
+                </LinearLayout>
+            </HorizontalScrollView>
+        </LinearLayout>
+
+        <!-- Optional partial-access / permission hint -->
+        <LinearLayout
+            android:id="@+id/layoutPickerAccessBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/bg_editor_input_box"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="8dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tvPickerAccessHint"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="Показаны выбранные фото"
+                android:textColor="@color/prime_text_primary"
+                android:textSize="12.5sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnPickerGrantAccess"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingHorizontal="12dp"
+                android:text="Выбрать ещё"
+                android:textSize="12sp"
+                app:cornerRadius="14dp"
+                app:strokeWidth="0dp" />
+        </LinearLayout>
+
+        <!-- Media Grid -->
+        <FrameLayout
+            android:id="@+id/layoutPickerGridContainer"
+            android:layout_width="match_parent"
+            android:layout_height="300dp">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvPickerMedia"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingBottom="4dp" />
+
+            <LinearLayout
+                android:id="@+id/layoutPickerEmpty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:paddingHorizontal="24dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:alpha="0.45"
+                    android:src="@drawable/ic_photo"
+                    app:tint="@color/prime_text_secondary" />
+
+                <TextView
+                    android:id="@+id/tvPickerEmpty"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:text="Нет доступных изображений"
+                    android:textColor="@color/prime_text_secondary"
+                    android:textSize="13sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnPickerEmptySystem"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="12dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:paddingHorizontal="16dp"
+                    android:text="Открыть системную галерею"
+                    android:textSize="13sp"
+                    app:cornerRadius="16dp"
+                    app:strokeWidth="0dp" />
+            </LinearLayout>
+        </FrameLayout>
+    </LinearLayout>
+</eightbitlab.com.blurview.BlurView>

@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/layoutDetailToolbarHost"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="top"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:elevation="12dp"
+    android:tag="do_not_tint">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutDetailToolbarRow"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_max="640dp">
+
+        <!-- Отдельный блок: кнопка Назад с BlurView -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/blurDetailBack"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="@drawable/bg_blur_glass_panel"
+            android:elevation="4dp"
+            android:outlineProvider="background"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDetailBack"
+                style="@style/Widget.MaterialComponents.Button.Icon"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="Назад"
+                android:elevation="0dp"
+                android:insetLeft="0dp"
+                android:insetTop="0dp"
+                android:insetRight="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:stateListAnimator="@null"
+                app:backgroundTint="@android:color/transparent"
+                app:cornerRadius="26dp"
+                app:icon="@drawable/ic_arrow_back"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconSize="22dp"
+                app:iconTint="@color/prime_text_primary"
+                app:rippleColor="@color/glass_white_20"
+                app:strokeWidth="0dp" />
+        </eightbitlab.com.blurview.BlurView>
+
+        <!-- Отдельный блок по соседству: информация о разделе (текст по центру) -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/blurDetailToolbar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/bg_blur_glass_panel"
+            android:elevation="4dp"
+            android:minHeight="52dp"
+            android:outlineProvider="background"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/blurDetailAction"
+            app:layout_constraintStart_toEndOf="@id/blurDetailBack"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_goneMarginEnd="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:minHeight="52dp"
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp"
+                android:paddingVertical="6dp">
+
+                <TextView
+                    android:id="@+id/tvDetailTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:text="Настройки"
+                    android:textAlignment="center"
+                    android:textColor="@color/prime_text_primary"
+                    android:textSize="17sp" />
+
+                <TextView
+                    android:id="@+id/tvDetailSubtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:textAlignment="center"
+                    android:textColor="@color/prime_text_secondary"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </eightbitlab.com.blurview.BlurView>
+
+        <!-- Отдельный правый блок: кнопка действия (при наличии, например в Плагинах) -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/blurDetailAction"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="@drawable/bg_blur_glass_panel"
+            android:elevation="4dp"
+            android:outlineProvider="background"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDetailAction"
+                style="@style/Widget.MaterialComponents.Button.Icon"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:elevation="0dp"
+                android:insetLeft="0dp"
+                android:insetTop="0dp"
+                android:insetRight="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:stateListAnimator="@null"
+                app:backgroundTint="@android:color/transparent"
+                app:cornerRadius="26dp"
+                app:icon="@drawable/ic_add"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconSize="22dp"
+                app:iconTint="@color/prime_brand"
+                app:rippleColor="@color/glass_white_20"
+                app:strokeWidth="0dp" />
+        </eightbitlab.com.blurview.BlurView>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

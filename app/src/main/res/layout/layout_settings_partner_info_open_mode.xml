@@ -52,11 +52,11 @@
     <!-- Сегментированный переключатель: Перетягивание | Свайп справа налево -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="48dp"
         android:layout_marginTop="10dp"
-        android:background="@drawable/bg_date_bubble"
+        android:background="@drawable/bg_editor_input_box"
         android:orientation="horizontal"
-        android:padding="3dp">
+        android:padding="4dp">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnPartnerInfoModeDrag"
@@ -66,25 +66,32 @@
             android:layout_weight="1"
             android:insetTop="0dp"
             android:insetBottom="0dp"
+            android:stateListAnimator="@null"
             android:text="Перетягивание"
             android:textAllCaps="false"
             android:textSize="12sp"
             android:fontFamily="sans-serif-medium"
-            app:cornerRadius="20dp" />
+            app:cornerRadius="12dp"
+            app:elevation="0dp"
+            app:strokeWidth="0dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnPartnerInfoModeSwipe"
             style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
             android:layout_width="0dp"
             android:layout_height="match_parent"
+            android:layout_marginStart="4dp"
             android:layout_weight="1"
             android:insetTop="0dp"
             android:insetBottom="0dp"
+            android:stateListAnimator="@null"
             android:text="Свайп справа налево"
             android:textAllCaps="false"
             android:textSize="12sp"
             android:fontFamily="sans-serif-medium"
-            app:cornerRadius="20dp" />
+            app:cornerRadius="12dp"
+            app:elevation="0dp"
+            app:strokeWidth="0dp" />
     </LinearLayout>
 
     <!-- Блок предпросмотра (имитация чата с анимацией демонстрации жеста) -->
@@ -94,8 +101,7 @@
         android:layout_marginTop="10dp"
         app:cardCornerRadius="16dp"
         app:cardElevation="0dp"
-        app:strokeWidth="1dp"
-        app:strokeColor="@color/prime_divider"
+        app:strokeWidth="0dp"
         app:cardBackgroundColor="@color/prime_base">
 
         <FrameLayout

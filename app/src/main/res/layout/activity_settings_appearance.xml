@@ -1,0 +1,1769 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootAppearanceSettings"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/prime_base">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- Закреплённая живая Hero-сцена темы, акцента и навигации -->
+        <FrameLayout
+            android:id="@+id/layoutAppearanceHeroStage"
+            android:layout_width="0dp"
+            android:layout_height="268dp"
+            android:tag="do_not_tint"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <com.messenger.prime.MaterialShapesWallpaperView
+                android:id="@+id/vAppearanceHeroWallpaper"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:alpha="0.24" />
+
+            <LinearLayout
+                android:id="@+id/layoutAppearanceHeroOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardHeroAppearancePreview"
+                    android:layout_width="224dp"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="@color/prime_surface"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="10dp">
+
+                        <LinearLayout
+                            android:id="@+id/layoutHeroPreviewIsland"
+                            android:layout_width="match_parent"
+                            android:layout_height="26dp"
+                            android:layout_marginBottom="8dp"
+                            android:background="@drawable/bg_editor_input_box"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingHorizontal="8dp">
+
+                            <View
+                                android:id="@+id/vHeroIslandDot"
+                                android:layout_width="12dp"
+                                android:layout_height="12dp"
+                                android:background="@drawable/bg_brush_preview"
+                                android:backgroundTint="@color/prime_brand" />
+
+                            <View
+                                android:layout_width="52dp"
+                                android:layout_height="6dp"
+                                android:layout_marginStart="6dp"
+                                android:background="@drawable/bg_m3_active_indicator"
+                                android:backgroundTint="@color/prime_text_secondary" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="88dp"
+                            android:layout_height="14dp"
+                            android:background="@drawable/bg_editor_input_box" />
+
+                        <View
+                            android:id="@+id/vHeroPreviewBubbleOut"
+                            android:layout_width="104dp"
+                            android:layout_height="14dp"
+                            android:layout_gravity="end"
+                            android:layout_marginTop="6dp"
+                            android:background="@drawable/bg_m3_active_indicator"
+                            android:backgroundTint="@color/prime_brand" />
+
+                        <LinearLayout
+                            android:id="@+id/layoutHeroPreviewBottomBar"
+                            android:layout_width="match_parent"
+                            android:layout_height="24dp"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_editor_input_box"
+                            android:gravity="center"
+                            android:orientation="horizontal"
+                            android:paddingHorizontal="12dp"
+                            android:visibility="gone">
+
+                            <View
+                                android:id="@+id/vHeroBottomTabActive"
+                                android:layout_width="18dp"
+                                android:layout_height="8dp"
+                                android:background="@drawable/bg_m3_active_indicator"
+                                android:backgroundTint="@color/prime_brand" />
+
+                            <View
+                                android:layout_width="0dp"
+                                android:layout_height="1dp"
+                                android:layout_weight="1" />
+
+                            <View
+                                android:layout_width="8dp"
+                                android:layout_height="8dp"
+                                android:background="@drawable/bg_brush_preview"
+                                android:backgroundTint="@color/prime_text_secondary" />
+
+                            <View
+                                android:layout_width="0dp"
+                                android:layout_height="1dp"
+                                android:layout_weight="1" />
+
+                            <View
+                                android:layout_width="8dp"
+                                android:layout_height="8dp"
+                                android:background="@drawable/bg_brush_preview"
+                                android:backgroundTint="@color/prime_text_secondary" />
+
+                            <View
+                                android:layout_width="0dp"
+                                android:layout_height="1dp"
+                                android:layout_weight="1" />
+
+                            <View
+                                android:layout_width="8dp"
+                                android:layout_height="8dp"
+                                android:background="@drawable/bg_brush_preview"
+                                android:backgroundTint="@color/prime_text_secondary" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_editor_input_box"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="5dp">
+
+                    <TextView
+                        android:id="@+id/tvHeroThemeBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="Системная"
+                        android:textColor="@color/prime_text_primary"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" • "
+                        android:textColor="@color/prime_text_secondary"
+                        android:textSize="12sp" />
+
+                    <View
+                        android:id="@+id/vHeroAccentDot"
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:background="@drawable/bg_brush_preview"
+                        android:backgroundTint="@color/prime_brand" />
+
+                    <TextView
+                        android:id="@+id/tvHeroAccentBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="Фирменный"
+                        android:textColor="@color/prime_text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </FrameLayout>
+
+        <View
+            android:id="@+id/vSheetOverlapAnchor"
+            android:layout_width="0dp"
+            android:layout_height="24dp"
+            app:layout_constraintBottom_toBottomOf="@id/layoutAppearanceHeroStage"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <FrameLayout
+            android:id="@+id/layoutDetailSheet"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@drawable/bg_editor_sheet_top"
+            android:clipChildren="true"
+            android:clipToPadding="false"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@id/vSheetOverlapAnchor">
+
+            <androidx.core.widget.NestedScrollView
+                android:id="@+id/scrollAppearanceSettings"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:overScrollMode="never"
+                android:paddingTop="16dp"
+                android:paddingBottom="28dp">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="16dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintWidth_max="640dp">
+
+                <!-- 1. Тема оформления -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardTheme"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardBackgroundColor="@color/prime_surface"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <ImageView
+                                android:id="@+id/ivIconTheme"
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:layout_marginEnd="14dp"
+                                android:src="@drawable/ic_tema"
+                                app:tint="@color/prime_brand" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvTitleTheme"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:text="Тема оформления"
+                                    android:textColor="@color/prime_brand"
+                                    android:textSize="16sp" />
+
+                                <TextView
+                                    android:id="@+id/tvThemeSummary"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="Системная"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+
+                            <ImageView
+                                android:id="@+id/btnResetTheme"
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:layout_marginStart="8dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:padding="2dp"
+                                android:src="@drawable/ic_refresh"
+                                android:visibility="gone"
+                                app:tint="@color/prime_text_secondary" />
+                        </LinearLayout>
+
+                        <HorizontalScrollView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:layout_marginBottom="4dp"
+                            android:fillViewport="true"
+                            android:overScrollMode="never"
+                            android:scrollbars="none">
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:orientation="horizontal">
+
+                                <!-- Системная -->
+                                <LinearLayout
+                                    android:id="@+id/itemThemeSystem"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="4dp"
+                                    android:background="?attr/selectableItemBackground"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:gravity="center_horizontal"
+                                    android:orientation="vertical"
+                                    android:padding="4dp">
+
+                                    <com.google.android.material.card.MaterialCardView
+                                        android:id="@+id/cardThemeSystem"
+                                        android:layout_width="76dp"
+                                        android:layout_height="138dp"
+                                        app:cardCornerRadius="18dp"
+                                        app:cardElevation="0dp"
+                                        app:strokeWidth="0dp">
+
+                                        <FrameLayout
+                                            android:layout_width="match_parent"
+                                            android:layout_height="match_parent">
+
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:orientation="horizontal">
+
+                                                <LinearLayout
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="match_parent"
+                                                    android:layout_weight="1"
+                                                    android:background="#FFFFFF"
+                                                    android:orientation="vertical"
+                                                    android:paddingTop="12dp">
+
+                                                    <View
+                                                        android:layout_width="22dp"
+                                                        android:layout_height="10dp"
+                                                        android:layout_marginStart="3dp"
+                                                        android:layout_marginTop="12dp"
+                                                        android:background="@drawable/bg_bubble_incoming"
+                                                        android:backgroundTint="#F1F5F9" />
+
+                                                    <View
+                                                        android:layout_width="24dp"
+                                                        android:layout_height="10dp"
+                                                        android:layout_gravity="end"
+                                                        android:layout_marginTop="6dp"
+                                                        android:layout_marginEnd="3dp"
+                                                        android:background="@drawable/bg_bubble_outgoing"
+                                                        android:backgroundTint="@color/prime_brand" />
+                                                </LinearLayout>
+
+                                                <LinearLayout
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="match_parent"
+                                                    android:layout_weight="1"
+                                                    android:background="#0F172A"
+                                                    android:orientation="vertical"
+                                                    android:paddingTop="12dp">
+
+                                                    <View
+                                                        android:layout_width="22dp"
+                                                        android:layout_height="10dp"
+                                                        android:layout_marginStart="3dp"
+                                                        android:layout_marginTop="12dp"
+                                                        android:background="@drawable/bg_bubble_incoming"
+                                                        android:backgroundTint="#1E293B" />
+
+                                                    <View
+                                                        android:layout_width="24dp"
+                                                        android:layout_height="10dp"
+                                                        android:layout_gravity="end"
+                                                        android:layout_marginTop="6dp"
+                                                        android:layout_marginEnd="3dp"
+                                                        android:background="@drawable/bg_bubble_outgoing"
+                                                        android:backgroundTint="@color/prime_brand" />
+                                                </LinearLayout>
+                                            </LinearLayout>
+
+                                            <View
+                                                android:layout_width="16dp"
+                                                android:layout_height="4dp"
+                                                android:layout_gravity="top|center_horizontal"
+                                                android:layout_marginTop="5dp"
+                                                android:background="@drawable/bg_m3_active_indicator"
+                                                android:backgroundTint="#30000000" />
+                                        </FrameLayout>
+                                    </com.google.android.material.card.MaterialCardView>
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="20dp"
+                                        android:layout_marginTop="8dp"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:gravity="center"
+                                        android:singleLine="true"
+                                        android:text="Системная"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="12sp" />
+
+                                    <RadioButton
+                                        android:id="@+id/rbThemeSystem"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:clickable="false"
+                                        android:focusable="false"
+                                        android:minWidth="0dp"
+                                        android:minHeight="0dp" />
+                                </LinearLayout>
+
+                                <!-- Светлая -->
+                                <LinearLayout
+                                    android:id="@+id/itemThemeLight"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="4dp"
+                                    android:background="?attr/selectableItemBackground"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:gravity="center_horizontal"
+                                    android:orientation="vertical"
+                                    android:padding="4dp">
+
+                                    <com.google.android.material.card.MaterialCardView
+                                        android:id="@+id/cardThemeLight"
+                                        android:layout_width="76dp"
+                                        android:layout_height="138dp"
+                                        app:cardCornerRadius="18dp"
+                                        app:cardElevation="0dp"
+                                        app:strokeWidth="0dp">
+
+                                        <FrameLayout
+                                            android:layout_width="match_parent"
+                                            android:layout_height="match_parent"
+                                            android:background="#FFFFFF">
+
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:orientation="vertical"
+                                                android:paddingTop="12dp">
+
+                                                <View
+                                                    android:layout_width="match_parent"
+                                                    android:layout_height="8dp"
+                                                    android:background="#F8FAFC" />
+
+                                                <View
+                                                    android:layout_width="44dp"
+                                                    android:layout_height="12dp"
+                                                    android:layout_marginStart="6dp"
+                                                    android:layout_marginTop="12dp"
+                                                    android:background="@drawable/bg_bubble_incoming"
+                                                    android:backgroundTint="#F1F5F9" />
+
+                                                <View
+                                                    android:layout_width="48dp"
+                                                    android:layout_height="12dp"
+                                                    android:layout_gravity="end"
+                                                    android:layout_marginTop="6dp"
+                                                    android:layout_marginEnd="6dp"
+                                                    android:background="@drawable/bg_bubble_outgoing"
+                                                    android:backgroundTint="@color/prime_brand" />
+                                            </LinearLayout>
+
+                                            <View
+                                                android:layout_width="16dp"
+                                                android:layout_height="4dp"
+                                                android:layout_gravity="top|center_horizontal"
+                                                android:layout_marginTop="5dp"
+                                                android:background="@drawable/bg_m3_active_indicator"
+                                                android:backgroundTint="#20000000" />
+                                        </FrameLayout>
+                                    </com.google.android.material.card.MaterialCardView>
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="20dp"
+                                        android:layout_marginTop="8dp"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:gravity="center"
+                                        android:singleLine="true"
+                                        android:text="Светлая"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="12sp" />
+
+                                    <RadioButton
+                                        android:id="@+id/rbThemeLight"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:clickable="false"
+                                        android:focusable="false"
+                                        android:minWidth="0dp"
+                                        android:minHeight="0dp" />
+                                </LinearLayout>
+
+                                <!-- Темная -->
+                                <LinearLayout
+                                    android:id="@+id/itemThemeDark"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="4dp"
+                                    android:background="?attr/selectableItemBackground"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:gravity="center_horizontal"
+                                    android:orientation="vertical"
+                                    android:padding="4dp">
+
+                                    <com.google.android.material.card.MaterialCardView
+                                        android:id="@+id/cardThemeDark"
+                                        android:layout_width="76dp"
+                                        android:layout_height="138dp"
+                                        app:cardCornerRadius="18dp"
+                                        app:cardElevation="0dp"
+                                        app:strokeWidth="0dp">
+
+                                        <FrameLayout
+                                            android:layout_width="match_parent"
+                                            android:layout_height="match_parent"
+                                            android:background="#0F172A">
+
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:orientation="vertical"
+                                                android:paddingTop="12dp">
+
+                                                <View
+                                                    android:layout_width="match_parent"
+                                                    android:layout_height="8dp"
+                                                    android:background="#1E293B" />
+
+                                                <View
+                                                    android:layout_width="44dp"
+                                                    android:layout_height="12dp"
+                                                    android:layout_marginStart="6dp"
+                                                    android:layout_marginTop="12dp"
+                                                    android:background="@drawable/bg_bubble_incoming"
+                                                    android:backgroundTint="#1E293B" />
+
+                                                <View
+                                                    android:layout_width="48dp"
+                                                    android:layout_height="12dp"
+                                                    android:layout_gravity="end"
+                                                    android:layout_marginTop="6dp"
+                                                    android:layout_marginEnd="6dp"
+                                                    android:background="@drawable/bg_bubble_outgoing"
+                                                    android:backgroundTint="@color/prime_brand" />
+                                            </LinearLayout>
+
+                                            <View
+                                                android:layout_width="16dp"
+                                                android:layout_height="4dp"
+                                                android:layout_gravity="top|center_horizontal"
+                                                android:layout_marginTop="5dp"
+                                                android:background="@drawable/bg_m3_active_indicator"
+                                                android:backgroundTint="#40FFFFFF" />
+                                        </FrameLayout>
+                                    </com.google.android.material.card.MaterialCardView>
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="20dp"
+                                        android:layout_marginTop="8dp"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:gravity="center"
+                                        android:singleLine="true"
+                                        android:text="Темная"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="12sp" />
+
+                                    <RadioButton
+                                        android:id="@+id/rbThemeDark"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:clickable="false"
+                                        android:focusable="false"
+                                        android:minWidth="0dp"
+                                        android:minHeight="0dp" />
+                                </LinearLayout>
+
+                                <!-- Тето (Светлая) -->
+                                <LinearLayout
+                                    android:id="@+id/itemThemeTetoLight"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="4dp"
+                                    android:background="?attr/selectableItemBackground"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:gravity="center_horizontal"
+                                    android:orientation="vertical"
+                                    android:padding="4dp">
+
+                                    <com.google.android.material.card.MaterialCardView
+                                        android:id="@+id/cardThemeTetoLight"
+                                        android:layout_width="76dp"
+                                        android:layout_height="138dp"
+                                        app:cardCornerRadius="18dp"
+                                        app:cardElevation="0dp"
+                                        app:strokeWidth="0dp">
+
+                                        <FrameLayout
+                                            android:layout_width="match_parent"
+                                            android:layout_height="match_parent"
+                                            android:background="#FFF0F3">
+
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:orientation="vertical"
+                                                android:paddingHorizontal="4dp"
+                                                android:paddingTop="4dp">
+
+                                                <LinearLayout
+                                                    android:layout_width="match_parent"
+                                                    android:layout_height="14dp"
+                                                    android:layout_marginTop="8dp"
+                                                    android:background="@drawable/bg_floating_island"
+                                                    android:backgroundTint="#FFFFFF"
+                                                    android:gravity="center_vertical"
+                                                    android:orientation="horizontal"
+                                                    android:paddingHorizontal="3dp">
+
+                                                    <ImageView
+                                                        android:layout_width="8dp"
+                                                        android:layout_height="8dp"
+                                                        android:src="@drawable/ic_teto_avatar" />
+
+                                                    <View
+                                                        android:layout_width="20dp"
+                                                        android:layout_height="2dp"
+                                                        android:layout_marginStart="4dp"
+                                                        android:background="@drawable/bg_date_bubble"
+                                                        android:backgroundTint="#D80032" />
+                                                </LinearLayout>
+
+                                                <View
+                                                    android:layout_width="40dp"
+                                                    android:layout_height="12dp"
+                                                    android:layout_marginTop="10dp"
+                                                    android:background="@drawable/bg_bubble_incoming"
+                                                    android:backgroundTint="#FFEBF0" />
+
+                                                <View
+                                                    android:layout_width="44dp"
+                                                    android:layout_height="12dp"
+                                                    android:layout_gravity="end"
+                                                    android:layout_marginTop="8dp"
+                                                    android:background="@drawable/bg_bubble_outgoing"
+                                                    android:backgroundTint="#D80032" />
+                                            </LinearLayout>
+                                        </FrameLayout>
+                                    </com.google.android.material.card.MaterialCardView>
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="20dp"
+                                        android:layout_marginTop="8dp"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:gravity="center"
+                                        android:singleLine="true"
+                                        android:text="Тето (Светлая)"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="12sp" />
+
+                                    <RadioButton
+                                        android:id="@+id/rbThemeTetoLight"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:clickable="false"
+                                        android:focusable="false"
+                                        android:minWidth="0dp"
+                                        android:minHeight="0dp" />
+                                </LinearLayout>
+
+                                <!-- Тето (Темная) -->
+                                <LinearLayout
+                                    android:id="@+id/itemThemeTetoDark"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="4dp"
+                                    android:background="?attr/selectableItemBackground"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:gravity="center_horizontal"
+                                    android:orientation="vertical"
+                                    android:padding="4dp">
+
+                                    <com.google.android.material.card.MaterialCardView
+                                        android:id="@+id/cardThemeTetoDark"
+                                        android:layout_width="76dp"
+                                        android:layout_height="138dp"
+                                        app:cardCornerRadius="18dp"
+                                        app:cardElevation="0dp"
+                                        app:strokeWidth="0dp">
+
+                                        <FrameLayout
+                                            android:layout_width="match_parent"
+                                            android:layout_height="match_parent"
+                                            android:background="#1F0A0E">
+
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:orientation="vertical"
+                                                android:paddingHorizontal="4dp"
+                                                android:paddingTop="4dp">
+
+                                                <LinearLayout
+                                                    android:layout_width="match_parent"
+                                                    android:layout_height="14dp"
+                                                    android:layout_marginTop="8dp"
+                                                    android:background="@drawable/bg_floating_island"
+                                                    android:backgroundTint="#2B1014"
+                                                    android:gravity="center_vertical"
+                                                    android:orientation="horizontal"
+                                                    android:paddingHorizontal="3dp">
+
+                                                    <ImageView
+                                                        android:layout_width="8dp"
+                                                        android:layout_height="8dp"
+                                                        android:src="@drawable/ic_teto_avatar" />
+
+                                                    <View
+                                                        android:layout_width="20dp"
+                                                        android:layout_height="2dp"
+                                                        android:layout_marginStart="4dp"
+                                                        android:background="@drawable/bg_date_bubble"
+                                                        android:backgroundTint="#FF4D6D" />
+                                                </LinearLayout>
+
+                                                <View
+                                                    android:layout_width="40dp"
+                                                    android:layout_height="12dp"
+                                                    android:layout_marginTop="10dp"
+                                                    android:background="@drawable/bg_bubble_incoming"
+                                                    android:backgroundTint="#3D171E" />
+
+                                                <View
+                                                    android:layout_width="44dp"
+                                                    android:layout_height="12dp"
+                                                    android:layout_gravity="end"
+                                                    android:layout_marginTop="8dp"
+                                                    android:background="@drawable/bg_bubble_outgoing"
+                                                    android:backgroundTint="#FF4D6D" />
+                                            </LinearLayout>
+                                        </FrameLayout>
+                                    </com.google.android.material.card.MaterialCardView>
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="20dp"
+                                        android:layout_marginTop="8dp"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:gravity="center"
+                                        android:singleLine="true"
+                                        android:text="Тето (Темная)"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="12sp" />
+
+                                    <RadioButton
+                                        android:id="@+id/rbThemeTetoDark"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:clickable="false"
+                                        android:focusable="false"
+                                        android:minWidth="0dp"
+                                        android:minHeight="0dp" />
+                                </LinearLayout>
+                            </LinearLayout>
+                        </HorizontalScrollView>
+
+                        <!-- Панель Касане Тето -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardTetoBanner"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:visibility="gone"
+                            app:cardBackgroundColor="@color/prime_base"
+                            app:cardCornerRadius="20dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="0dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:padding="16dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <ImageView
+                                        android:layout_width="44dp"
+                                        android:layout_height="44dp"
+                                        android:src="@drawable/ic_teto_avatar" />
+
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="12dp"
+                                        android:layout_weight="1"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:text="Касане Тето • 0401 UTAU"
+                                            android:textColor="#D80032"
+                                            android:textSize="14sp" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="Вокалоид-акцент с эффектами синтеза и иконками"
+                                            android:textColor="@color/prime_text_secondary"
+                                            android:textSize="12sp" />
+                                    </LinearLayout>
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/btnTetoSoundEasterEgg"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginStart="8dp"
+                                        android:paddingHorizontal="12dp"
+                                        android:text="Синтез"
+                                        android:textColor="#D80032"
+                                        android:textSize="12sp"
+                                        app:cornerRadius="18dp"
+                                        app:icon="@drawable/ic_teto_drills"
+                                        app:iconSize="16dp"
+                                        app:iconTint="#D80032" />
+                                </LinearLayout>
+
+                                <View
+                                    android:layout_width="match_parent"
+                                    android:layout_height="1dp"
+                                    android:layout_marginVertical="12dp"
+                                    android:background="@color/prime_divider" />
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:text="Звуковой отклик (UTAU 0401)"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textSize="14sp" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="Микро-чим при отправке сообщений"
+                                            android:textColor="@color/prime_text_secondary"
+                                            android:textSize="12sp" />
+                                    </LinearLayout>
+
+                                    <com.google.android.material.materialswitch.MaterialSwitch
+                                        android:id="@+id/swTetoSound"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="8dp"
+                                        android:checked="true" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="12dp"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:text="Тематические иконки Тето"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textSize="14sp" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="Специальные иконки в навигации"
+                                            android:textColor="@color/prime_text_secondary"
+                                            android:textSize="12sp" />
+                                    </LinearLayout>
+
+                                    <com.google.android.material.materialswitch.MaterialSwitch
+                                        android:id="@+id/swTetoIcons"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="8dp"
+                                        android:checked="true" />
+                                </LinearLayout>
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- 2. Стиль навигации -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardNavStyleSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardBackgroundColor="@color/prime_surface"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingBottom="12dp">
+
+                            <ImageView
+                                android:id="@+id/ivIconNavStyle"
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:layout_marginEnd="14dp"
+                                android:src="@drawable/ic_perspective"
+                                app:tint="@color/prime_brand" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvTitleNavStyle"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:text="Стиль навигации"
+                                    android:textColor="@color/prime_brand"
+                                    android:textSize="16sp" />
+
+                                <TextView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="Верхний островок или нижняя панель"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+
+                            <ImageView
+                                android:id="@+id/btnResetNavStyle"
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:layout_marginStart="8dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:padding="2dp"
+                                android:src="@drawable/ic_refresh"
+                                android:visibility="gone"
+                                app:tint="@color/prime_text_secondary" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.card.MaterialCardView
+                                android:id="@+id/cardStyleIsland"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="6dp"
+                                android:layout_weight="1"
+                                android:clickable="true"
+                                android:focusable="true"
+                                app:cardBackgroundColor="@color/prime_base"
+                                app:cardCornerRadius="18dp"
+                                app:cardElevation="0dp"
+                                app:strokeWidth="0dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_horizontal"
+                                    android:orientation="vertical"
+                                    android:padding="12dp">
+
+                                    <FrameLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="76dp"
+                                        android:background="@drawable/bg_pending_attachment"
+                                        android:padding="6dp">
+
+                                        <LinearLayout
+                                            android:layout_width="match_parent"
+                                            android:layout_height="30dp"
+                                            android:layout_gravity="top"
+                                            android:background="@drawable/bg_date_bubble"
+                                            android:gravity="center_vertical"
+                                            android:paddingHorizontal="6dp">
+
+                                            <View
+                                                android:layout_width="18dp"
+                                                android:layout_height="18dp"
+                                                android:background="@drawable/bg_circular_mode_active" />
+
+                                            <View
+                                                android:layout_width="32dp"
+                                                android:layout_height="8dp"
+                                                android:layout_marginStart="6dp"
+                                                android:background="@drawable/bg_date_bubble" />
+                                        </LinearLayout>
+                                    </FrameLayout>
+
+                                    <RadioButton
+                                        android:id="@+id/rbStyleIsland"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="8dp"
+                                        android:clickable="false"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Островок"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="13sp" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
+
+                            <com.google.android.material.card.MaterialCardView
+                                android:id="@+id/cardStyleBottomBar"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:layout_weight="1"
+                                android:clickable="true"
+                                android:focusable="true"
+                                app:cardBackgroundColor="@color/prime_base"
+                                app:cardCornerRadius="18dp"
+                                app:cardElevation="0dp"
+                                app:strokeWidth="0dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_horizontal"
+                                    android:orientation="vertical"
+                                    android:padding="12dp">
+
+                                    <FrameLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="76dp"
+                                        android:background="@drawable/bg_pending_attachment"
+                                        android:padding="6dp">
+
+                                        <LinearLayout
+                                            android:layout_width="match_parent"
+                                            android:layout_height="24dp"
+                                            android:layout_gravity="bottom"
+                                            android:background="@drawable/bg_date_bubble"
+                                            android:gravity="center"
+                                            android:orientation="horizontal"
+                                            android:paddingHorizontal="4dp">
+
+                                            <ImageView
+                                                android:layout_width="10dp"
+                                                android:layout_height="10dp"
+                                                android:layout_weight="1"
+                                                android:src="@drawable/ic_nav_chats"
+                                                app:tint="@color/prime_brand" />
+
+                                            <ImageView
+                                                android:layout_width="10dp"
+                                                android:layout_height="10dp"
+                                                android:layout_weight="1"
+                                                android:src="@drawable/ic_nav_devices"
+                                                app:tint="@color/prime_text_secondary" />
+
+                                            <ImageView
+                                                android:layout_width="10dp"
+                                                android:layout_height="10dp"
+                                                android:layout_weight="1"
+                                                android:src="@drawable/ic_search"
+                                                app:tint="@color/prime_text_secondary" />
+
+                                            <ImageView
+                                                android:layout_width="10dp"
+                                                android:layout_height="10dp"
+                                                android:layout_weight="1"
+                                                android:src="@drawable/ic_person"
+                                                app:tint="@color/prime_text_secondary" />
+                                        </LinearLayout>
+                                    </FrameLayout>
+
+                                    <RadioButton
+                                        android:id="@+id/rbStyleBottomBar"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="8dp"
+                                        android:clickable="false"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Панель"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="13sp" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/layoutNavOrder"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:orientation="vertical"
+                            android:visibility="gone">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:text="Настройка кнопок панели"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="14sp" />
+
+                                <ImageView
+                                    android:id="@+id/btnResetNavOrder"
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
+                                    android:background="?attr/selectableItemBackgroundBorderless"
+                                    android:src="@drawable/ic_refresh"
+                                    app:tint="@color/prime_text_secondary" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:layout_marginBottom="8dp"
+                                android:text="Измените порядок или скройте кнопки"
+                                android:textColor="@color/prime_text_secondary"
+                                android:textSize="12sp" />
+
+                            <androidx.recyclerview.widget.RecyclerView
+                                android:id="@+id/rvNavButtons"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:nestedScrollingEnabled="false"
+                                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Отображать подписи к кнопкам"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="14sp" />
+
+                                <com.google.android.material.materialswitch.MaterialSwitch
+                                    android:id="@+id/switchNavShowLabels"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/layoutNavIslandConfig"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:orientation="vertical"
+                            android:visibility="gone">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Чат AI Prime Chat"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Отображать AI-контакт в острове"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+
+                                <com.google.android.material.materialswitch.MaterialSwitch
+                                    android:id="@+id/switchAiContactIsland"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:checked="true" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Переход в настройки потянув вниз"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Открывать настройки при свайпе вниз вверху списка"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+
+                                <com.google.android.material.materialswitch.MaterialSwitch
+                                    android:id="@+id/switchIslandPullToSettings"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:checked="true" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- 3. Категории и Заметки -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardCategoriesAndNotes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardBackgroundColor="@color/prime_surface"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingBottom="12dp">
+
+                            <ImageView
+                                android:id="@+id/ivIconCategoriesAndNotes"
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:layout_marginEnd="14dp"
+                                android:src="@drawable/ic_file"
+                                app:tint="@color/prime_brand" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvTitleCategoriesAndNotes"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:text="Категории и Заметки"
+                                    android:textColor="@color/prime_brand"
+                                    android:textSize="16sp" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="Панель категорий и личный чат Заметки"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:text="Панель категорий чатов"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="Отображать полосу категорий над списком"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+
+                            <com.google.android.material.materialswitch.MaterialSwitch
+                                android:id="@+id/switchCategoryChips"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:checked="true" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:text="Чат Заметки"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="Закрепить личный чат Заметки"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+
+                            <com.google.android.material.materialswitch.MaterialSwitch
+                                android:id="@+id/switchNotesChat"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:checked="true" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginVertical="14dp"
+                            android:background="@color/prime_divider" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="sans-serif-medium"
+                            android:text="Пользовательские категории"
+                            android:textColor="@color/prime_text_primary"
+                            android:textSize="14sp" />
+
+                        <LinearLayout
+                            android:id="@+id/containerCategoriesList"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginVertical="8dp"
+                            android:orientation="vertical" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnAddCustomCategory"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:text="Добавить категорию"
+                            android:textAllCaps="false"
+                            android:textColor="@color/prime_brand"
+                            app:cornerRadius="14dp"
+                            app:icon="@drawable/ic_add"
+                            app:iconTint="@color/prime_brand" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- 4. Цветовой акцент -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardColorAccent"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardBackgroundColor="@color/prime_surface"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingBottom="12dp">
+
+                            <ImageView
+                                android:id="@+id/ivIconAccent"
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:layout_marginEnd="14dp"
+                                android:src="@drawable/ic_pipette"
+                                app:tint="@color/prime_brand" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvTitleAccent"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:text="Цветовой акцент"
+                                    android:textColor="@color/prime_brand"
+                                    android:textSize="16sp" />
+
+                                <TextView
+                                    android:id="@+id/tvAccentSummary"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="Фирменный"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+
+                            <ImageView
+                                android:id="@+id/btnResetAccent"
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:layout_marginStart="8dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:padding="2dp"
+                                android:src="@drawable/ic_refresh"
+                                android:visibility="gone"
+                                app:tint="@color/prime_text_secondary" />
+
+                            <View
+                                android:id="@+id/vAccentColorPreview"
+                                android:layout_width="28dp"
+                                android:layout_height="28dp"
+                                android:layout_marginStart="12dp"
+                                android:background="@drawable/bg_brush_preview"
+                                android:backgroundTint="@color/prime_brand" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="10dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Системный цвет (Monet)"
+                                android:textColor="@color/prime_text_primary"
+                                android:textSize="14sp" />
+
+                            <com.google.android.material.materialswitch.MaterialSwitch
+                                android:id="@+id/switchMonetAccent"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                app:showText="false" />
+                        </LinearLayout>
+
+                        <HorizontalScrollView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="10dp"
+                            android:overScrollMode="never"
+                            android:scrollbars="none">
+
+                            <LinearLayout
+                                android:id="@+id/layoutSwatches"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal" />
+                        </HorizontalScrollView>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnCustomPicker"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:fontFamily="sans-serif-medium"
+                            android:text="Спектр"
+                            android:textAllCaps="false"
+                            android:textColor="@color/prime_brand"
+                            app:cornerRadius="14dp"
+                            app:icon="@drawable/ic_pipette"
+                            app:iconTint="@color/prime_brand" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- 5. Живой фон -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardLavaBg"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    app:cardBackgroundColor="@color/prime_surface"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingBottom="12dp">
+
+                            <ImageView
+                                android:id="@+id/ivIconLava"
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:layout_marginEnd="14dp"
+                                android:src="@drawable/ic_live_fon"
+                                app:tint="@color/prime_brand" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvTitleLava"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:text="Живой фон"
+                                    android:textColor="@color/prime_brand"
+                                    android:textSize="16sp" />
+
+                                <TextView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="Анимированные фигуры на фоне"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+
+                            <ImageView
+                                android:id="@+id/btnResetLava"
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:layout_marginHorizontal="8dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:padding="2dp"
+                                android:src="@drawable/ic_refresh"
+                                android:visibility="gone"
+                                app:tint="@color/prime_text_secondary" />
+
+                            <com.google.android.material.materialswitch.MaterialSwitch
+                                android:id="@+id/switchLavaBg"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:checked="true"
+                                app:showText="false" />
+                        </LinearLayout>
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="match_parent"
+                            android:layout_height="84dp"
+                            app:cardCornerRadius="16dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="0dp">
+
+                            <androidx.compose.ui.platform.ComposeView
+                                android:id="@+id/composeLavaPreview"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent" />
+                        </com.google.android.material.card.MaterialCardView>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- 6. Отключение анимаций -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardDisableAnimations"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="@color/prime_surface"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="20dp">
+
+                        <ImageView
+                            android:id="@+id/ivIconDisableAnimations"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="14dp"
+                            android:src="@drawable/ic_clock"
+                            app:tint="@color/prime_brand" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvTitleDisableAnimations"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-medium"
+                                android:text="Отключение анимаций"
+                                android:textColor="@color/prime_brand"
+                                android:textSize="15sp" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Для слабых устройств (отключает все анимации)"
+                                android:textColor="@color/prime_text_secondary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchDisableAnimations"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            app:showText="false" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+                    </LinearLayout>
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </androidx.core.widget.NestedScrollView>
+        </FrameLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <include layout="@layout/include_settings_detail_toolbar" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

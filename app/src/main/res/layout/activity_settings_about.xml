@@ -1,0 +1,404 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootAboutSettings"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/prime_base">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- Закреплённая Hero-сцена мессенджера -->
+        <FrameLayout
+            android:id="@+id/layoutAboutHeroStage"
+            android:layout_width="0dp"
+            android:layout_height="268dp"
+            android:tag="do_not_tint"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <com.messenger.prime.MaterialShapesWallpaperView
+                android:id="@+id/vAboutHeroWallpaper"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:alpha="0.28" />
+
+            <LinearLayout
+                android:id="@+id/layoutAboutHeroOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:paddingHorizontal="24dp">
+
+                <FrameLayout
+                    android:id="@+id/flAboutHeroIcon"
+                    android:layout_width="88dp"
+                    android:layout_height="88dp"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:id="@+id/ivAboutHeroLogo"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="Prime"
+                        android:src="@drawable/ic_prime_logo_vector"
+                        android:tag="do_not_tint"
+                        app:tint="@color/prime_brand" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/tvAboutAppName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="Prime"
+                    android:textColor="@color/prime_text_primary"
+                    android:textSize="22sp" />
+
+                <TextView
+                    android:id="@+id/tvAppVersion"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:fontFeatureSettings="tnum"
+                    android:text="Версия 1.0"
+                    android:textColor="@color/prime_text_secondary"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <View
+            android:id="@+id/vSheetOverlapAnchor"
+            android:layout_width="0dp"
+            android:layout_height="24dp"
+            app:layout_constraintBottom_toBottomOf="@id/layoutAboutHeroStage"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <FrameLayout
+            android:id="@+id/layoutDetailSheet"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@drawable/bg_editor_sheet_top"
+            android:clipChildren="true"
+            android:clipToPadding="false"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@id/vSheetOverlapAnchor">
+
+            <androidx.core.widget.NestedScrollView
+                android:id="@+id/scrollAboutSettings"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:overScrollMode="never"
+                android:paddingTop="16dp"
+                android:paddingBottom="28dp">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="16dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintWidth_max="640dp">
+
+                        <!-- 2 кнопки действий (Исходный код + Проверка обновлений) -->
+                        <LinearLayout
+                            android:id="@+id/layoutAboutActions"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="12dp"
+                            android:baselineAligned="false"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.card.MaterialCardView
+                                android:id="@+id/cardGithub"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="3dp"
+                                android:layout_weight="1"
+                                android:clickable="true"
+                                android:focusable="true"
+                                app:cardBackgroundColor="@color/prime_surface"
+                                app:cardCornerRadius="24dp"
+                                app:cardElevation="0dp"
+                                app:strokeWidth="0dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:background="?attr/selectableItemBackground"
+                                    android:gravity="center_horizontal"
+                                    android:orientation="vertical"
+                                    android:paddingHorizontal="12dp"
+                                    android:paddingVertical="18dp">
+
+                                    <ImageView
+                                        android:id="@+id/ivIconGithub"
+                                        android:layout_width="42dp"
+                                        android:layout_height="42dp"
+                                        android:contentDescription="Исходный код"
+                                        android:src="@drawable/ic_github_logo"
+                                        app:tint="@color/prime_brand" />
+
+                                    <TextView
+                                        android:id="@+id/tvTitleGithub"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="10dp"
+                                        android:ellipsize="end"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:maxLines="1"
+                                        android:text="Исходный код"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:ellipsize="end"
+                                        android:maxLines="1"
+                                        android:text="GitHub"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
+
+                            <com.google.android.material.card.MaterialCardView
+                                android:id="@+id/cardCheckUpdate"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="3dp"
+                                android:layout_weight="1"
+                                android:clickable="true"
+                                android:focusable="true"
+                                app:cardBackgroundColor="@color/prime_surface"
+                                app:cardCornerRadius="24dp"
+                                app:cardElevation="0dp"
+                                app:strokeWidth="0dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:background="?attr/selectableItemBackground"
+                                    android:gravity="center_horizontal"
+                                    android:orientation="vertical"
+                                    android:paddingHorizontal="12dp"
+                                    android:paddingVertical="18dp">
+
+                                    <ImageView
+                                        android:id="@+id/ivIconCheckUpdate"
+                                        android:layout_width="42dp"
+                                        android:layout_height="42dp"
+                                        android:contentDescription="Проверка обновления"
+                                        android:src="@drawable/ic_download"
+                                        app:tint="@color/prime_brand" />
+
+                                    <TextView
+                                        android:id="@+id/tvTitleCheckUpdate"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="10dp"
+                                        android:ellipsize="end"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:maxLines="1"
+                                        android:text="Обновления"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:ellipsize="end"
+                                        android:maxLines="1"
+                                        android:text="Проверить"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
+                        </LinearLayout>
+
+                        <!-- Благодарности -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardThanks"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:clickable="true"
+                            android:focusable="true"
+                            app:cardBackgroundColor="@color/prime_surface"
+                            app:cardCornerRadius="24dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="0dp">
+
+                            <FrameLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="vertical"
+                                    android:padding="20dp">
+
+                                    <androidx.constraintlayout.widget.ConstraintLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginBottom="12dp">
+
+                                        <ImageView
+                                            android:id="@+id/ivThanksIcon"
+                                            android:layout_width="40dp"
+                                            android:layout_height="40dp"
+                                            android:src="@drawable/thanks"
+                                            app:layout_constraintBottom_toBottomOf="parent"
+                                            app:layout_constraintStart_toStartOf="parent"
+                                            app:layout_constraintTop_toTopOf="parent" />
+
+                                        <TextView
+                                            android:id="@+id/tvTitleThanks"
+                                            android:layout_width="0dp"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginStart="12dp"
+                                            android:layout_marginEnd="8dp"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:text="Благодарности"
+                                            android:textColor="@color/prime_brand"
+                                            android:textSize="16sp"
+                                            app:layout_constraintBottom_toBottomOf="parent"
+                                            app:layout_constraintEnd_toStartOf="@id/layoutHeartBadge"
+                                            app:layout_constraintStart_toEndOf="@id/ivThanksIcon"
+                                            app:layout_constraintTop_toTopOf="parent" />
+
+                                        <LinearLayout
+                                            android:id="@+id/layoutHeartBadge"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:background="@drawable/bg_glass_button"
+                                            android:backgroundTint="#1AFF2A55"
+                                            android:gravity="center_vertical"
+                                            android:orientation="horizontal"
+                                            android:paddingHorizontal="10dp"
+                                            android:paddingVertical="4dp"
+                                            android:visibility="gone"
+                                            app:layout_constraintBottom_toBottomOf="parent"
+                                            app:layout_constraintEnd_toEndOf="parent"
+                                            app:layout_constraintTop_toTopOf="parent">
+
+                                            <ImageView
+                                                android:layout_width="16dp"
+                                                android:layout_height="16dp"
+                                                android:src="@drawable/ic_heart" />
+
+                                            <TextView
+                                                android:id="@+id/tvHeartCount"
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:layout_marginStart="4dp"
+                                                android:fontFamily="sans-serif-medium"
+                                                android:fontFeatureSettings="tnum"
+                                                android:text="0"
+                                                android:textColor="#FF2A55"
+                                                android:textSize="13sp" />
+                                        </LinearLayout>
+                                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                                    <View
+                                        android:layout_width="match_parent"
+                                        android:layout_height="1dp"
+                                        android:layout_marginBottom="12dp"
+                                        android:background="@color/prime_divider" />
+
+                                    <TextView
+                                        android:id="@+id/tvThanksMainDev"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginBottom="4dp"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="13sp" />
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginBottom="4dp"
+                                        android:text="Помощник программиста: Gemini, Claude Code"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="13sp" />
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginBottom="4dp"
+                                        android:text="Автор идеи: Иван"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="13sp" />
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginBottom="4dp"
+                                        android:text="Автор визуализации: Sora 2 / Vaniahorosh"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="13sp" />
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginBottom="12dp"
+                                        android:text="Автор серверной части: ?"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="13sp" />
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginBottom="4dp"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Прочие благодарности:"
+                                        android:textColor="@color/prime_text_secondary"
+                                        android:textSize="12sp" />
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:lineSpacingExtra="3dp"
+                                        android:text="• Григорий Хрюнов\n• Креветки с акулами и круто\n• Бочка регенератор\n• Финский снайпер\n• Тупейший сынище\n• Умнейший сынище\n• Леха Тайлер\n• Сургута не существует\n• Сырники\n• Игра на виолончели\n• Разгон ксеон\n• Мужик Иволга\n• Моя прайм эра\n• Ждун"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+
+                                <FrameLayout
+                                    android:id="@+id/overlayHeartsContainer"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:clipChildren="false"
+                                    android:clipToPadding="false" />
+                            </FrameLayout>
+                        </com.google.android.material.card.MaterialCardView>
+                    </LinearLayout>
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </androidx.core.widget.NestedScrollView>
+        </FrameLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <include layout="@layout/include_settings_detail_toolbar" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

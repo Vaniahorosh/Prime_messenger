@@ -15,7 +15,6 @@ import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.util.AttributeSet
 import android.view.View
-import android.view.animation.OvershootInterpolator
 import androidx.core.content.ContextCompat
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.graphics.shapes.toPath
@@ -65,10 +64,23 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     private var tetoAvatarDrawable: Drawable? = null
 
     private val matrix3D = Matrix()
-    private val waveInterpolator = OvershootInterpolator(1.2f)
+    private val waveInterpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+
+    private val imageDrawPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val dimPaint = Paint()
+    private val patternTextPaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textAlign = Paint.Align.CENTER
+    }
+    private val whitespaceRegex = Regex("\\s+")
+    private var cachedPatternRaw: String? = null
+    private var cachedPatternParts: List<String> = emptyList()
 
     private var animProgress = 0f
     private var animator: ValueAnimator? = null
+    private var hasAnimatedEntrance = false
+    private var lastGridWidth = 0
+    private var lastGridHeight = 0
 
     private var maxCols = 1
     private var maxRows = 1
@@ -172,9 +184,25 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
             this.customImageBitmap = null
         }
 
-        if (width > 0 && height > 0) {
+        updateThemeColors(skipImageDecode = true, forcePreviewShapes = wallpaper.type == "MATERIAL")
+
+        if (wallpaper.type == "MATERIAL" && width > 0 && height > 0) {
             generateGridShapes(width, height)
         }
+
+        val isLoopingPattern = wallpaper.type == "PATTERN" &&
+            wallpaper.isAnimated &&
+            wallpaper.animationEffect in listOf("float", "pulse", "rotate")
+        if (wallpaper.type == "PATTERN" && !isLoopingPattern) {
+            animator?.cancel()
+            animator = null
+            animProgress = 1f
+        } else if (wallpaper.type == "MATERIAL") {
+            animator?.cancel()
+            animator = null
+            animProgress = 1f
+        }
+
         invalidate()
     }
 
@@ -183,27 +211,29 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         updateThemeColors()
     }
 
-    fun updateThemeColors() {
+    fun updateThemeColors(skipImageDecode: Boolean = false, forcePreviewShapes: Boolean = false) {
         val wp = activeWallpaper ?: WallpaperManager.getActiveWallpaper(context, contactKey)
         activeWallpaper = wp
 
-        if (wp.type == "IMAGE" && !wp.imagePath.isNullOrEmpty()) {
-            val f = File(wp.imagePath)
-            if (f.exists()) {
-                try {
-                    customImageBitmap = BitmapFactory.decodeFile(f.absolutePath)
-                } catch (_: Exception) {
+        if (!skipImageDecode) {
+            if (wp.type == "IMAGE" && !wp.imagePath.isNullOrEmpty()) {
+                val f = File(wp.imagePath)
+                if (f.exists()) {
+                    try {
+                        customImageBitmap = BitmapFactory.decodeFile(f.absolutePath)
+                    } catch (_: Exception) {
+                        customImageBitmap = null
+                    }
+                } else {
                     customImageBitmap = null
                 }
             } else {
                 customImageBitmap = null
             }
-        } else {
-            customImageBitmap = null
         }
 
         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        isLavaEnabled = sharedPrefs.getBoolean("settings_lava_bg", true)
+        isLavaEnabled = forcePreviewShapes || sharedPrefs.getBoolean("settings_lava_bg", true)
         val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
         val darkTheme = when (themePref) {
             "dark" -> true
@@ -269,21 +299,34 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                 return
             }
 
-            generateGridShapes(w, h)
-            startEntranceAnimation()
+            // Avoid regenerating and re-animating the wallpaper when the keyboard opens/closes (width unchanged, height shrinks)
+            val widthChanged = w != lastGridWidth
+            val needsMoreHeight = h > lastGridHeight
+            if (shapes.isEmpty() || widthChanged || needsMoreHeight) {
+                lastGridWidth = w
+                lastGridHeight = h
+                generateGridShapes(w, h)
+                if (!hasAnimatedEntrance) {
+                    hasAnimatedEntrance = true
+                    startEntranceAnimation()
+                } else {
+                    animProgress = 1f
+                    invalidate()
+                }
+            }
         }
     }
 
     private fun generateGridShapes(w: Int, h: Int) {
         shapes.clear()
         val density = resources.displayMetrics.density
-        val cellSize = (46 * density).toInt()
-        val shapeBaseSize = 17 * density
+        val cellSize = (48 * density).toInt()
+        val shapeBaseSize = 16 * density
 
         maxCols = (w / cellSize) + 1
         maxRows = (h / cellSize) + 1
 
-        val random = Random(System.currentTimeMillis())
+        val random = Random(42L)
 
         for (col in 0 until maxCols) {
             for (row in 0 until maxRows) {
@@ -349,11 +392,13 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         val isLoopingPatternAnim = wp.type == "PATTERN" && wp.isAnimated && wp.animationEffect in listOf("float", "pulse", "rotate")
 
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = if (isLoopingPatternAnim) 3000L else 900L
+            duration = if (isLoopingPatternAnim) 3000L else 380L
             repeatCount = if (isLoopingPatternAnim) ValueAnimator.INFINITE else 0
             repeatMode = ValueAnimator.RESTART
             if (isLoopingPatternAnim) {
                 interpolator = android.view.animation.LinearInterpolator()
+            } else {
+                interpolator = waveInterpolator
             }
             addUpdateListener { va ->
                 animProgress = va.animatedValue as Float
@@ -386,7 +431,7 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
             val viewW = width.toFloat()
             val viewH = height.toFloat()
 
-            if (viewW > 0 && viewH > 0) {
+            if (viewW > 0 && viewH > 0 && !bmp.isRecycled && bmp.width > 0 && bmp.height > 0) {
                 val scaleX = viewW / bmp.width
                 val scaleY = viewH / bmp.height
                 val scale = Math.max(scaleX, scaleY) * wp.scale
@@ -401,15 +446,12 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                 }
                 matrix3D.postTranslate(dx, dy)
 
-                val drawPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-                canvas.drawBitmap(bmp, matrix3D, drawPaint)
+                canvas.drawBitmap(bmp, matrix3D, imageDrawPaint)
 
                 // Dimming overlay
                 if (wp.dimOpacity > 0f) {
-                    val dimPaint = Paint().apply {
-                        color = Color.BLACK
-                        alpha = (wp.dimOpacity * 255).toInt().coerceIn(0, 255)
-                    }
+                    dimPaint.color = Color.BLACK
+                    dimPaint.alpha = (wp.dimOpacity * 255).toInt().coerceIn(0, 255)
                     canvas.drawRect(0f, 0f, viewW, viewH, dimPaint)
                 }
             }
@@ -548,15 +590,15 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
             if (it.isNullOrBlank()) "😎 ⭐ 🌸 🔷" else it
         }
 
-        val parts = emojis.split(Regex("\\s+")).filter { it.isNotBlank() }
+        if (emojis != cachedPatternRaw) {
+            cachedPatternRaw = emojis
+            cachedPatternParts = emojis.split(whitespaceRegex).filter { it.isNotBlank() }
+        }
+        val parts = cachedPatternParts
         if (parts.isEmpty()) return
 
         val density = resources.displayMetrics.density
-        val textPaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = 24f * density * wp.scale
-            color = Color.WHITE
-            textAlign = Paint.Align.CENTER
-        }
+        patternTextPaint.textSize = 24f * density * wp.scale
 
         val cellW = 68f * density * wp.scale
         val cellH = 68f * density * wp.scale
@@ -597,17 +639,15 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                     x += (r % 3) * (cellW / 3f)
                 }
 
-                canvas.drawText(emojiStr, x, y, textPaint)
+                canvas.drawText(emojiStr, x, y, patternTextPaint)
             }
         }
 
         canvas.restore()
 
         if (wp.dimOpacity > 0f) {
-            val dimPaint = Paint().apply {
-                color = Color.BLACK
-                alpha = (wp.dimOpacity * 255).toInt().coerceIn(0, 255)
-            }
+            dimPaint.color = Color.BLACK
+            dimPaint.alpha = (wp.dimOpacity * 255).toInt().coerceIn(0, 255)
             canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), dimPaint)
         }
     }

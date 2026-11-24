@@ -41,6 +41,13 @@
         <ActivityFilter window:activityName="com.messenger.prime.BanActivity" />
         <ActivityFilter window:activityName="com.messenger.prime.GlobalSearchActivity" />
         <ActivityFilter window:activityName="com.messenger.prime.SettingsActivity" />
+        <ActivityFilter window:activityName="com.messenger.prime.SettingsAccountActivity" />
+        <ActivityFilter window:activityName="com.messenger.prime.SettingsAppearanceActivity" />
+        <ActivityFilter window:activityName="com.messenger.prime.SettingsChatActivity" />
+        <ActivityFilter window:activityName="com.messenger.prime.SettingsBrowserActivity" />
+        <ActivityFilter window:activityName="com.messenger.prime.SettingsStorageActivity" />
+        <ActivityFilter window:activityName="com.messenger.prime.SettingsPluginsActivity" />
+        <ActivityFilter window:activityName="com.messenger.prime.SettingsAboutActivity" />
         <ActivityFilter window:activityName="com.messenger.prime.PersonInformationActivity" />
         <ActivityFilter window:activityName="com.messenger.prime.DownloadsActivity" />
         <ActivityFilter window:activityName="com.messenger.prime.WallpaperEditorActivity" />

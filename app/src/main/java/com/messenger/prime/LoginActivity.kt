@@ -37,41 +37,50 @@ class LoginActivity : AppCompatActivity() {
     private var isRegistrationMode = false
     private var avatarUri: Uri? = null
     private lateinit var loginBackCallback: OnBackPressedCallback
+    private var activePhotoPickerSheet: PhotoPickerBottomSheet? = null
+
+    private val galleryPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        activePhotoPickerSheet?.refreshMedia()
+    }
 
     private val photoPickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
-            val uriStr = uri.toString().lowercase()
-            val mime = try { contentResolver.getType(uri) } catch (_: Exception) { null }
-            val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif") || "image/gif".equals(mime, ignoreCase = true)
+            handlePickedAvatarUri(uri)
+        }
+    }
 
-            if (isGif) {
-                try {
-                    val login = binding?.etLogin?.text?.toString()?.trim() ?: "temp"
-                    val destFile = File(filesDir, "avatar_$login.gif")
-                    contentResolver.openInputStream(uri)?.use { input ->
-                        FileOutputStream(destFile).use { output ->
-                            input.copyTo(output)
-                        }
+    private fun handlePickedAvatarUri(uri: Uri) {
+        val uriStr = uri.toString().lowercase()
+        val mime = try { contentResolver.getType(uri) } catch (_: Exception) { null }
+        val isGif = uriStr.endsWith(".gif") || uriStr.contains("gif") || "image/gif".equals(mime, ignoreCase = true)
+
+        if (isGif) {
+            try {
+                val login = binding?.etLogin?.text?.toString()?.trim() ?: "temp"
+                val destFile = File(filesDir, "avatar_$login.gif")
+                contentResolver.openInputStream(uri)?.use { input ->
+                    FileOutputStream(destFile).use { output ->
+                        input.copyTo(output)
                     }
-                    avatarUri = Uri.fromFile(destFile)
-                } catch (_: Exception) {
-                    avatarUri = uri
                 }
-                binding?.ivRegisterAvatar?.let { iv ->
-                    Glide.with(this).asGif().load(avatarUri ?: uri).centerCrop().into(iv)
-                }
-                binding?.tvSelectPhoto?.visibility = View.GONE
-                PrimeNotification.show(this, "GIF-аватарка выбрана")
-            } else {
-                val intent = Intent(this, PhotoEditorActivity::class.java).apply {
-                    setDataAndType(uri, mime ?: "image/*")
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    putExtra("EXTRA_IMAGE_URI", uri.toString())
-                    putExtra("IS_PROFILE_PHOTO", true)
-                }
-                photoEditorLauncher.launch(intent)
-                PrimeTransitions.applyOpenTransition(this)
+                avatarUri = Uri.fromFile(destFile)
+            } catch (_: Exception) {
+                avatarUri = uri
             }
+            binding?.ivRegisterAvatar?.let { iv ->
+                Glide.with(this).asGif().load(avatarUri ?: uri).centerCrop().into(iv)
+            }
+            binding?.tvSelectPhoto?.visibility = View.GONE
+            PrimeNotification.show(this, "GIF-аватарка выбрана")
+        } else {
+            val intent = Intent(this, PhotoEditorActivity::class.java).apply {
+                setDataAndType(uri, mime ?: "image/*")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                putExtra("EXTRA_IMAGE_URI", uri.toString())
+                putExtra("IS_PROFILE_PHOTO", true)
+            }
+            photoEditorLauncher.launch(intent)
+            PrimeTransitions.applyOpenTransition(this)
         }
     }
 
@@ -306,7 +315,37 @@ class LoginActivity : AppCompatActivity() {
                             
                             b.flRegisterAvatar.setOnClickListener {
                                 if (isRegistrationMode) {
-                                    photoPickerLauncher.launch("image/*")
+                                    val sheet = PhotoPickerBottomSheet(
+                                        activity = this@LoginActivity,
+                                        title = "Аватар профиля",
+                                        allowGif = true,
+                                        showPresets = true,
+                                        onMediaSelected = { uri, _ ->
+                                            activePhotoPickerSheet = null
+                                            handlePickedAvatarUri(uri)
+                                        },
+                                        onPresetSelected = { presetUri ->
+                                            activePhotoPickerSheet = null
+                                            avatarUri = presetUri
+                                            Glide.with(this@LoginActivity)
+                                                .load(presetUri)
+                                                .centerCrop()
+                                                .into(b.ivRegisterAvatar)
+                                            b.tvSelectPhoto.visibility = View.GONE
+                                        },
+                                        onOpenSystemPicker = {
+                                            activePhotoPickerSheet = null
+                                            photoPickerLauncher.launch("image/*")
+                                        },
+                                        onRequestPermission = {
+                                            galleryPermissionLauncher.launch(PhotoPickerBottomSheet.getRequiredImagePermissions())
+                                        },
+                                        onDismissWithoutSelection = {
+                                            activePhotoPickerSheet = null
+                                        }
+                                    )
+                                    activePhotoPickerSheet = sheet
+                                    sheet.show()
                                 }
                             }
 

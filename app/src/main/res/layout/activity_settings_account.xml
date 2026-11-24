@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootAccountSettings"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/prime_base">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- Hero-сцена профиля (без открытого логина) -->
+        <FrameLayout
+            android:id="@+id/layoutAccountHeroStage"
+            android:layout_width="0dp"
+            android:layout_height="248dp"
+            android:tag="do_not_tint"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <LinearLayout
+                android:id="@+id/layoutAccountHeroOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:paddingHorizontal="24dp">
+
+                <FrameLayout
+                    android:id="@+id/flHeroAvatar"
+                    android:layout_width="68dp"
+                    android:layout_height="68dp">
+
+                    <ImageView
+                        android:id="@+id/ivHeroAvatar"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="Аватар профиля"
+                        android:scaleType="centerCrop"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/tvHeroAvatarInitials"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:text="Я"
+                        android:textColor="@color/white"
+                        android:textSize="24sp" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/tvHeroAccountName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:text="Я"
+                    android:textColor="@color/prime_text_primary"
+                    android:textSize="18sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/bg_editor_input_box"
+                    android:fontFamily="sans-serif-medium"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="4dp"
+                    android:text="Локальный профиль"
+                    android:textColor="@color/prime_text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <View
+            android:id="@+id/vSheetOverlapAnchor"
+            android:layout_width="0dp"
+            android:layout_height="24dp"
+            app:layout_constraintBottom_toBottomOf="@id/layoutAccountHeroStage"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <FrameLayout
+            android:id="@+id/layoutDetailSheet"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@drawable/bg_editor_sheet_top"
+            android:clipChildren="true"
+            android:clipToPadding="false"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@id/vSheetOverlapAnchor">
+
+            <androidx.core.widget.NestedScrollView
+                android:id="@+id/scrollAccountSettings"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:overScrollMode="never"
+                android:paddingTop="16dp"
+                android:paddingBottom="28dp">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="16dp">
+
+                    <LinearLayout
+                        android:id="@+id/layoutAccountCardsContainer"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintWidth_max="640dp">
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardAccountForm"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            app:cardBackgroundColor="@color/prime_surface"
+                            app:cardCornerRadius="24dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="0dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:animateLayoutChanges="true"
+                                android:orientation="vertical"
+                                android:padding="20dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginBottom="16dp"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <ImageView
+                                        android:id="@+id/ivIconAccountCard"
+                                        android:layout_width="40dp"
+                                        android:layout_height="40dp"
+                                        android:layout_marginEnd="14dp"
+                                        android:src="@drawable/ic_person"
+                                        app:tint="@color/prime_brand" />
+
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:id="@+id/tvTitleAccountCard"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:text="Личные данные"
+                                            android:textColor="@color/prime_brand"
+                                            android:textSize="16sp" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="Имя видно собеседникам, логин и пароль скрыты"
+                                            android:textColor="@color/prime_text_secondary"
+                                            android:textSize="12sp" />
+                                    </LinearLayout>
+                                </LinearLayout>
+
+                                <!-- Имя -->
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginBottom="6dp"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:text="Имя"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp" />
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:background="@drawable/bg_editor_input_box"
+                                    android:paddingHorizontal="14dp"
+                                    android:paddingVertical="8dp">
+
+                                    <com.google.android.material.textfield.TextInputLayout
+                                        android:id="@+id/inputLayoutName"
+                                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        app:boxBackgroundColor="@android:color/transparent"
+                                        app:boxStrokeWidth="0dp"
+                                        app:boxStrokeWidthFocused="0dp"
+                                        app:counterEnabled="true"
+                                        app:counterMaxLength="32"
+                                        app:hintEnabled="false"
+                                        app:startIconTint="@color/prime_brand">
+
+                                        <com.google.android.material.textfield.TextInputEditText
+                                            android:id="@+id/etSettingsName"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:background="@android:color/transparent"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:hint="Введите имя"
+                                            android:imeOptions="actionNext"
+                                            android:inputType="textPersonName"
+                                            android:maxLength="32"
+                                            android:padding="0dp"
+                                            android:singleLine="true"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textColorHint="@color/prime_text_secondary"
+                                            android:textSize="15sp" />
+                                    </com.google.android.material.textfield.TextInputLayout>
+                                </LinearLayout>
+
+                                <!-- Логин -->
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="14dp"
+                                    android:layout_marginBottom="6dp"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:text="Логин"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp" />
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:background="@drawable/bg_editor_input_box"
+                                    android:paddingHorizontal="14dp"
+                                    android:paddingVertical="8dp">
+
+                                    <com.google.android.material.textfield.TextInputLayout
+                                        android:id="@+id/inputLayoutLogin"
+                                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        app:boxBackgroundColor="@android:color/transparent"
+                                        app:boxStrokeWidth="0dp"
+                                        app:boxStrokeWidthFocused="0dp"
+                                        app:counterEnabled="true"
+                                        app:counterMaxLength="25"
+                                        app:endIconMode="password_toggle"
+                                        app:endIconTint="@color/prime_brand"
+                                        app:hintEnabled="false"
+                                        app:startIconTint="@color/prime_brand">
+
+                                        <com.google.android.material.textfield.TextInputEditText
+                                            android:id="@+id/etSettingsLogin"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:background="@android:color/transparent"
+                                            android:digits="abcdefghijklmnopqrstuvwxyz0123456789_"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:hint="Введите логин"
+                                            android:imeOptions="actionNext"
+                                            android:inputType="textPassword"
+                                            android:maxLength="25"
+                                            android:padding="0dp"
+                                            android:singleLine="true"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textColorHint="@color/prime_text_secondary"
+                                            android:textSize="15sp" />
+                                    </com.google.android.material.textfield.TextInputLayout>
+                                </LinearLayout>
+
+                                <!-- Пароль -->
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="14dp"
+                                    android:layout_marginBottom="6dp"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:text="Пароль"
+                                    android:textColor="@color/prime_text_secondary"
+                                    android:textSize="12sp" />
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:background="@drawable/bg_editor_input_box"
+                                    android:paddingHorizontal="14dp"
+                                    android:paddingVertical="8dp">
+
+                                    <com.google.android.material.textfield.TextInputLayout
+                                        android:id="@+id/inputLayoutPassword"
+                                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        app:boxBackgroundColor="@android:color/transparent"
+                                        app:boxStrokeWidth="0dp"
+                                        app:boxStrokeWidthFocused="0dp"
+                                        app:counterEnabled="true"
+                                        app:counterMaxLength="32"
+                                        app:endIconMode="password_toggle"
+                                        app:endIconTint="@color/prime_brand"
+                                        app:hintEnabled="false">
+
+                                        <com.google.android.material.textfield.TextInputEditText
+                                            android:id="@+id/etSettingsPassword"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:background="@android:color/transparent"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:hint="Введите пароль"
+                                            android:imeOptions="actionDone"
+                                            android:inputType="textPassword"
+                                            android:maxLength="32"
+                                            android:padding="0dp"
+                                            android:singleLine="true"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textColorHint="@color/prime_text_secondary"
+                                            android:textSize="15sp" />
+                                    </com.google.android.material.textfield.TextInputLayout>
+                                </LinearLayout>
+
+                                <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/btnSaveAccount"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="52dp"
+                                    android:layout_marginTop="20dp"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:stateListAnimator="@null"
+                                    android:text="Сохранить"
+                                    android:textAllCaps="false"
+                                    android:textColor="@color/white"
+                                    android:visibility="gone"
+                                    app:backgroundTint="@color/prime_brand"
+                                    app:cornerRadius="16dp"
+                                    app:elevation="0dp"
+                                    app:strokeWidth="0dp" />
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+                    </LinearLayout>
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </androidx.core.widget.NestedScrollView>
+        </FrameLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <include layout="@layout/include_settings_detail_toolbar" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

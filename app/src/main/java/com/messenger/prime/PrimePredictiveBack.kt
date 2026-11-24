@@ -66,7 +66,7 @@ object PrimePredictiveBack {
         targetView: View? = null,
         onBackCompleted: (() -> Unit)? = null
     ) {
-        if (activity.isTaskRoot || PrimeApplication.getPreviousActivity() == null) {
+        if (activity.isTaskRoot || PrimeApplication.getPreviousActivity(activity) == null) {
             // Do not attach custom gesture, allow system to handle "Back to Home".
             return
         }
@@ -78,7 +78,7 @@ object PrimePredictiveBack {
 
     @JvmStatic
     fun playEnterTransition(activity: ComponentActivity, targetView: View? = null) {
-        if (activity.isTaskRoot || PrimeApplication.getPreviousActivity() == null) return
+        if (activity.isTaskRoot || PrimeApplication.getPreviousActivity(activity) == null) return
 
         val isTablet = activity.resources.configuration.smallestScreenWidthDp >= 600
         val isEmbedded = try {
@@ -86,7 +86,7 @@ object PrimePredictiveBack {
         } catch (_: Exception) {
             false
         }
-        val isMultiPane = isEmbedded || (isTablet && activity.javaClass.simpleName !in listOf("ChatPersonActivity", "SettingsActivity", "PersonInformationActivity"))
+        val isMultiPane = isEmbedded || (isTablet && activity !is BaseSettingsDetailActivity && activity.javaClass.simpleName !in listOf("ChatPersonActivity", "SettingsActivity", "PersonInformationActivity"))
 
         val rootContent = targetView ?: (activity.findViewById<ViewGroup>(android.R.id.content)?.getChildAt(0)) ?: activity.findViewById<View>(android.R.id.content) ?: activity.window.decorView
         val density = activity.resources.displayMetrics.density
@@ -98,7 +98,7 @@ object PrimePredictiveBack {
 
         var previousRootContent: View? = null
         var dimOverlayView: View? = null
-        val prevActivity = PrimeApplication.getPreviousActivity()
+        val prevActivity = PrimeApplication.getPreviousActivity(activity)
 
         if (isMultiPane) {
             rootContent.alpha = 0f
@@ -236,13 +236,14 @@ object PrimePredictiveBack {
 
     private class GestureController(
         val activity: ComponentActivity,
-        targetView: View?,
+        private val targetView: View?,
         val onBackCompleted: (() -> Unit)?
     ) {
-        val rootContent: View = targetView
-            ?: (activity.findViewById<ViewGroup>(android.R.id.content)?.getChildAt(0))
-            ?: activity.findViewById(android.R.id.content)
-            ?: activity.window.decorView
+        private val rootContent: View
+            get() = targetView
+                ?: (activity.findViewById<ViewGroup>(android.R.id.content)?.getChildAt(0))
+                ?: activity.findViewById(android.R.id.content)
+                ?: activity.window.decorView
 
         val density = activity.resources.displayMetrics.density
         val screenWidth = activity.resources.displayMetrics.widthPixels.toFloat()
@@ -271,7 +272,7 @@ object PrimePredictiveBack {
             // 1. Native Predictive Back Callback
             val backCallback = object : OnBackPressedCallback(true) {
                 override fun handleOnBackStarted(backEvent: BackEventCompat) {
-                    if (activity.isTaskRoot || PrimeApplication.getPreviousActivity() == null) {
+                    if (activity.isTaskRoot || PrimeApplication.getPreviousActivity(activity) == null) {
                         isEnabled = false
                         activity.onBackPressedDispatcher.onBackPressed()
                         isEnabled = true
@@ -300,7 +301,7 @@ object PrimePredictiveBack {
             // Dynamically evaluate if we should enable the callback (so system Back to Home works)
             activity.lifecycle.addObserver(androidx.lifecycle.LifecycleEventObserver { _, event ->
                 if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                    backCallback.isEnabled = !activity.isTaskRoot && PrimeApplication.getPreviousActivity() != null
+                    backCallback.isEnabled = !activity.isTaskRoot && PrimeApplication.getPreviousActivity(activity) != null
                 }
             })
 
@@ -308,7 +309,7 @@ object PrimePredictiveBack {
             val originalWindowCallback = activity.window.callback
             activity.window.callback = object : Window.Callback by originalWindowCallback {
                 override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-                    if (isGestureLocked || activity.isTaskRoot || PrimeApplication.getPreviousActivity() == null) {
+                    if (isGestureLocked || activity.isTaskRoot || PrimeApplication.getPreviousActivity(activity) == null) {
                         return originalWindowCallback.dispatchTouchEvent(event)
                     }
                     
@@ -517,12 +518,21 @@ object PrimePredictiveBack {
                 false
             }
             val isTablet = activity.resources.configuration.smallestScreenWidthDp >= 600
-            return isEmbedded || (isTablet && activity.javaClass.simpleName !in listOf("ChatPersonActivity", "SettingsActivity", "PersonInformationActivity"))
+            return isEmbedded || (isTablet && activity !is BaseSettingsDetailActivity && activity.javaClass.simpleName !in listOf("ChatPersonActivity", "SettingsActivity", "PersonInformationActivity"))
         }
 
         private fun startBackGesture(edge: Int) {
             if (isExecutingBack || isMultiPaneLayout() || hasActiveBottomSheet(rootContent)) return
             currentSwipeEdge = edge
+
+            // Keep the current window/decor background transparent so the previous activity is visible behind rootContent
+            activity.window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+            activity.window.decorView.background = null
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                try {
+                    activity.setTranslucent(true)
+                } catch (_: Throwable) {}
+            }
 
             rootContent.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             originalOutlineProvider = rootContent.outlineProvider
@@ -535,8 +545,8 @@ object PrimePredictiveBack {
             }
             rootContent.clipToOutline = true
 
-            val prevActivity = PrimeApplication.getPreviousActivity()
-            if (prevActivity != null && !prevActivity.isDestroyed) {
+            val prevActivity = PrimeApplication.getPreviousActivity(activity)
+            if (prevActivity != null && !prevActivity.isDestroyed && !prevActivity.isFinishing) {
                 val prevRoot = prevActivity.findViewById<ViewGroup>(android.R.id.content)
                 if (prevRoot != null) {
                     previousRootContent = prevRoot
@@ -691,11 +701,11 @@ object PrimePredictiveBack {
                 rootContent.invalidateOutline()
 
                 previousRootContent?.let { prev ->
-                    val pScale = prevStartScale - ((prevStartScale - 0.94f) * frac)
+                    val pScale = prevStartScale + ((1.0f - prevStartScale) * frac)
                     prev.scaleX = pScale
                     prev.scaleY = pScale
                 }
-                dimOverlayView?.alpha = dimStartAlpha + ((0.3f - dimStartAlpha) * frac)
+                dimOverlayView?.alpha = dimStartAlpha * (1f - frac)
             }
 
             animator.addListener(object : AnimatorListenerAdapter() {

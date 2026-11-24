@@ -25,11 +25,19 @@ object ColorAccentManager {
 
     @Volatile private var cachedAccentType: String? = null
     @Volatile private var cachedAccentColor: Int? = null
+    @Volatile private var cachedIncomingKey: String? = null
+    @Volatile private var cachedIncomingState: android.graphics.drawable.Drawable.ConstantState? = null
+    @Volatile private var cachedOutgoingKey: String? = null
+    @Volatile private var cachedOutgoingState: android.graphics.drawable.Drawable.ConstantState? = null
 
     @JvmStatic
     fun clearCache() {
         cachedAccentType = null
         cachedAccentColor = null
+        cachedIncomingKey = null
+        cachedIncomingState = null
+        cachedOutgoingKey = null
+        cachedOutgoingState = null
     }
 
     val PRESET_COLORS = listOf(
@@ -344,19 +352,27 @@ object ColorAccentManager {
     @JvmStatic
     fun getBubbleCornerRadiusPx(context: Context): Float {
         val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val percent = sp.getInt("settings_bubble_radius_percent", 50)
+        val percent = sp.getInt("settings_bubble_radius_percent", 60)
         val density = context.resources.displayMetrics.density
-        val minDp = 4f
-        val maxDp = 28f
+        val minDp = 6f
+        val maxDp = 24f
         val dp = minDp + (maxDp - minDp) * (percent / 100f)
         return dp * density
     }
 
     @JvmStatic
     fun createIncomingBubbleDrawable(context: Context): GradientDrawable {
-        val radiusPx = getBubbleCornerRadiusPx(context)
         val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val percent = sp.getInt("settings_bubble_radius_percent", 60)
         val density = context.resources.displayMetrics.density
+        val key = "$isDark:$percent:$density"
+        if (key == cachedIncomingKey) {
+            val cached = cachedIncomingState?.newDrawable()?.mutate() as? GradientDrawable
+            if (cached != null) return cached
+        }
+
+        val radiusPx = (6f + 18f * (percent / 100f)) * density
         val tailRadius = 4 * density
         val radii = floatArrayOf(
             radiusPx, radiusPx,
@@ -365,29 +381,33 @@ object ColorAccentManager {
             tailRadius, tailRadius
         )
 
-        val bgCol = if (isDark) Color.parseColor("#263343") else Color.WHITE
-        val strokeCol = if (isDark) Color.parseColor("#3A4A5B") else Color.parseColor("#E2E8F0")
+        val bgCol = if (isDark) Color.parseColor("#1E293B") else Color.WHITE
 
-        return GradientDrawable().apply {
+        val drawable = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadii = radii
             setColor(bgCol)
-            setStroke((0.5f * density).toInt(), strokeCol)
         }
+        cachedIncomingKey = key
+        cachedIncomingState = drawable.constantState
+        return drawable
     }
 
     @JvmStatic
     fun createOutgoingBubbleDrawable(context: Context): GradientDrawable {
-        val prefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val percent = prefs.getInt("settings_bubble_radius_percent", 100)
-        
+        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+        val percent = sp.getInt("settings_bubble_radius_percent", 60)
+        val accentColor = getCurrentAccentColor(context)
         val density = context.resources.displayMetrics.density
-        val maxRadiusPx = 28f * density
-        val radiusPx = maxRadiusPx * (percent / 100f)
+        val key = "$accentColor:$percent:$density"
+        if (key == cachedOutgoingKey) {
+            val cached = cachedOutgoingState?.newDrawable()?.mutate() as? GradientDrawable
+            if (cached != null) return cached
+        }
+
+        val radiusPx = (6f + 18f * (percent / 100f)) * density
         val tailRadius = 4f * density
 
-        val accentColor = getCurrentAccentColor(context)
-        
         val radii = floatArrayOf(
             radiusPx, radiusPx, // top-left
             radiusPx, radiusPx, // top-right
@@ -395,10 +415,13 @@ object ColorAccentManager {
             radiusPx, radiusPx  // bottom-left
         )
 
-        return GradientDrawable().apply {
+        val drawable = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadii = radii
             setColor(accentColor)
         }
+        cachedOutgoingKey = key
+        cachedOutgoingState = drawable.constantState
+        return drawable
     }
 }

@@ -1,0 +1,1293 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootChatSettings"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/prime_base">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- Закреплённая живая Hero-сцена чата (обои + шапка + пузырьки) -->
+        <FrameLayout
+            android:id="@+id/layoutChatHeroStage"
+            android:layout_width="0dp"
+            android:layout_height="296dp"
+            android:tag="do_not_tint"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <com.messenger.prime.MaterialShapesWallpaperView
+                android:id="@+id/vHeroChatWallpaper"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/layoutChatHeroOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:paddingHorizontal="16dp">
+
+                <View
+                    android:id="@+id/vPreviewTopFog"
+                    android:layout_width="0dp"
+                    android:layout_height="64dp"
+                    android:background="@drawable/bg_top_fog_dark"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardHeaderPreviewIsland"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="@color/prime_surface"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="0dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintWidth_max="560dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="8dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_arrow_back"
+                            app:tint="@color/prime_brand" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-medium"
+                                android:text="Собеседник"
+                                android:textColor="@color/prime_text_primary"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="В сети"
+                                android:textColor="@color/prime_success"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_person"
+                            app:tint="@color/prime_brand" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:id="@+id/layoutThemeChatPreviewBg"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="bottom"
+                    android:orientation="vertical"
+                    android:paddingTop="8dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintWidth_max="560dp">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="start"
+                        android:layout_marginBottom="8dp"
+                        android:gravity="bottom"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvPreviewAvatar"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:layout_marginEnd="8dp"
+                            android:fontFamily="sans-serif-medium"
+                            android:gravity="center"
+                            android:text="P"
+                            android:textColor="#FFFFFF"
+                            android:textSize="12sp" />
+
+                        <LinearLayout
+                            android:id="@+id/layoutPreviewIncomingBubble"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingHorizontal="12dp"
+                            android:paddingVertical="8dp">
+
+                            <TextView
+                                android:id="@+id/tvPreviewIncomingText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Ты в прайме?"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/tvPreviewIncomingTime"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="bottom"
+                                android:layout_marginStart="8dp"
+                                android:fontFeatureSettings="tnum"
+                                android:text="12:00"
+                                android:textSize="10sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/layoutPreviewOutgoingBubble"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="end"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="8dp">
+
+                        <TextView
+                            android:id="@+id/tvPreviewOutgoingText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Конечно, всегда на связи"
+                            android:textColor="#FFFFFF"
+                            android:textSize="13sp" />
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="bottom"
+                            android:layout_marginStart="8dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tvPreviewOutgoingTime"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFeatureSettings="tnum"
+                                android:text="12:01"
+                                android:textColor="#CCFFFFFF"
+                                android:textSize="10sp" />
+
+                            <ImageView
+                                android:id="@+id/ivPreviewOutgoingStatus"
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
+                                android:layout_marginStart="4dp"
+                                android:src="@drawable/ic_done_all"
+                                app:tint="#CCFFFFFF" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </FrameLayout>
+
+        <View
+            android:id="@+id/vSheetOverlapAnchor"
+            android:layout_width="0dp"
+            android:layout_height="24dp"
+            app:layout_constraintBottom_toBottomOf="@id/layoutChatHeroStage"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <FrameLayout
+            android:id="@+id/layoutDetailSheet"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@drawable/bg_editor_sheet_top"
+            android:clipChildren="true"
+            android:clipToPadding="false"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@id/vSheetOverlapAnchor">
+
+            <androidx.core.widget.NestedScrollView
+                android:id="@+id/scrollChatSettings"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:overScrollMode="never"
+                android:paddingTop="16dp"
+                android:paddingBottom="28dp">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="16dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintWidth_max="640dp">
+
+                        <!-- 1. Обои чата -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardWallpaperSection"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="12dp"
+                            app:cardBackgroundColor="@color/prime_surface"
+                            app:cardCornerRadius="24dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="0dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:padding="20dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <ImageView
+                                        android:id="@+id/ivIconWallpaper"
+                                        android:layout_width="40dp"
+                                        android:layout_height="40dp"
+                                        android:layout_marginEnd="14dp"
+                                        android:src="@drawable/ic_photo"
+                                        app:tint="@color/prime_brand" />
+
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:id="@+id/tvTitleWallpaper"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:text="Обои в чате"
+                                            android:textColor="@color/prime_brand"
+                                            android:textSize="16sp" />
+
+                                        <TextView
+                                            android:id="@+id/tvWallpaperSummary"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="Стандартные"
+                                            android:textColor="@color/prime_text_secondary"
+                                            android:textSize="12sp" />
+                                    </LinearLayout>
+                                </LinearLayout>
+
+                                <HorizontalScrollView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="16dp"
+                                    android:fillViewport="true"
+                                    android:overScrollMode="never"
+                                    android:scrollbars="none">
+
+                                    <LinearLayout
+                                        android:id="@+id/layoutWallpaperOptions"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:gravity="center_vertical"
+                                        android:orientation="horizontal" />
+                                </HorizontalScrollView>
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <!-- 2. Сообщения и аватарки -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardChatBubblesAndAvatars"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="12dp"
+                            app:cardBackgroundColor="@color/prime_surface"
+                            app:cardCornerRadius="24dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="0dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:padding="20dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <TextView
+                                        android:id="@+id/tvTitleBubbleRadius"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Скругление сообщений"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:id="@+id/tvBubbleRadiusValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:fontFeatureSettings="tnum"
+                                        android:text="50%"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="12sp" />
+
+                                    <ImageView
+                                        android:id="@+id/btnResetBubbleRadius"
+                                        android:layout_width="24dp"
+                                        android:layout_height="24dp"
+                                        android:layout_marginStart="8dp"
+                                        android:background="?attr/selectableItemBackgroundBorderless"
+                                        android:padding="2dp"
+                                        android:src="@drawable/ic_refresh"
+                                        android:visibility="gone"
+                                        app:tint="@color/prime_text_secondary" />
+                                </LinearLayout>
+
+                                <com.google.android.material.slider.Slider
+                                    android:id="@+id/sliderBubbleRadius"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="-10dp"
+                                    android:layout_marginTop="-4dp"
+                                    android:stepSize="1"
+                                    android:value="50"
+                                    android:valueFrom="0"
+                                    android:valueTo="100"
+                                    app:labelBehavior="withinBounds"
+                                    app:thumbColor="@color/prime_brand"
+                                    app:trackColorActive="@color/prime_brand" />
+
+                                <View
+                                    android:layout_width="match_parent"
+                                    android:layout_height="1dp"
+                                    android:layout_marginVertical="12dp"
+                                    android:background="@color/prime_divider" />
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <TextView
+                                        android:id="@+id/tvTitleAvatarRadius"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Скругление аватарки"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:id="@+id/tvAvatarRadiusValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:fontFeatureSettings="tnum"
+                                        android:text="50%"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="12sp" />
+
+                                    <ImageView
+                                        android:id="@+id/btnResetAvatarRadius"
+                                        android:layout_width="24dp"
+                                        android:layout_height="24dp"
+                                        android:layout_marginStart="8dp"
+                                        android:background="?attr/selectableItemBackgroundBorderless"
+                                        android:padding="2dp"
+                                        android:src="@drawable/ic_refresh"
+                                        android:visibility="gone"
+                                        app:tint="@color/prime_text_secondary" />
+                                </LinearLayout>
+
+                                <com.google.android.material.slider.Slider
+                                    android:id="@+id/sliderAvatarRadius"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="-10dp"
+                                    android:layout_marginTop="-4dp"
+                                    android:stepSize="1"
+                                    android:value="50"
+                                    android:valueFrom="0"
+                                    android:valueTo="100"
+                                    app:labelBehavior="withinBounds"
+                                    app:thumbColor="@color/prime_brand"
+                                    app:trackColorActive="@color/prime_brand" />
+
+                                <com.google.android.material.card.MaterialCardView
+                                    android:id="@+id/cardAvatarPreviewBlock"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="8dp"
+                                    app:cardCornerRadius="16dp"
+                                    app:cardElevation="0dp"
+                                    app:strokeWidth="0dp">
+
+                                    <LinearLayout
+                                        android:id="@+id/layoutAvatarPreviewBg"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:gravity="center_vertical"
+                                        android:orientation="horizontal"
+                                        android:padding="12dp">
+
+                                        <ImageView
+                                            android:id="@+id/ivAvatarPreviewImage"
+                                            android:layout_width="48dp"
+                                            android:layout_height="48dp"
+                                            android:layout_marginEnd="12dp"
+                                            android:scaleType="centerCrop" />
+
+                                        <TextView
+                                            android:id="@+id/tvAvatarPreviewInitials"
+                                            android:layout_width="48dp"
+                                            android:layout_height="48dp"
+                                            android:layout_marginEnd="12dp"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:gravity="center"
+                                            android:text="P"
+                                            android:textColor="#FFFFFF"
+                                            android:textSize="18sp" />
+
+                                        <LinearLayout
+                                            android:layout_width="0dp"
+                                            android:layout_height="wrap_content"
+                                            android:layout_weight="1"
+                                            android:orientation="vertical">
+
+                                            <TextView
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:fontFamily="sans-serif-medium"
+                                                android:text="Предпросмотр аватарок"
+                                                android:textColor="@color/prime_text_primary"
+                                                android:textSize="14sp" />
+
+                                            <TextView
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:layout_marginTop="2dp"
+                                                android:text="Передвигайте ползунок выше"
+                                                android:textColor="@color/prime_text_secondary"
+                                                android:textSize="12sp" />
+                                        </LinearLayout>
+                                    </LinearLayout>
+                                </com.google.android.material.card.MaterialCardView>
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <!-- 3. Панели, жесты и M3E кнопки чата -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardChatUiAndGestures"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="12dp"
+                            app:cardBackgroundColor="@color/prime_surface"
+                            app:cardCornerRadius="24dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="0dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:padding="20dp">
+
+                                <LinearLayout
+                                    android:id="@+id/cardChatStyleSection"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:id="@+id/tvTitleChatStyle"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Стиль верхней панели чата"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="14sp" />
+
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="48dp"
+                                        android:layout_marginTop="10dp"
+                                        android:background="@drawable/bg_editor_input_box"
+                                        android:orientation="horizontal"
+                                        android:padding="4dp">
+
+                                        <com.google.android.material.button.MaterialButton
+                                            android:id="@+id/btnChatStyleBlock"
+                                            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+                                            android:layout_width="0dp"
+                                            android:layout_height="match_parent"
+                                            android:layout_weight="1"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:insetTop="0dp"
+                                            android:insetBottom="0dp"
+                                            android:stateListAnimator="@null"
+                                            android:text="Показать блок"
+                                            android:textAllCaps="false"
+                                            android:textSize="13sp"
+                                            app:cornerRadius="12dp"
+                                            app:elevation="0dp"
+                                            app:strokeWidth="0dp" />
+
+                                        <com.google.android.material.button.MaterialButton
+                                            android:id="@+id/btnChatStyleNoBlock"
+                                            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+                                            android:layout_width="0dp"
+                                            android:layout_height="match_parent"
+                                            android:layout_marginStart="4dp"
+                                            android:layout_weight="1"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:insetTop="0dp"
+                                            android:insetBottom="0dp"
+                                            android:stateListAnimator="@null"
+                                            android:text="Убрать блок"
+                                            android:textAllCaps="false"
+                                            android:textSize="13sp"
+                                            app:cornerRadius="12dp"
+                                            app:elevation="0dp"
+                                            app:strokeWidth="0dp" />
+                                    </LinearLayout>
+                                </LinearLayout>
+
+                                <View
+                                    android:layout_width="match_parent"
+                                    android:layout_height="1dp"
+                                    android:layout_marginVertical="16dp"
+                                    android:background="@color/prime_divider" />
+
+                                <include
+                                    android:id="@+id/cardPartnerInfoOpenModeSection"
+                                    layout="@layout/layout_settings_partner_info_open_mode" />
+
+                                <View
+                                    android:layout_width="match_parent"
+                                    android:layout_height="1dp"
+                                    android:layout_marginVertical="16dp"
+                                    android:background="@color/prime_divider" />
+
+                                <LinearLayout
+                                    android:id="@+id/cardPartnerInfoSection"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:id="@+id/tvTitlePartnerInfo"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:text="Информация о собеседнике"
+                                            android:textColor="@color/prime_brand"
+                                            android:textSize="14sp" />
+
+                                        <TextView
+                                            android:id="@+id/tvSubtitlePartnerInfo"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="Переходить в профиль при перетягивании с верхнего края чата"
+                                            android:textColor="@color/prime_text_secondary"
+                                            android:textSize="12sp" />
+                                    </LinearLayout>
+
+                                    <com.google.android.material.materialswitch.MaterialSwitch
+                                        android:id="@+id/switchPartnerInfo"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="12dp"
+                                        android:checked="true" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="16dp"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:id="@+id/tvTitleM3EShapesChat"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:text="M3E формы кнопок в чате"
+                                            android:textColor="@color/prime_brand"
+                                            android:textSize="14sp" />
+
+                                        <TextView
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="Применять выразительные фигуры к кнопкам Назад, Медиа и Отправка"
+                                            android:textColor="@color/prime_text_secondary"
+                                            android:textSize="12sp" />
+                                    </LinearLayout>
+
+                                    <com.google.android.material.materialswitch.MaterialSwitch
+                                        android:id="@+id/switchM3EShapesChat"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="12dp"
+                                        android:checked="true" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="20dp"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <TextView
+                                        android:id="@+id/tvTitleBottomBarRadius"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Скругление блоков в чате"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:id="@+id/tvBottomBarRadiusValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:fontFeatureSettings="tnum"
+                                        android:text="67%"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="12sp" />
+
+                                    <ImageView
+                                        android:id="@+id/btnResetBottomBarRadius"
+                                        android:layout_width="24dp"
+                                        android:layout_height="24dp"
+                                        android:layout_marginStart="8dp"
+                                        android:background="?attr/selectableItemBackgroundBorderless"
+                                        android:padding="2dp"
+                                        android:src="@drawable/ic_refresh"
+                                        android:visibility="gone"
+                                        app:tint="@color/prime_text_secondary" />
+                                </LinearLayout>
+
+                                <com.google.android.material.slider.Slider
+                                    android:id="@+id/sliderBottomBarRadius"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="-10dp"
+                                    android:layout_marginTop="-4dp"
+                                    android:stepSize="1"
+                                    android:value="24"
+                                    android:valueFrom="0"
+                                    android:valueTo="36"
+                                    app:labelBehavior="withinBounds"
+                                    app:thumbColor="@color/prime_brand"
+                                    app:trackColorActive="@color/prime_brand" />
+
+                                <com.google.android.material.card.MaterialCardView
+                                    android:id="@+id/cardBottomBarPreviewBlock"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="8dp"
+                                    app:cardCornerRadius="16dp"
+                                    app:cardElevation="0dp"
+                                    app:strokeWidth="0dp">
+
+                                    <LinearLayout
+                                        android:id="@+id/layoutBottomBarPreviewBg"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:gravity="center"
+                                        android:orientation="vertical"
+                                        android:padding="16dp">
+
+                                        <com.google.android.material.card.MaterialCardView
+                                            android:id="@+id/cardHeaderPreviewInput"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="40dp"
+                                            android:layout_marginBottom="12dp"
+                                            app:cardBackgroundColor="@color/prime_surface"
+                                            app:cardCornerRadius="24dp"
+                                            app:cardElevation="0dp"
+                                            app:strokeWidth="0dp">
+
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:gravity="center_vertical"
+                                                android:orientation="horizontal"
+                                                android:paddingHorizontal="10dp">
+
+                                                <ImageView
+                                                    android:layout_width="18dp"
+                                                    android:layout_height="18dp"
+                                                    android:src="@drawable/ic_arrow_back"
+                                                    app:tint="@color/prime_brand" />
+
+                                                <TextView
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="wrap_content"
+                                                    android:layout_marginStart="8dp"
+                                                    android:layout_weight="1"
+                                                    android:fontFamily="sans-serif-medium"
+                                                    android:text="Прайм Чат"
+                                                    android:textColor="@color/prime_text_primary"
+                                                    android:textSize="13sp" />
+
+                                                <ImageView
+                                                    android:layout_width="18dp"
+                                                    android:layout_height="18dp"
+                                                    android:src="@drawable/ic_person"
+                                                    app:tint="@color/prime_brand" />
+                                            </LinearLayout>
+                                        </com.google.android.material.card.MaterialCardView>
+
+                                        <com.google.android.material.card.MaterialCardView
+                                            android:id="@+id/cardBottomBarPreviewInput"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="44dp"
+                                            app:cardBackgroundColor="@color/prime_surface"
+                                            app:cardCornerRadius="24dp"
+                                            app:cardElevation="0dp"
+                                            app:strokeWidth="0dp">
+
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:gravity="center_vertical"
+                                                android:orientation="horizontal"
+                                                android:paddingHorizontal="10dp">
+
+                                                <ImageView
+                                                    android:layout_width="20dp"
+                                                    android:layout_height="20dp"
+                                                    android:src="@drawable/ic_photo"
+                                                    app:tint="@color/prime_brand" />
+
+                                                <TextView
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="wrap_content"
+                                                    android:layout_marginStart="8dp"
+                                                    android:layout_weight="1"
+                                                    android:text="Сообщение..."
+                                                    android:textColor="@color/prime_text_secondary"
+                                                    android:textSize="13sp" />
+
+                                                <ImageView
+                                                    android:layout_width="20dp"
+                                                    android:layout_height="20dp"
+                                                    android:src="@drawable/ic_send"
+                                                    app:tint="@color/prime_brand" />
+                                            </LinearLayout>
+                                        </com.google.android.material.card.MaterialCardView>
+                                    </LinearLayout>
+                                </com.google.android.material.card.MaterialCardView>
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <!-- 4. Видеокружки и камера -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardVideoNotesSection"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            app:cardBackgroundColor="@color/prime_surface"
+                            app:cardCornerRadius="24dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="0dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:padding="20dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <ImageView
+                                        android:id="@+id/ivIconVideoNotes"
+                                        android:layout_width="40dp"
+                                        android:layout_height="40dp"
+                                        android:layout_marginEnd="14dp"
+                                        android:src="@drawable/ic_camera"
+                                        app:tint="@color/prime_brand" />
+
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:id="@+id/tvTitleVideoNotesCard"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:text="Видеокружки"
+                                            android:textColor="@color/prime_brand"
+                                            android:textSize="16sp" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginTop="2dp"
+                                            android:text="Форма, размер и параметры камеры"
+                                            android:textColor="@color/prime_text_secondary"
+                                            android:textSize="12sp" />
+                                    </LinearLayout>
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="16dp"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <TextView
+                                        android:id="@+id/tvTitleVideoCorner"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Скругление видеокружка"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:id="@+id/tvVideoCornerRadiusValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:fontFeatureSettings="tnum"
+                                        android:text="50% (Круг)"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="12sp" />
+
+                                    <ImageView
+                                        android:id="@+id/btnResetVideoCorner"
+                                        android:layout_width="24dp"
+                                        android:layout_height="24dp"
+                                        android:layout_marginStart="8dp"
+                                        android:background="?attr/selectableItemBackgroundBorderless"
+                                        android:padding="2dp"
+                                        android:src="@drawable/ic_refresh"
+                                        android:visibility="gone"
+                                        app:tint="@color/prime_text_secondary" />
+                                </LinearLayout>
+
+                                <com.google.android.material.slider.Slider
+                                    android:id="@+id/sliderVideoCornerRadius"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="-10dp"
+                                    android:layout_marginTop="-4dp"
+                                    android:stepSize="1"
+                                    android:value="50"
+                                    android:valueFrom="0"
+                                    android:valueTo="50"
+                                    app:labelBehavior="withinBounds"
+                                    app:thumbColor="@color/prime_brand"
+                                    app:trackColorActive="@color/prime_brand" />
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="10dp"
+                                    android:layout_marginBottom="6dp"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <TextView
+                                        android:id="@+id/tvTitleVideoShape"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Форма кружка (M3E)"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:id="@+id/tvVideoShapeValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Круг"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+
+                                <HorizontalScrollView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginBottom="8dp"
+                                    android:overScrollMode="never"
+                                    android:scrollbars="none">
+
+                                    <com.google.android.material.chip.ChipGroup
+                                        android:id="@+id/chipGroupVideoShapes"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        app:singleLine="true"
+                                        app:singleSelection="true" />
+                                </HorizontalScrollView>
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="8dp"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <TextView
+                                        android:id="@+id/tvTitleVideoSize"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Размер видеокружка"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:id="@+id/tvVideoSizeValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:fontFeatureSettings="tnum"
+                                        android:text="43%"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="12sp" />
+
+                                    <ImageView
+                                        android:id="@+id/btnResetVideoSize"
+                                        android:layout_width="24dp"
+                                        android:layout_height="24dp"
+                                        android:layout_marginStart="8dp"
+                                        android:background="?attr/selectableItemBackgroundBorderless"
+                                        android:padding="2dp"
+                                        android:src="@drawable/ic_refresh"
+                                        android:visibility="gone"
+                                        app:tint="@color/prime_text_secondary" />
+                                </LinearLayout>
+
+                                <com.google.android.material.slider.Slider
+                                    android:id="@+id/sliderVideoSize"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="-10dp"
+                                    android:layout_marginTop="-4dp"
+                                    android:stepSize="10"
+                                    android:value="180"
+                                    android:valueFrom="120"
+                                    android:valueTo="260"
+                                    app:labelBehavior="withinBounds"
+                                    app:thumbColor="@color/prime_brand"
+                                    app:trackColorActive="@color/prime_brand" />
+
+                                <com.google.android.material.card.MaterialCardView
+                                    android:id="@+id/cardVideoNotePreviewBlock"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="8dp"
+                                    android:layout_marginBottom="16dp"
+                                    app:cardCornerRadius="16dp"
+                                    app:cardElevation="0dp"
+                                    app:strokeWidth="0dp">
+
+                                    <LinearLayout
+                                        android:id="@+id/layoutVideoNotePreviewBg"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:gravity="end"
+                                        android:orientation="vertical"
+                                        android:padding="16dp">
+
+                                        <FrameLayout
+                                            android:id="@+id/layoutVideoNotePreviewFrame"
+                                            android:layout_width="180dp"
+                                            android:layout_height="180dp"
+                                            android:layout_gravity="end">
+
+                                            <ImageView
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:background="#20FFFFFF"
+                                                android:padding="48dp"
+                                                android:scaleType="fitCenter"
+                                                android:src="@drawable/ic_camera"
+                                                app:tint="@color/prime_brand" />
+
+                                            <com.messenger.prime.PrimeWaterLoadingView
+                                                android:id="@+id/pbVideoNotePreviewFrame"
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent" />
+
+                                            <LinearLayout
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:layout_gravity="bottom|end"
+                                                android:layout_margin="8dp"
+                                                android:background="@drawable/bg_glass_button"
+                                                android:gravity="center_vertical"
+                                                android:orientation="horizontal"
+                                                android:paddingHorizontal="6dp"
+                                                android:paddingVertical="2dp">
+
+                                                <TextView
+                                                    android:layout_width="wrap_content"
+                                                    android:layout_height="wrap_content"
+                                                    android:fontFamily="sans-serif-medium"
+                                                    android:fontFeatureSettings="tnum"
+                                                    android:text="12:34"
+                                                    android:textColor="#FFFFFF"
+                                                    android:textSize="12sp" />
+
+                                                <ImageView
+                                                    android:layout_width="14dp"
+                                                    android:layout_height="14dp"
+                                                    android:layout_marginStart="4dp"
+                                                    android:src="@drawable/ic_done_all"
+                                                    app:tint="@color/prime_brand" />
+                                            </LinearLayout>
+                                        </FrameLayout>
+                                    </LinearLayout>
+                                </com.google.android.material.card.MaterialCardView>
+
+                                <View
+                                    android:layout_width="match_parent"
+                                    android:layout_height="1dp"
+                                    android:layout_marginBottom="16dp"
+                                    android:background="@color/prime_divider" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:text="Настройки камеры"
+                                    android:textColor="@color/prime_text_primary"
+                                    android:textSize="15sp" />
+
+                                <LinearLayout
+                                    android:id="@+id/rowVideoQuality"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="48dp"
+                                    android:layout_marginTop="12dp"
+                                    android:background="@drawable/bg_editor_input_box"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:foreground="?attr/selectableItemBackground"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal"
+                                    android:paddingHorizontal="14dp"
+                                    android:tag="do_not_tint">
+
+                                    <TextView
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Качество записи"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:id="@+id/tvVideoQualityValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Низкое (Быстрое)"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="13sp" />
+
+                                    <ImageView
+                                        android:layout_width="18dp"
+                                        android:layout_height="18dp"
+                                        android:layout_marginStart="6dp"
+                                        android:src="@drawable/ic_expand_more"
+                                        app:tint="@color/prime_text_secondary" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:id="@+id/rowVideoFps"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="48dp"
+                                    android:layout_marginTop="8dp"
+                                    android:background="@drawable/bg_editor_input_box"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:foreground="?attr/selectableItemBackground"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal"
+                                    android:paddingHorizontal="14dp"
+                                    android:tag="do_not_tint">
+
+                                    <TextView
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Частота кадров (FPS)"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:id="@+id/tvVideoFpsValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:fontFeatureSettings="tnum"
+                                        android:text="30 FPS"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="13sp" />
+
+                                    <ImageView
+                                        android:layout_width="18dp"
+                                        android:layout_height="18dp"
+                                        android:layout_marginStart="6dp"
+                                        android:src="@drawable/ic_expand_more"
+                                        app:tint="@color/prime_text_secondary" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="14dp"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:fontFamily="sans-serif-medium"
+                                            android:text="Стабилизация видео"
+                                            android:textColor="@color/prime_text_primary"
+                                            android:textSize="15sp" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="Снижает тряску (зависит от устройства)"
+                                            android:textColor="@color/prime_text_secondary"
+                                            android:textSize="12sp" />
+                                    </LinearLayout>
+
+                                    <com.google.android.material.materialswitch.MaterialSwitch
+                                        android:id="@+id/switchVideoStabilization"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:checked="true" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:id="@+id/rowCameraApi"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="48dp"
+                                    android:layout_marginTop="14dp"
+                                    android:background="@drawable/bg_editor_input_box"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:foreground="?attr/selectableItemBackground"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal"
+                                    android:paddingHorizontal="14dp"
+                                    android:tag="do_not_tint">
+
+                                    <TextView
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="Camera API"
+                                        android:textColor="@color/prime_text_primary"
+                                        android:textSize="14sp" />
+
+                                    <TextView
+                                        android:id="@+id/tvCameraApiValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:text="CameraX (Стабильно)"
+                                        android:textColor="@color/prime_brand"
+                                        android:textSize="13sp" />
+
+                                    <ImageView
+                                        android:layout_width="18dp"
+                                        android:layout_height="18dp"
+                                        android:layout_marginStart="6dp"
+                                        android:src="@drawable/ic_expand_more"
+                                        app:tint="@color/prime_text_secondary" />
+                                </LinearLayout>
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+                    </LinearLayout>
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </androidx.core.widget.NestedScrollView>
+        </FrameLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <include layout="@layout/include_settings_detail_toolbar" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

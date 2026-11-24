@@ -160,9 +160,14 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         fun getCurrentActivity(): Activity? = currentActivityRef?.get()
 
         @JvmStatic
-        fun getPreviousActivity(): Activity? {
-            if (activityStack.size >= 2) {
-                return activityStack[activityStack.size - 2].get()
+        @JvmOverloads
+        fun getPreviousActivity(current: Activity? = null): Activity? {
+            val top = current ?: currentActivityRef?.get() ?: activityStack.lastOrNull()?.get()
+            for (i in activityStack.size - 1 downTo 0) {
+                val act = activityStack[i].get()
+                if (act != null && act !== top && !act.isDestroyed && !act.isFinishing) {
+                    return act
+                }
             }
             return null
         }
@@ -183,7 +188,7 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         
         if (!isExcluded) {
             val isBottomSheet = PrimePredictiveBack.isBottomSheetOrDialog(activity)
-            val isRootActivity = activity.isTaskRoot || getPreviousActivity() == null
+            val isRootActivity = activity.isTaskRoot || getPreviousActivity(activity) == null
             
             if (activity is androidx.activity.ComponentActivity && !isBottomSheet && !isRootActivity) {
                 // Attach predictive back & touch swiper, and play Enter transition for new instances

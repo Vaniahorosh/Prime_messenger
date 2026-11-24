@@ -15,7 +15,7 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="6dp"
+        android:paddingStart="8dp"
         android:paddingEnd="12dp"
         android:paddingTop="12dp"
         android:paddingBottom="8dp"
@@ -25,18 +25,18 @@
             android:id="@+id/tvDateHeader"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/prime_brand"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="@color/prime_text_secondary"
             android:textSize="12sp"
-            android:textStyle="bold"
             tools:text="Сегодня" />
 
         <View
             android:id="@+id/vDateHeaderLine"
             android:layout_width="0dp"
-            android:layout_height="1.5dp"
+            android:layout_height="1dp"
             android:layout_weight="1"
-            android:layout_marginStart="10dp"
-            android:background="@color/prime_brand" />
+            android:layout_marginStart="12dp"
+            android:background="@color/prime_divider" />
     </LinearLayout>
 
     <!-- Разделитель "Новое сообщение" -->
@@ -52,25 +52,27 @@
 
         <View
             android:layout_width="0dp"
-            android:layout_height="1.5dp"
+            android:layout_height="1dp"
             android:layout_weight="1"
-            android:background="@color/prime_brand" />
+            android:background="@color/prime_brand"
+            android:alpha="0.45" />
 
         <TextView
             android:id="@+id/tvUnreadTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="12dp"
+            android:fontFamily="sans-serif-medium"
             android:text="Новое сообщение"
             android:textColor="@color/prime_brand"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+            android:textSize="12sp" />
 
         <View
             android:layout_width="0dp"
-            android:layout_height="1.5dp"
+            android:layout_height="1dp"
             android:layout_weight="1"
-            android:background="@color/prime_brand" />
+            android:background="@color/prime_brand"
+            android:alpha="0.45" />
     </LinearLayout>
 
     <!-- Горизонтальный контейнер ряда сообщения с чекбоксом выбора слева -->

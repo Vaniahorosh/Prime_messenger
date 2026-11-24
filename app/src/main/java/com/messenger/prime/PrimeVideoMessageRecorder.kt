@@ -189,9 +189,7 @@ class PrimeVideoMessageRecorder(
 
         ProcessCameraProvider.getInstance(activity).addListener({
             try {
-                val p = ProcessCameraProvider.getInstance(activity).get()
-                cameraProvider = p
-                bindCameraUseCases(p) {}
+                cameraProvider = ProcessCameraProvider.getInstance(activity).get()
             } catch (e: Exception) {
                 Log.e("PrimeVideo", "Failed to cache camera provider", e)
             }
@@ -1035,12 +1033,17 @@ class PrimeVideoMessageRecorder(
     }
 
     fun cancelRecording() {
+        val wasActive = isRecording || isRecordingStarting || isAudioRecording || isRecordingOrPreviewing() || isLocked
         currentRecordingSessionId++
         if (isRecording || isRecordingStarting) {
             try {
                 recording?.stop()
             } catch (ignored: Exception) {}
             recording = null
+        }
+        if (!wasActive) {
+            isInCancelZone = false
+            return
         }
         resetUI()
     }

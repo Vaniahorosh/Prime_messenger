@@ -57,13 +57,12 @@ import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.GestureDetector;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
-import android.view.animation.OvershootInterpolator;
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 import android.webkit.MimeTypeMap;
 import android.webkit.WebView;
 import android.graphics.drawable.ColorDrawable;
@@ -848,9 +847,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                                     ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_active);
                                     ivSelectionCheck.setImageResource(R.drawable.ic_done);
                                     ivSelectionCheck.setAlpha(1.0f);
-                                    ivSelectionCheck.setScaleX(0.3f);
-                                    ivSelectionCheck.setScaleY(0.3f);
-                                    ivSelectionCheck.animate().scaleX(1.0f).scaleY(1.0f).setDuration(250).setInterpolator(new android.view.animation.OvershootInterpolator()).start();
+                                    ivSelectionCheck.setScaleX(0.75f);
+                                    ivSelectionCheck.setScaleY(0.75f);
+                                    ivSelectionCheck.animate()
+                                            .scaleX(1.0f)
+                                            .scaleY(1.0f)
+                                            .setDuration(140)
+                                            .setInterpolator(new FastOutSlowInInterpolator())
+                                            .start();
                                 } else {
                                     ivSelectionCheck.setBackgroundResource(R.drawable.bg_circular_mode_idle);
                                     ivSelectionCheck.setImageDrawable(null);
@@ -1892,8 +1896,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             .scaleX(1.20f)
             .scaleY(1.20f)
             .translationZ(16f * density)
-            .setDuration(240)
-            .setInterpolator(new android.view.animation.OvershootInterpolator(1.05f))
+            .setDuration(170)
+            .setInterpolator(new FastOutSlowInInterpolator())
             .start();
 
         if (mRecyclerView != null) {
@@ -3472,6 +3476,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         ImageView ivSelectionCheck;
         View layoutStickerPackTag;
         TextView tvStickerPackTag;
+        final float[] lastTouchRaw = new float[2];
+        ChatMessage boundMessage;
+        int boundPosition = RecyclerView.NO_POSITION;
+        final GestureDetector doubleTapDetector;
 
         IncomingViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -3509,15 +3517,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             btnCancelDownload = itemView.findViewById(R.id.btnCancelDownload);
             layoutStickerPackTag = itemView.findViewById(R.id.layoutStickerPackTag);
             tvStickerPackTag = itemView.findViewById(R.id.tvStickerPackTag);
-        }
 
-        void bind(ChatMessage message, boolean showDateHeader, OnMessageLongClickListener listener, int position) {
-            float[] lastTouchRaw = new float[2];
-            GestureDetector doubleTapDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
+            doubleTapDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
                 @Override
                 public boolean onDoubleTap(@NonNull MotionEvent e) {
-                    if (isConnectionActive && !isNotesChat() && actionListener != null) {
-                        actionListener.onQuickReaction(message, "❤️", position);
+                    if (isConnectionActive && !isNotesChat() && actionListener != null && boundMessage != null && boundPosition != RecyclerView.NO_POSITION) {
+                        actionListener.onQuickReaction(boundMessage, "❤️", boundPosition);
                         View bubble = layoutIncomingBubble != null ? layoutIncomingBubble : itemView;
                         ChatAnimationHelper.spawnReactionBurst(bubble, "❤️");
                         ChatAnimationHelper.animateBubbleSpring(bubble);
@@ -3540,6 +3545,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (layoutIncomingBubble != null) {
                 layoutIncomingBubble.setOnTouchListener(touchTracker);
             }
+        }
+
+        void bind(ChatMessage message, boolean showDateHeader, OnMessageLongClickListener listener, int position) {
+            this.boundMessage = message;
+            this.boundPosition = position;
 
             if (layoutIncomingBubble != null) {
                 layoutIncomingBubble.setBackground(ColorAccentManager.createIncomingBubbleDrawable(itemView.getContext()));
@@ -3559,7 +3569,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     if (tvQuotedText != null) {
                         String qText = message.getReplyToText();
                         if (qText != null && (qText.startsWith("VIDEO_NOTE:") || qText.startsWith("vn_"))) {
-                            qText = "📹 Видеосообщение";
+                            qText = "Видеосообщение";
                         }
                         tvQuotedText.setText(qText != null && !qText.isEmpty() ? qText : "Вложение");
                     }
@@ -3838,6 +3848,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         ImageView ivSelectionCheck;
         View layoutStickerPackTag;
         TextView tvStickerPackTag;
+        final float[] lastTouchRaw = new float[2];
+        ChatMessage boundMessage;
+        int boundPosition = RecyclerView.NO_POSITION;
+        final GestureDetector doubleTapDetector;
 
         OutgoingViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -3878,15 +3892,12 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             btnCancelDownload = itemView.findViewById(R.id.btnCancelDownload);
             layoutStickerPackTag = itemView.findViewById(R.id.layoutStickerPackTag);
             tvStickerPackTag = itemView.findViewById(R.id.tvStickerPackTag);
-        }
 
-        void bind(ChatMessage message, boolean showDateHeader, OnMessageLongClickListener listener, int position) {
-            float[] lastTouchRaw = new float[2];
-            GestureDetector doubleTapDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
+            doubleTapDetector = new GestureDetector(itemView.getContext(), new GestureDetector.SimpleOnGestureListener() {
                 @Override
                 public boolean onDoubleTap(@NonNull MotionEvent e) {
-                    if (isConnectionActive && !isNotesChat() && actionListener != null) {
-                        actionListener.onQuickReaction(message, "❤️", position);
+                    if (isConnectionActive && !isNotesChat() && actionListener != null && boundMessage != null && boundPosition != RecyclerView.NO_POSITION) {
+                        actionListener.onQuickReaction(boundMessage, "❤️", boundPosition);
                         View bubble = layoutOutgoingBubble != null ? layoutOutgoingBubble : itemView;
                         ChatAnimationHelper.spawnReactionBurst(bubble, "❤️");
                         ChatAnimationHelper.animateBubbleSpring(bubble);
@@ -3909,6 +3920,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (layoutOutgoingBubble != null) {
                 layoutOutgoingBubble.setOnTouchListener(touchTracker);
             }
+        }
+
+        void bind(ChatMessage message, boolean showDateHeader, OnMessageLongClickListener listener, int position) {
+            this.boundMessage = message;
+            this.boundPosition = position;
 
             if (layoutOutgoingBubble != null) {
                 layoutOutgoingBubble.setBackground(ColorAccentManager.createOutgoingBubbleDrawable(itemView.getContext()));
@@ -3923,7 +3939,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     if (tvQuotedText != null) {
                         String qText = message.getReplyToText();
                         if (qText != null && (qText.startsWith("VIDEO_NOTE:") || qText.startsWith("vn_"))) {
-                            qText = "📹 Видеосообщение";
+                            qText = "Видеосообщение";
                         }
                         tvQuotedText.setText(qText != null && !qText.isEmpty() ? qText : "Вложение");
                     }
@@ -4228,8 +4244,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (act != null) {
                 ViewGroup rootView = act.findViewById(android.R.id.content);
                 if (rootView == null) rootView = (ViewGroup) act.getWindow().getDecorView();
-                boolean isDark = (act.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-                int overlayColor = isDark ? Color.parseColor("#450F172A") : Color.parseColor("#45154B87");
+                int overlayColor = com.messenger.prime.BlurViewKt.getDefaultBlurOverlayColor(context);
                 com.messenger.prime.BlurViewKt.setupBlur(blurContextMenu, rootView, 18f, overlayColor, act.getWindow().getDecorView().getBackground());
             }
         }
@@ -4347,35 +4362,15 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         && layoutExpandedReactionsContainer.getVisibility() == View.VISIBLE;
 
                 if (isEmojisOpen) {
-                    // --- Возврат от эмоций к действиям (Крестик 'x' -> Плюсик '+') ---
-
-                    // 1. Поворот кнопки 'x' (135°) назад к плюсику '+' (0°)
                     btnExpand.animate()
                             .rotation(0f)
-                            .scaleX(1.25f)
-                            .scaleY(1.25f)
-                            .setDuration(240L)
-                            .setInterpolator(new OvershootInterpolator(1.4f))
-                            .withEndAction(() -> btnExpand.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100L).start())
+                            .setDuration(150L)
+                            .setInterpolator(new FastOutSlowInInterpolator())
                             .start();
-
-                    // 2. Анимация затухания сетки эмодзи
-                    gridExpandedReactions.animate()
-                            .alpha(0f)
-                            .setDuration(140L)
-                            .start();
-
-                    // 3. Плавная анимация уменьшения высоты меню
-                    android.transition.TransitionManager.beginDelayedTransition(
-                            blurContextMenu != null ? blurContextMenu : (ViewGroup) menuView,
-                            new android.transition.AutoTransition()
-                                    .setDuration(280L)
-                                    .setInterpolator(new DecelerateInterpolator())
-                    );
 
                     layoutExpandedReactionsContainer.setVisibility(View.GONE);
+                    gridExpandedReactions.setAlpha(0f);
 
-                    // 4. Возвращаем отображение пунктов действий меню
                     View[] allButtons = new View[]{
                             btnMenuReply, btnMenuCopy, btnMenuForward, btnMenuPin,
                             btnMenuEdit, btnMenuDelete, btnMenuSelect, btnMenuShowPinned
@@ -4405,44 +4400,32 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         if (shouldShow) {
                             btn.setVisibility(View.VISIBLE);
                             btn.setAlpha(0f);
-                            btn.animate().alpha(1.0f).setDuration(200L).setStartDelay(40L).start();
+                            btn.animate().alpha(1.0f).setDuration(130L).start();
                         } else {
                             btn.setVisibility(View.GONE);
                         }
                     }
 
                 } else {
-                    // --- Раскрытие реакций из действий (Плюсик '+' -> Крестик 'x') ---
-
-                    // 1. Поворот кнопки плюсик '+' (0°) в крестик 'x' (135°)
                     btnExpand.animate()
                             .rotation(135f)
-                            .scaleX(1.25f)
-                            .scaleY(1.25f)
-                            .setDuration(240L)
-                            .setInterpolator(new OvershootInterpolator(1.4f))
-                            .withEndAction(() -> btnExpand.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100L).start())
+                            .setDuration(150L)
+                            .setInterpolator(new FastOutSlowInInterpolator())
                             .start();
 
                     if (layoutExpandedReactionsContainer != null && gridExpandedReactions != null) {
-                        // 2. Скрываем пункты действий меню
                         View[] menuButtons = new View[]{
                                 btnMenuReply, btnMenuCopy, btnMenuForward, btnMenuPin,
                                 btnMenuEdit, btnMenuDelete, btnMenuSelect, btnMenuShowPinned
                         };
 
                         for (View btn : menuButtons) {
-                            if (btn != null && btn.getVisibility() == View.VISIBLE) {
-                                btn.animate()
-                                        .alpha(0f)
-                                        .setDuration(140L)
-                                        .withEndAction(() -> btn.setVisibility(View.GONE))
-                                        .start();
+                            if (btn != null) {
+                                btn.animate().cancel();
+                                btn.setVisibility(View.GONE);
                             }
                         }
 
-                        // 3. Наполняем расширенную сетку эмодзи
-                        gridExpandedReactions.setAlpha(1.0f);
                         gridExpandedReactions.removeAllViews();
                         float density = context.getResources().getDisplayMetrics().density;
                         int sizePx = (int) (36 * density);
@@ -4454,8 +4437,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                                 "💔", "👀", "🙈", "😜", "😎", "🤔", "🤫", "🙄", "🫠", "💀"
                         };
 
-                        for (int i = 0; i < emojiList.length; i++) {
-                            String emoji = emojiList[i];
+                        for (String emoji : emojiList) {
                             TextView tv = new TextView(context);
                             tv.setText(emoji);
                             tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
@@ -4466,23 +4448,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                             tv.setFocusable(true);
                             tv.setClickable(true);
 
-                            tv.setAlpha(0f);
-                            tv.setScaleX(0.2f);
-                            tv.setScaleY(0.2f);
-
                             tv.setOnClickListener(emojiView -> {
                                 emojiView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-                                emojiView.animate()
-                                        .scaleX(1.4f)
-                                        .scaleY(1.4f)
-                                        .setDuration(120L)
-                                        .start();
-
                                 menuView.animate()
-                                        .scaleX(0.88f)
-                                        .scaleY(0.88f)
+                                        .scaleX(0.92f)
+                                        .scaleY(0.92f)
                                         .alpha(0f)
-                                        .setDuration(160L)
+                                        .setDuration(120L)
                                         .withEndAction(popupWindow::dismiss)
                                         .start();
 
@@ -4492,27 +4464,15 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                             });
 
                             gridExpandedReactions.addView(tv);
-
-                            long delay = 60L + (i / 6) * 30L + (i % 6) * 12L;
-                            tv.animate()
-                                    .alpha(1.0f)
-                                    .scaleX(1.0f)
-                                    .scaleY(1.0f)
-                                    .setStartDelay(delay)
-                                    .setDuration(220L)
-                                    .setInterpolator(new OvershootInterpolator(1.3f))
-                                    .start();
                         }
 
-                        // 4. Плавное расширение высоты меню
-                        android.transition.TransitionManager.beginDelayedTransition(
-                                blurContextMenu != null ? blurContextMenu : (ViewGroup) menuView,
-                                new android.transition.AutoTransition()
-                                        .setDuration(280L)
-                                        .setInterpolator(new DecelerateInterpolator())
-                        );
-
                         layoutExpandedReactionsContainer.setVisibility(View.VISIBLE);
+                        gridExpandedReactions.setAlpha(0f);
+                        gridExpandedReactions.animate()
+                                .alpha(1.0f)
+                                .setDuration(140L)
+                                .setInterpolator(new FastOutSlowInInterpolator())
+                                .start();
                     } else {
                         popupWindow.dismiss();
                         if (actionListener != null) {
@@ -4677,8 +4637,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         menuView.setPivotX(pivotX);
         menuView.setPivotY(pivotY);
 
-        menuView.setScaleX(0.15f);
-        menuView.setScaleY(0.15f);
+        menuView.setScaleX(0.9f);
+        menuView.setScaleY(0.9f);
         menuView.setAlpha(0f);
 
         popupWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY, x, Math.max(80, y));
@@ -4687,8 +4647,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 .scaleX(1.0f)
                 .scaleY(1.0f)
                 .alpha(1.0f)
-                .setDuration(220)
-                .setInterpolator(new OvershootInterpolator(1.2f))
+                .setDuration(150)
+                .setInterpolator(new FastOutSlowInInterpolator())
                 .start();
     }
 
@@ -4726,8 +4686,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     if (act != null) {
                         ViewGroup rootView = act.findViewById(android.R.id.content);
                         if (rootView == null) rootView = (ViewGroup) act.getWindow().getDecorView();
-                        boolean isDark = (act.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-                        int overlayColor = isDark ? Color.parseColor("#450F172A") : Color.parseColor("#45154B87");
+                        int overlayColor = com.messenger.prime.BlurViewKt.getDefaultBlurOverlayColor(context);
                         com.messenger.prime.BlurViewKt.setupBlur(blurTextSelectionMenu, rootView, 18f, overlayColor, act.getWindow().getDecorView().getBackground());
                     }
                 }
@@ -4974,7 +4933,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private void bindDateHeader(View itemView, TextView tvDateHeader, boolean showDateHeader, long timestamp) {
         View layoutDateHeader = itemView.findViewById(R.id.layoutDateHeader);
-        View vDateHeaderLine = itemView.findViewById(R.id.vDateHeaderLine);
 
         if (showDateHeader && timestamp > 0) {
             if (layoutDateHeader != null) layoutDateHeader.setVisibility(View.VISIBLE);
@@ -4983,11 +4941,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             String dateStr = getDateHeaderString(timestamp);
             if (tvDateHeader != null) {
                 tvDateHeader.setText(dateStr);
-                int accentColor = ColorAccentManager.getCurrentAccentColor(itemView.getContext());
-                tvDateHeader.setTextColor(accentColor);
-                if (vDateHeaderLine != null) {
-                    vDateHeaderLine.setBackgroundTintList(android.content.res.ColorStateList.valueOf(accentColor));
-                }
             }
         } else {
             if (layoutDateHeader != null) layoutDateHeader.setVisibility(View.GONE);
@@ -5008,8 +4961,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (act != null) {
                 ViewGroup rootView = act.findViewById(android.R.id.content);
                 if (rootView == null) rootView = (ViewGroup) act.getWindow().getDecorView();
-                boolean isDark = (act.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-                int overlayColor = isDark ? Color.parseColor("#450F172A") : Color.parseColor("#45154B87");
+                int overlayColor = com.messenger.prime.BlurViewKt.getDefaultBlurOverlayColor(context);
                 com.messenger.prime.BlurViewKt.setupBlur(blurReactionsPopup, rootView, 18f, overlayColor, act.getWindow().getDecorView().getBackground());
             }
         }
@@ -5039,8 +4991,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             flexGrid.removeAllViews();
         }
 
-        for (int i = 0; i < emojiList.length; i++) {
-            String emoji = emojiList[i];
+        for (String emoji : emojiList) {
             TextView tv = new TextView(context);
             tv.setText(emoji);
             tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
@@ -5051,18 +5002,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             tv.setFocusable(true);
             tv.setClickable(true);
 
-            tv.setAlpha(0f);
-            tv.setScaleX(0.2f);
-            tv.setScaleY(0.2f);
-
             tv.setOnClickListener(v -> {
                 v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-                v.animate().scaleX(1.4f).scaleY(1.4f).setDuration(120L).start();
                 popupView.animate()
-                        .scaleX(0.85f)
-                        .scaleY(0.85f)
+                        .scaleX(0.92f)
+                        .scaleY(0.92f)
                         .alpha(0f)
-                        .setDuration(160L)
+                        .setDuration(120L)
                         .withEndAction(popupWindow::dismiss)
                         .start();
 
@@ -5074,16 +5020,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (flexGrid != null) {
                 flexGrid.addView(tv);
             }
-
-            long delay = 40L + (i / 6) * 30L + (i % 6) * 12L;
-            tv.animate()
-                    .alpha(1.0f)
-                    .scaleX(1.0f)
-                    .scaleY(1.0f)
-                    .setStartDelay(delay)
-                    .setDuration(220L)
-                    .setInterpolator(new OvershootInterpolator(1.3f))
-                    .start();
         }
 
         popupView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
@@ -5102,8 +5038,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         popupView.setPivotX(popupWidth / 2f);
         popupView.setPivotY(y < location[1] ? (float) popupHeight : 0f);
         popupView.setAlpha(0f);
-        popupView.setScaleX(0.35f);
-        popupView.setScaleY(0.35f);
+        popupView.setScaleX(0.9f);
+        popupView.setScaleY(0.9f);
 
         popupWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY, x, y);
 
@@ -5111,8 +5047,8 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 .scaleX(1.0f)
                 .scaleY(1.0f)
                 .alpha(1.0f)
-                .setDuration(280L)
-                .setInterpolator(new OvershootInterpolator(1.2f))
+                .setDuration(150L)
+                .setInterpolator(new FastOutSlowInInterpolator())
                 .start();
     }
 
