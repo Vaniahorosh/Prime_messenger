@@ -371,6 +371,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     // Attachment State
     private boolean isAttachmentPanelOpen = false;
     private PrimeVideoMessageRecorder videoMessageRecorder;
+    private PrimeVoiceRecorderController voiceRecorderController;
     private OnBackPressedCallback chatBackCallback;
     private com.messenger.prime.emoji.PrimeEmojiPanelHelper emojiPanelHelper;
     private String pendingStickerPackId = null;
@@ -444,6 +445,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private void updateBackCallbackState() {
         if (chatBackCallback != null) {
             boolean hasActiveMode = (videoMessageRecorder != null && videoMessageRecorder.isRecordingOrPreviewing())
+                    || (voiceRecorderController != null && voiceRecorderController.isRecording())
                     || isMultiSelectionActive
                     || isAttachmentPanelOpen
                     || (emojiPanelHelper != null && emojiPanelHelper.isPanelOpen())
@@ -852,6 +854,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             public void handleOnBackPressed() {
                 if (videoMessageRecorder != null && videoMessageRecorder.isRecordingOrPreviewing()) {
                     videoMessageRecorder.cancelRecording();
+                } else if (voiceRecorderController != null && voiceRecorderController.isRecording()) {
+                    voiceRecorderController.cancelRecording();
                 } else if (emojiPanelHelper != null && emojiPanelHelper.isPanelOpen()) {
                     emojiPanelHelper.closePanel(false);
                 } else if (isMultiSelectionActive) {
@@ -940,6 +944,68 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                 return insets;
             });
+
+            ViewCompat.setWindowInsetsAnimationCallback(chatRoot, new androidx.core.view.WindowInsetsAnimationCompat.Callback(androidx.core.view.WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_STOP) {
+                private int startBottomMargin = 0;
+                private int targetBottomMargin = 0;
+
+                @Override
+                public void onPrepare(@NonNull androidx.core.view.WindowInsetsAnimationCompat animation) {
+                    View bottomContainer = findViewById(R.id.bottomContainer);
+                    if (bottomContainer != null) {
+                        ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) bottomContainer.getLayoutParams();
+                        if (lp != null) {
+                            startBottomMargin = lp.bottomMargin;
+                        }
+                    }
+                }
+
+                @NonNull
+                @Override
+                public androidx.core.view.WindowInsetsAnimationCompat.BoundsCompat onStart(
+                        @NonNull androidx.core.view.WindowInsetsAnimationCompat animation,
+                        @NonNull androidx.core.view.WindowInsetsAnimationCompat.BoundsCompat bounds) {
+                    View bottomContainer = findViewById(R.id.bottomContainer);
+                    if (bottomContainer != null) {
+                        ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) bottomContainer.getLayoutParams();
+                        if (lp != null) {
+                            targetBottomMargin = lp.bottomMargin;
+                        }
+                    }
+                    return bounds;
+                }
+
+                @NonNull
+                @Override
+                public WindowInsetsCompat onProgress(
+                        @NonNull WindowInsetsCompat insets,
+                        @NonNull List<androidx.core.view.WindowInsetsAnimationCompat> runningAnimations) {
+
+                    androidx.core.view.WindowInsetsAnimationCompat imeAnim = null;
+                    for (androidx.core.view.WindowInsetsAnimationCompat anim : runningAnimations) {
+                        if ((anim.getTypeMask() & WindowInsetsCompat.Type.ime()) != 0) {
+                            imeAnim = anim;
+                            break;
+                        }
+                    }
+
+                    if (imeAnim != null) {
+                        View bottomContainer = findViewById(R.id.bottomContainer);
+                        if (bottomContainer != null) {
+                            float fraction = imeAnim.getInterpolatedFraction();
+                            int currentMargin = (int) (startBottomMargin + (targetBottomMargin - startBottomMargin) * fraction);
+                            ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) bottomContainer.getLayoutParams();
+                            if (lp != null && lp.bottomMargin != currentMargin) {
+                                lp.bottomMargin = currentMargin;
+                                bottomContainer.setLayoutParams(lp);
+                                updateMessageListPadding(currentMargin);
+                            }
+                        }
+                    }
+                    return insets;
+                }
+            });
+
             ViewCompat.requestApplyInsets(chatRoot);
         }
 
@@ -1161,7 +1227,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (btnVoiceVideoNote != null && layoutVoiceRecordBar != null) {
             btnVoiceVideoNote.setImageResource(isVideoNoteMode ? R.drawable.ic_camera : ColorAccentManager.getMicIconRes(this));
 
-            final PrimeVoiceRecorderController voiceController = new PrimeVoiceRecorderController(
+            voiceRecorderController = new PrimeVoiceRecorderController(
                 this,
                 this,
                 layoutVoiceRecordBar,
@@ -1182,6 +1248,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         if (videoNoteIslandManager != null) {
                             videoNoteIslandManager.setRecordingActive(isRecording);
                         }
+                        updateBackCallbackState();
                         if (isRecording) {
                             sendActivityState("RECORDING_VOICE");
                         } else {
@@ -1245,7 +1312,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                             videoMessageRecorder.startVideoRecordingIfPermitted();
                         }
                     } else {
-                        voiceController.startRecordingProcess();
+                        if (voiceRecorderController != null) {
+                            voiceRecorderController.startRecordingProcess();
+                        }
                     }
                 }
             };
@@ -1291,7 +1360,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                     Log.d("VoiceDebug", "Voice recording locked (Hands-free)");
                                 }
                                 if (dx < -200f) {
-                                    voiceController.cancelRecording();
+                                    if (voiceRecorderController != null) {
+                                        voiceRecorderController.cancelRecording();
+                                    }
                                 }
                             }
                         }
@@ -1324,7 +1395,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                 PrimePredictiveBack.setGestureLocked(false);
                             } else {
                                 if (!isVoiceLocked[0]) {
-                                    voiceController.stopAndSendRecording();
+                                    if (voiceRecorderController != null) {
+                                        voiceRecorderController.stopAndSendRecording();
+                                    }
                                     PrimePredictiveBack.setGestureLocked(false);
                                 } else {
                                     Log.d("VoiceDebug", "ACTION_UP ignored: hands-free mode active");
@@ -1344,7 +1417,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                                     videoMessageRecorder.cancelRecording();
                                 }
                             } else {
-                                voiceController.cancelRecording();
+                                if (voiceRecorderController != null) {
+                                    voiceRecorderController.cancelRecording();
+                                }
                             }
                         }
                         isLongPressTriggered[0] = false;
@@ -1503,8 +1578,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 }
             });
         }
-
-        initAttachmentPanel();
 
         getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                 .registerOnSharedPreferenceChangeListener(profileChangeListener);
@@ -1678,25 +1751,21 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             Log.e(TAG, "Failed to initialize video note playback managers", t);
         }
         
-        List<ChatMessage> initialHistory = ChatHistoryManager.loadMessages(this, targetUsername);
-        if (!initialHistory.isEmpty()) {
+        rvMessages.setItemAnimator(null);
+
+        List<ChatMessage> initialHistory = ChatHistoryManager.loadMessagesFromCacheOnly(this, targetUsername);
+        if (initialHistory == null || initialHistory.isEmpty()) {
+            initialHistory = ChatHistoryManager.loadMessages(this, targetUsername);
+        }
+        if (initialHistory != null && !initialHistory.isEmpty()) {
             chatAdapter.setMessages(initialHistory);
             rvMessages.scrollToPosition(chatAdapter.getItemCount() - 1);
         }
-        
-        RecyclerView.ItemAnimator animator = rvMessages.getItemAnimator();
-        if (animator instanceof SimpleItemAnimator) {
-            ((SimpleItemAnimator) animator).setSupportsChangeAnimations(false);
-        }
-        if (animator != null) {
-            animator.setAddDuration(150);
-            animator.setRemoveDuration(150);
-        }
 
-        rvMessages.setItemViewCacheSize(25);
+        rvMessages.setItemViewCacheSize(30);
         RecyclerView.RecycledViewPool chatViewPool = new RecyclerView.RecycledViewPool();
-        chatViewPool.setMaxRecycledViews(1, 25);
-        chatViewPool.setMaxRecycledViews(2, 25);
+        chatViewPool.setMaxRecycledViews(1, 30);
+        chatViewPool.setMaxRecycledViews(2, 30);
         rvMessages.setRecycledViewPool(chatViewPool);
         ItemTouchHelper.SimpleCallback swipeToReplyCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
             private boolean hapticTriggered = false;
@@ -2727,11 +2796,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     }
                 } else {
                     long now = System.currentTimeMillis();
-                    if (now - lastTypingSentTime > 1500 && isConnectionActive()) {
+                    if (now - lastTypingSentTime > 2500 && isConnectionActive()) {
                         lastTypingSentTime = now;
                         sendActivityState("TYPING");
                     }
-                    senderTypingHandler.postDelayed(stopSenderTypingRunnable, 2500);
+                    senderTypingHandler.postDelayed(stopSenderTypingRunnable, 4000);
                 }
             }
 
@@ -3090,7 +3159,29 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     btnClose.setOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
                 }
 
-                reloadMessagesFromHistory();
+                View layoutHeader = findViewById(R.id.layoutHeader);
+        View bottomContainer = findViewById(R.id.bottomContainer);
+        View tvFloatingDate = findViewById(R.id.tvFloatingDate);
+        if (rvMessages != null) {
+            rvMessages.setTranslationX(0f);
+            rvMessages.setScaleX(1f);
+            rvMessages.setScaleY(1f);
+        }
+        if (layoutHeader != null) {
+            layoutHeader.setTranslationX(0f);
+            layoutHeader.setScaleX(1f);
+            layoutHeader.setScaleY(1f);
+        }
+        if (bottomContainer != null) {
+            bottomContainer.setTranslationX(0f);
+            bottomContainer.setScaleX(1f);
+            bottomContainer.setScaleY(1f);
+        }
+        if (tvFloatingDate != null) {
+            tvFloatingDate.setTranslationX(0f);
+        }
+
+        reloadMessagesFromHistory();
                 sendReadReceiptsForUnreadMessages();
 
                 SharedPreferences spMediaRecord = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
@@ -3299,6 +3390,28 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         } else {
             updateOfflineLastSeenStatus();
             updateInputVisibility(false);
+        }
+
+        View layoutHeader = findViewById(R.id.layoutHeader);
+        View bottomContainer = findViewById(R.id.bottomContainer);
+        View tvFloatingDate = findViewById(R.id.tvFloatingDate);
+        if (rvMessages != null) {
+            rvMessages.setTranslationX(0f);
+            rvMessages.setScaleX(1f);
+            rvMessages.setScaleY(1f);
+        }
+        if (layoutHeader != null) {
+            layoutHeader.setTranslationX(0f);
+            layoutHeader.setScaleX(1f);
+            layoutHeader.setScaleY(1f);
+        }
+        if (bottomContainer != null) {
+            bottomContainer.setTranslationX(0f);
+            bottomContainer.setScaleX(1f);
+            bottomContainer.setScaleY(1f);
+        }
+        if (tvFloatingDate != null) {
+            tvFloatingDate.setTranslationX(0f);
         }
 
         reloadMessagesFromHistory();
@@ -4102,6 +4215,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private void updateMessageListPadding() {
+        updateMessageListPadding(-1);
+    }
+
+    private void updateMessageListPadding(int overrideBottomInset) {
         View chatRoot = findViewById(R.id.chatRoot);
         View rvMessages = findViewById(R.id.rvMessages);
         View bottomContainer = findViewById(R.id.bottomContainer);
@@ -4112,7 +4229,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         WindowInsetsCompat rootInsets = ViewCompat.getRootWindowInsets(chatRoot);
         int topInset = getStatusBarHeight();
         int bottomInset = (int) (16 * density);
-        if (rootInsets != null) {
+        if (overrideBottomInset >= 0) {
+            bottomInset = overrideBottomInset;
+        } else if (rootInsets != null) {
             Insets sb = rootInsets.getInsets(WindowInsetsCompat.Type.systemBars());
             Insets ime = rootInsets.getInsets(WindowInsetsCompat.Type.ime());
             if (sb.top > 0) topInset = sb.top;
@@ -4160,9 +4279,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
     }
 
+    private BlurView[] allBlurViews;
+
     private void setupChatBlurViews() {
-        ViewGroup rootView = getWindow().getDecorView().findViewById(android.R.id.content);
-        if (rootView == null) rootView = (ViewGroup) getWindow().getDecorView();
+        ViewGroup contentRoot = getWindow().getDecorView().findViewById(android.R.id.content);
+        if (contentRoot == null) contentRoot = (ViewGroup) getWindow().getDecorView();
+        final ViewGroup targetRootView = contentRoot;
 
         boolean isDark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         Drawable windowBg = getWindow().getDecorView().getBackground();
@@ -4187,7 +4309,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         BlurView blurEditBar = findViewById(R.id.layoutEditBar);
         BlurView blurEmojiPanel = findViewById(R.id.blurEmojiPanel);
 
-        BlurView[] blurViews = new BlurView[]{
+        allBlurViews = new BlurView[]{
                 blurHeaderBack, blurHeaderInfo, blurHeaderNotes, blurInputEt, blurInputAttach, blurInputSend,
                 blurAttachmentPanel, blurMusicIsland, blurVideoNoteIsland, blurVideoSpeedMenu, blurVideoRecord,
                 blurActionIsland, blurPinnedMessageBar, blurInChatSearchBar, blurReplyBar, blurEditBar, blurEmojiPanel
@@ -4205,18 +4327,37 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
         boolean isNoBlock = "no_block".equals(sp.getString("settings_chat_header_style", "block"));
 
-        for (BlurView bv : blurViews) {
+        for (BlurView bv : allBlurViews) {
             if (bv != null) {
                 if ((bv == blurHeaderBack || bv == blurHeaderInfo) && isNoBlock) {
                     bv.setBlurEnabled(false);
                     bv.setOverlayColor(Color.TRANSPARENT);
                     bv.setBackground(null);
-                } else {
-                    BlurViewKt.setupBlur(bv, rootView, 18f, overlayColor, windowBg);
                 }
             }
         }
-        applyChatUiCornerRadius();
+
+        targetRootView.post(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            for (BlurView bv : allBlurViews) {
+                if (bv != null && bv.getVisibility() != View.GONE) {
+                    BlurViewKt.setupBlur(bv, targetRootView, 18f, overlayColor, windowBg);
+                }
+            }
+            applyChatUiCornerRadius();
+        });
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (allBlurViews != null) {
+            for (BlurView bv : allBlurViews) {
+                if (bv != null) {
+                    bv.setBlurAutoUpdate(hasFocus);
+                }
+            }
+        }
     }
 
     private void setupMaterial3ExpressiveDesign() {
@@ -4698,6 +4839,10 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         if (!message.isOutgoing() && isActivityForeground) {
             message.setMessageStatus(MessageStatus.READ);
+            if (isConnectionActive() && message.getMessageId() != null) {
+                String receiptPayload = "READ_ALL:::" + message.getMessageId();
+                sendPacket(TYPE_READ_RECEIPT, receiptPayload.getBytes(StandardCharsets.UTF_8));
+            }
         }
         
         chatAdapter.addMessageAnimated(message);
@@ -6730,6 +6875,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 case DISCONNECTED:
                 default:
                     isRemoteUserOnline = false;
+                    typingResetHandler.removeCallbacks(resetTypingRunnable);
                     setOnlineStatusIndicator(false);
                     stopAnimatingStatus();
                     updateOfflineLastSeenStatus();
@@ -8901,20 +9047,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             }
 
             holder.itemView.setOnClickListener(v -> {
-                int pos = holder.getBindingAdapterPosition();
-                if (pos != RecyclerView.NO_POSITION && pos < items.size()) {
-                    PendingAttachmentItem clickedItem = items.get(pos);
-                    if (clickedItem.messageType == ChatMessage.MessageType.IMAGE) {
-                        Intent intent = new Intent(ChatPersonActivity.this, PhotoEditorActivity.class);
-                        String uriStr = clickedItem.uri != null ? clickedItem.uri.toString() : clickedItem.path;
-                        Uri itemUri = Uri.parse(uriStr);
-                        intent.setDataAndType(itemUri, "image/*");
-                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                        intent.putExtra("EXTRA_IMAGE_URI", uriStr);
-                        isOpeningSubActivity = true;
-                        editPhotoLauncher.launch(intent);
-                    }
-                }
+                // Photo editor opening disabled on photo card click
             });
 
             holder.btnRemove.setOnClickListener(v -> {
@@ -10204,6 +10337,15 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (activeBg != null) {
             activeBg.setBackgroundResource(R.drawable.bg_circular_mode_active);
             activeBg.setBackgroundTintList(ColorStateList.valueOf(activeBrand));
+            activeBg.setScaleX(0.8f);
+            activeBg.setScaleY(0.8f);
+            activeBg.animate().cancel();
+            activeBg.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(220)
+                    .setInterpolator(new android.view.animation.OvershootInterpolator(1.3f))
+                    .start();
         }
         if (activeIcon != null) {
             ImageViewCompat.setImageTintList(activeIcon, ColorStateList.valueOf(Color.WHITE));
@@ -10225,34 +10367,42 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 : getResources().getDisplayMetrics().widthPixels;
 
         boolean movingRight = newMode > oldMode;
-        float oldTargetX = movingRight ? -containerWidth : containerWidth;
-        float newStartX = movingRight ? containerWidth : -containerWidth;
+        float oldTargetX = movingRight ? -containerWidth * 0.7f : containerWidth * 0.7f;
+        float newStartX = movingRight ? containerWidth * 0.7f : -containerWidth * 0.7f;
 
         oldView.animate().cancel();
         newView.animate().cancel();
 
         newView.setTranslationX(newStartX);
-        newView.setAlpha(0.2f);
+        newView.setScaleX(0.96f);
+        newView.setScaleY(0.96f);
+        newView.setAlpha(0f);
         newView.setVisibility(View.VISIBLE);
 
         final View animOldView = oldView;
         oldView.animate()
                 .translationX(oldTargetX)
-                .alpha(0.2f)
-                .setDuration(240)
-                .setInterpolator(new DecelerateInterpolator())
+                .scaleX(0.96f)
+                .scaleY(0.96f)
+                .alpha(0f)
+                .setDuration(220)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f))
                 .withEndAction(() -> {
                     animOldView.setVisibility(View.GONE);
                     animOldView.setTranslationX(0f);
+                    animOldView.setScaleX(1f);
+                    animOldView.setScaleY(1f);
                     animOldView.setAlpha(1f);
                 })
                 .start();
 
         newView.animate()
                 .translationX(0f)
+                .scaleX(1.0f)
+                .scaleY(1.0f)
                 .alpha(1f)
                 .setDuration(240)
-                .setInterpolator(new DecelerateInterpolator())
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f))
                 .start();
     }
 
@@ -10442,35 +10592,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private boolean isHdQualityEnabled = true;
 
     private void openPhotoEditorForUri(String uriStr, int initialToolGroup) {
-        if (uriStr == null || uriStr.trim().isEmpty()) return;
-        String clean = uriStr.trim();
-        Uri itemUri;
-        if (clean.startsWith("content://") || clean.startsWith("file://") || clean.startsWith("http://") || clean.startsWith("https://")) {
-            itemUri = Uri.parse(clean);
-        } else {
-            File f = new File(clean);
-            if (f.exists()) {
-                itemUri = Uri.fromFile(f);
-            } else {
-                itemUri = Uri.parse(clean);
-            }
-        }
-
-        Intent intent = new Intent(this, PhotoEditorActivity.class);
-        intent.setDataAndType(itemUri, "image/*");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        intent.putExtra("EXTRA_IMAGE_URI", itemUri.toString());
-        String name = isNotesChat() ? "Заметки" : AvatarManager.getContactDisplayName(this, deviceAddress, targetUsername, targetUsername);
-        intent.putExtra("EXTRA_CONTACT_NAME", name);
-        if (etMessage != null && etMessage.getText() != null) {
-            intent.putExtra("EXTRA_CAPTION", etMessage.getText().toString());
-        }
-        intent.putExtra("IS_HD_QUALITY", isHdQualityEnabled);
-        if (initialToolGroup >= 0) {
-            intent.putExtra("EXTRA_INITIAL_TOOL_GROUP", initialToolGroup);
-        }
-        isOpeningSubActivity = true;
-        editPhotoLauncher.launch(intent);
+        // Completely disabled photo editor launching when selecting photos
     }
 
     private void showPendingAttachmentBar(PendingAttachment pending) {
@@ -10489,17 +10611,23 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         layoutPendingAttachment.animate().setListener(null);
         if (layoutPendingAttachment.getVisibility() != View.VISIBLE) {
             layoutPendingAttachment.setAlpha(0f);
-            layoutPendingAttachment.setTranslationY(40f * density);
+            layoutPendingAttachment.setScaleX(0.92f);
+            layoutPendingAttachment.setScaleY(0.92f);
+            layoutPendingAttachment.setTranslationY(24f * density);
             layoutPendingAttachment.setVisibility(View.VISIBLE);
             layoutPendingAttachment.animate()
                     .alpha(1f)
+                    .scaleX(1f)
+                    .scaleY(1f)
                     .translationY(0f)
-                    .setDuration(300)
-                    .setInterpolator(new android.view.animation.OvershootInterpolator(1.1f))
+                    .setDuration(260)
+                    .setInterpolator(new android.view.animation.OvershootInterpolator(1.15f))
                     .start();
         } else {
             layoutPendingAttachment.setVisibility(View.VISIBLE);
             layoutPendingAttachment.setAlpha(1f);
+            layoutPendingAttachment.setScaleX(1f);
+            layoutPendingAttachment.setScaleY(1f);
             layoutPendingAttachment.setTranslationY(0f);
         }
 
@@ -10517,17 +10645,21 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             etMessage.setHint(isNotesChat() ? "Создать заметку..." : "Написать сообщение...");
         }
 
-        if (layoutPendingAttachment != null) {
+        if (layoutPendingAttachment != null && layoutPendingAttachment.getVisibility() == View.VISIBLE) {
             float density = getResources().getDisplayMetrics().density;
             layoutPendingAttachment.animate().cancel();
             layoutPendingAttachment.animate()
                     .alpha(0f)
-                    .translationY(30f * density)
-                    .setDuration(220)
-                    .setInterpolator(new android.view.animation.AccelerateInterpolator())
+                    .scaleX(0.92f)
+                    .scaleY(0.92f)
+                    .translationY(16f * density)
+                    .setDuration(180)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f))
                     .withEndAction(() -> {
                         layoutPendingAttachment.setVisibility(View.GONE);
                         layoutPendingAttachment.setTranslationY(0f);
+                        layoutPendingAttachment.setScaleX(1f);
+                        layoutPendingAttachment.setScaleY(1f);
                         layoutPendingAttachment.setAlpha(1f);
                     })
                     .start();
@@ -11142,10 +11274,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     if (selectedItems.size() < 20) {
                         selectedItems.add(item);
                         setPendingAttachmentFromMediaItems(selectedItems, false);
-                        if (!item.isVideo) {
-                            String uriStr = item.uri != null ? item.uri.toString() : item.path;
-                            openPhotoEditorForUri(uriStr, -1);
-                        }
                     } else {
                         PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Максимум 20 медиафайлов", null);
                     }
@@ -11162,8 +11290,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         setPendingAttachmentFromMediaItems(selectedItems, false);
                         updateConfirmAttachmentButton();
                     }
-                    String uriStr = item.uri != null ? item.uri.toString() : item.path;
-                    openPhotoEditorForUri(uriStr, 0);
                     return true;
                 }
                 return false;
@@ -11678,21 +11804,31 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
 
         if (layoutPullIndicator != null) {
+            float targetAlpha = Math.min(1.0f, progress * 1.5f);
             if (layoutPullIndicator.getVisibility() != View.VISIBLE) {
+                layoutPullIndicator.setAlpha(targetAlpha);
                 layoutPullIndicator.setVisibility(View.VISIBLE);
+            } else {
+                layoutPullIndicator.setAlpha(targetAlpha);
             }
-            layoutPullIndicator.setAlpha(Math.min(1.0f, progress * 1.5f));
             layoutPullIndicator.setTranslationY(dampenedDistance * 0.35f);
         }
 
         if (pbPullProgress != null) pbPullProgress.setProgress((int) (progress * 100));
 
         if (tvPullStatus != null) {
-            tvPullStatus.setText("Информация о собеседнике");
+            tvPullStatus.setText(isNotesChat() ? "Категории" : "Информация о собеседнике");
         }
 
         if (ivPullCheck != null) {
-            ivPullCheck.setVisibility(progress >= 0.85f ? View.VISIBLE : View.GONE);
+            boolean shouldShowCheck = progress >= 0.85f;
+            if (shouldShowCheck && ivPullCheck.getVisibility() != View.VISIBLE) {
+                ivPullCheck.setAlpha(0f);
+                ivPullCheck.setVisibility(View.VISIBLE);
+                ivPullCheck.animate().alpha(1f).setDuration(120).start();
+            } else if (!shouldShowCheck && ivPullCheck.getVisibility() == View.VISIBLE) {
+                ivPullCheck.animate().alpha(0f).setDuration(120).withEndAction(() -> ivPullCheck.setVisibility(View.GONE)).start();
+            }
         }
     }
 
@@ -11722,7 +11858,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     .setDuration(duration)
                     .setInterpolator(interpolator)
                     .withEndAction(() -> {
-                        layoutPullIndicator.setVisibility(View.INVISIBLE);
+                        layoutPullIndicator.setVisibility(View.GONE);
+                        layoutPullIndicator.setAlpha(0f);
                         if (pbPullProgress != null) pbPullProgress.setProgress(0);
                         if (ivPullCheck != null) ivPullCheck.setVisibility(View.GONE);
                     })
@@ -11760,7 +11897,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         float density = getResources().getDisplayMetrics().density;
         // Rubber-band resistance translation: moves left up to 80dp
         float dampenedDx = -Math.min(80f * density, Math.abs(dx) * 0.35f);
-        float scale = 1.0f - (0.04f * progress);
 
         View layoutHeader = findViewById(R.id.layoutHeader);
         View bottomContainer = findViewById(R.id.bottomContainer);
@@ -11771,38 +11907,47 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         if (rvMessages != null) {
             rvMessages.setTranslationX(dampenedDx);
-            rvMessages.setScaleX(scale);
-            rvMessages.setScaleY(scale);
         }
         if (layoutHeader != null) {
             layoutHeader.setTranslationX(dampenedDx);
-            layoutHeader.setScaleX(scale);
-            layoutHeader.setScaleY(scale);
         }
         if (bottomContainer != null) {
             bottomContainer.setTranslationX(dampenedDx);
-            bottomContainer.setScaleX(scale);
-            bottomContainer.setScaleY(scale);
         }
         if (tvFloatingDate != null && tvFloatingDate.getAlpha() > 0) {
             tvFloatingDate.setTranslationX(dampenedDx);
         }
 
+        TextView tvSwipeRightStatus = findViewById(R.id.tvSwipeRightStatus);
+        if (tvSwipeRightStatus != null) {
+            tvSwipeRightStatus.setText(isNotesChat() ? "Категории" : "Информация о собеседнике");
+        }
+
         if (indicator != null) {
+            float targetAlpha = Math.min(1.0f, progress * 1.6f);
             if (indicator.getVisibility() != View.VISIBLE) {
+                indicator.setAlpha(targetAlpha);
                 indicator.setVisibility(View.VISIBLE);
                 int accentColor = ColorAccentManager.getCurrentAccentColor(this);
                 if (ivIcon != null) {
                     ivIcon.setImageTintList(ColorStateList.valueOf(accentColor));
                 }
+            } else {
+                indicator.setAlpha(targetAlpha);
             }
-            indicator.setAlpha(Math.min(1.0f, progress * 1.6f));
             float maxIndicatorShift = 24f * density;
             indicator.setTranslationX((1.0f - progress) * maxIndicatorShift);
         }
 
         if (ivCheck != null) {
-            ivCheck.setVisibility(progress >= 0.70f ? View.VISIBLE : View.GONE);
+            boolean shouldShowCheck = progress >= 0.70f;
+            if (shouldShowCheck && ivCheck.getVisibility() != View.VISIBLE) {
+                ivCheck.setAlpha(0f);
+                ivCheck.setVisibility(View.VISIBLE);
+                ivCheck.animate().alpha(1f).setDuration(120).start();
+            } else if (!shouldShowCheck && ivCheck.getVisibility() == View.VISIBLE) {
+                ivCheck.animate().alpha(0f).setDuration(120).withEndAction(() -> ivCheck.setVisibility(View.GONE)).start();
+            }
         }
     }
 
@@ -11819,53 +11964,30 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (finalProgress >= 0.40f) {
             if (rvMessages != null) {
                 rvMessages.animate().translationX(-getResources().getDisplayMetrics().widthPixels * 0.20f)
-                        .scaleX(0.96f).scaleY(0.96f).setDuration(duration).setInterpolator(interpolator).start();
+                        .setDuration(duration).setInterpolator(interpolator).start();
             }
             if (layoutHeader != null) {
                 layoutHeader.animate().translationX(-getResources().getDisplayMetrics().widthPixels * 0.20f)
-                        .scaleX(0.96f).scaleY(0.96f).setDuration(duration).setInterpolator(interpolator).start();
+                        .setDuration(duration).setInterpolator(interpolator).start();
             }
             if (bottomContainer != null) {
                 bottomContainer.animate().translationX(-getResources().getDisplayMetrics().widthPixels * 0.20f)
-                        .scaleX(0.96f).scaleY(0.96f).setDuration(duration).setInterpolator(interpolator).start();
+                        .setDuration(duration).setInterpolator(interpolator).start();
             }
             if (indicator != null) {
                 indicator.animate().alpha(0f).setDuration(160).withEndAction(() -> indicator.setVisibility(View.GONE)).start();
             }
 
             openPersonInformationActivity();
-
-            if (rvMessages != null) {
-                rvMessages.postDelayed(() -> {
-                    if (rvMessages != null) {
-                        rvMessages.setTranslationX(0f);
-                        rvMessages.setScaleX(1f);
-                        rvMessages.setScaleY(1f);
-                    }
-                    if (layoutHeader != null) {
-                        layoutHeader.setTranslationX(0f);
-                        layoutHeader.setScaleX(1f);
-                        layoutHeader.setScaleY(1f);
-                    }
-                    if (bottomContainer != null) {
-                        bottomContainer.setTranslationX(0f);
-                        bottomContainer.setScaleX(1f);
-                        bottomContainer.setScaleY(1f);
-                    }
-                    if (tvFloatingDate != null) {
-                        tvFloatingDate.setTranslationX(0f);
-                    }
-                }, 400);
-            }
         } else {
             if (rvMessages != null) {
-                rvMessages.animate().translationX(0f).scaleX(1f).scaleY(1f).setDuration(duration).setInterpolator(interpolator).start();
+                rvMessages.animate().translationX(0f).setDuration(duration).setInterpolator(interpolator).start();
             }
             if (layoutHeader != null) {
-                layoutHeader.animate().translationX(0f).scaleX(1f).scaleY(1f).setDuration(duration).setInterpolator(interpolator).start();
+                layoutHeader.animate().translationX(0f).setDuration(duration).setInterpolator(interpolator).start();
             }
             if (bottomContainer != null) {
-                bottomContainer.animate().translationX(0f).scaleX(1f).scaleY(1f).setDuration(duration).setInterpolator(interpolator).start();
+                bottomContainer.animate().translationX(0f).setDuration(duration).setInterpolator(interpolator).start();
             }
             if (tvFloatingDate != null) {
                 tvFloatingDate.animate().translationX(0f).setDuration(duration).setInterpolator(interpolator).start();
@@ -12127,6 +12249,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         if (videoNoteIslandManager != null) {
                             videoNoteIslandManager.setRecordingActive(isRecording);
                         }
+                        updateBackCallbackState();
                         if (isRecording) {
                             stopAllVideoNotePlayback();
                             sendActivityState("RECORDING_VIDEO_NOTE");

@@ -1023,6 +1023,18 @@ public class ChatHistoryManager {
         return json != null && json.length() > 2;
     }
 
+    public static List<ChatMessage> loadMessagesFromCacheOnly(Context context, String targetUsername) {
+        if (context == null || targetUsername == null || targetUsername.isEmpty()) return null;
+        String userKey = getHistoryStorageKey(context, targetUsername);
+        synchronized (memoryCache) {
+            List<ChatMessage> cached = memoryCache.get(userKey);
+            if (cached != null) {
+                return new ArrayList<>(cached);
+            }
+        }
+        return null;
+    }
+
     public static List<ChatMessage> loadMessages(Context context, String targetUsername) {
         if (context == null || targetUsername == null || targetUsername.isEmpty()) return new ArrayList<>();
 

@@ -541,11 +541,16 @@ class PersonInformationActivity : AppCompatActivity() {
         }
 
         binding.nestedScrollView.setBackgroundColor(ContextCompat.getColor(this, R.color.prime_base))
-        binding.composeHeaderBackground.apply {
-            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-            setContent {
-                PrimeTheme(darkTheme = darkTheme) {
-                    AnimatedBackground(darkTheme = darkTheme, ignoreSettingsToggle = false)
+        if (isNotes) {
+            binding.composeHeaderBackground.visibility = View.GONE
+        } else {
+            binding.composeHeaderBackground.visibility = View.VISIBLE
+            binding.composeHeaderBackground.apply {
+                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+                setContent {
+                    PrimeTheme(darkTheme = darkTheme) {
+                        AnimatedBackground(darkTheme = darkTheme, ignoreSettingsToggle = false)
+                    }
                 }
             }
         }

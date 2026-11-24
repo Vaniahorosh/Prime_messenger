@@ -65,11 +65,14 @@ class PrimeEmojiPanelHelper(
         updateToggleState(isAvailable)
     }
 
+    var isHandoffToKeyboardPending: Boolean = false
+        private set
+
     fun onImeInsetsChanged(imeHeight: Int) {
         if (imeHeight > 0) {
             lastImeHeightPx = imeHeight
-            // If user opens keyboard while panel is open, silently hide panel without bounce
-            if (isPanelOpen) {
+            if (isHandoffToKeyboardPending || (!isPanelOpen && panelContainer.visibility == View.VISIBLE)) {
+                isHandoffToKeyboardPending = false
                 isPanelOpen = false
                 onPanelStateChanged?.invoke(false)
                 currentAnimator?.cancel()
@@ -238,6 +241,7 @@ class PrimeEmojiPanelHelper(
             return
         }
 
+        isHandoffToKeyboardPending = false
         val wasKeyboardOpen = lastImeHeightPx > 0 && etMessage.hasFocus()
         val targetHeight = if (currentPanelHeightPx > 0) currentPanelHeightPx else (if (lastImeHeightPx > 0) lastImeHeightPx else defaultHeightPx)
         val density = activity.resources.displayMetrics.density
@@ -337,44 +341,25 @@ class PrimeEmojiPanelHelper(
         btnEmojiToggle.setImageResource(R.drawable.ic_emoji)
 
         if (showKeyboard) {
+            isHandoffToKeyboardPending = true
             etMessage.requestFocus()
             imm.showSoftInput(etMessage, InputMethodManager.SHOW_IMPLICIT)
-
-            val startHeight = if (panelContainer.height > 0) panelContainer.height else (if (currentPanelHeightPx > 0) currentPanelHeightPx else defaultHeightPx)
-            val anim = ValueAnimator.ofFloat(1f, 0f).apply {
-                duration = 180
-                interpolator = this@PrimeEmojiPanelHelper.interpolator
-                addUpdateListener { va ->
-                    val progress = 1f - va.animatedFraction
-                    val h = (startHeight * progress).toInt()
-                    val lp = panelContainer.layoutParams
-                    if (lp != null) {
-                        lp.height = h.coerceAtLeast(0)
-                        panelContainer.layoutParams = lp
-                    }
-                    panelContainer.alpha = progress
+            // Fallback timeout in case IME fails to report insets
+            panelContainer.postDelayed({
+                if (isHandoffToKeyboardPending) {
+                    isHandoffToKeyboardPending = false
+                    panelContainer.visibility = View.GONE
+                    panelContainer.alpha = 0f
+                    panelContainer.translationY = 0f
                 }
-                addListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        panelContainer.visibility = View.GONE
-                        panelContainer.alpha = 0f
-                        val lp = panelContainer.layoutParams
-                        if (lp != null) {
-                            lp.height = if (currentPanelHeightPx > 0) currentPanelHeightPx else defaultHeightPx
-                            panelContainer.layoutParams = lp
-                        }
-                    }
-                })
-            }
-            currentAnimator = anim
-            anim.start()
+            }, 350)
         } else {
             val startHeight = if (panelContainer.height > 0) panelContainer.height else (if (currentPanelHeightPx > 0) currentPanelHeightPx else defaultHeightPx)
             val density = activity.resources.displayMetrics.density
 
             val anim = ValueAnimator.ofFloat(1f, 0f).apply {
-                duration = 200
-                interpolator = this@PrimeEmojiPanelHelper.interpolator
+                duration = 220
+                interpolator = FastOutSlowInInterpolator()
                 addUpdateListener { va ->
                     val progress = va.animatedFraction
                     val currentProgress = 1f - progress

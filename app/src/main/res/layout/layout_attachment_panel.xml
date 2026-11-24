@@ -9,9 +9,9 @@
     android:outlineProvider="background"
     android:clipToOutline="true"
     android:paddingStart="12dp"
-    android:paddingTop="12dp"
+    android:paddingTop="8dp"
     android:paddingEnd="12dp"
-    android:paddingBottom="12dp"
+    android:paddingBottom="10dp"
     android:visibility="visible">
 
     <LinearLayout
@@ -19,23 +19,23 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <!-- Основная область содержимого раздела -->
+        <!-- Верхний аккуратный фиксатор перетягивания -->
+        <View
+            android:id="@+id/vAttachmentDragHandle"
+            android:layout_width="36dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="8dp"
+            android:alpha="0.35"
+            android:background="@drawable/bg_date_bubble" />
+
+        <!-- Основная область содержимого раздела (Компактная высота minHeight="290dp") -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:orientation="vertical">
-
-            <!-- Верхний фиксатор перетягивания -->
-            <View
-                android:id="@+id/vAttachmentDragHandle"
-                android:layout_width="38dp"
-                android:layout_height="4dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="2dp"
-                android:layout_marginBottom="10dp"
-                android:alpha="0.4"
-                android:background="@drawable/bg_date_bubble" />
 
             <!-- Контейнер для 4-х основных разделов -->
             <FrameLayout
@@ -43,7 +43,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:minHeight="380dp">
+                android:minHeight="290dp">
 
                 <!-- Раздел 0: Фото и видео Галерея -->
                 <LinearLayout
@@ -63,7 +63,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:clipToPadding="false"
-                            android:paddingBottom="16dp" />
+                            android:paddingBottom="8dp" />
 
                         <TextView
                             android:id="@+id/tvGalleryEmpty"
@@ -72,7 +72,7 @@
                             android:layout_gravity="center"
                             android:text="Нет фото и видео"
                             android:textColor="@color/prime_text_secondary"
-                            android:textSize="14sp"
+                            android:textSize="13sp"
                             android:visibility="gone" />
                     </FrameLayout>
 
@@ -80,19 +80,19 @@
                         android:id="@+id/btnOpenSystemGallery"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         android:layout_width="wrap_content"
-                        android:layout_height="38dp"
+                        android:layout_height="36dp"
                         android:layout_gravity="center_horizontal"
-                        android:layout_marginTop="6dp"
-                        android:layout_marginBottom="16dp"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="8dp"
                         android:fontFamily="sans-serif-medium"
-                        android:paddingHorizontal="16dp"
+                        android:paddingHorizontal="14dp"
                         android:paddingVertical="0dp"
                         android:text="Выбрать в галерее"
                         android:textColor="@color/prime_brand"
-                        android:textSize="12sp"
-                        app:cornerRadius="19dp"
+                        android:textSize="11.5sp"
+                        app:cornerRadius="18dp"
                         app:icon="@drawable/ic_photo"
-                        app:iconSize="16dp"
+                        app:iconSize="15dp"
                         app:iconTint="@color/prime_brand"
                         app:strokeColor="@color/prime_divider"
                         app:strokeWidth="1dp" />
@@ -116,7 +116,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:clipToPadding="false"
-                            android:paddingBottom="16dp" />
+                            android:paddingBottom="8dp" />
 
                         <TextView
                             android:id="@+id/tvFilesEmpty"
@@ -125,7 +125,7 @@
                             android:layout_gravity="center"
                             android:text="Нет файлов (до 2 ГБ)"
                             android:textColor="@color/prime_text_secondary"
-                            android:textSize="14sp"
+                            android:textSize="13sp"
                             android:visibility="gone" />
                     </FrameLayout>
 
@@ -133,19 +133,19 @@
                         android:id="@+id/btnOpenSystemFileManager"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         android:layout_width="wrap_content"
-                        android:layout_height="38dp"
+                        android:layout_height="36dp"
                         android:layout_gravity="center_horizontal"
-                        android:layout_marginTop="6dp"
-                        android:layout_marginBottom="16dp"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="8dp"
                         android:fontFamily="sans-serif-medium"
-                        android:paddingHorizontal="16dp"
+                        android:paddingHorizontal="14dp"
                         android:paddingVertical="0dp"
                         android:text="Открыть файловый менеджер"
                         android:textColor="@color/prime_brand"
-                        android:textSize="12sp"
-                        app:cornerRadius="19dp"
+                        android:textSize="11.5sp"
+                        app:cornerRadius="18dp"
                         app:icon="@drawable/ic_file"
-                        app:iconSize="16dp"
+                        app:iconSize="15dp"
                         app:iconTint="@color/prime_brand"
                         app:strokeColor="@color/prime_divider"
                         app:strokeWidth="1dp" />
@@ -162,8 +162,8 @@
                     <!-- Loading Spinner -->
                     <com.messenger.prime.PrimeWaterLoadingView
                         android:id="@+id/pbGifLoading"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
                         android:layout_gravity="center"
                         android:indeterminate="true"
                         android:visibility="gone" />
@@ -179,7 +179,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:clipToPadding="false"
-                            android:paddingBottom="16dp"
+                            android:paddingBottom="8dp"
                             app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
                             app:spanCount="2" />
 
@@ -190,7 +190,7 @@
                             android:layout_gravity="center"
                             android:text="GIF не найдены. Выберите из галереи"
                             android:textColor="@color/prime_text_secondary"
-                            android:textSize="13sp"
+                            android:textSize="12.5sp"
                             android:visibility="gone" />
                     </FrameLayout>
 
@@ -200,28 +200,28 @@
                         android:layout_height="wrap_content"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:paddingTop="6dp"
-                        android:paddingBottom="16dp">
+                        android:paddingTop="4dp"
+                        android:paddingBottom="8dp">
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnPickGifFromGallery"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="wrap_content"
-                            android:layout_height="38dp"
+                            android:layout_height="36dp"
                             android:fontFamily="sans-serif-medium"
-                            android:paddingHorizontal="14dp"
+                            android:paddingHorizontal="12dp"
                             android:paddingVertical="0dp"
                             android:text="Из галереи"
                             android:textColor="@color/prime_brand"
-                            android:textSize="12sp"
-                            app:cornerRadius="19dp"
+                            android:textSize="11.5sp"
+                            app:cornerRadius="18dp"
                             app:strokeColor="@color/prime_divider"
                             app:strokeWidth="1dp" />
 
                         <EditText
                             android:id="@+id/etGifSearch"
                             android:layout_width="0dp"
-                            android:layout_height="38dp"
+                            android:layout_height="36dp"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
                             android:background="@drawable/bg_search_input"
@@ -232,7 +232,7 @@
                             android:paddingHorizontal="12dp"
                             android:textColor="@color/prime_text_primary"
                             android:textColorHint="@color/prime_text_secondary"
-                            android:textSize="13sp" />
+                            android:textSize="12.5sp" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -248,7 +248,7 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="8dp"
+                        android:layout_marginBottom="6dp"
                         android:gravity="center"
                         android:orientation="horizontal">
 
@@ -256,7 +256,7 @@
                             android:id="@+id/btnMusicTabDevice"
                             style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
                             android:layout_width="wrap_content"
-                            android:layout_height="32dp"
+                            android:layout_height="30dp"
                             android:layout_marginEnd="6dp"
                             android:fontFamily="sans-serif-medium"
                             android:paddingHorizontal="12dp"
@@ -265,20 +265,20 @@
                             android:textColor="@color/white"
                             android:textSize="11sp"
                             app:backgroundTint="@color/prime_brand"
-                            app:cornerRadius="16dp" />
+                            app:cornerRadius="15dp" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnMusicTabSaved"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="wrap_content"
-                            android:layout_height="32dp"
+                            android:layout_height="30dp"
                             android:fontFamily="sans-serif-medium"
                             android:paddingHorizontal="12dp"
                             android:paddingVertical="0dp"
                             android:text="Сохраненные"
                             android:textColor="@color/prime_brand"
                             android:textSize="11sp"
-                            app:cornerRadius="16dp"
+                            app:cornerRadius="15dp"
                             app:strokeColor="@color/prime_divider"
                             app:strokeWidth="1dp" />
                     </LinearLayout>
@@ -293,7 +293,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:clipToPadding="false"
-                            android:paddingBottom="16dp"
+                            android:paddingBottom="8dp"
                             app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
                         <TextView
@@ -303,7 +303,7 @@
                             android:layout_gravity="center"
                             android:text="Музыка не найдена"
                             android:textColor="@color/prime_text_secondary"
-                            android:textSize="14sp"
+                            android:textSize="13sp"
                             android:visibility="gone" />
                     </FrameLayout>
 
@@ -311,19 +311,19 @@
                         android:id="@+id/btnOpenSystemAudioPicker"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         android:layout_width="wrap_content"
-                        android:layout_height="38dp"
+                        android:layout_height="36dp"
                         android:layout_gravity="center_horizontal"
-                        android:layout_marginTop="6dp"
-                        android:layout_marginBottom="16dp"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="8dp"
                         android:fontFamily="sans-serif-medium"
-                        android:paddingHorizontal="16dp"
+                        android:paddingHorizontal="14dp"
                         android:paddingVertical="0dp"
                         android:text="Выбрать аудиофайл"
                         android:textColor="@color/prime_brand"
-                        android:textSize="12sp"
-                        app:cornerRadius="19dp"
+                        android:textSize="11.5sp"
+                        app:cornerRadius="18dp"
                         app:icon="@drawable/ic_music"
-                        app:iconSize="16dp"
+                        app:iconSize="15dp"
                         app:iconTint="@color/prime_brand"
                         app:strokeColor="@color/prime_divider"
                         app:strokeWidth="1dp" />
@@ -332,21 +332,21 @@
 
         </LinearLayout>
 
-        <!-- Нижний островок с 4 главными разделами и фиксированной кнопкой отправки строго по правому нижнему углу -->
+        <!-- Нижний островок с 4 главными разделами и кнопкой подтверждения -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="4dp"
             android:clipChildren="false"
             android:clipToPadding="false">
 
             <HorizontalScrollView
                 android:id="@+id/hsvAttachmentTabs"
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
+                android:layout_height="44dp"
                 android:layout_gravity="start|center_vertical"
-                android:background="@drawable/bg_date_bubble"
+                android:background="@drawable/bg_floating_island"
                 android:fillViewport="false"
                 android:scrollbars="none">
 
@@ -355,13 +355,14 @@
                     android:layout_height="match_parent"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:paddingHorizontal="6dp">
+                    android:paddingHorizontal="4dp">
 
                     <!-- Раздел 1: Фото и видео -->
                     <LinearLayout
                         android:id="@+id/layoutModePhoto"
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
+                        android:layout_height="34dp"
+                        android:layout_marginHorizontal="2dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:clickable="true"
                         android:focusable="true"
@@ -371,16 +372,16 @@
 
                         <FrameLayout
                             android:id="@+id/vModePhotoBg"
-                            android:layout_width="32dp"
-                            android:layout_height="32dp"
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
                             android:background="@drawable/bg_circular_mode_active">
 
                             <ImageView
                                 android:id="@+id/ivModePhotoIcon"
-                                android:layout_width="18dp"
-                                android:layout_height="18dp"
+                                android:layout_width="15dp"
+                                android:layout_height="15dp"
                                 android:layout_gravity="center"
-                                android:contentDescription="Фото и видео"
+                                android:contentDescription="Галерея"
                                 android:src="@drawable/ic_photo" />
                         </FrameLayout>
 
@@ -388,18 +389,19 @@
                             android:id="@+id/tvModePhotoLabel"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="6dp"
+                            android:layout_marginStart="5dp"
                             android:fontFamily="sans-serif-medium"
-                            android:text="Фото и видео"
+                            android:text="Галерея"
                             android:textColor="@color/prime_brand"
-                            android:textSize="12sp" />
+                            android:textSize="11.5sp" />
                     </LinearLayout>
 
                     <!-- Раздел 2: Файлы -->
                     <LinearLayout
                         android:id="@+id/layoutModeFiles"
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
+                        android:layout_height="34dp"
+                        android:layout_marginHorizontal="2dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:clickable="true"
                         android:focusable="true"
@@ -409,14 +411,14 @@
 
                         <FrameLayout
                             android:id="@+id/vModeFilesBg"
-                            android:layout_width="32dp"
-                            android:layout_height="32dp"
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
                             android:background="@drawable/bg_circular_mode_idle">
 
                             <ImageView
                                 android:id="@+id/ivModeFilesIcon"
-                                android:layout_width="18dp"
-                                android:layout_height="18dp"
+                                android:layout_width="15dp"
+                                android:layout_height="15dp"
                                 android:layout_gravity="center"
                                 android:contentDescription="Файлы"
                                 android:src="@drawable/ic_file"
@@ -427,18 +429,19 @@
                             android:id="@+id/tvModeFilesLabel"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="6dp"
+                            android:layout_marginStart="5dp"
                             android:fontFamily="sans-serif-medium"
                             android:text="Файлы"
                             android:textColor="@color/prime_text_secondary"
-                            android:textSize="12sp" />
+                            android:textSize="11.5sp" />
                     </LinearLayout>
 
                     <!-- Раздел 3: GIF -->
                     <LinearLayout
                         android:id="@+id/layoutModeCamera"
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
+                        android:layout_height="34dp"
+                        android:layout_marginHorizontal="2dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:clickable="true"
                         android:focusable="true"
@@ -448,14 +451,14 @@
 
                         <FrameLayout
                             android:id="@+id/vModeCameraBg"
-                            android:layout_width="32dp"
-                            android:layout_height="32dp"
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
                             android:background="@drawable/bg_circular_mode_idle">
 
                             <ImageView
                                 android:id="@+id/ivModeCameraIcon"
-                                android:layout_width="18dp"
-                                android:layout_height="18dp"
+                                android:layout_width="15dp"
+                                android:layout_height="15dp"
                                 android:layout_gravity="center"
                                 android:contentDescription="GIF"
                                 android:src="@drawable/ic_gif"
@@ -466,18 +469,19 @@
                             android:id="@+id/tvModeCameraLabel"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="6dp"
+                            android:layout_marginStart="5dp"
                             android:fontFamily="sans-serif-medium"
                             android:text="GIF"
                             android:textColor="@color/prime_text_secondary"
-                            android:textSize="12sp" />
+                            android:textSize="11.5sp" />
                     </LinearLayout>
 
                     <!-- Раздел 4: Музыка -->
                     <LinearLayout
                         android:id="@+id/layoutModeMusic"
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
+                        android:layout_height="34dp"
+                        android:layout_marginHorizontal="2dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:clickable="true"
                         android:focusable="true"
@@ -487,14 +491,14 @@
 
                         <FrameLayout
                             android:id="@+id/vModeMusicBg"
-                            android:layout_width="32dp"
-                            android:layout_height="32dp"
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
                             android:background="@drawable/bg_circular_mode_idle">
 
                             <ImageView
                                 android:id="@+id/ivModeMusicIcon"
-                                android:layout_width="18dp"
-                                android:layout_height="18dp"
+                                android:layout_width="15dp"
+                                android:layout_height="15dp"
                                 android:layout_gravity="center"
                                 android:contentDescription="Музыка"
                                 android:src="@drawable/ic_music"
@@ -505,11 +509,11 @@
                             android:id="@+id/tvModeMusicLabel"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="6dp"
+                            android:layout_marginStart="5dp"
                             android:fontFamily="sans-serif-medium"
                             android:text="Музыка"
                             android:textColor="@color/prime_text_secondary"
-                            android:textSize="12sp" />
+                            android:textSize="11.5sp" />
                     </LinearLayout>
                 </LinearLayout>
             </HorizontalScrollView>
@@ -533,15 +537,15 @@
                     android:src="@drawable/ic_send"
                     app:backgroundTint="@color/prime_brand"
                     app:elevation="4dp"
-                    app:fabCustomSize="48dp"
-                    app:maxImageSize="22dp"
+                    app:fabCustomSize="44dp"
+                    app:maxImageSize="20dp"
                     app:tint="@color/white" />
 
                 <!-- Счётчик выбранных файлов -->
                 <TextView
                     android:id="@+id/tvConfirmBadgeCounter"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:layout_gravity="top|end"
                     android:layout_marginTop="-2dp"
                     android:layout_marginEnd="-2dp"
@@ -552,7 +556,7 @@
                     android:gravity="center"
                     android:text="1"
                     android:textColor="@color/prime_brand"
-                    android:textSize="11sp"
+                    android:textSize="10.5sp"
                     android:textStyle="bold" />
             </FrameLayout>
 

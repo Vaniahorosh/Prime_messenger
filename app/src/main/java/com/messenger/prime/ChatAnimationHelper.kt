@@ -245,9 +245,9 @@ object ChatAnimationHelper {
 
         if (layoutReplyBar.visibility != View.VISIBLE || layoutReplyBar.alpha < 0.5f) {
             val density = layoutReplyBar.resources.displayMetrics.density
-            layoutReplyBar.visibility = View.VISIBLE
             layoutReplyBar.translationY = 28f * density
             layoutReplyBar.alpha = 0f
+            layoutReplyBar.visibility = View.VISIBLE
 
             layoutReplyBar.animate()
                 .translationY(0f)
@@ -297,7 +297,9 @@ object ChatAnimationHelper {
                 override fun onAnimationEnd(animation: Animator) {
                     layoutReplyBar.visibility = View.GONE
                     layoutReplyBar.translationY = 0f
-                    layoutReplyBar.alpha = 1f
+                    layoutReplyBar.post {
+                        layoutReplyBar.alpha = 1f
+                    }
                     onComplete?.run()
                 }
             })

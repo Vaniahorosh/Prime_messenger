@@ -3,30 +3,32 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="66dp"
-    android:layout_height="76dp"
-    android:layout_marginEnd="6dp">
+    android:layout_height="72dp"
+    android:layout_marginEnd="4dp"
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="4dp"
-        android:layout_marginEnd="4dp"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="1dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="6dp"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="2dp"
         app:cardBackgroundColor="@color/prime_surface"
         app:strokeColor="@color/prime_divider"
-        app:strokeWidth="0dp">
+        app:strokeWidth="1dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="3dp">
+            android:padding="2dp">
 
             <FrameLayout
-                android:layout_width="36dp"
-                android:layout_height="36dp">
+                android:layout_width="30dp"
+                android:layout_height="30dp">
 
                 <com.google.android.material.imageview.ShapeableImageView
                     android:id="@+id/ivCardThumbnail"
@@ -38,8 +40,8 @@
 
                 <ImageView
                     android:id="@+id/ivCardVideoBadge"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
                     android:layout_gravity="center"
                     android:src="@drawable/ic_video"
                     android:visibility="gone"
@@ -55,7 +57,7 @@
                 android:gravity="center"
                 android:maxLines="1"
                 android:textColor="@color/prime_text_primary"
-                android:textSize="10sp"
+                android:textSize="9.5sp"
                 android:textStyle="bold"
                 tools:text="PNG 16" />
 
@@ -67,7 +69,7 @@
                 android:gravity="center"
                 android:maxLines="1"
                 android:textColor="@color/prime_text_secondary"
-                android:textSize="9sp"
+                android:textSize="8.5sp"
                 tools:text="1.2М" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
@@ -77,8 +79,9 @@
         android:layout_width="22dp"
         android:layout_height="22dp"
         android:layout_gravity="top|end"
-        android:background="@drawable/bg_circular_mode_active"
-        android:backgroundTint="@color/prime_danger"
+        android:elevation="8dp"
+        android:translationZ="8dp"
+        android:background="@drawable/bg_circle_danger_button"
         android:clickable="true"
         android:focusable="true">
 
@@ -87,6 +90,6 @@
             android:layout_height="12dp"
             android:layout_gravity="center"
             android:src="@drawable/ic_cancel"
-            app:tint="@color/white" />
+            app:tint="#FF5252" />
     </FrameLayout>
 </FrameLayout>

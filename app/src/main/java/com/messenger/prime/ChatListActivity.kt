@@ -2440,7 +2440,7 @@ class ChatListActivity : AppCompatActivity() {
                         val sysName = try { device.name } catch (_: Exception) { null }
                         val devName = if (!intentName.isNullOrBlank()) intentName else sysName
                         
-                        if (!devName.isNullOrBlank() && !DeviceAnonymizer.isMacAddress(devName)) {
+                        if (!devName.isNullOrBlank()) {
                             deviceNameMap[device.address] = DeviceAnonymizer.sanitizeDisplayName(devName, device.address)
                         }
 
@@ -2493,7 +2493,7 @@ class ChatListActivity : AppCompatActivity() {
                         val sysName = try { device.name } catch (_: Exception) { null }
                         val devName = if (!intentName.isNullOrBlank()) intentName else sysName
                         
-                        if (!devName.isNullOrBlank() && !DeviceAnonymizer.isMacAddress(devName)) {
+                        if (!devName.isNullOrBlank()) {
                             deviceNameMap[device.address] = DeviceAnonymizer.sanitizeDisplayName(devName, device.address)
                         }
                         val bestName = deviceNameMap[device.address] ?: devName
@@ -2518,7 +2518,7 @@ class ChatListActivity : AppCompatActivity() {
                                 val sysName = try { dev.name } catch (_: Exception) { null }
                                 val devName = if (dev.address == intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)?.address && !intentName.isNullOrBlank()) intentName else sysName
 
-                                if (!devName.isNullOrBlank() && !DeviceAnonymizer.isMacAddress(devName)) {
+                                if (!devName.isNullOrBlank()) {
                                     deviceNameMap[dev.address] = DeviceAnonymizer.sanitizeDisplayName(devName, dev.address)
                                 }
                             }
@@ -2588,39 +2588,44 @@ class ChatListActivity : AppCompatActivity() {
                         }, index * 300L) // 300ms stagger between SDP requests
                     }
 
+                    val sdpDelay = devicesToSdp.size * 300L
+                    
                     // 2) RFCOMM probe queued phone/computer devices (after SDP has time to respond)
                     val probeSnapshot: List<String>
                     synchronized(pendingProbeDevices) {
                         probeSnapshot = pendingProbeDevices.toList()
                         pendingProbeDevices.clear()
                     }
+                    
                     if (probeSnapshot.isNotEmpty()) {
-                        Thread {
-                            for (mac in probeSnapshot) {
-                                if (primeDevices.contains(mac)) continue
-                                val dev = discoveredDevices.find { it.address == mac }
-                                    ?: pairedDevices.find { it.address == mac }
-                                if (dev == null) continue
-                                try {
-                                    val sock = dev.createInsecureRfcommSocketToServiceRecord(primeUuid)
-                                    sock.connect()
-                                    sock.close()
-                                    val name = deviceNameMap[mac] ?: try { dev.name } catch (_: Exception) { null }
-                                    runOnUiThread { handlePrimeDeviceFound(dev, name) }
-                                } catch (_: Exception) {
-                                    // Not a Prime device — that's fine, ignore
+                        mainHandler.postDelayed({
+                            Thread {
+                                for (mac in probeSnapshot) {
+                                    if (primeDevices.contains(mac)) continue
+                                    val dev = discoveredDevices.find { it.address == mac }
+                                        ?: pairedDevices.find { it.address == mac }
+                                    if (dev == null) continue
+                                    try {
+                                        val sock = dev.createInsecureRfcommSocketToServiceRecord(primeUuid)
+                                        sock.connect()
+                                        sock.close()
+                                        val name = deviceNameMap[mac] ?: try { dev.name } catch (_: Exception) { null }
+                                        runOnUiThread { handlePrimeDeviceFound(dev, name) }
+                                    } catch (_: Exception) {
+                                        // Not a Prime device — that's fine, ignore
+                                    }
+                                    // Small delay between probes to not flood BT controller
+                                    try { Thread.sleep(600) } catch (_: InterruptedException) {}
                                 }
-                                // Small delay between probes to not flood BT controller
-                                try { Thread.sleep(400) } catch (_: InterruptedException) {}
-                            }
-                            // After all probes done, update scanning state
-                            runOnUiThread { isScanningState.value = false }
-                        }.start()
+                                // After all probes done, update scanning state
+                                runOnUiThread { isScanningState.value = false }
+                            }.start()
+                        }, sdpDelay + 1000L) // Wait for SDP to finish completely before RFCOMM probes
                     } else {
                         // No probes needed, just mark done after SDP delay
                         mainHandler.postDelayed({
                             isScanningState.value = false
-                        }, (devicesToSdp.size * 300L + 500L).coerceAtMost(5000L))
+                        }, (sdpDelay + 500L).coerceAtMost(8000L))
                     }
                 }
             }
@@ -5586,7 +5591,7 @@ class ChatListActivity : AppCompatActivity() {
                     if (BluetoothConnectionManager.getInstance().isMacBlocked(devAddr)) continue
                     val devName = try { dev.name } catch (_: Exception) { null }
                     
-                    if (!devName.isNullOrBlank() && !DeviceAnonymizer.isMacAddress(devName)) {
+                    if (!devName.isNullOrBlank()) {
                         deviceNameMap[devAddr] = DeviceAnonymizer.sanitizeDisplayName(devName, devAddr)
                     }
                     

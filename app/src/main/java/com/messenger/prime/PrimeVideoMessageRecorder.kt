@@ -127,7 +127,11 @@ class PrimeVideoMessageRecorder(
 
                 val seconds = totalMs / 1000
                 val newTime = String.format(Locale.US, "%02d:%02d", seconds / 60, seconds % 60)
-                tvTimer.animateSlideDownText(newTime)
+                if (tvTimer.text != newTime) {
+                    tvTimer.text = newTime
+                    tvTimer.alpha = 1f
+                    tvTimer.translationY = 0f
+                }
                 pbVideoRecordTime.max = 120000
                 pbVideoRecordTime.progress = totalMs.coerceIn(0, 120000)
 
@@ -422,6 +426,7 @@ class PrimeVideoMessageRecorder(
             } else {
                 cancelRecording()
                 startRecordingProcess()
+                lockRecording()
             }
         }
 
@@ -469,7 +474,11 @@ class PrimeVideoMessageRecorder(
             val screenWidth = activity.resources.displayMetrics.widthPixels
 
             if (dy > 30) {
-                layoutVideoLockIndicator?.visibility = View.VISIBLE
+                if (layoutVideoLockIndicator?.visibility != View.VISIBLE) {
+                    layoutVideoLockIndicator?.alpha = 0f
+                    layoutVideoLockIndicator?.visibility = View.VISIBLE
+                    layoutVideoLockIndicator?.animate()?.alpha(1f)?.setDuration(120)?.start()
+                }
                 val animY = (-dy * 0.5f).coerceAtLeast(-120f)
                 val scale = 0.8f + (dy / 120f) * 0.4f
                 layoutVideoLockIndicator?.translationY = animY
@@ -482,18 +491,32 @@ class PrimeVideoMessageRecorder(
                     layoutVideoLockIndicator?.visibility = View.GONE
                 }
             } else {
-                layoutVideoLockIndicator?.visibility = View.GONE
+                if (layoutVideoLockIndicator?.visibility == View.VISIBLE) {
+                    layoutVideoLockIndicator?.animate()?.cancel()
+                    layoutVideoLockIndicator?.animate()?.alpha(0f)?.setDuration(120)?.withEndAction {
+                        layoutVideoLockIndicator?.visibility = View.GONE
+                    }?.start()
+                }
             }
 
             if (dx > 80 || rawX < screenWidth * 0.35f) {
                 isInCancelZone = true
-                layoutVideoCancelContainer?.visibility = View.VISIBLE
+                if (layoutVideoCancelContainer?.visibility != View.VISIBLE) {
+                    layoutVideoCancelContainer?.alpha = 0f
+                    layoutVideoCancelContainer?.visibility = View.VISIBLE
+                    layoutVideoCancelContainer?.animate()?.alpha(1f)?.setDuration(120)?.start()
+                }
                 val trashScale = 1.0f + ((dx - 80) / 100f).coerceIn(0f, 0.5f)
                 ivVideoTrashIcon?.scaleX = trashScale
                 ivVideoTrashIcon?.scaleY = trashScale
             } else {
                 isInCancelZone = false
-                layoutVideoCancelContainer?.visibility = View.GONE
+                if (layoutVideoCancelContainer?.visibility == View.VISIBLE) {
+                    layoutVideoCancelContainer?.animate()?.cancel()
+                    layoutVideoCancelContainer?.animate()?.alpha(0f)?.setDuration(120)?.withEndAction {
+                        layoutVideoCancelContainer?.visibility = View.GONE
+                    }?.start()
+                }
             }
         }
     }
@@ -551,10 +574,20 @@ class PrimeVideoMessageRecorder(
         isRecording = true
         listener.onRecordingStateChanged(true)
 
+        overlayView.animate().cancel()
+        previewContainer.animate().cancel()
+        layoutPreviewControls.animate().cancel()
+
+        overlayView.bringToFront()
+        overlayView.alpha = 1f
         overlayView.visibility = View.VISIBLE
+        overlayView.scaleX = 1f
+        overlayView.scaleY = 1f
         previewContainer.visibility = View.GONE
         tvTimer.visibility = View.VISIBLE
         tvTimer.text = "00:00"
+
+        blurView?.setBlurAutoUpdate(true)
 
         val liveWaveform = overlayView.findViewById<VoiceMessageItemView>(R.id.liveVoiceWaveform)
         liveWaveform?.visibility = View.VISIBLE
@@ -566,7 +599,11 @@ class PrimeVideoMessageRecorder(
                         val sec = (durationMs / 1000) % 60
                         val min = (durationMs / 1000) / 60
                         val newTime = String.format(Locale.US, "%02d:%02d", min, sec)
-                        tvTimer.animateSlideDownText(newTime)
+                        if (tvTimer.text != newTime) {
+                            tvTimer.text = newTime
+                            tvTimer.alpha = 1f
+                            tvTimer.translationY = 0f
+                        }
                     }
                 }
                 launch {
@@ -645,12 +682,15 @@ class PrimeVideoMessageRecorder(
 
         applyShapeClipping(previewContainer)
 
+        overlayView.animate().cancel()
+        previewContainer.animate().cancel()
+        layoutPreviewControls.animate().cancel()
+
         overlayView.bringToFront()
+        overlayView.alpha = 1f
         overlayView.visibility = View.VISIBLE
-        overlayView.alpha = 0f
         overlayView.scaleX = 1f
         overlayView.scaleY = 1f
-        overlayView.animate().alpha(1f).setDuration(200).start()
         previewContainer.scaleX = 0.55f
         previewContainer.scaleY = 0.55f
         previewContainer.alpha = 1f
@@ -850,6 +890,13 @@ class PrimeVideoMessageRecorder(
 
     private fun showPreviewControls() {
         handler.removeCallbacks(recordingProgressRunnable)
+        overlayView.animate().cancel()
+        previewContainer.animate().cancel()
+        layoutPreviewControls.animate().cancel()
+
+        overlayView.bringToFront()
+        overlayView.alpha = 1f
+        overlayView.visibility = View.VISIBLE
         layoutPreviewControls.bringToFront()
         layoutPreviewControls.visibility = View.VISIBLE
         btnStopLocked.visibility = View.GONE
@@ -933,17 +980,28 @@ class PrimeVideoMessageRecorder(
         PrimePredictiveBack.isGestureLocked = false
         handler.removeCallbacks(recordingProgressRunnable)
         handler.removeCallbacks(checkTrimLoopRunnable)
+        voiceTimerJob?.cancel()
+        voiceTimerJob = null
+
+        overlayView.animate().cancel()
+        previewContainer.animate().cancel()
+        layoutPreviewControls.animate().cancel()
+
         videoPlaybackView?.apply {
             stopPlayback()
             visibility = View.GONE
         }
         previewContainer.animate().scaleX(0.7f).scaleY(0.7f).alpha(0f).setDuration(180).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
         overlayView.animate().alpha(0f).setDuration(180).withEndAction {
-            overlayView.visibility = View.GONE
             blurView?.setBlurAutoUpdate(false)
-            previewContainer.scaleX = 1f
-            previewContainer.scaleY = 1f
-            previewContainer.alpha = 1f
+            overlayView.visibility = View.GONE
+            layoutPreviewControls.visibility = View.GONE
+            // Reset children properties on the next frame to avoid a flash of the unscaled/unfaded content
+            overlayView.post {
+                previewContainer.scaleX = 1f
+                previewContainer.scaleY = 1f
+                previewContainer.alpha = 1f
+            }
         }.start()
         layoutVideoLockIndicator?.visibility = View.GONE
         layoutVideoCancelContainer?.visibility = View.GONE

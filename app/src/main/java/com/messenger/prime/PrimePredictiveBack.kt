@@ -32,7 +32,7 @@ object PrimePredictiveBack {
     fun isBottomSheetOrDialog(activity: android.app.Activity): Boolean {
         val name = activity.javaClass.simpleName
         if (name == "MediaPicker" || name == "AttachmentPicker" || 
-            name == "AudioPlayerBottomSheet" || name == "MediaPlayerActivity" ||
+            name == "AudioPlayerBottomSheet" ||
             name.contains("Sheet") || name.contains("Dialog") || 
             name.contains("Scan") || name.contains("Discovery")) {
             return true
@@ -718,7 +718,9 @@ object PrimePredictiveBack {
             currentCornerRadiusPx = 0f
             rootContent.outlineProvider = originalOutlineProvider
             rootContent.clipToOutline = originalClipToOutline
-            rootContent.setLayerType(View.LAYER_TYPE_NONE, null)
+            rootContent.post {
+                rootContent.setLayerType(View.LAYER_TYPE_NONE, null)
+            }
         }
 
         private fun resetPreviousViewProperties() {
@@ -728,7 +730,9 @@ object PrimePredictiveBack {
                 prev.alpha = 1.0f
                 prev.pivotX = prev.width / 2f
                 prev.pivotY = prev.height / 2f
-                prev.setLayerType(View.LAYER_TYPE_NONE, null)
+                prev.post {
+                    prev.setLayerType(View.LAYER_TYPE_NONE, null)
+                }
                 dimOverlayView?.let { dim ->
                     (prev as? ViewGroup)?.removeView(dim)
                 }

@@ -179,7 +179,6 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         PrimeTransitions.setupActivityTransitions(activity)
         val isExcluded = activity is PhotoEditorActivity || 
                          activity is WallpaperEditorActivity || 
-                         activity is MediaPlayerActivity ||
                          activity is RichEditorActivity
         
         if (!isExcluded) {
