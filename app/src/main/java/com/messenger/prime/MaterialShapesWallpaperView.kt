@@ -81,6 +81,7 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     private var hasAnimatedEntrance = false
     private var lastGridWidth = 0
     private var lastGridHeight = 0
+    private var maxStableHeight = 0
 
     private var maxCols = 1
     private var maxRows = 1
@@ -156,13 +157,14 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     private var contactKey: String? = null
     private var customImageBitmap: Bitmap? = null
     private var activeWallpaper: ChatWallpaper? = null
+    private var loadedImagePath: String? = null
 
     fun setContactKey(key: String?) {
         if (this.contactKey != key) {
             this.activeWallpaper = null
+            this.contactKey = key
+            updateThemeColors()
         }
-        this.contactKey = key
-        updateThemeColors()
     }
 
     fun setLiveTempWallpaper(wallpaper: ChatWallpaper, bitmap: Bitmap? = null) {
@@ -207,7 +209,13 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     }
 
     fun refreshWallpaper() {
-        activeWallpaper = null
+        val freshWp = WallpaperManager.getActiveWallpaper(context, contactKey)
+        val unchanged = activeWallpaper == freshWp &&
+            (freshWp.type != "IMAGE" || (freshWp.imagePath == loadedImagePath && customImageBitmap != null))
+        activeWallpaper = freshWp
+        if (unchanged) {
+            return
+        }
         updateThemeColors()
     }
 
@@ -217,27 +225,33 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
 
         if (!skipImageDecode) {
             if (wp.type == "IMAGE" && !wp.imagePath.isNullOrEmpty()) {
-                val f = File(wp.imagePath)
-                if (f.exists()) {
-                    try {
-                        customImageBitmap = BitmapFactory.decodeFile(f.absolutePath)
-                    } catch (_: Exception) {
+                if (wp.imagePath != loadedImagePath || customImageBitmap == null || customImageBitmap?.isRecycled == true) {
+                    val f = File(wp.imagePath)
+                    if (f.exists()) {
+                        try {
+                            customImageBitmap = BitmapFactory.decodeFile(f.absolutePath)
+                            loadedImagePath = wp.imagePath
+                        } catch (_: Exception) {
+                            customImageBitmap = null
+                            loadedImagePath = null
+                        }
+                    } else {
                         customImageBitmap = null
+                        loadedImagePath = null
                     }
-                } else {
-                    customImageBitmap = null
                 }
             } else {
                 customImageBitmap = null
+                loadedImagePath = null
             }
         }
 
         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         isLavaEnabled = forcePreviewShapes || sharedPrefs.getBoolean("settings_lava_bg", true)
         val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
-        val darkTheme = when (themePref) {
-            "dark" -> true
-            "light" -> false
+        val darkTheme = when {
+            themePref.equals("dark", ignoreCase = true) || themePref.equals("teto_dark", ignoreCase = true) -> true
+            themePref.equals("light", ignoreCase = true) || themePref.equals("teto_light", ignoreCase = true) -> false
             else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         }
 
@@ -299,13 +313,19 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                 return
             }
 
-            // Avoid regenerating and re-animating the wallpaper when the keyboard opens/closes (width unchanged, height shrinks)
+            // Avoid regenerating and re-animating the wallpaper when the keyboard opens/closes (width unchanged)
             val widthChanged = w != lastGridWidth
-            val needsMoreHeight = h > lastGridHeight
+            if (widthChanged) {
+                maxStableHeight = maxOf(h, resources.displayMetrics.heightPixels)
+            } else if (h > maxStableHeight) {
+                maxStableHeight = h
+            }
+            val targetHeight = maxOf(h, maxStableHeight)
+            val needsMoreHeight = targetHeight > lastGridHeight
             if (shapes.isEmpty() || widthChanged || needsMoreHeight) {
                 lastGridWidth = w
-                lastGridHeight = h
-                generateGridShapes(w, h)
+                lastGridHeight = targetHeight
+                generateGridShapes(w, targetHeight)
                 if (!hasAnimatedEntrance) {
                     hasAnimatedEntrance = true
                     startEntranceAnimation()
@@ -326,10 +346,38 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         maxCols = (w / cellSize) + 1
         maxRows = (h / cellSize) + 1
 
-        val random = Random(42L)
+        val types = when (activeWallpaper?.patternType) {
+            "material_geo" -> arrayOf(
+                ShapeType.SQUARE, ShapeType.TRIANGLE, ShapeType.PENTAGON,
+                ShapeType.GEM, ShapeType.CLAMSHELL, ShapeType.ARCH,
+                ShapeType.SEMICIRCLE, ShapeType.SLANTED, ShapeType.PILL
+            )
+            "material_stars" -> arrayOf(
+                ShapeType.SUNNY, ShapeType.VERY_SUNNY, ShapeType.BURST,
+                ShapeType.SOFT_BURST, ShapeType.BOOM, ShapeType.SOFT_BOOM,
+                ShapeType.COOKIE_4, ShapeType.COOKIE_6, ShapeType.COOKIE_7,
+                ShapeType.COOKIE_12, ShapeType.CLOVER_4, ShapeType.CLOVER_8
+            )
+            "material_waves" -> arrayOf(
+                ShapeType.FLOWER, ShapeType.PUFFY, ShapeType.PUFFY_DIAMOND,
+                ShapeType.CIRCLE, ShapeType.SEMICIRCLE, ShapeType.PILL, ShapeType.HEART
+            )
+            else -> arrayOf(
+                ShapeType.CIRCLE, ShapeType.SQUARE, ShapeType.TRIANGLE, ShapeType.PENTAGON,
+                ShapeType.GEM, ShapeType.CLAMSHELL, ShapeType.SUNNY, ShapeType.VERY_SUNNY,
+                ShapeType.COOKIE_4, ShapeType.COOKIE_6, ShapeType.COOKIE_7, ShapeType.COOKIE_9,
+                ShapeType.COOKIE_12, ShapeType.CLOVER_4, ShapeType.CLOVER_8, ShapeType.BURST,
+                ShapeType.SOFT_BURST, ShapeType.BOOM, ShapeType.SOFT_BOOM, ShapeType.FLOWER,
+                ShapeType.PUFFY, ShapeType.PUFFY_DIAMOND, ShapeType.ARCH, ShapeType.SEMICIRCLE,
+                ShapeType.PILL, ShapeType.SLANTED, ShapeType.HEART
+            )
+        }
 
         for (col in 0 until maxCols) {
             for (row in 0 until maxRows) {
+                val cellSeed = (col.toLong() * 73856093L) xor (row.toLong() * 19349663L) xor 42L
+                val random = Random(cellSeed)
+
                 val offsetX = (random.nextFloat() - 0.5f) * 12 * density
                 val offsetY = (random.nextFloat() - 0.5f) * 12 * density
 
@@ -340,32 +388,6 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                 val type = if (isLogo) {
                     ShapeType.BRAND_LOGO
                 } else {
-                    val types = when (activeWallpaper?.patternType) {
-                        "material_geo" -> arrayOf(
-                            ShapeType.SQUARE, ShapeType.TRIANGLE, ShapeType.PENTAGON,
-                            ShapeType.GEM, ShapeType.CLAMSHELL, ShapeType.ARCH,
-                            ShapeType.SEMICIRCLE, ShapeType.SLANTED, ShapeType.PILL
-                        )
-                        "material_stars" -> arrayOf(
-                            ShapeType.SUNNY, ShapeType.VERY_SUNNY, ShapeType.BURST,
-                            ShapeType.SOFT_BURST, ShapeType.BOOM, ShapeType.SOFT_BOOM,
-                            ShapeType.COOKIE_4, ShapeType.COOKIE_6, ShapeType.COOKIE_7,
-                            ShapeType.COOKIE_12, ShapeType.CLOVER_4, ShapeType.CLOVER_8
-                        )
-                        "material_waves" -> arrayOf(
-                            ShapeType.FLOWER, ShapeType.PUFFY, ShapeType.PUFFY_DIAMOND,
-                            ShapeType.CIRCLE, ShapeType.SEMICIRCLE, ShapeType.PILL, ShapeType.HEART
-                        )
-                        else -> arrayOf(
-                            ShapeType.CIRCLE, ShapeType.SQUARE, ShapeType.TRIANGLE, ShapeType.PENTAGON,
-                            ShapeType.GEM, ShapeType.CLAMSHELL, ShapeType.SUNNY, ShapeType.VERY_SUNNY,
-                            ShapeType.COOKIE_4, ShapeType.COOKIE_6, ShapeType.COOKIE_7, ShapeType.COOKIE_9,
-                            ShapeType.COOKIE_12, ShapeType.CLOVER_4, ShapeType.CLOVER_8, ShapeType.BURST,
-                            ShapeType.SOFT_BURST, ShapeType.BOOM, ShapeType.SOFT_BOOM, ShapeType.FLOWER,
-                            ShapeType.PUFFY, ShapeType.PUFFY_DIAMOND, ShapeType.ARCH, ShapeType.SEMICIRCLE,
-                            ShapeType.PILL, ShapeType.SLANTED, ShapeType.HEART
-                        )
-                    }
                     types[random.nextInt(types.size)]
                 }
 
@@ -429,7 +451,7 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         if (wp.type == "IMAGE" && customImageBitmap != null) {
             val bmp = customImageBitmap!!
             val viewW = width.toFloat()
-            val viewH = height.toFloat()
+            val viewH = maxOf(height, maxStableHeight).toFloat()
 
             if (viewW > 0 && viewH > 0 && !bmp.isRecycled && bmp.width > 0 && bmp.height > 0) {
                 val scaleX = viewW / bmp.width
@@ -452,7 +474,7 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                 if (wp.dimOpacity > 0f) {
                     dimPaint.color = Color.BLACK
                     dimPaint.alpha = (wp.dimOpacity * 255).toInt().coerceIn(0, 255)
-                    canvas.drawRect(0f, 0f, viewW, viewH, dimPaint)
+                    canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), dimPaint)
                 }
             }
             return
@@ -466,9 +488,9 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         // MATERIAL / DEFAULT mode: Draw background color if set
         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
-        val darkTheme = when (themePref) {
-            "dark" -> true
-            "light" -> false
+        val darkTheme = when {
+            themePref.equals("dark", ignoreCase = true) || themePref.equals("teto_dark", ignoreCase = true) -> true
+            themePref.equals("light", ignoreCase = true) || themePref.equals("teto_light", ignoreCase = true) -> false
             else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         }
 
@@ -567,9 +589,9 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
     private fun drawEmojiPattern(canvas: Canvas, wp: ChatWallpaper) {
         val sharedPrefs = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val themePref = sharedPrefs.getString("app_theme", "system") ?: "system"
-        val darkTheme = when (themePref) {
-            "dark" -> true
-            "light" -> false
+        val darkTheme = when {
+            themePref.equals("dark", ignoreCase = true) || themePref.equals("teto_dark", ignoreCase = true) -> true
+            themePref.equals("light", ignoreCase = true) || themePref.equals("teto_light", ignoreCase = true) -> false
             else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         }
 
@@ -603,8 +625,9 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
         val cellW = 68f * density * wp.scale
         val cellH = 68f * density * wp.scale
 
+        val stableH = maxOf(height, maxStableHeight).toFloat()
         val cols = (width / cellW).toInt() + 2
-        val rows = (height / cellH).toInt() + 2
+        val rows = (stableH / cellH).toInt() + 2
 
         canvas.save()
 
@@ -616,11 +639,11 @@ class MaterialShapesWallpaperView @JvmOverloads constructor(
                 }
                 "pulse" -> {
                     val scale = 0.96f + sin(animProgress * Math.PI.toFloat() * 2) * 0.04f
-                    canvas.scale(scale, scale, width / 2f, height / 2f)
+                    canvas.scale(scale, scale, width / 2f, stableH / 2f)
                 }
                 "rotate" -> {
                     val rot = animProgress * 360f
-                    canvas.rotate(rot, width / 2f, height / 2f)
+                    canvas.rotate(rot, width / 2f, stableH / 2f)
                 }
             }
         }

@@ -2,7 +2,6 @@ package com.messenger.prime
 
 import android.app.Activity
 import android.content.Context
-import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
@@ -67,7 +66,7 @@ class PrimePopupMenu private constructor(
 
         val density = context.resources.displayMetrics.density
         val accentColor = ColorAccentManager.getCurrentAccentColor(context)
-        val isDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val isDark = RichEditorActivity.isDarkTheme(context)
 
         val blurBgColor = if (isDark) Color.parseColor("#450F172A") else Color.parseColor("#E6FFFFFF")
         val strokeColor = if (isDark) Color.parseColor("#33FFFFFF") else Color.parseColor("#E2E8F0")

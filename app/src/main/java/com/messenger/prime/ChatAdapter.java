@@ -3701,7 +3701,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         String thBg = isDark ? "rgba(51, 65, 85, 0.8)" : "rgba(226, 232, 240, 0.9)";
                         String borderColor = isDark ? "rgba(71, 85, 105, 0.6)" : "rgba(203, 213, 225, 0.8)";
 
-                        String css = "<style>body { margin: 0; padding: 0; font-family: sans-serif; font-size: 16px; color: " + textColor + "; background-color: transparent; line-height: 1.4; word-wrap: break-word; }" +
+                        String css = "<style>body { margin: 0; padding: 0; font-family: sans-serif; font-size: 16px; color: " + textColor + "; background-color: transparent; line-height: 1.45; word-wrap: break-word; }" +
+                            "h1, h2, h3, h4 { margin: 4px 0; font-weight: 600; line-height: 1.3; } " +
+                            "h1 { font-size: 1.35em; } h2 { font-size: 1.2em; } h3 { font-size: 1.1em; } h4 { font-size: 1.0em; } " +
+                            "p, div { margin: 2px 0; } " +
+                            "ul, ol { margin: 4px 0; padding-left: 20px; } " +
+                            "blockquote { border-left: 3px solid " + linkColor + "; margin: 6px 0; padding: 4px 10px; background-color: " + tableBg + "; border-radius: 0 8px 8px 0; opacity: 0.92; } " +
+                            "pre { background-color: " + tableBg + "; padding: 8px 10px; border-radius: 8px; border: 1px solid " + borderColor + "; overflow-x: auto; font-family: monospace; font-size: 0.9em; white-space: pre-wrap; margin: 6px 0; } " +
+                            "code { font-family: monospace; font-size: 0.9em; background-color: " + tableBg + "; padding: 1px 4px; border-radius: 4px; } " +
                             "img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; } " +
                             "table { width: 100%; border-collapse: collapse; margin: 8px 0; background-color: " + tableBg + "; border-radius: 6px; overflow: hidden; } " +
                             "th, td { border: 1px solid " + borderColor + "; padding: 6px; text-align: left; color: " + textColor + "; } th { background-color: " + thBg + "; font-weight: bold; } " +
@@ -4070,7 +4077,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         String thBg = "rgba(255, 255, 255, 0.25)";
                         String borderColor = "rgba(255, 255, 255, 0.35)";
 
-                        String css = "<style>body { margin: 0; padding: 0; font-family: sans-serif; font-size: 16px; color: " + textColor + "; background-color: transparent; line-height: 1.4; word-wrap: break-word; }" +
+                        String css = "<style>body { margin: 0; padding: 0; font-family: sans-serif; font-size: 16px; color: " + textColor + "; background-color: transparent; line-height: 1.45; word-wrap: break-word; }" +
+                            "h1, h2, h3, h4 { margin: 4px 0; font-weight: 600; line-height: 1.3; } " +
+                            "h1 { font-size: 1.35em; } h2 { font-size: 1.2em; } h3 { font-size: 1.1em; } h4 { font-size: 1.0em; } " +
+                            "p, div { margin: 2px 0; } " +
+                            "ul, ol { margin: 4px 0; padding-left: 20px; } " +
+                            "blockquote { border-left: 3px solid rgba(255,255,255,0.75); margin: 6px 0; padding: 4px 10px; background-color: " + tableBg + "; border-radius: 0 8px 8px 0; } " +
+                            "pre { background-color: " + tableBg + "; padding: 8px 10px; border-radius: 8px; border: 1px solid " + borderColor + "; overflow-x: auto; font-family: monospace; font-size: 0.9em; white-space: pre-wrap; margin: 6px 0; } " +
+                            "code { font-family: monospace; font-size: 0.9em; background-color: " + tableBg + "; padding: 1px 4px; border-radius: 4px; } " +
                             "img { max-width: 100%; height: auto; border-radius: 8px; margin: 4px 0; } " +
                             "table { width: 100%; border-collapse: collapse; margin: 8px 0; background-color: " + tableBg + "; border-radius: 6px; overflow: hidden; } " +
                             "th, td { border: 1px solid " + borderColor + "; padding: 6px; text-align: left; color: " + textColor + "; } th { background-color: " + thBg + "; font-weight: bold; } " +

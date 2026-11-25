@@ -5,6 +5,8 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.graphics.Color
 import android.graphics.Outline
+import android.graphics.PixelFormat
+import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.view.MotionEvent
 import android.view.VelocityTracker
@@ -58,6 +60,28 @@ object PrimePredictiveBack {
     private val finishInterpolator = DecelerateInterpolator(1.5f)
     private val enterInterpolator = DecelerateInterpolator(1.5f)
 
+    private val activeEnterAnimators = java.util.WeakHashMap<ComponentActivity, Animator>()
+
+    private fun isMultiPaneLayout(activity: ComponentActivity): Boolean {
+        val isEmbedded = try {
+            ActivityEmbeddingController.getInstance(activity).isActivityEmbedded(activity)
+        } catch (_: Exception) {
+            false
+        }
+        val isTablet = activity.resources.configuration.smallestScreenWidthDp >= 600
+        return isEmbedded || (isTablet && activity !is BaseSettingsDetailActivity && activity.javaClass.simpleName !in listOf("ChatPersonActivity", "SettingsActivity", "PersonInformationActivity"))
+    }
+
+    private fun ensureWindowTranslucent(activity: ComponentActivity) {
+        activity.window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        activity.window.setFormat(PixelFormat.TRANSLUCENT)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                activity.setTranslucent(true)
+            } catch (_: Throwable) {}
+        }
+    }
+
     @JvmStatic
     @JvmOverloads
     fun attach(
@@ -70,6 +94,10 @@ object PrimePredictiveBack {
             // Do not attach custom gesture, allow system to handle "Back to Home".
             return
         }
+        val isTablet = activity.resources.configuration.smallestScreenWidthDp >= 600
+        if (!isTablet && !isMultiPaneLayout(activity)) {
+            ensureWindowTranslucent(activity)
+        }
         if (playEnterTransition) {
             playEnterTransition(activity, targetView)
         }
@@ -81,76 +109,90 @@ object PrimePredictiveBack {
         if (activity.isTaskRoot || PrimeApplication.getPreviousActivity(activity) == null) return
 
         val isTablet = activity.resources.configuration.smallestScreenWidthDp >= 600
-        val isEmbedded = try {
-            ActivityEmbeddingController.getInstance(activity).isActivityEmbedded(activity)
-        } catch (_: Exception) {
-            false
-        }
-        val isMultiPane = isEmbedded || (isTablet && activity !is BaseSettingsDetailActivity && activity.javaClass.simpleName !in listOf("ChatPersonActivity", "SettingsActivity", "PersonInformationActivity"))
-
-        val rootContent = targetView ?: (activity.findViewById<ViewGroup>(android.R.id.content)?.getChildAt(0)) ?: activity.findViewById<View>(android.R.id.content) ?: activity.window.decorView
-        val density = activity.resources.displayMetrics.density
-        val screenWidth = activity.resources.displayMetrics.widthPixels.toFloat()
-
-        rootContent.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-        val originalOutlineProvider = rootContent.outlineProvider
-        val originalClipToOutline = rootContent.clipToOutline
-
-        var previousRootContent: View? = null
-        var dimOverlayView: View? = null
-        val prevActivity = PrimeApplication.getPreviousActivity(activity)
-
-        if (isMultiPane) {
-            rootContent.alpha = 0f
-            rootContent.translationY = 8f * density
-        } else {
-            val cornerRadiusPx = 24f * density
-            val maxElevationPx = 16f * density
-
-            rootContent.outlineProvider = object : ViewOutlineProvider() {
-                override fun getOutline(view: View, outline: Outline) {
-                    outline.setRoundRect(0, 0, view.width, view.height, cornerRadiusPx)
-                }
-            }
-            rootContent.clipToOutline = true
-            rootContent.scaleX = 0.92f
-            rootContent.scaleY = 0.92f
-            rootContent.alpha = 1.0f
-            rootContent.translationX = screenWidth
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                rootContent.outlineAmbientShadowColor = 0x40000000
-                rootContent.outlineSpotShadowColor = 0x60000000
-            }
-            rootContent.translationZ = maxElevationPx
-
-            if (prevActivity != null && !prevActivity.isDestroyed) {
-                val prevRoot = prevActivity.findViewById<ViewGroup>(android.R.id.content)
-                if (prevRoot != null) {
-                    previousRootContent = prevRoot
-                    prevRoot.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-
-                    dimOverlayView = View(prevActivity).apply {
-                        setBackgroundColor(Color.BLACK)
-                        alpha = 0f
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                    }
-                    if (dimOverlayView?.parent == null) {
-                        prevRoot.addView(dimOverlayView)
-                    }
-                }
-            }
+        if (!isTablet && !isMultiPaneLayout(activity)) {
+            ensureWindowTranslucent(activity)
         }
 
-        rootContent.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+        if (PrimeTransitions.areAnimationsDisabled(activity)) return
+        if (activity is MediaPlayerActivity && activity.intent.hasExtra("EXTRA_RECT")) return
+
+        val decorView = activity.window.decorView
+        decorView.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
             override fun onPreDraw(): Boolean {
-                if (rootContent.viewTreeObserver.isAlive) {
-                    rootContent.viewTreeObserver.removeOnPreDrawListener(this)
+                if (decorView.viewTreeObserver.isAlive) {
+                    decorView.viewTreeObserver.removeOnPreDrawListener(this)
                 }
-                
+                if (activity.isDestroyed || activity.isFinishing) return true
+
+                val isMultiPane = isMultiPaneLayout(activity)
+                if (!isMultiPane) {
+                    ensureWindowTranslucent(activity)
+                }
+
+                val contentGroup = activity.findViewById<ViewGroup>(android.R.id.content)
+                val rootContent = targetView
+                    ?: contentGroup?.getChildAt(0)
+                    ?: contentGroup
+                    ?: decorView
+
+                val density = activity.resources.displayMetrics.density
+                val screenWidth = activity.resources.displayMetrics.widthPixels.toFloat()
+
+                rootContent.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                val originalOutlineProvider = rootContent.outlineProvider
+                val originalClipToOutline = rootContent.clipToOutline
+
+                var previousRootContent: View? = null
+                var dimOverlayView: View? = null
+                val prevActivity = PrimeApplication.getPreviousActivity(activity)
+
+                if (isMultiPane) {
+                    rootContent.alpha = 0f
+                    rootContent.translationY = 8f * density
+                } else {
+                    val cornerRadiusPx = 24f * density
+                    val maxElevationPx = 16f * density
+
+                    rootContent.outlineProvider = object : ViewOutlineProvider() {
+                        override fun getOutline(view: View, outline: Outline) {
+                            outline.setRoundRect(0, 0, view.width, view.height, cornerRadiusPx)
+                        }
+                    }
+                    rootContent.clipToOutline = true
+                    rootContent.scaleX = 0.92f
+                    rootContent.scaleY = 0.92f
+                    rootContent.alpha = 1.0f
+                    rootContent.translationX = screenWidth
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        rootContent.outlineAmbientShadowColor = 0x40000000
+                        rootContent.outlineSpotShadowColor = 0x60000000
+                    }
+                    rootContent.translationZ = maxElevationPx
+
+                    if (prevActivity != null && !prevActivity.isDestroyed && !prevActivity.isFinishing) {
+                        val prevRoot = prevActivity.findViewById<ViewGroup>(android.R.id.content)
+                        if (prevRoot != null) {
+                            previousRootContent = prevRoot
+                            prevRoot.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                            prevRoot.pivotX = prevRoot.width / 2f
+                            prevRoot.pivotY = prevRoot.height / 2f
+
+                            dimOverlayView = View(prevActivity).apply {
+                                setBackgroundColor(Color.BLACK)
+                                alpha = 0f
+                                layoutParams = ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT
+                                )
+                            }
+                            if (dimOverlayView?.parent == null) {
+                                prevRoot.addView(dimOverlayView)
+                            }
+                        }
+                    }
+                }
+
                 val animator = ValueAnimator.ofFloat(0f, 1f)
                 animator.duration = 320
                 animator.interpolator = PathInterpolator(0.05f, 0.7f, 0.1f, 1.0f)
@@ -169,7 +211,7 @@ object PrimePredictiveBack {
 
                     animator.addUpdateListener { anim ->
                         val frac = anim.animatedFraction
-                        
+
                         val newScale = startScale + ((1f - startScale) * frac)
                         rootContent.scaleX = newScale
                         rootContent.scaleY = newScale
@@ -196,38 +238,48 @@ object PrimePredictiveBack {
                 }
                 activity.lifecycle.addObserver(observer)
 
+                var cleanedUp = false
+                fun cleanup() {
+                    if (cleanedUp) return
+                    cleanedUp = true
+                    activeEnterAnimators.remove(activity)
+                    activity.lifecycle.removeObserver(observer)
+
+                    rootContent.scaleX = 1.0f
+                    rootContent.scaleY = 1.0f
+                    rootContent.translationX = 0f
+                    rootContent.translationY = 0f
+                    rootContent.translationZ = 0f
+                    rootContent.alpha = 1.0f
+                    rootContent.outlineProvider = originalOutlineProvider
+                    rootContent.clipToOutline = originalClipToOutline
+                    rootContent.setLayerType(View.LAYER_TYPE_NONE, null)
+
+                    previousRootContent?.let { prev ->
+                        prev.scaleX = 1.0f
+                        prev.scaleY = 1.0f
+                        prev.alpha = 1.0f
+                        prev.setLayerType(View.LAYER_TYPE_NONE, null)
+                        dimOverlayView?.let { dim ->
+                            (prev as? ViewGroup)?.removeView(dim)
+                        }
+                    }
+                    previousRootContent = null
+                    dimOverlayView = null
+                }
+
                 animator.addListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
-                        activity.lifecycle.removeObserver(observer)
-                        
-                        rootContent.scaleX = 1.0f
-                        rootContent.scaleY = 1.0f
-                        rootContent.translationX = 0f
-                        rootContent.translationY = 0f
-                        rootContent.translationZ = 0f
-                        rootContent.alpha = 1.0f
-                        rootContent.outlineProvider = originalOutlineProvider
-                        rootContent.clipToOutline = originalClipToOutline
-                        rootContent.setLayerType(View.LAYER_TYPE_NONE, null)
-
-                        previousRootContent?.let { prev ->
-                            prev.scaleX = 1.0f
-                            prev.scaleY = 1.0f
-                            prev.alpha = 1.0f
-                            prev.setLayerType(View.LAYER_TYPE_NONE, null)
-                            dimOverlayView?.let { dim ->
-                                (prev as? ViewGroup)?.removeView(dim)
-                            }
-                        }
-                        previousRootContent = null
-                        dimOverlayView = null
+                        cleanup()
                     }
-                    
+
                     override fun onAnimationCancel(animation: Animator) {
-                        onAnimationEnd(animation)
+                        cleanup()
                     }
                 })
 
+                activeEnterAnimators.remove(activity)?.cancel()
+                activeEnterAnimators[activity] = animator
                 animator.start()
                 return true
             }
@@ -512,27 +564,17 @@ object PrimePredictiveBack {
         }
 
         private fun isMultiPaneLayout(): Boolean {
-            val isEmbedded = try {
-                ActivityEmbeddingController.getInstance(activity).isActivityEmbedded(activity)
-            } catch (_: Exception) {
-                false
-            }
-            val isTablet = activity.resources.configuration.smallestScreenWidthDp >= 600
-            return isEmbedded || (isTablet && activity !is BaseSettingsDetailActivity && activity.javaClass.simpleName !in listOf("ChatPersonActivity", "SettingsActivity", "PersonInformationActivity"))
+            return isMultiPaneLayout(activity)
         }
 
         private fun startBackGesture(edge: Int) {
             if (isExecutingBack || isMultiPaneLayout() || hasActiveBottomSheet(rootContent)) return
             currentSwipeEdge = edge
+            activeEnterAnimators.remove(activity)?.cancel()
 
-            // Keep the current window/decor background transparent so the previous activity is visible behind rootContent
-            activity.window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
-            activity.window.decorView.background = null
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                try {
-                    activity.setTranslucent(true)
-                } catch (_: Throwable) {}
-            }
+            // Keep the current window background transparent and surface format translucent
+            // so the previous activity stays visible behind rootContent (never null decorView background).
+            ensureWindowTranslucent(activity)
 
             rootContent.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             originalOutlineProvider = rootContent.outlineProvider

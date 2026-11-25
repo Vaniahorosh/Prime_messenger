@@ -1,210 +1,429 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/layoutRichRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/prime_base">
+    android:background="@android:color/transparent"
+    tools:ignore="HardcodedText">
 
-    <!-- Rich Text Editing WebView (Full Screen Edge-to-Edge) -->
-    <WebView
-        android:id="@+id/webViewRich"
+    <!-- Translucent Backdrop Scrim -->
+    <View
+        android:id="@+id/vBackdropScrim"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        android:layout_height="match_parent"
+        android:background="#66000000" />
 
-    <!-- Bottom Floating Island Container with BlurView -->
-    <eightbitlab.com.blurview.BlurView
-        android:id="@+id/layoutFloatingBottomIsland"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="12dp"
-        android:layout_marginBottom="12dp"
-        android:background="@drawable/bg_floating_island"
-        android:elevation="10dp"
-        android:outlineProvider="background"
-        android:transitionName="transition_input_to_rich"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+    <!-- M3E Rounded Editor Sheet Surface -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/editorSheetContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_editor_sheet_surface"
+        android:outlineProvider="background">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingHorizontal="6dp"
-            android:paddingVertical="4dp">
+        <!-- Full-bleed Rich Text WebView -->
+        <WebView
+            android:id="@+id/webViewRich"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:overScrollMode="never"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
-            <!-- Row 1: Header Controls (Back, Title, Toggle, Send) -->
-            <androidx.constraintlayout.widget.ConstraintLayout
+        <!-- Top Drag Handle Pill -->
+        <View
+            android:id="@+id/vSheetDragHandle"
+            android:layout_width="36dp"
+            android:layout_height="4dp"
+            android:layout_marginTop="8dp"
+            android:alpha="0.35"
+            android:background="@drawable/bg_m3_active_indicator"
+            android:backgroundTint="@color/prime_text_secondary"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Top Floating BlurView Header Island -->
+        <eightbitlab.com.blurview.BlurView
+            android:id="@+id/blurTopHeader"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_floating_island_outlined"
+            android:elevation="4dp"
+            android:outlineProvider="background"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <LinearLayout
                 android:id="@+id/headerRich"
                 android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:paddingHorizontal="6dp">
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="8dp">
 
                 <ImageButton
                     android:id="@+id/btnCancel"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Отмена"
+                    android:contentDescription="Закрыть"
+                    android:focusable="false"
+                    android:focusableInTouchMode="false"
                     android:src="@drawable/ic_arrow_back"
-                    app:tint="@color/prime_text_primary"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent" />
+                    app:tint="@color/prime_text_primary" />
 
-                <TextView
-                    android:id="@+id/tvHeaderTitle"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="Форматирование"
-                    android:textColor="@color/prime_text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent" />
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="4dp"
+                    android:orientation="vertical">
 
-                <!-- Floating Collapse/Expand Toolbar Toggle Button -->
+                    <TextView
+                        android:id="@+id/tvHeaderTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:fontFamily="sans-serif-medium"
+                        android:singleLine="true"
+                        android:text="Форматирование"
+                        android:textColor="@color/prime_text_primary"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:id="@+id/tvEditorStats"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:fontFeatureSettings="tnum"
+                        android:singleLine="true"
+                        android:text="0 симв. · 0 слов"
+                        android:textColor="@color/prime_text_secondary"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <ImageButton
+                    android:id="@+id/btnUndo"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Отменить"
+                    android:focusable="false"
+                    android:focusableInTouchMode="false"
+                    android:padding="9dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_undo_modern"
+                    app:tint="@color/prime_text_primary" />
+
+                <ImageButton
+                    android:id="@+id/btnRedo"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Повторить"
+                    android:focusable="false"
+                    android:focusableInTouchMode="false"
+                    android:padding="9dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_redo_modern"
+                    app:tint="@color/prime_text_primary" />
+
                 <ImageButton
                     android:id="@+id/btnToggleToolbar"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:layout_marginEnd="4dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Переключить панель"
-                    android:src="@drawable/ic_format_extended"
-                    app:tint="@color/prime_brand"
-                    app:layout_constraintEnd_toStartOf="@id/btnDone"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent" />
+                    android:contentDescription="Скрыть или показать панель"
+                    android:focusable="false"
+                    android:focusableInTouchMode="false"
+                    android:src="@drawable/ic_expand_more"
+                    app:tint="@color/prime_brand" />
+            </LinearLayout>
+        </eightbitlab.com.blurview.BlurView>
 
-                <FrameLayout
-                    android:id="@+id/btnDone"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:clickable="true"
-                    android:focusable="true"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent">
+        <!-- Bottom Floating Formatting Dock + M3E Send Island -->
+        <LinearLayout
+            android:id="@+id/layoutBottomDock"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="12dp"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
 
-                    <ImageView
-                        android:id="@+id/ivDoneSend"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:layout_gravity="center"
-                        android:contentDescription="Готово"
-                        android:src="@drawable/ic_send"
-                        app:tint="@color/prime_brand" />
-                </FrameLayout>
-            </androidx.constraintlayout.widget.ConstraintLayout>
+            <!-- Formatting Toolbar BlurView Island -->
+            <eightbitlab.com.blurview.BlurView
+                android:id="@+id/layoutFloatingBottomIsland"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/bg_floating_island_outlined"
+                android:elevation="6dp"
+                android:outlineProvider="background">
 
-            <!-- Row 2: Formatting Tools Toolbar -->
-            <HorizontalScrollView
-                android:id="@+id/toolbarRich"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:scrollbars="none"
-                android:paddingHorizontal="2dp">
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
+                <HorizontalScrollView
+                    android:id="@+id/toolbarRich"
+                    android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:clipToPadding="false"
+                    android:paddingHorizontal="6dp"
+                    android:scrollbars="none">
 
-                    <ImageButton
-                        android:id="@+id/btnHeading"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginEnd="2dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Заголовок"
-                        android:src="@drawable/ic_format_heading"
-                        app:tint="@color/prime_brand" />
+                    <LinearLayout
+                        android:id="@+id/toolbarButtonsRow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-                    <ImageButton
-                        android:id="@+id/btnBold"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginEnd="2dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Стили"
-                        android:src="@drawable/ic_format_bold"
-                        app:tint="@color/prime_brand" />
+                        <ImageButton
+                            android:id="@+id/btnBold"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Жирный"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_bold"
+                            app:tint="@color/prime_text_primary" />
 
-                    <ImageButton
-                        android:id="@+id/btnList"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginEnd="2dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Списки"
-                        android:src="@drawable/ic_format_list_bulleted"
-                        app:tint="@color/prime_brand" />
+                        <ImageButton
+                            android:id="@+id/btnItalic"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Курсив"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_italic"
+                            app:tint="@color/prime_text_primary" />
 
-                    <ImageButton
-                        android:id="@+id/btnAlign"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginEnd="2dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Выравнивание"
-                        android:src="@drawable/ic_format_align_left"
-                        app:tint="@color/prime_brand" />
+                        <ImageButton
+                            android:id="@+id/btnUnderline"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Подчеркнутый"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_underlined"
+                            app:tint="@color/prime_text_primary" />
 
-                    <ImageButton
-                        android:id="@+id/btnTable"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginEnd="2dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Таблица"
-                        android:src="@drawable/ic_format_table"
-                        app:tint="@color/prime_brand" />
+                        <ImageButton
+                            android:id="@+id/btnStrike"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Зачеркнутый"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_strikethrough"
+                            app:tint="@color/prime_text_primary" />
 
-                    <ImageButton
-                        android:id="@+id/btnQuote"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginEnd="2dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Цитата"
-                        android:src="@drawable/ic_format_quote"
-                        app:tint="@color/prime_brand" />
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="20dp"
+                            android:layout_marginStart="2dp"
+                            android:layout_marginEnd="6dp"
+                            android:background="@color/chat_island_stroke" />
 
-                    <ImageButton
-                        android:id="@+id/btnColor"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginEnd="2dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Цвет текста"
-                        android:src="@drawable/ic_format_color"
-                        app:tint="@color/prime_brand" />
+                        <ImageButton
+                            android:id="@+id/btnHeading"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Заголовок"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_heading"
+                            app:tint="@color/prime_text_primary" />
 
-                    <ImageButton
-                        android:id="@+id/btnInsertImage"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Медиафайл"
-                        android:src="@drawable/ic_format_image"
-                        app:tint="@color/prime_brand" />
+                        <ImageButton
+                            android:id="@+id/btnColor"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Цвет и выделение"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_color"
+                            app:tint="@color/prime_text_primary" />
 
-                </LinearLayout>
-            </HorizontalScrollView>
+                        <ImageButton
+                            android:id="@+id/btnList"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Списки"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_list_bulleted"
+                            app:tint="@color/prime_text_primary" />
+
+                        <ImageButton
+                            android:id="@+id/btnQuote"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Цитата"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_quote"
+                            app:tint="@color/prime_text_primary" />
+
+                        <ImageButton
+                            android:id="@+id/btnCode"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Код"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_code"
+                            app:tint="@color/prime_text_primary" />
+
+                        <ImageButton
+                            android:id="@+id/btnAlign"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Выравнивание"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_align_left"
+                            app:tint="@color/prime_text_primary" />
+
+                        <ImageButton
+                            android:id="@+id/btnLink"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Ссылка"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_link"
+                            app:tint="@color/prime_text_primary" />
+
+                        <ImageButton
+                            android:id="@+id/btnTable"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Таблица"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_table"
+                            app:tint="@color/prime_text_primary" />
+
+                        <ImageButton
+                            android:id="@+id/btnInsertImage"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Изображение"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_image"
+                            app:tint="@color/prime_text_primary" />
+
+                        <ImageButton
+                            android:id="@+id/btnClearFormat"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Очистить формат"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:padding="9dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_format_clear"
+                            app:tint="@color/prime_text_secondary" />
+
+                    </LinearLayout>
+                </HorizontalScrollView>
+            </eightbitlab.com.blurview.BlurView>
+
+            <!-- Expressive M3E Send Action Island -->
+            <FrameLayout
+                android:id="@+id/btnDone"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:background="@drawable/bg_circle_primary_button"
+                android:clickable="true"
+                android:focusable="false"
+                android:focusableInTouchMode="false"
+                android:elevation="6dp"
+                android:contentDescription="Отправить">
+
+                <ImageView
+                    android:id="@+id/ivDoneSend"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Отправить"
+                    tools:ignore="HardcodedText"
+                    android:src="@drawable/ic_send"
+                    app:tint="@color/white" />
+            </FrameLayout>
 
         </LinearLayout>
-    </eightbitlab.com.blurview.BlurView>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</FrameLayout>

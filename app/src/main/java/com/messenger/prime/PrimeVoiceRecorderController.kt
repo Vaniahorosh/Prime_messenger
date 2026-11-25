@@ -248,8 +248,13 @@ class PrimeVoiceRecorderController(
             btnEmojiToggle?.animate()?.cancel()
             btnEmojiToggle?.animate()?.alpha(1f)?.translationX(0f)?.setDuration(200)?.start()
 
-            val etText = (etMessage as? android.widget.EditText)?.text
-            if (!etText.isNullOrEmpty()) {
+            val editText = etMessage as? android.widget.EditText
+            val etText = editText?.text
+            val showFormat = !etText.isNullOrBlank() && (
+                (editText.layout != null && editText.lineCount > 3) ||
+                etText.count { it == '\n' } >= 3
+            )
+            if (showFormat) {
                 btnFormat?.visibility = View.VISIBLE
                 btnFormat?.animate()?.cancel()
                 btnFormat?.animate()?.alpha(1f)?.scaleX(1f)?.scaleY(1f)?.translationX(0f)?.setDuration(200)?.start()

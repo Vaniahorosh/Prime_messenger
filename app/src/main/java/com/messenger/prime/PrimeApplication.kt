@@ -181,10 +181,12 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
         activityStack.add(WeakReference(activity))
         ColorAccentManager.applyAccentToActivity(activity)
-        PrimeTransitions.setupActivityTransitions(activity)
         val isExcluded = activity is PhotoEditorActivity || 
                          activity is WallpaperEditorActivity || 
                          activity is RichEditorActivity
+        if (!isExcluded || PrimePredictiveBack.isBottomSheetOrDialog(activity)) {
+            PrimeTransitions.setupActivityTransitions(activity)
+        }
         
         if (!isExcluded) {
             val isBottomSheet = PrimePredictiveBack.isBottomSheetOrDialog(activity)

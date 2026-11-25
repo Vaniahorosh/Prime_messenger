@@ -96,6 +96,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         }
     }
 
+    private lateinit var vMediaBackdrop: View
     private lateinit var ivBlurredBackground: ImageView
     private lateinit var viewPager: ViewPager2
     private lateinit var topOverlay: View
@@ -302,6 +303,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         viewPager.translationX = rect.left.toFloat()
         viewPager.translationY = rect.top.toFloat()
 
+        vMediaBackdrop.alpha = 0f
         ivBlurredBackground.alpha = 0f
         topOverlay.alpha = 0f
         topOverlay.translationY = -40f
@@ -320,6 +322,12 @@ class MediaPlayerActivity : AppCompatActivity() {
                 viewPager.pivotX = screenWidth / 2f
                 viewPager.pivotY = screenHeight / 2f
             }
+            .start()
+
+        vMediaBackdrop.animate()
+            .alpha(1f)
+            .setDuration(420)
+            .setInterpolator(emphasizedDecelerate)
             .start()
 
         ivBlurredBackground.animate()
@@ -413,9 +421,16 @@ class MediaPlayerActivity : AppCompatActivity() {
             .setDuration(360)
             .setInterpolator(emphasizedAccelerate)
             .start()
+
+        vMediaBackdrop.animate()
+            .alpha(0f)
+            .setDuration(360)
+            .setInterpolator(emphasizedAccelerate)
+            .start()
     }
 
     private fun initViews() {
+        vMediaBackdrop = findViewById(R.id.vMediaBackdrop)
         ivBlurredBackground = findViewById(R.id.ivBlurredBackground)
         viewPager = findViewById(R.id.viewPager)
         topOverlay = findViewById(R.id.topOverlay)
@@ -1489,6 +1504,7 @@ class MediaPlayerActivity : AppCompatActivity() {
 
                             val bgAlpha = (0.6f * (1.0f - progress * 1.4f)).coerceIn(0f, 0.6f)
                             ivBlurredBackground.alpha = bgAlpha
+                            vMediaBackdrop.alpha = (1.0f - progress * 1.4f).coerceIn(0f, 1.0f)
                             topOverlay.alpha = (1.0f - progress * 2.5f).coerceIn(0f, 1.0f)
                             bottomOverlay.alpha = (1.0f - progress * 2.5f).coerceIn(0f, 1.0f)
                         }
@@ -1513,6 +1529,12 @@ class MediaPlayerActivity : AppCompatActivity() {
                                     .scaleY(1.0f)
                                     .setDuration(240)
                                     .setInterpolator(FastOutSlowInInterpolator())
+                                    .start()
+
+                                vMediaBackdrop.animate().cancel()
+                                vMediaBackdrop.animate()
+                                    .alpha(1f)
+                                    .setDuration(240)
                                     .start()
 
                                 ivBlurredBackground.animate().cancel()

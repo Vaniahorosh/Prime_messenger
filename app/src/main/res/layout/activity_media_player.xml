@@ -5,8 +5,14 @@
     android:id="@+id/mediaRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/prime_base"
+    android:background="@android:color/transparent"
     android:clipChildren="false">
+
+    <View
+        android:id="@+id/vMediaBackdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/prime_base" />
 
     <!-- Фоновое изображение (размытое) -->
     <ImageView
