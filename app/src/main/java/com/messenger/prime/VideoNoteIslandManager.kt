@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Outline
-import android.os.Build
 import android.util.Log
 import android.view.Gravity
 import android.view.View
@@ -17,8 +16,6 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import eightbitlab.com.blurview.BlurView
-import eightbitlab.com.blurview.RenderEffectBlur
-import eightbitlab.com.blurview.RenderScriptBlur
 import java.util.Locale
 
 /**
@@ -244,21 +241,10 @@ class VideoNoteIslandManager(
 
             val windowBackground = decorView.background
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                menuBlur.setupWith(rootView, RenderEffectBlur())
-                    .setFrameClearDrawable(windowBackground)
-                    .setOverlayColor(overlayColor)
-                    .setBlurRadius(16f)
-            } else {
-                try {
-                    menuBlur.setupWith(rootView, RenderScriptBlur(context))
-                        .setFrameClearDrawable(windowBackground)
-                        .setOverlayColor(overlayColor)
-                        .setBlurRadius(16f)
-                } catch (t: Throwable) {
-                    Log.e("VideoIsland", "RenderScriptBlur unavailable", t)
-                }
-            }
+            menuBlur.setupWith(rootView, createSafeBlurAlgorithm(context))
+                .setFrameClearDrawable(windowBackground)
+                .setOverlayColor(overlayColor)
+                .setBlurRadius(16f)
             menuBlur.invalidateOutline()
         } catch (t: Throwable) {
             Log.e("VideoIsland", "Speed BlurView setup error", t)
@@ -291,23 +277,11 @@ class VideoNoteIslandManager(
 
             val windowBackground = decorView.background
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                islandView.setupWith(rootView, RenderEffectBlur())
-                    .setFrameClearDrawable(windowBackground)
-                    .setOverlayColor(overlayColor)
-                    .setBlurRadius(16f)
-                    .setBlurAutoUpdate(true)
-            } else {
-                try {
-                    islandView.setupWith(rootView, RenderScriptBlur(context))
-                        .setFrameClearDrawable(windowBackground)
-                        .setOverlayColor(overlayColor)
-                        .setBlurRadius(16f)
-                        .setBlurAutoUpdate(true)
-                } catch (t: Throwable) {
-                    Log.e("VideoIsland", "RenderScriptBlur unavailable", t)
-                }
-            }
+            islandView.setupWith(rootView, createSafeBlurAlgorithm(context))
+                .setFrameClearDrawable(windowBackground)
+                .setOverlayColor(overlayColor)
+                .setBlurRadius(16f)
+                .setBlurAutoUpdate(true)
             islandView.invalidateOutline()
         } catch (t: Throwable) {
             Log.e("VideoIsland", "BlurView setup error", t)

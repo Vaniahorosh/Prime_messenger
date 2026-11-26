@@ -67,6 +67,8 @@ class PersonInformationActivity : AppCompatActivity() {
     private var avatarUriStr: String? = null
     private var isOnline: Boolean = false
     private var isNotes: Boolean = false
+    private var lastHeaderPhotoKey: String? = null
+    private var lastHeaderCoverKey: String? = null
 
     private val statusUpdateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -77,9 +79,23 @@ class PersonInformationActivity : AppCompatActivity() {
                 "com.messenger.prime.AVATAR_UPDATED", "com.messenger.prime.AVATAR_CHANGED", "com.messenger.prime.NAME_CHANGED" -> {
                     setupHeaderUi()
                 }
+                "com.messenger.prime.COVER_CHANGED" -> {
+                    updateHeaderCover()
+                }
                 "com.messenger.prime.CHAT_DELETED" -> {
-                    PrimeNotification.show(this@PersonInformationActivity, "Чат удален")
-                    supportFinishAfterTransition()
+                    val delAddr = intent.getStringExtra("EXTRA_ADDRESS")
+                    val delName = intent.getStringExtra("EXTRA_NAME")
+                    val delLogin = intent.getStringExtra("EXTRA_LOGIN")
+                    val hasSpecificTarget = !delAddr.isNullOrEmpty() || !delName.isNullOrEmpty() || !delLogin.isNullOrEmpty()
+                    val isThisChat = !hasSpecificTarget ||
+                        (!deviceAddress.isNullOrEmpty() && (deviceAddress.equals(delAddr, ignoreCase = true) || deviceAddress.equals(delName, ignoreCase = true))) ||
+                        targetUsername.equals(delName, ignoreCase = true) ||
+                        targetUsername.equals(delLogin, ignoreCase = true) ||
+                        targetUsername.equals(delAddr, ignoreCase = true)
+                    if (isThisChat) {
+                        PrimeNotification.show(this@PersonInformationActivity, "Чат удален")
+                        supportFinishAfterTransition()
+                    }
                 }
             }
         }
@@ -168,6 +184,7 @@ class PersonInformationActivity : AppCompatActivity() {
             addAction("com.messenger.prime.AVATAR_UPDATED")
             addAction("com.messenger.prime.CHAT_DELETED")
             addAction("com.messenger.prime.AVATAR_CHANGED")
+            addAction("com.messenger.prime.COVER_CHANGED")
             addAction("com.messenger.prime.NAME_CHANGED")
         }
         ContextCompat.registerReceiver(
@@ -671,23 +688,42 @@ class PersonInformationActivity : AppCompatActivity() {
         val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val currentUser = sp.getString("current_user", "") ?: ""
         val coverUriStr = if (isNotes) {
-            sp.getString("${currentUser}_cover", null) ?: sp.getString("my_profile_cover", null)
+            sp.getString("${currentUser}_cover", null)?.takeIf { it.isNotBlank() }
+                ?: sp.getString("my_profile_cover", null)?.takeIf { it.isNotBlank() }
         } else {
-            val fromUser = if (!targetUsername.isNullOrEmpty()) sp.getString("contact_cover_$targetUsername", null) else null
+            val fromUser = if (targetUsername.isNotEmpty()) sp.getString("contact_cover_$targetUsername", null) else null
             val fromAddr = if (!deviceAddress.isNullOrEmpty()) sp.getString("contact_cover_$deviceAddress", null) else null
-            fromUser ?: fromAddr
+            val safeUser = AvatarManager.getContactPreferenceSafely(this, targetUsername, "contact_cover")
+            val safeAddr = AvatarManager.getContactPreferenceSafely(this, deviceAddress, "contact_cover")
+            listOf(fromUser, fromAddr, safeUser, safeAddr).firstOrNull { !it.isNullOrBlank() }
         }
 
         binding.ivProfileCover?.let { iv ->
             if (!coverUriStr.isNullOrBlank()) {
-                iv.visibility = View.VISIBLE
-                Glide.with(this)
-                    .load(Uri.parse(coverUriStr))
-                    .centerCrop()
-                    .into(iv)
-            } else {
-                iv.visibility = View.GONE
+                val (model, file) = parseAvatarModelAndFile(coverUriStr)
+                if (model != null && (file == null || file.exists())) {
+                    val coverKey = if (file != null && file.exists()) {
+                        "${file.absolutePath}_${file.lastModified()}"
+                    } else {
+                        coverUriStr
+                    }
+                    if (lastHeaderCoverKey == coverKey && iv.visibility == View.VISIBLE && iv.drawable != null) {
+                        return
+                    }
+                    lastHeaderCoverKey = coverKey
+                    iv.visibility = View.VISIBLE
+                    Glide.with(this)
+                        .load(model)
+                        .signature(ObjectKey(coverKey))
+                        .placeholder(iv.drawable)
+                        .centerCrop()
+                        .dontAnimate()
+                        .into(iv)
+                    return
+                }
             }
+            lastHeaderCoverKey = null
+            iv.visibility = View.GONE
         }
     }
 
@@ -703,7 +739,11 @@ class PersonInformationActivity : AppCompatActivity() {
         }
 
         if (history.isEmpty()) {
-            binding.ivPhotoCard.setImageDrawable(defaultAvatarDrawable())
+            val letterKey = "LETTER|$targetUsername"
+            if (lastHeaderPhotoKey != letterKey || binding.ivPhotoCard.drawable == null) {
+                lastHeaderPhotoKey = letterKey
+                binding.ivPhotoCard.setImageDrawable(defaultAvatarDrawable())
+            }
             animateAvatarCounterBadge(binding.tvAvatarCounter, 0, 0)
             avatarUriStr = null
             return
@@ -721,32 +761,52 @@ class PersonInformationActivity : AppCompatActivity() {
         val radiusPx = (14 * resources.displayMetrics.density).toInt()
         try {
             val (model, file) = parseAvatarModelAndFile(uriStr)
-            if (model != null) {
-                val signatureKey = ObjectKey(if (file != null && file.exists()) "${file.absolutePath}_${file.lastModified()}" else uriStr)
+            if (model != null && (file == null || file.exists())) {
+                val photoKey = if (file != null && file.exists()) "${file.absolutePath}_${file.lastModified()}" else uriStr
+                if (lastHeaderPhotoKey == photoKey && binding.ivPhotoCard.drawable != null) {
+                    return
+                }
+                lastHeaderPhotoKey = photoKey
+                val signatureKey = ObjectKey(photoKey)
                 val isGif = uriStr.lowercase().contains(".gif")
+                val existingDrawable = binding.ivPhotoCard.drawable
+                val fallbackDrawable = defaultAvatarDrawable()
 
                 if (isGif) {
-                    Glide.with(this)
+                    val req = Glide.with(this)
                         .asGif()
                         .load(model)
                         .centerCrop()
                         .signature(signatureKey)
-                        .transition(DrawableTransitionOptions.withCrossFade(300))
-                        .placeholder(defaultAvatarDrawable())
-                        .into(binding.ivPhotoCard)
+                        .placeholder(existingDrawable ?: fallbackDrawable)
+                        .error(fallbackDrawable)
+                    if (existingDrawable == null) {
+                        req.transition(DrawableTransitionOptions.withCrossFade(200)).into(binding.ivPhotoCard)
+                    } else {
+                        req.dontAnimate().into(binding.ivPhotoCard)
+                    }
                 } else {
-                    Glide.with(this)
+                    val req = Glide.with(this)
                         .load(model)
                         .transform(CenterCrop(), RoundedCorners(radiusPx))
                         .signature(signatureKey)
-                        .transition(DrawableTransitionOptions.withCrossFade(300))
-                        .placeholder(defaultAvatarDrawable())
-                        .into(binding.ivPhotoCard)
+                        .placeholder(existingDrawable ?: fallbackDrawable)
+                        .error(fallbackDrawable)
+                    if (existingDrawable == null) {
+                        req.transition(DrawableTransitionOptions.withCrossFade(200)).into(binding.ivPhotoCard)
+                    } else {
+                        req.dontAnimate().into(binding.ivPhotoCard)
+                    }
                 }
             } else {
-                binding.ivPhotoCard.setImageDrawable(defaultAvatarDrawable())
+                val letterKey = "LETTER|$targetUsername"
+                if (lastHeaderPhotoKey != letterKey || binding.ivPhotoCard.drawable == null) {
+                    lastHeaderPhotoKey = letterKey
+                    binding.ivPhotoCard.setImageDrawable(defaultAvatarDrawable())
+                }
             }
         } catch (_: Exception) {
+            lastHeaderPhotoKey = null
             binding.ivPhotoCard.setImageDrawable(defaultAvatarDrawable())
         }
     }
@@ -1062,15 +1122,21 @@ class PersonInformationActivity : AppCompatActivity() {
         val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
         val currentUser = sp.getString("current_user", "") ?: ""
         val myName = AvatarManager.getMyDisplayName(this)
-        val deletionPayload = "DELETE_CHAT:login=$currentUser;name=$myName;mac=${deviceAddress ?: ""}"
+        val deletionPayload = "DELETE_CHAT:login=$currentUser;name=$myName"
         val payloadBytes = deletionPayload.toByteArray(Charsets.UTF_8)
 
         try {
-            BluetoothConnectionManager.getInstance().broadcastPacket(8.toByte(), payloadBytes)
-            if (targetAddr.isNotEmpty()) {
+            val sentViaHolder = BluetoothSocketHolder.sendPacket(targetAddr, targetUsername, 8.toByte(), payloadBytes)
+            if (!sentViaHolder && targetAddr.isNotEmpty()) {
                 BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 8.toByte(), payloadBytes)
+            } else if (targetAddr.isNotEmpty() && !BluetoothConnectionManager.getInstance().isConnected(targetAddr) && targetUsername.isNotEmpty()) {
+                BluetoothConnectionManager.getInstance().sendPacket(targetUsername, 8.toByte(), payloadBytes)
             }
-            PrimeCompanionServer.broadcastPacket(8.toByte(), payloadBytes)
+            val isDesktop = targetAddr.equals("PrimeDesktop", ignoreCase = true) ||
+                AvatarManager.isDesktopContact(this, targetUsername, deviceAddress)
+            if (isDesktop) {
+                PrimeCompanionServer.broadcastPacket(8.toByte(), payloadBytes)
+            }
         } catch (_: Exception) {}
 
         Handler(Looper.getMainLooper()).postDelayed({
@@ -1100,21 +1166,21 @@ class PersonInformationActivity : AppCompatActivity() {
                 }
             }
             PrimeBluetoothService.cancelReconnect(this, targetAddr)
+            PrimeBluetoothService.cancelReconnect(this, targetUsername)
         } catch (_: Exception) {}
 
         // 2. Unbond / remove bond from Bluetooth adapter
         DeviceBindingManager.unbindDeviceSecurely(this, targetUsername, deviceAddress)
 
-        if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
-            PrimeBluetoothService.stopService(this)
-        }
-
         // 3. Complete cleanup of history, avatars, files, and SharedPreferences keys
         AvatarManager.clearContactAvatar(this, targetUsername, targetUsername, deviceAddress)
         ChatHistoryManager.deleteHistoryCompletely(this, targetUsername, deviceAddress)
+        PrimeNotification.cancelNotificationForUser(this, targetUsername, deviceAddress)
 
         val chatDeletedIntent = Intent("com.messenger.prime.CHAT_DELETED").apply {
             `package` = packageName
+            if (!deviceAddress.isNullOrEmpty()) putExtra("EXTRA_ADDRESS", deviceAddress)
+            putExtra("EXTRA_NAME", targetUsername)
         }
         sendBroadcast(chatDeletedIntent)
 

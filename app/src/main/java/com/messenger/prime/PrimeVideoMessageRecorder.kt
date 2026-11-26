@@ -6,7 +6,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Outline
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -34,8 +33,6 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import com.google.android.material.slider.RangeSlider
 import eightbitlab.com.blurview.BlurView
-import eightbitlab.com.blurview.RenderEffectBlur
-import eightbitlab.com.blurview.RenderScriptBlur
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -251,21 +248,10 @@ class PrimeVideoMessageRecorder(
                 val rootView = decorView.findViewById<ViewGroup>(android.R.id.content)
                 val windowBackground = decorView.background
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    bv.setupWith(rootView, RenderEffectBlur())
-                        .setFrameClearDrawable(windowBackground)
-                        .setBlurRadius(16f)
-                        .setBlurAutoUpdate(false)
-                } else {
-                    try {
-                        bv.setupWith(rootView, RenderScriptBlur(activity))
-                            .setFrameClearDrawable(windowBackground)
-                            .setBlurRadius(16f)
-                            .setBlurAutoUpdate(false)
-                    } catch (t: Throwable) {
-                        Log.e("PrimeVideo", "RenderScriptBlur unavailable", t)
-                    }
-                }
+                bv.setupWith(rootView, createSafeBlurAlgorithm(activity))
+                    .setFrameClearDrawable(windowBackground)
+                    .setBlurRadius(16f)
+                    .setBlurAutoUpdate(false)
             } catch (t: Throwable) {
                 Log.e("PrimeVideo", "BlurView setup failed", t)
             }

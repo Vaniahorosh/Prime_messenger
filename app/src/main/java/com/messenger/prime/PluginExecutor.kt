@@ -31,7 +31,10 @@ class AndroidPluginBridge(private val context: Context, private val pluginName: 
     @JavascriptInterface
     fun toast(message: String) {
         Handler(Looper.getMainLooper()).post {
-            PrimeNotification.show(context, "🔔 [$pluginName]: $message")
+            PrimeNotification.show(
+                context,
+                PrimeLocaleManager.getString(context, R.string.plugin_toast_format, pluginName, message)
+            )
         }
     }
 
@@ -81,7 +84,7 @@ class AndroidPluginBridge(private val context: Context, private val pluginName: 
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
             val clip = android.content.ClipData.newPlainText("Plugin Output", text)
             clipboard?.setPrimaryClip(clip)
-            toast("Скопировано: $text")
+            toast(PrimeLocaleManager.getString(context, R.string.plugin_copied_format, text))
         } catch (_: Exception) {}
     }
 
@@ -94,10 +97,10 @@ class AndroidPluginBridge(private val context: Context, private val pluginName: 
             if (conn.responseCode in 200..299) {
                 conn.inputStream.bufferedReader().use { it.readText() }
             } else {
-                "HTTP Error: ${conn.responseCode}"
+                PrimeLocaleManager.getString(context, R.string.plugin_http_error_format, conn.responseCode)
             }
         } catch (e: Exception) {
-            "Network Error: ${e.localizedMessage}"
+            PrimeLocaleManager.getString(context, R.string.plugin_network_error_format, e.localizedMessage ?: "")
         }
     }
 
@@ -152,8 +155,37 @@ class AndroidPluginBridge(private val context: Context, private val pluginName: 
     @JavascriptInterface
     fun deleteChat(address: String) {
         try {
-            ChatHistoryManager.deleteHistoryCompletely(context, address, ChatHistoryManager.getDisplayNameForAddress(context, address))
-            toast("Чат удален")
+            val displayName = ChatHistoryManager.getDisplayNameForAddress(context, address)
+            val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+            val currentUser = sp.getString("current_user", "") ?: ""
+            val myName = AvatarManager.getMyDisplayName(context)
+            val payload = "DELETE_CHAT:login=$currentUser;name=$myName".toByteArray(Charsets.UTF_8)
+            val sent = BluetoothSocketHolder.sendPacket(address, displayName, 8.toByte(), payload)
+            if (!sent) {
+                BluetoothConnectionManager.getInstance().sendPacket(address, 8.toByte(), payload)
+            }
+            if (address.equals("PrimeDesktop", ignoreCase = true) || AvatarManager.isDesktopContact(context, displayName, address)) {
+                PrimeCompanionServer.broadcastPacket(8.toByte(), payload)
+            }
+            Thread {
+                try { Thread.sleep(200) } catch (_: Exception) {}
+                BluetoothConnectionManager.getInstance().blockMacAddress(address, 0, "Chat deleted via plugin")
+                PrimeBluetoothService.cancelReconnect(context, address)
+                PrimeBluetoothService.cancelReconnect(context, displayName)
+                BluetoothConnectionManager.getInstance().disconnect(address)
+                BluetoothSocketHolder.removeConnection(address, displayName)
+                DeviceBindingManager.unbindDeviceSecurely(context, displayName, address)
+                AvatarManager.clearContactAvatar(context, displayName, displayName, address)
+                ChatHistoryManager.deleteHistoryCompletely(context, displayName, address)
+                PrimeNotification.cancelNotificationForUser(context, displayName, address)
+                val intent = Intent("com.messenger.prime.CHAT_DELETED").apply {
+                    `package` = context.packageName
+                    putExtra("EXTRA_ADDRESS", address)
+                    putExtra("EXTRA_NAME", displayName)
+                }
+                context.sendBroadcast(intent)
+            }.start()
+            toast(PrimeLocaleManager.getString(context, R.string.plugin_chat_deleted))
         } catch (_: Exception) {}
     }
 
@@ -161,7 +193,7 @@ class AndroidPluginBridge(private val context: Context, private val pluginName: 
     fun clearChat(address: String) {
         try {
             ChatHistoryManager.deleteHistory(context, address)
-            toast("История чата очищена")
+            toast(PrimeLocaleManager.getString(context, R.string.plugin_chat_cleared))
         } catch (_: Exception) {}
     }
 
@@ -170,7 +202,7 @@ class AndroidPluginBridge(private val context: Context, private val pluginName: 
         try {
             val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
             sp.edit().remove(ChatHistoryManager.getPersistedChatsKey(context)).apply()
-            toast("Все чаты удалены")
+            toast(PrimeLocaleManager.getString(context, R.string.plugin_all_chats_deleted))
             ChatListNotifier.notifyChanged()
         } catch (_: Exception) {}
     }
@@ -197,7 +229,10 @@ class AndroidPluginBridge(private val context: Context, private val pluginName: 
                 putExtra(Intent.EXTRA_TEXT, text)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            context.startActivity(Intent.createChooser(intent, "Поделиться...").apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+            context.startActivity(
+                Intent.createChooser(intent, PrimeLocaleManager.getString(context, R.string.plugin_share_chooser))
+                    .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+            )
         } catch (_: Exception) {}
     }
 
@@ -292,7 +327,7 @@ class AndroidPluginBridge(private val context: Context, private val pluginName: 
             process.waitFor()
             output.toString()
         } catch (e: Exception) {
-            "Error executing command: ${e.localizedMessage}"
+            PrimeLocaleManager.getString(context, R.string.plugin_cmd_error_format, e.localizedMessage ?: "")
         }
     }
 
@@ -369,7 +404,7 @@ object PluginExecutor {
         }
 
         if (code.isBlank()) {
-            return "❌ Ошибка: Содержимое плагина '${plugin.name}' пустое."
+            return PrimeLocaleManager.getString(context, R.string.plugin_err_empty_format, plugin.name)
         }
 
         return try {
@@ -382,10 +417,13 @@ object PluginExecutor {
                 "JSON" -> executeJsonPlugin(context, plugin, code)
                 else -> executeGenericPlugin(context, plugin, code, inputArgs)
             }
-            PrimeNotification.show(context, "⚡ Плагин '${plugin.name}' выполнен")
+            PrimeNotification.show(
+                context,
+                PrimeLocaleManager.getString(context, R.string.plugin_executed_toast_format, plugin.name)
+            )
             result
         } catch (e: Exception) {
-            "❌ Ошибка при выполнении плагина '${plugin.name}': ${e.localizedMessage}"
+            PrimeLocaleManager.getString(context, R.string.plugin_err_exec_format, plugin.name, e.localizedMessage ?: "")
         }
     }
 
@@ -403,33 +441,33 @@ object PluginExecutor {
         toastRegex.findAll(code).forEach { match ->
             val msg = match.groupValues[1]
             bridge.toast(msg)
-            outputs.add("Показано уведомление: \"$msg\"")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_toast_log, msg))
         }
 
         // 2. Navigation Actions
         if (code.contains("SettingsActivity") || code.contains("openSettings") || code.contains("open_settings")) {
             bridge.openSettings()
-            outputs.add("Открыты Настройки")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_open_settings))
         }
 
         if (code.contains("GlobalSearchActivity") || code.contains("openSearch") || code.contains("open_search")) {
             bridge.openSearch()
-            outputs.add("Открыт Глобальный поиск")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_open_search))
         }
 
         if (code.contains("MediaPlayerActivity") || code.contains("openMediaPlayer") || code.contains("open_media_player")) {
             bridge.openMediaPlayer()
-            outputs.add("Открыт Медиаплеер")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_open_player))
         }
 
         if (code.contains("WallpaperEditorActivity") || code.contains("openWallpaper") || code.contains("open_wallpaper_editor")) {
             bridge.openWallpaperEditor()
-            outputs.add("Открыт Редактор обоев")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_open_wallpaper))
         }
 
         if (code.contains("PersonInformationActivity") || code.contains("openProfile") || code.contains("open_profile")) {
             bridge.openProfile()
-            outputs.add("Открыт Профиль")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_open_profile))
         }
 
         // 3. Color Accent Changes
@@ -437,20 +475,20 @@ object PluginExecutor {
         colorRegex.find(code)?.let { match ->
             val hex = match.groupValues[1]
             bridge.setAccentColor(hex)
-            outputs.add("Цвет акцента изменен на $hex")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_color_set, hex))
         }
 
         // 4. Println / Return / Output extraction
         val printRegex = Regex("(?:System\\.out\\.println|println|return|log)\\s*\\(\\s*\"([^\"]+)\"")
         printRegex.findAll(code).forEach { match ->
-            outputs.add("Лог: ${match.groupValues[1]}")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_log, match.groupValues[1]))
         }
 
         if (outputs.isEmpty()) {
-            outputs.add("Код плагина (${code.length} символов) успешно обработан без ограничений.")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_processed, code.length))
         }
 
-        return "Результат выполнения '${plugin.name}':\n• " + outputs.joinToString("\n• ")
+        return PrimeLocaleManager.getString(context, R.string.plugin_java_result_header, plugin.name, outputs.joinToString("\n• "))
     }
 
     private fun executeJsPlugin(
@@ -459,7 +497,7 @@ object PluginExecutor {
         code: String,
         inputArgs: String
     ): String {
-        var jsResult = "JS плагин успешно выполнен."
+        var jsResult = PrimeLocaleManager.getString(context, R.string.plugin_js_default_ok)
         val handler = Handler(Looper.getMainLooper())
         handler.post {
             try {
@@ -488,13 +526,13 @@ object PluginExecutor {
                 """.trimIndent()
 
                 webView.evaluateJavascript(wrappedCode, ValueCallback { value ->
-                    jsResult = "JS Выполнение: $value"
+                    jsResult = PrimeLocaleManager.getString(context, R.string.plugin_js_exec_result, value ?: "")
                 })
             } catch (e: Exception) {
-                jsResult = "Ошибка JS: ${e.localizedMessage}"
+                jsResult = PrimeLocaleManager.getString(context, R.string.plugin_js_error, e.localizedMessage ?: "")
             }
         }
-        return "Результат JS плагина '${plugin.name}':\n• $jsResult"
+        return PrimeLocaleManager.getString(context, R.string.plugin_js_result_header, plugin.name, jsResult)
     }
 
     private fun executePythonPlugin(
@@ -508,31 +546,31 @@ object PluginExecutor {
 
         val printRegex = Regex("""print\s*\(\s*["']([^"']+)["']\s*\)""")
         printRegex.findAll(code).forEach { match ->
-            outputs.add("Python print: ${match.groupValues[1]}")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_py_print, match.groupValues[1]))
         }
 
         val toastRegex = Regex("""(?:toast|print_toast)\s*\(\s*["']([^"']+)["']\s*\)""")
         toastRegex.findAll(code).forEach { match ->
             val msg = match.groupValues[1]
             bridge.toast(msg)
-            outputs.add("Уведомление: \"$msg\"")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_py_toast, msg))
         }
 
         if (code.contains("open_settings") || code.contains("Settings")) {
             bridge.openSettings()
-            outputs.add("Открыты Настройки")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_open_settings))
         }
 
         if (code.contains("open_search") || code.contains("Search")) {
             bridge.openSearch()
-            outputs.add("Открыт Поиск")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_open_search))
         }
 
         if (outputs.isEmpty()) {
-            outputs.add("Скрипт Python (${code.length} символов) выполнен.")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_py_executed, code.length))
         }
 
-        return "Результат Python плагина '${plugin.name}':\n• " + outputs.joinToString("\n• ")
+        return PrimeLocaleManager.getString(context, R.string.plugin_py_result_header, plugin.name, outputs.joinToString("\n• "))
     }
 
     private fun executeHtmlPlugin(
@@ -563,16 +601,16 @@ object PluginExecutor {
 
                 PrimeBlurDialog.show(
                     activity = act,
-                    title = "Плагин HTML: ${plugin.name}",
+                    title = PrimeLocaleManager.getString(act, R.string.plugin_html_dialog_title, plugin.name),
                     customView = layout,
-                    positiveText = "Закрыть",
+                    positiveText = PrimeLocaleManager.getString(act, R.string.settings_close),
                     negativeText = null
                 )
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
-        return "HTML плагин '${plugin.name}' запущен с полным JS мостом Android."
+        return PrimeLocaleManager.getString(context, R.string.plugin_html_launched, plugin.name)
     }
 
     private fun executeShellPlugin(
@@ -586,13 +624,13 @@ object PluginExecutor {
             val trimmed = line.trim()
             if (trimmed.startsWith("echo ")) {
                 val msg = trimmed.removePrefix("echo ").removeSurrounding("\"", "'").trim()
-                outputs.add("Echo: $msg")
+                outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_sh_echo, msg))
             }
         }
         if (outputs.isEmpty()) {
-            outputs.add("Shell скрипт (${code.length} символов) выполнен.")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_sh_executed, code.length))
         }
-        return "Результат Shell плагина '${plugin.name}':\n• " + outputs.joinToString("\n• ")
+        return PrimeLocaleManager.getString(context, R.string.plugin_sh_result_header, plugin.name, outputs.joinToString("\n• "))
     }
 
     private fun executeJsonPlugin(context: Context, plugin: PluginItem, code: String): String {
@@ -606,32 +644,32 @@ object PluginExecutor {
 
             if (message.isNotBlank()) {
                 bridge.toast(message)
-                outputs.add("Сообщение: $message")
+                outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_json_message, message))
             }
 
             when (action.lowercase()) {
                 "open_settings" -> {
                     bridge.openSettings()
-                    outputs.add("Открыты Настройки")
+                    outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_open_settings))
                 }
                 "open_search" -> {
                     bridge.openSearch()
-                    outputs.add("Открыт Поиск")
+                    outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_open_search))
                 }
                 "open_media_player" -> {
                     bridge.openMediaPlayer()
-                    outputs.add("Открыт Плеер")
+                    outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_java_open_player))
                 }
             }
 
             if (color.isNotBlank()) {
                 bridge.setAccentColor(color)
-                outputs.add("Установлен цвет $color")
+                outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_json_color, color))
             }
         } catch (e: Exception) {
-            outputs.add("Ошибка чтения JSON: ${e.localizedMessage}")
+            outputs.add(PrimeLocaleManager.getString(context, R.string.plugin_json_error, e.localizedMessage ?: ""))
         }
-        return "Результат выполнения JSON плагина '${plugin.name}':\n• " + outputs.joinToString("\n• ")
+        return PrimeLocaleManager.getString(context, R.string.plugin_json_result_header, plugin.name, outputs.joinToString("\n• "))
     }
 
     private fun executeGenericPlugin(
@@ -640,6 +678,6 @@ object PluginExecutor {
         code: String,
         inputArgs: String
     ): String {
-        return "Плагин '${plugin.name}' (${plugin.fileType}) активирован без ограничений.\nДлина инструкций: ${code.length} символов."
+        return PrimeLocaleManager.getString(context, R.string.plugin_generic_activated, plugin.name, plugin.fileType, code.length)
     }
 }

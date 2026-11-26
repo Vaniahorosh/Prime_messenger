@@ -37,7 +37,7 @@
                         android:id="@+id/ivHeroAvatar"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:contentDescription="Аватар профиля"
+                        android:contentDescription="@string/settings_avatar_title"
                         android:scaleType="centerCrop"
                         android:visibility="gone" />
 
@@ -47,7 +47,7 @@
                         android:layout_height="match_parent"
                         android:fontFamily="sans-serif-medium"
                         android:gravity="center"
-                        android:text="Я"
+                        android:text="@string/settings_default_me"
                         android:textColor="@color/white"
                         android:textSize="24sp" />
                 </FrameLayout>
@@ -60,7 +60,7 @@
                     android:ellipsize="end"
                     android:fontFamily="sans-serif-medium"
                     android:maxLines="1"
-                    android:text="Я"
+                    android:text="@string/settings_default_me"
                     android:textColor="@color/prime_text_primary"
                     android:textSize="18sp" />
 
@@ -72,7 +72,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:paddingHorizontal="12dp"
                     android:paddingVertical="4dp"
-                    android:text="Локальный профиль"
+                    android:text="@string/settings_account_hero_badge"
                     android:textColor="@color/prime_text_secondary"
                     android:textSize="12sp" />
             </LinearLayout>
@@ -165,7 +165,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:fontFamily="sans-serif-medium"
-                                            android:text="Личные данные"
+                                            android:text="@string/settings_account_card_title"
                                             android:textColor="@color/prime_brand"
                                             android:textSize="16sp" />
 
@@ -173,7 +173,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:layout_marginTop="2dp"
-                                            android:text="Имя видно собеседникам, логин и пароль скрыты"
+                                            android:text="@string/settings_account_card_subtitle_secure"
                                             android:textColor="@color/prime_text_secondary"
                                             android:textSize="12sp" />
                                     </LinearLayout>
@@ -185,7 +185,7 @@
                                     android:layout_height="wrap_content"
                                     android:layout_marginBottom="6dp"
                                     android:fontFamily="sans-serif-medium"
-                                    android:text="Имя"
+                                    android:text="@string/settings_account_name_short"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="12sp" />
 
@@ -215,7 +215,7 @@
                                             android:layout_height="wrap_content"
                                             android:background="@android:color/transparent"
                                             android:fontFamily="sans-serif-medium"
-                                            android:hint="Введите имя"
+                                            android:hint="@string/settings_account_name_hint"
                                             android:imeOptions="actionNext"
                                             android:inputType="textPersonName"
                                             android:maxLength="32"
@@ -234,7 +234,7 @@
                                     android:layout_marginTop="14dp"
                                     android:layout_marginBottom="6dp"
                                     android:fontFamily="sans-serif-medium"
-                                    android:text="Логин"
+                                    android:text="@string/settings_account_login_label"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="12sp" />
 
@@ -267,7 +267,7 @@
                                             android:background="@android:color/transparent"
                                             android:digits="abcdefghijklmnopqrstuvwxyz0123456789_"
                                             android:fontFamily="sans-serif-medium"
-                                            android:hint="Введите логин"
+                                            android:hint="@string/settings_account_login_input_hint"
                                             android:imeOptions="actionNext"
                                             android:inputType="textPassword"
                                             android:maxLength="25"
@@ -286,7 +286,7 @@
                                     android:layout_marginTop="14dp"
                                     android:layout_marginBottom="6dp"
                                     android:fontFamily="sans-serif-medium"
-                                    android:text="Пароль"
+                                    android:text="@string/settings_account_password_label"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="12sp" />
 
@@ -317,7 +317,7 @@
                                             android:layout_height="wrap_content"
                                             android:background="@android:color/transparent"
                                             android:fontFamily="sans-serif-medium"
-                                            android:hint="Введите пароль"
+                                            android:hint="@string/settings_account_password_hint"
                                             android:imeOptions="actionDone"
                                             android:inputType="textPassword"
                                             android:maxLength="32"
@@ -336,7 +336,7 @@
                                     android:layout_marginTop="20dp"
                                     android:fontFamily="sans-serif-medium"
                                     android:stateListAnimator="@null"
-                                    android:text="Сохранить"
+                                    android:text="@string/action_save"
                                     android:textAllCaps="false"
                                     android:textColor="@color/white"
                                     android:visibility="gone"

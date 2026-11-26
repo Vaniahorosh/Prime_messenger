@@ -38,7 +38,7 @@
                         android:layout_width="30dp"
                         android:layout_height="30dp"
                         android:layout_gravity="center"
-                        android:contentDescription="Браузер"
+                        android:contentDescription="@string/settings_browser_title"
                         android:src="@drawable/ic_globe"
                         android:tag="do_not_tint"
                         app:tint="@color/prime_brand" />
@@ -51,7 +51,7 @@
                     android:layout_marginTop="10dp"
                     android:fontFamily="sans-serif-medium"
                     android:gravity="center"
-                    android:text="Встроенный браузер"
+                    android:text="@string/settings_browser_hero_in_app"
                     android:textColor="@color/prime_text_primary"
                     android:textSize="18sp" />
 
@@ -64,7 +64,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:paddingHorizontal="12dp"
                     android:paddingVertical="5dp"
-                    android:text="Поиск: Google • JS вкл • Куки вкл"
+                    android:text=""
                     android:textColor="@color/prime_text_secondary"
                     android:textSize="12sp" />
             </LinearLayout>
@@ -156,7 +156,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:fontFamily="sans-serif-medium"
-                                            android:text="Веб-браузер"
+                                            android:text="@string/settings_browser_card_web_title"
                                             android:textColor="@color/prime_brand"
                                             android:textSize="16sp" />
 
@@ -164,7 +164,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:layout_marginTop="2dp"
-                                            android:text="Открытие ссылок и поисковая система"
+                                            android:text="@string/settings_browser_card_subtitle"
                                             android:textColor="@color/prime_text_secondary"
                                             android:textSize="12sp" />
                                     </LinearLayout>
@@ -187,7 +187,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:fontFamily="sans-serif-medium"
-                                            android:text="Встроенный браузер"
+                                            android:text="@string/settings_browser_in_app_title"
                                             android:textColor="@color/prime_text_primary"
                                             android:textSize="15sp" />
 
@@ -195,7 +195,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:layout_marginTop="2dp"
-                                            android:text="Открывает ссылки внутри приложения"
+                                            android:text="@string/settings_browser_in_app_short_desc"
                                             android:textColor="@color/prime_text_secondary"
                                             android:textSize="12sp" />
                                     </LinearLayout>
@@ -226,7 +226,7 @@
                                         android:layout_height="wrap_content"
                                         android:layout_weight="1"
                                         android:fontFamily="sans-serif-medium"
-                                        android:text="Поисковая система"
+                                        android:text="@string/settings_browser_engine_title"
                                         android:textColor="@color/prime_text_primary"
                                         android:textSize="14sp" />
 
@@ -244,7 +244,7 @@
                                         android:layout_width="18dp"
                                         android:layout_height="18dp"
                                         android:layout_marginStart="6dp"
-                                        android:contentDescription="Выбрать поисковик"
+                                        android:contentDescription="@string/settings_browser_search_chevron_cd"
                                         android:src="@drawable/ic_expand_more"
                                         app:tint="@color/prime_text_secondary" />
                                 </LinearLayout>
@@ -294,7 +294,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:fontFamily="sans-serif-medium"
-                                            android:text="Параметры страниц"
+                                            android:text="@string/settings_browser_privacy_title"
                                             android:textColor="@color/prime_brand"
                                             android:textSize="16sp" />
 
@@ -302,7 +302,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:layout_marginTop="2dp"
-                                            android:text="Скрипты, авторизация и режим отображения"
+                                            android:text="@string/settings_browser_privacy_sub"
                                             android:textColor="@color/prime_text_secondary"
                                             android:textSize="12sp" />
                                     </LinearLayout>
@@ -324,7 +324,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:fontFamily="sans-serif-medium"
-                                            android:text="Включить JavaScript"
+                                            android:text="@string/settings_browser_js_title"
                                             android:textColor="@color/prime_text_primary"
                                             android:textSize="15sp" />
 
@@ -332,7 +332,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:layout_marginTop="2dp"
-                                            android:text="Необходимо для интерактивных сайтов"
+                                            android:text="@string/settings_browser_js_desc"
                                             android:textColor="@color/prime_text_secondary"
                                             android:textSize="12sp" />
                                     </LinearLayout>
@@ -366,7 +366,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:fontFamily="sans-serif-medium"
-                                            android:text="Сохранять кэш и куки"
+                                            android:text="@string/settings_browser_cookies_title"
                                             android:textColor="@color/prime_text_primary"
                                             android:textSize="15sp" />
 
@@ -374,7 +374,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:layout_marginTop="2dp"
-                                            android:text="Сохраняет авторизацию и ускоряет загрузку"
+                                            android:text="@string/settings_browser_cookies_desc"
                                             android:textColor="@color/prime_text_secondary"
                                             android:textSize="12sp" />
                                     </LinearLayout>
@@ -408,7 +408,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:fontFamily="sans-serif-medium"
-                                            android:text="Версия для ПК"
+                                            android:text="@string/settings_browser_desktop_title"
                                             android:textColor="@color/prime_text_primary"
                                             android:textSize="15sp" />
 
@@ -416,7 +416,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:layout_marginTop="2dp"
-                                            android:text="Открывать десктопные версии сайтов"
+                                            android:text="@string/settings_browser_desktop_short_desc"
                                             android:textColor="@color/prime_text_secondary"
                                             android:textSize="12sp" />
                                     </LinearLayout>
@@ -468,7 +468,7 @@
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
                                         android:fontFamily="sans-serif-medium"
-                                        android:text="Очистить кэш браузера"
+                                        android:text="@string/settings_browser_clear_cache_row_title"
                                         android:textColor="@color/prime_danger"
                                         android:textSize="15sp" />
 
@@ -476,7 +476,7 @@
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
                                         android:layout_marginTop="2dp"
-                                        android:text="Удалить сохраненные файлы, куки и историю"
+                                        android:text="@string/settings_browser_clear_cache_row_desc"
                                         android:textColor="@color/prime_text_secondary"
                                         android:textSize="12sp" />
                                 </LinearLayout>

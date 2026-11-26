@@ -245,9 +245,9 @@ object PluginManager {
     fun getPluginsSummaryForAi(context: Context): String {
         val enabled = getAllPlugins(context).filter { it.isEnabled }
         if (enabled.isEmpty()) {
-            return "Активных плагинов нет."
+            return PrimeLocaleManager.getString(context, R.string.plugin_ai_no_active)
         }
-        val sb = StringBuilder("Установленные и АКТИВНЫЕ плагины Prime Messenger (${enabled.size}):\n")
+        val sb = StringBuilder(PrimeLocaleManager.getString(context, R.string.plugin_ai_summary_header, enabled.size))
         enabled.forEachIndexed { idx, p ->
             var content = p.codeContent
             if (content.isBlank() && p.filePath.isNotBlank()) {
@@ -256,12 +256,12 @@ object PluginManager {
                     if (f.exists()) content = f.readText(Charsets.UTF_8)
                 } catch (_: Exception) {}
             }
-            sb.append("\n=== Плагин ${idx + 1}: ${p.name} [Тип: ${p.fileType}] ===\n")
+            sb.append(PrimeLocaleManager.getString(context, R.string.plugin_ai_section_start, idx + 1, p.name, p.fileType))
             if (content.isNotBlank()) {
                 sb.append(content)
-                sb.append("\n=== Конец плагина ${p.name} ===\n")
+                sb.append(PrimeLocaleManager.getString(context, R.string.plugin_ai_section_end, p.name))
             } else {
-                sb.append("(Содержимое файла пустое)\n")
+                sb.append(PrimeLocaleManager.getString(context, R.string.plugin_ai_section_empty))
             }
         }
         return sb.toString()
@@ -270,7 +270,7 @@ object PluginManager {
     fun runPlugin(context: Context, nameOrId: String, inputArgs: String = ""): String {
         val list = getAllPlugins(context)
         val plugin = list.find { it.id == nameOrId || it.name.equals(nameOrId, ignoreCase = true) || it.name.contains(nameOrId, ignoreCase = true) }
-            ?: return "❌ Ошибка: Плагин '$nameOrId' не найден."
+            ?: return PrimeLocaleManager.getString(context, R.string.plugin_not_found_format, nameOrId)
 
         return PluginExecutor.executePlugin(context, plugin, inputArgs)
     }

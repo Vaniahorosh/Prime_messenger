@@ -33,6 +33,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.doOnPreDraw
 import androidx.core.view.doOnLayout
 import androidx.core.view.isVisible
+import eightbitlab.com.blurview.BlurAlgorithm
 import eightbitlab.com.blurview.BlurView as EightBitBlurView
 import eightbitlab.com.blurview.RenderEffectBlur
 import eightbitlab.com.blurview.RenderScriptBlur
@@ -181,11 +182,7 @@ fun BlurView(
                                     setBlurEnabled(false)
                                     setBackgroundColor(overlayColorInt)
                                 } else {
-                                    val algorithm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                        RenderEffectBlur()
-                                    } else {
-                                        RenderScriptBlur(ctx)
-                                    }
+                                    val algorithm = createSafeBlurAlgorithm(ctx)
 
                                     setupWith(targetRootView, algorithm)
                                         .setBlurRadius(blurRadius.value)
@@ -296,11 +293,7 @@ fun EightBitBlurView.setupBlur(
                     rootView
                 }
 
-                val algorithm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    RenderEffectBlur()
-                } else {
-                    RenderScriptBlur(context)
-                }
+                val algorithm = createSafeBlurAlgorithm(context)
 
                 setBlurEnabled(true)
                 setupWith(targetRoot, algorithm)
@@ -379,6 +372,87 @@ object BlurViewHelper {
                 blurRadius = 16.dp,
                 tint = tint
             )
+        }
+    }
+}
+
+fun createSafeBlurAlgorithm(context: Context): BlurAlgorithm {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        SafeRenderEffectBlur()
+    } else {
+        SafeRenderScriptBlur(context)
+    }
+}
+
+@androidx.annotation.RequiresApi(Build.VERSION_CODES.S)
+private class SafeRenderEffectBlur : RenderEffectBlur() {
+    private val fallbackPaint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+
+    override fun render(canvas: Canvas, bitmap: android.graphics.Bitmap) {
+        if (canvas.isHardwareAccelerated) {
+            try {
+                super.render(canvas, bitmap)
+                return
+            } catch (_: Throwable) {
+            }
+        }
+        if (!bitmap.isRecycled) {
+            canvas.drawBitmap(bitmap, 0f, 0f, fallbackPaint)
+        }
+    }
+}
+
+@Suppress("DEPRECATION")
+private class SafeRenderScriptBlur(context: Context) : BlurAlgorithm {
+    private val appContext = context.applicationContext ?: context
+    private var delegate: RenderScriptBlur? = try {
+        RenderScriptBlur(appContext)
+    } catch (_: Throwable) {
+        null
+    }
+    private var rsFailed = delegate == null
+    private val fallbackPaint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+
+    override fun blur(bitmap: android.graphics.Bitmap, blurRadius: Float): android.graphics.Bitmap {
+        if (!rsFailed) {
+            try {
+                return delegate?.blur(bitmap, blurRadius) ?: bitmap
+            } catch (_: Throwable) {
+                rsFailed = true
+                try {
+                    delegate?.destroy()
+                } catch (_: Throwable) {}
+                delegate = null
+            }
+        }
+        return bitmap
+    }
+
+    override fun destroy() {
+        try {
+            delegate?.destroy()
+        } catch (_: Throwable) {}
+        delegate = null
+    }
+
+    override fun canModifyBitmap(): Boolean = true
+
+    override fun getSupportedBitmapConfig(): android.graphics.Bitmap.Config =
+        android.graphics.Bitmap.Config.ARGB_8888
+
+    override fun scaleFactor(): Float = 6.0f
+
+    override fun render(canvas: Canvas, bitmap: android.graphics.Bitmap) {
+        if (!rsFailed) {
+            try {
+                delegate?.render(canvas, bitmap)
+                return
+            } catch (_: Throwable) {
+                rsFailed = true
+            }
+        }
+        if (!bitmap.isRecycled) {
+            canvas.drawBitmap(bitmap, 0f, 0f, fallbackPaint)
         }
     }
 }

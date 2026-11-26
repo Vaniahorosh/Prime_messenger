@@ -11,6 +11,8 @@ import java.io.DataOutputStream
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 object PrimeCompanionServer {
     private const val TAG = "PrimeCompanionServer"
@@ -20,6 +22,8 @@ object PrimeCompanionServer {
     private val clientSockets = CopyOnWriteArrayList<Socket>()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val packetListeners = CopyOnWriteArrayList<(type: Byte, payload: ByteArray) -> Unit>()
+    @Volatile
+    private var writeExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
     @JvmStatic
     fun addPacketListener(listener: (type: Byte, payload: ByteArray) -> Unit) {
@@ -96,8 +100,16 @@ object PrimeCompanionServer {
     fun hasConnectedClients(): Boolean = clientSockets.any { it.isConnected && !it.isClosed }
 
     fun broadcastPacket(type: Byte, payload: ByteArray) {
-        Thread {
+        if (clientSockets.isEmpty()) return
+        if (writeExecutor.isShutdown) {
+            writeExecutor = Executors.newSingleThreadExecutor()
+        }
+        writeExecutor.execute {
             for (s in clientSockets) {
+                if (s.isClosed || !s.isConnected) {
+                    clientSockets.remove(s)
+                    continue
+                }
                 try {
                     val out = DataOutputStream(s.getOutputStream())
                     out.writeByte(type.toInt())
@@ -106,9 +118,10 @@ object PrimeCompanionServer {
                     out.flush()
                 } catch (e: Exception) {
                     clientSockets.remove(s)
+                    try { s.close() } catch (_: Exception) {}
                 }
             }
-        }.start()
+        }
     }
 
     fun stop() {
@@ -116,6 +129,7 @@ object PrimeCompanionServer {
         try { serverSocket?.close() } catch (ignored: Exception) {}
         clientSockets.forEach { try { it.close() } catch (ignored: Exception) {} }
         clientSockets.clear()
+        writeExecutor.shutdownNow()
     }
 
 

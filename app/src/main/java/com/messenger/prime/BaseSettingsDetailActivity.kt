@@ -105,7 +105,7 @@ abstract class BaseSettingsDetailActivity : AppCompatActivity() {
             if (heroOverlay != null) {
                 val toolbarHeight = marginTarget?.height?.takeIf { it > 0 } ?: (52 * density).toInt()
                 val topPad = latestTopMargin + toolbarHeight + (8 * density).toInt()
-                val bottomPad = (28 * density).toInt()
+                val bottomPad = (24 * density).toInt()
                 if (heroOverlay.paddingTop != topPad || heroOverlay.paddingBottom != bottomPad) {
                     heroOverlay.updatePadding(top = topPad, bottom = bottomPad)
                 }
@@ -113,7 +113,7 @@ abstract class BaseSettingsDetailActivity : AppCompatActivity() {
         }
 
         syncHeroOverlayPadding()
-        scrollView.updatePadding(top = (16 * density).toInt(), bottom = (28 * density).toInt())
+        scrollView.updatePadding(top = (16 * density).toInt(), bottom = (24 * density).toInt())
 
         marginTarget?.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             syncHeroOverlayPadding()
@@ -150,7 +150,7 @@ abstract class BaseSettingsDetailActivity : AppCompatActivity() {
             val bottomInset = maxOf(systemBars.bottom, cutout.bottom, ime.bottom)
             scrollView.updatePadding(
                 top = (16 * density).toInt(),
-                bottom = bottomInset + (28 * density).toInt()
+                bottom = bottomInset + (24 * density).toInt()
             )
             syncHeroOverlayPadding()
             insets

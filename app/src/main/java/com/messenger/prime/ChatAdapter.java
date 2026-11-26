@@ -963,6 +963,22 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     }
                 }
                 return;
+            } else if (payloads.contains("RESUME_VIDEO_PREVIEW")) {
+                if (position >= 0 && position < messages.size()) {
+                    ChatMessage message = messages.get(position);
+                    List<ChatMessage.MediaItem> items = message.getMediaItems();
+                    if (items.size() == 1 && items.get(0).isVideo && !message.isSticker() && !message.isVideoNote()) {
+                        View layoutSingleMedia = holder.itemView.findViewById(R.id.layoutSingleMedia);
+                        ImageView ivImage = holder.itemView.findViewById(R.id.ivMessageImage);
+                        com.messenger.prime.TextureVideoView vv = holder.itemView.findViewById(R.id.videoMessagePreview);
+                        ImageView ivPlay = holder.itemView.findViewById(R.id.ivVideoPlayBadge);
+                        TextView tvDur = holder.itemView.findViewById(R.id.tvVideoDuration);
+                        if (layoutSingleMedia != null && layoutSingleMedia.getVisibility() == View.VISIBLE && vv != null) {
+                            startSingleVideoLivePreview(layoutSingleMedia, items.get(0), ivImage, vv, ivPlay, tvDur, false);
+                        }
+                    }
+                }
+                return;
             }
         }
         super.onBindViewHolder(holder, position, payloads);
@@ -1042,17 +1058,32 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (holder == null) return;
 
         com.messenger.prime.TextureVideoView vv = null;
+        ImageView ivImage = null;
+        TextView tvDur = null;
         if (holder instanceof IncomingViewHolder) {
             vv = ((IncomingViewHolder) holder).videoMessagePreview;
+            ivImage = ((IncomingViewHolder) holder).ivMessageImage;
+            tvDur = ((IncomingViewHolder) holder).tvVideoDuration;
         } else if (holder instanceof OutgoingViewHolder) {
             vv = ((OutgoingViewHolder) holder).videoMessagePreview;
+            ivImage = ((OutgoingViewHolder) holder).ivMessageImage;
+            tvDur = ((OutgoingViewHolder) holder).tvVideoDuration;
         }
         if (vv != null) {
             vv.removeCallbacks(null);
+            vv.setOnProgressUpdateListener(null);
+            vv.setOnFirstFrameRenderedListener(null);
+            vv.setOnPlaybackErrorListener(null);
             try {
                 vv.stopPlayback();
                 vv.setVisibility(View.GONE);
             } catch (Exception ignored) {}
+        }
+        if (ivImage != null && ivImage.getVisibility() == View.INVISIBLE) {
+            ivImage.setVisibility(View.VISIBLE);
+        }
+        if (tvDur != null && tvDur.getTag() instanceof String) {
+            tvDur.setText((String) tvDur.getTag());
         }
 
         com.messenger.prime.TextureVideoView vvNote = holder.itemView.findViewById(R.id.vvVideoNotePlayer);
@@ -1079,6 +1110,26 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
         currentlyPlayingVideoNote = null;
         currentlyPlayingPosition = -1;
+    }
+
+    public void resumeVisibleVideoPreviews(RecyclerView recyclerView) {
+        if (recyclerView == null || isScrolling) return;
+        for (int i = 0; i < recyclerView.getChildCount(); i++) {
+            View child = recyclerView.getChildAt(i);
+            RecyclerView.ViewHolder vh = recyclerView.getChildViewHolder(child);
+            if (vh != null) {
+                int pos = vh.getAdapterPosition();
+                if (pos >= 0 && pos < messages.size()) {
+                    ChatMessage msg = messages.get(pos);
+                    if (msg != null && !msg.isSticker() && !msg.isVideoNote() && !msg.isFile() && !msg.isMusic()) {
+                        List<ChatMessage.MediaItem> items = msg.getMediaItems();
+                        if (items.size() == 1 && items.get(0).isVideo) {
+                            notifyItemChanged(pos, "RESUME_VIDEO_PREVIEW");
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public ChatMessage getMessageAt(int position) {
@@ -2832,25 +2883,17 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (img != null) {
                 img.setVisibility(View.VISIBLE);
             }
-            if (play != null) {
-                play.setVisibility(View.GONE);
-            }
+            String staticDur = (item.durationStr != null && !item.durationStr.isEmpty()) ? item.durationStr : "00:00";
             if (dur != null) {
                 dur.setVisibility(View.VISIBLE);
-                dur.setElevation(20f);
+                dur.setElevation(24f);
                 dur.bringToFront();
-                if (item.durationStr != null && !item.durationStr.isEmpty()) {
-                    dur.setText(item.durationStr);
-                }
+                dur.setTag(staticDur);
+                dur.setText(staticDur);
             }
 
-            if (vv != null) {
-                vv.removeCallbacks(null);
-                try { vv.stopPlayback(); } catch (Exception ignored) {}
-                vv.setVisibility(View.GONE);
-            }
-
-            loadVideoThumbnailIntoView(container.getContext(), item.path, img, vv, isScrolling);
+            loadVideoThumbnailIntoView(container.getContext(), item.path, img, null, isScrolling);
+            startSingleVideoLivePreview(container, item, img, vv, play, dur, isScrolling);
         } else {
             if (vv != null) {
                 vv.removeCallbacks(null);
@@ -2932,6 +2975,98 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (dur != null) setupSingleTapMediaOpener(dur, message, messages);
             if (play != null) setupSingleTapMediaOpener(play, message, messages);
         }
+    }
+
+    private static String formatVideoTimeMs(int ms) {
+        int totalSec = Math.max(0, ms / 1000);
+        return String.format(Locale.US, "%02d:%02d", totalSec / 60, totalSec % 60);
+    }
+
+    private static boolean isPlayableMediaPath(String p) {
+        if (p == null || p.isEmpty()) return false;
+        if (p.startsWith("content://") || p.startsWith("http://") || p.startsWith("https://")) return true;
+        if (p.startsWith("file://")) {
+            String clean = Uri.parse(p).getPath();
+            return clean != null && new File(clean).exists();
+        }
+        return new File(p).exists();
+    }
+
+    private void startSingleVideoLivePreview(
+            View container,
+            ChatMessage.MediaItem item,
+            ImageView img,
+            com.messenger.prime.TextureVideoView vv,
+            ImageView play,
+            TextView dur,
+            boolean currentlyScrolling
+    ) {
+        if (vv == null || item == null) return;
+        String staticDur = (item.durationStr != null && !item.durationStr.isEmpty()) ? item.durationStr : "00:00";
+        boolean isPlayable = isPlayableMediaPath(item.path);
+
+        if (!isPlayable || currentlyScrolling) {
+            vv.removeCallbacks(null);
+            vv.setOnProgressUpdateListener(null);
+            vv.setOnFirstFrameRenderedListener(null);
+            vv.setOnPlaybackErrorListener(null);
+            try { vv.stopPlayback(); } catch (Exception ignored) {}
+            vv.setVisibility(View.GONE);
+            if (img != null) img.setVisibility(View.VISIBLE);
+            if (play != null) play.setVisibility(isPlayable ? View.GONE : View.VISIBLE);
+            if (dur != null) dur.setText(staticDur);
+            return;
+        }
+
+        if (play != null) play.setVisibility(View.GONE);
+
+        float density = container.getContext().getResources().getDisplayMetrics().density;
+        float cornerRadiusPx = 14f * density;
+        android.view.ViewOutlineProvider clipProvider = new android.view.ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, android.graphics.Outline outline) {
+                int w = view.getWidth() > 0 ? view.getWidth() : Math.max(1, container.getWidth());
+                int h = view.getHeight() > 0 ? view.getHeight() : Math.max(1, container.getHeight());
+                outline.setRoundRect(0, 0, w, h, cornerRadiusPx);
+            }
+        };
+        vv.setOutlineProvider(clipProvider);
+        vv.setClipToOutline(true);
+        vv.invalidateOutline();
+
+        vv.isMuted = true;
+        vv.loopDurationMs = -1;
+        vv.autoPlayOnPrepared = true;
+        vv.setOnFirstFrameRenderedListener(() -> {
+            if (img != null) img.setVisibility(View.INVISIBLE);
+            if (play != null) play.setVisibility(View.GONE);
+            if (dur != null) {
+                dur.setElevation(24f);
+                dur.bringToFront();
+            }
+        });
+        vv.setOnPlaybackErrorListener((what, extra) -> {
+            vv.setVisibility(View.GONE);
+            if (img != null) img.setVisibility(View.VISIBLE);
+            if (play != null) play.setVisibility(View.VISIBLE);
+            if (dur != null) dur.setText(staticDur);
+        });
+        vv.setOnProgressUpdateListener((curMs, totalMs) -> {
+            if (dur != null) {
+                String totalStr = totalMs > 0 ? formatVideoTimeMs(totalMs) : staticDur;
+                String nextText = formatVideoTimeMs(curMs) + " / " + totalStr;
+                CharSequence prev = dur.getText();
+                if (prev == null || !nextText.equals(prev.toString())) {
+                    dur.setText(nextText);
+                }
+            }
+        });
+        vv.setVisibility(View.VISIBLE);
+        if (dur != null) {
+            dur.setElevation(24f);
+            dur.bringToFront();
+        }
+        vv.setVideoPath(item.path);
     }
 
     private void bindGridMediaItems(List<ChatMessage.MediaItem> items, View container, ChatMessage message) {
@@ -3070,21 +3205,20 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         public void onBindViewHolder(@NonNull SliderViewHolder holder, int position) {
             ChatMessage.MediaItem item = items.get(position);
             if (item.isVideo) {
+                String staticDur = item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "00:00";
                 holder.ivSliderPlayBadge.setVisibility(View.VISIBLE);
                 holder.tvSliderVideoDuration.setVisibility(View.VISIBLE);
-                holder.tvSliderVideoDuration.setText(item.durationStr != null && !item.durationStr.isEmpty() ? item.durationStr : "00:00");
+                holder.tvSliderVideoDuration.setElevation(24f);
+                holder.tvSliderVideoDuration.bringToFront();
+                holder.tvSliderVideoDuration.setTag(staticDur);
+                holder.tvSliderVideoDuration.setText(staticDur);
 
                 if (holder.ivSliderImage != null) holder.ivSliderImage.setVisibility(View.VISIBLE);
                 loadVideoThumbnailIntoView(holder.itemView.getContext(), item.path, holder.ivSliderImage, null);
 
                 if (holder.vvSliderVideoPreview != null) {
                     String p = item.path;
-                    boolean isPlayable = p != null && !p.isEmpty() && (
-                        p.startsWith("content://") || 
-                        p.startsWith("http://") || 
-                        p.startsWith("https://") || 
-                        (p.startsWith("file://") ? new File(p.substring(7)).exists() : new File(p).exists())
-                    );
+                    boolean isPlayable = isPlayableMediaPath(p);
 
                     if (isPlayable) {
                         float density = holder.itemView.getContext().getResources().getDisplayMetrics().density;
@@ -3092,7 +3226,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         android.view.ViewOutlineProvider clipProvider = new android.view.ViewOutlineProvider() {
                             @Override
                             public void getOutline(View view, android.graphics.Outline outline) {
-                                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), cornerRadiusPx);
+                                int w = view.getWidth() > 0 ? view.getWidth() : Math.max(1, holder.itemView.getWidth());
+                                int h = view.getHeight() > 0 ? view.getHeight() : Math.max(1, holder.itemView.getHeight());
+                                outline.setRoundRect(0, 0, w, h, cornerRadiusPx);
                             }
                         };
                         holder.vvSliderVideoPreview.setOutlineProvider(clipProvider);
@@ -3106,16 +3242,37 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                             if (holder.ivSliderImage != null) {
                                 holder.ivSliderImage.setVisibility(View.INVISIBLE);
                             }
+                            holder.ivSliderPlayBadge.setVisibility(View.GONE);
+                        });
+                        holder.vvSliderVideoPreview.setOnPlaybackErrorListener((what, extra) -> {
+                            holder.vvSliderVideoPreview.setVisibility(View.GONE);
+                            if (holder.ivSliderImage != null) holder.ivSliderImage.setVisibility(View.VISIBLE);
+                            holder.ivSliderPlayBadge.setVisibility(View.VISIBLE);
+                            holder.tvSliderVideoDuration.setText(staticDur);
+                        });
+                        holder.vvSliderVideoPreview.setOnProgressUpdateListener((curMs, totalMs) -> {
+                            String totalStr = totalMs > 0 ? formatVideoTimeMs(totalMs) : staticDur;
+                            String nextText = formatVideoTimeMs(curMs) + " / " + totalStr;
+                            CharSequence prev = holder.tvSliderVideoDuration.getText();
+                            if (prev == null || !nextText.equals(prev.toString())) {
+                                holder.tvSliderVideoDuration.setText(nextText);
+                            }
                         });
                         holder.vvSliderVideoPreview.setVisibility(View.VISIBLE);
                         holder.vvSliderVideoPreview.setVideoPath(p);
                     } else {
+                        holder.vvSliderVideoPreview.setOnProgressUpdateListener(null);
+                        holder.vvSliderVideoPreview.setOnFirstFrameRenderedListener(null);
+                        holder.vvSliderVideoPreview.setOnPlaybackErrorListener(null);
                         try { holder.vvSliderVideoPreview.stopPlayback(); } catch (Exception ignored) {}
                         holder.vvSliderVideoPreview.setVisibility(View.GONE);
                     }
                 }
             } else {
                 if (holder.vvSliderVideoPreview != null) {
+                    holder.vvSliderVideoPreview.setOnProgressUpdateListener(null);
+                    holder.vvSliderVideoPreview.setOnFirstFrameRenderedListener(null);
+                    holder.vvSliderVideoPreview.setOnPlaybackErrorListener(null);
                     try { holder.vvSliderVideoPreview.stopPlayback(); } catch (Exception ignored) {}
                     holder.vvSliderVideoPreview.setVisibility(View.GONE);
                 }
@@ -3131,6 +3288,22 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     clickListener.onItemClick(item, pos != RecyclerView.NO_POSITION ? pos : holder.getLayoutPosition());
                 }
             });
+        }
+
+        @Override
+        public void onViewRecycled(@NonNull SliderViewHolder holder) {
+            super.onViewRecycled(holder);
+            if (holder.vvSliderVideoPreview != null) {
+                holder.vvSliderVideoPreview.setOnProgressUpdateListener(null);
+                holder.vvSliderVideoPreview.setOnFirstFrameRenderedListener(null);
+                holder.vvSliderVideoPreview.setOnPlaybackErrorListener(null);
+                try { holder.vvSliderVideoPreview.stopPlayback(); } catch (Exception ignored) {}
+                holder.vvSliderVideoPreview.setVisibility(View.GONE);
+            }
+            if (holder.ivSliderImage != null) holder.ivSliderImage.setVisibility(View.VISIBLE);
+            if (holder.tvSliderVideoDuration.getTag() instanceof String) {
+                holder.tvSliderVideoDuration.setText((String) holder.tvSliderVideoDuration.getTag());
+            }
         }
 
         @Override

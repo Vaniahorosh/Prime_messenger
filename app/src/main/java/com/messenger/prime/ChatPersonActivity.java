@@ -221,6 +221,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private kotlin.jvm.functions.Function2<Byte, byte[], kotlin.Unit> companionPacketListener;
     private static final byte TYPE_PROFILE_UPDATE = 0x0F;
     private static final byte TYPE_SYNC_DELETIONS = 0x10;
+    private static final byte TYPE_COVER = 0x11;
 
     private static class PendingMessage {
         byte type;
@@ -871,7 +872,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private final SharedPreferences.OnSharedPreferenceChangeListener profileChangeListener = (sharedPreferences, key) -> {
         try {
             String currentUser = sharedPreferences.getString("current_user", "");
-            if (key != null && (key.equals("my_name") || key.equals("my_avatar") || key.equals("my_local_name") || key.equals("my_local_avatar") || key.equals("current_user_name") || key.equals(currentUser + "_name") || key.equals(currentUser + "_avatar"))) {
+            if (key != null && (key.equals("my_name") || key.equals("my_avatar") || key.equals("my_profile_cover") || key.equals("my_local_name") || key.equals("my_local_avatar") || key.equals("current_user_name") || key.equals(currentUser + "_name") || key.equals(currentUser + "_avatar") || key.equals(currentUser + "_cover"))) {
                 reloadLocalProfileFromSettings();
                 if (isConnectionActive()) {
                     long now = System.currentTimeMillis();
@@ -879,6 +880,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     String handshake = "HANDSHAKE:login=" + currentUser + ";name=" + localUsername + ";version=" + getAppVersionCode(getApplicationContext()) + ";platform=android;features=vn;presence=" + myPresence;
                     sendPacket(TYPE_TEXT, handshake.getBytes(StandardCharsets.UTF_8));
                     sendLocalAvatar(true);
+                    sendLocalCover(true);
                 }
             }
         } catch (Exception e) {
@@ -2207,7 +2209,11 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
                 super.onScrollStateChanged(recyclerView, newState);
                 if (chatAdapter != null) {
-                    chatAdapter.setScrolling(newState != RecyclerView.SCROLL_STATE_IDLE);
+                    boolean scrolling = newState != RecyclerView.SCROLL_STATE_IDLE;
+                    chatAdapter.setScrolling(scrolling);
+                    if (!scrolling) {
+                        chatAdapter.resumeVisibleVideoPreviews(recyclerView);
+                    }
                 }
             }
 
@@ -2825,6 +2831,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         }
                         updateInputVisibility(true);
                         sendLocalAvatar();
+                        sendLocalCover();
                         flushPendingMessages();
                         sendReadReceiptsForUnreadMessages();
                         syncDeletionsWithPeer();
@@ -2946,30 +2953,63 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         }
                         break;
                     case MESSAGE_CHAT_DELETED:
+                        boolean wasAlreadyHandled = isChatDeleted;
                         isChatDeleted = true;
-                        String deletedByName = (msg.obj instanceof String) ? (String) msg.obj : targetUsername;
-                        PrimeNotification.INSTANCE.show(ChatPersonActivity.this, deletedByName + " полностью удалил(а) переписку!", null);
-                        
-                        Intent chatDeletedIntent = new Intent("com.messenger.prime.CHAT_DELETED").setPackage(getPackageName());
-                        sendBroadcast(chatDeletedIntent);
+                        String deletedByName = targetUsername;
+                        String deletedByLogin = null;
+                        if (msg.obj instanceof byte[]) {
+                            String rawPayload = new String((byte[]) msg.obj, StandardCharsets.UTF_8);
+                            if (rawPayload.startsWith("DELETE_CHAT:")) {
+                                for (String p : rawPayload.substring(12).split(";")) {
+                                    if (p.startsWith("name=")) deletedByName = p.substring(5);
+                                    else if (p.startsWith("login=")) deletedByLogin = p.substring(6);
+                                }
+                            }
+                        } else if (msg.obj instanceof String) {
+                            String s = (String) msg.obj;
+                            if (s.startsWith("DELETE_CHAT:")) {
+                                for (String p : s.substring(12).split(";")) {
+                                    if (p.startsWith("name=")) deletedByName = p.substring(5);
+                                    else if (p.startsWith("login=")) deletedByLogin = p.substring(6);
+                                }
+                            } else if (!s.isEmpty()) {
+                                deletedByName = s;
+                            }
+                        }
+                        if (!wasAlreadyHandled) {
+                            PrimeNotification.INSTANCE.show(ChatPersonActivity.this, deletedByName + " полностью удалил(а) переписку!", null);
+                        }
 
-                        try {
-                            BluetoothConnectionManager.getInstance().disconnect(resolveTargetAddress());
-                        } catch (Exception ignored) {}
+                        String resolvedAddr = resolveTargetAddress();
+                        if (resolvedAddr != null && !resolvedAddr.isEmpty()) {
+                            BluetoothConnectionManager.getInstance().blockMacAddress(resolvedAddr, 0, "Chat deleted");
+                            PrimeBluetoothService.cancelReconnect(ChatPersonActivity.this, resolvedAddr);
+                            BluetoothConnectionManager.getInstance().disconnect(resolvedAddr);
+                        }
+                        if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                            BluetoothConnectionManager.getInstance().blockMacAddress(deviceAddress, 0, "Chat deleted");
+                            PrimeBluetoothService.cancelReconnect(ChatPersonActivity.this, deviceAddress);
+                            BluetoothConnectionManager.getInstance().disconnect(deviceAddress);
+                        }
+                        PrimeBluetoothService.cancelReconnect(ChatPersonActivity.this, targetUsername);
 
                         BluetoothSocketHolder.removeConnection(deviceAddress, targetUsername);
-                        if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
-                            PrimeBluetoothService.stopService(ChatPersonActivity.this);
+                        DeviceBindingManager.unbindDeviceSecurely(ChatPersonActivity.this, targetUsername, deviceAddress);
+                        AvatarManager.clearContactAvatar(ChatPersonActivity.this, targetUsername, deletedByName, deviceAddress);
+                        if (deletedByLogin != null && !deletedByLogin.isEmpty()) {
+                            ChatHistoryManager.deleteHistoryCompletely(ChatPersonActivity.this, deletedByLogin, deviceAddress);
+                            deleteChatFromChatListEx(deletedByLogin);
                         }
                         ChatHistoryManager.deleteHistoryCompletely(ChatPersonActivity.this, deletedByName, deviceAddress);
                         ChatHistoryManager.deleteHistoryCompletely(ChatPersonActivity.this, targetUsername, deviceAddress);
                         deleteChatFromChatListEx(deletedByName);
                         deleteChatFromChatListEx(targetUsername);
+                        PrimeNotification.cancelNotificationForUser(ChatPersonActivity.this, targetUsername, deviceAddress);
 
-                        if (deviceAddress != null && !deviceAddress.isEmpty()) {
-                            BluetoothConnectionManager.getInstance().blockMacAddress(deviceAddress, 0, "Chat deleted");
-                            BluetoothConnectionManager.getInstance().disconnect(deviceAddress);
-                        }
+                        Intent chatDeletedIntent = new Intent("com.messenger.prime.CHAT_DELETED").setPackage(getPackageName());
+                        if (deviceAddress != null) chatDeletedIntent.putExtra("EXTRA_ADDRESS", deviceAddress);
+                        if (targetUsername != null) chatDeletedIntent.putExtra("EXTRA_NAME", targetUsername);
+                        sendBroadcast(chatDeletedIntent);
 
                         new Handler(Looper.getMainLooper()).postDelayed(ChatPersonActivity.this::finish, 500L);
                         break;
@@ -3212,6 +3252,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             setOnlineStatusIndicator(true);
             updateInputVisibility(true);
             sendLocalAvatar();
+            sendLocalCover();
             flushPendingMessages();
         } else {
             updateInputVisibility(false);
@@ -3376,8 +3417,24 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 isManuallyDisconnected = true;
                 disconnectCurrentChat();
             } else if ("com.messenger.prime.CHAT_DELETED".equals(action)) {
-                isChatDeleted = true;
-                finish();
+                String delAddr = intent.getStringExtra("EXTRA_ADDRESS");
+                String delName = intent.getStringExtra("EXTRA_NAME");
+                String delLogin = intent.getStringExtra("EXTRA_LOGIN");
+                boolean fromPeer = intent.getBooleanExtra("EXTRA_FROM_PEER", false);
+                boolean hasSpecificTarget = (delAddr != null && !delAddr.isEmpty()) ||
+                        (delName != null && !delName.isEmpty()) ||
+                        (delLogin != null && !delLogin.isEmpty());
+                boolean isThisChat = !hasSpecificTarget ||
+                        (deviceAddress != null && (deviceAddress.equalsIgnoreCase(delAddr) || deviceAddress.equalsIgnoreCase(delName))) ||
+                        (targetUsername != null && (targetUsername.equalsIgnoreCase(delName) || targetUsername.equalsIgnoreCase(delLogin) || targetUsername.equalsIgnoreCase(delAddr)));
+                if (isThisChat) {
+                    boolean wasDeleted = isChatDeleted;
+                    isChatDeleted = true;
+                    if (fromPeer && !wasDeleted) {
+                        PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Собеседник удалил этот чат", null);
+                    }
+                    finish();
+                }
             } else if ("com.messenger.prime.AVATAR_CHANGED".equals(action) || "com.messenger.prime.NAME_CHANGED".equals(action) || "com.messenger.prime.ACCENT_CHANGED".equals(action) || "com.messenger.prime.THEME_CHANGED".equals(action) || "com.messenger.prime.BUBBLE_RADIUS_CHANGED".equals(action) || "com.messenger.prime.AVATAR_RADIUS_CHANGED".equals(action) || "com.messenger.prime.WALLPAPER_CHANGED".equals(action) || "com.messenger.prime.CHAT_UI_RADIUS_CHANGED".equals(action) || "com.messenger.prime.NAV_STYLE_CHANGED".equals(action)) {
                 applyChatUiCornerRadius();
                 reloadLocalProfileFromSettings();
@@ -3402,7 +3459,9 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     wallpaperView.refreshWallpaper();
                 }
                 applyAccentToChatUi();
-                if (chatAdapter != null) chatAdapter.notifyDataSetChanged();
+                if (chatAdapter != null && !"com.messenger.prime.AVATAR_CHANGED".equals(action) && !"com.messenger.prime.NAME_CHANGED".equals(action)) {
+                    chatAdapter.notifyDataSetChanged();
+                }
             } else if (BluetoothDevice.ACTION_FOUND.equals(action) || BluetoothDevice.ACTION_UUID.equals(action)) {
                 BluetoothDevice dev = null;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -3756,6 +3815,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             saveLastSeenTimestamp();
             updateInputVisibility(true);
             sendLocalAvatar(false);
+            sendLocalCover(false);
         } else {
             updateOfflineLastSeenStatus();
             updateInputVisibility(false);
@@ -3959,10 +4019,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         } catch (Exception ignored) {}
 
         BluetoothConnectionManager.getInstance().disconnect(resolveTargetAddress());
-
-        try {
-            PrimeBluetoothService.stopService(this);
-        } catch (Exception ignored) {}
 
         hideSoftKeyboard();
         closeAttachmentPanel();
@@ -4952,14 +5008,13 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             if (isDeletionPending) {
                 isChatDeleted = true;
                 if (isConnectionActive()) {
-                    String deletionPayload = "DELETE_CHAT:login=" + localUsername + ";name=" + localUsername;
+                    SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                    String currentUser = sp.getString("current_user", localUsername);
+                    String myDisplayName = AvatarManager.getMyDisplayName(ChatPersonActivity.this);
+                    String deletionPayload = "DELETE_CHAT:login=" + currentUser + ";name=" + myDisplayName;
                     sendPacket(TYPE_CHAT_DELETED, deletionPayload.getBytes(StandardCharsets.UTF_8));
                 }
-                ChatHistoryManager.deleteHistory(ChatPersonActivity.this, targetUsername);
-                deleteChatFromChatListEx(targetUsername);
-                disconnectCurrentChat();
-                PrimeNotification.show(ChatPersonActivity.this, "Переписка полностью удалена");
-                finish();
+                new Handler(Looper.getMainLooper()).postDelayed(ChatPersonActivity.this::finalizeChatDeletion, 250);
             }
         }
     };
@@ -5024,6 +5079,17 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         return colorResOrValue;
     }
 
+    private boolean isTransientActionStatusText(String text) {
+        if (text == null) return false;
+        return text.startsWith("Печатает") ||
+                text.startsWith("Записывает") ||
+                text.startsWith("Отправка") ||
+                text.startsWith("Выбирает") ||
+                text.startsWith("Смотрит") ||
+                text.startsWith("Слушает") ||
+                text.startsWith("В режиме чтения");
+    }
+
     private void setStatusWithAnimation(String newText, int colorResOrValue) {
         setStatusWithAnimation(newText, colorResOrValue, true);
     }
@@ -5042,17 +5108,14 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         int textColor = resolveColor(colorResOrValue);
         CharSequence currentText = tvChatStatus.getText();
-        if (currentText != null && Objects.equals(currentText.toString(), newText) && tvChatStatus.getAlpha() >= 0.95f && tvChatStatus.getTranslationY() == 0f) {
+        String currentStr = currentText != null ? currentText.toString() : "";
+        if (Objects.equals(currentStr, newText) && tvChatStatus.getAlpha() >= 0.95f && tvChatStatus.getTranslationY() == 0f) {
             tvChatStatus.setTextColor(textColor);
             return;
         }
 
-        // Avoid constant twitching/jumping when status updates rapidly (e.g. typing, dots, state updates)
-        if (currentText != null && (
-                (currentText.toString().startsWith("Печатает") && newText.startsWith("Печатает")) ||
-                (currentText.toString().startsWith("Записывает") && newText.startsWith("Записывает")) ||
-                (currentText.toString().startsWith("Отправка") && newText.startsWith("Отправка"))
-        )) {
+        boolean sameTransientGroup = isTransientActionStatusText(currentStr) && isTransientActionStatusText(newText);
+        if (sameTransientGroup || !stopAnimation) {
             setStatusTextDirect(newText, textColor);
             return;
         }
@@ -5101,16 +5164,29 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     private String currentBaseStatus = "";
     private int currentStatusColor = Color.parseColor("#4CAF50");
 
+    private CharSequence formatStatusWithFixedDots(String base, int visibleDots) {
+        String full = base + "...";
+        if (visibleDots >= 3) return full;
+        android.text.SpannableString spannable = new android.text.SpannableString(full);
+        int hiddenStart = base.length() + Math.max(0, visibleDots);
+        spannable.setSpan(
+                new android.text.style.ForegroundColorSpan(Color.TRANSPARENT),
+                hiddenStart,
+                full.length(),
+                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
+        return spannable;
+    }
+
     private final Runnable statusAnimRunnable = new Runnable() {
         @Override
         public void run() {
             if (currentBaseStatus == null || currentBaseStatus.isEmpty()) return;
-            statusDotCount = (statusDotCount + 1) % 4; // 0: "", 1: ".", 2: "..", 3: "..."
-            StringBuilder sb = new StringBuilder(currentBaseStatus);
-            for (int i = 0; i < statusDotCount; i++) {
-                sb.append(".");
+            statusDotCount = (statusDotCount + 1) % 4; // 0..3 visible dots with fixed width
+            if (tvChatStatus != null) {
+                tvChatStatus.setText(formatStatusWithFixedDots(currentBaseStatus, statusDotCount));
+                tvChatStatus.setTextColor(resolveColor(currentStatusColor));
             }
-            setStatusTextDirect(sb.toString(), currentStatusColor);
             statusAnimHandler.postDelayed(this, 500);
         }
     };
@@ -5123,21 +5199,30 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private void startAnimatingStatus(String baseStatus, int colorResOrValue) {
+        String cleanBase = (baseStatus != null && baseStatus.endsWith("..."))
+                ? baseStatus.substring(0, baseStatus.length() - 3)
+                : (baseStatus != null ? baseStatus : "");
         int color = resolveColor(colorResOrValue);
-        if (Objects.equals(currentBaseStatus, baseStatus) && currentStatusColor == color) {
+        if (Objects.equals(currentBaseStatus, cleanBase) && currentStatusColor == color) {
             return;
         }
         statusAnimHandler.removeCallbacks(statusAnimRunnable);
-        currentBaseStatus = baseStatus;
+        currentBaseStatus = cleanBase;
         currentStatusColor = color;
         statusDotCount = 0;
 
         SharedPreferences sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
         boolean disableAnim = sp.getBoolean("disable_animations", false);
         if (disableAnim) {
-            setStatusTextDirect(baseStatus, currentStatusColor);
+            setStatusTextDirect(cleanBase + "...", currentStatusColor);
         } else {
-            setStatusWithAnimation(baseStatus, currentStatusColor, false);
+            if (tvChatStatus != null) {
+                tvChatStatus.animate().cancel();
+                tvChatStatus.setTranslationY(0f);
+                tvChatStatus.setAlpha(1f);
+                tvChatStatus.setText(formatStatusWithFixedDots(cleanBase, 0));
+                tvChatStatus.setTextColor(currentStatusColor);
+            }
         }
         statusAnimHandler.postDelayed(statusAnimRunnable, 500);
     }
@@ -5246,6 +5331,14 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (isDesktop) return false;
         if (remoteVersionCode == -1) return false;
         return remoteVersionCode < 64;
+    }
+
+    private boolean isRecipientVersionBelow65() {
+        boolean isDesktop = isRemoteDesktop
+                || AvatarManager.isDesktopContact(this, targetUsername, deviceAddress);
+        if (isDesktop) return false;
+        if (remoteVersionCode == -1) return false;
+        return remoteVersionCode < 65;
     }
 
     private void sendUpdateTextToRecipient() {
@@ -5460,10 +5553,22 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         });
 
         menu.addItem("Удалить чат", R.drawable.ic_trash, true, () -> {
-            ChatHistoryManager.deleteHistoryCompletely(this, targetUsername, deviceAddress);
-            disconnectCurrentChat();
-            PrimeNotification.INSTANCE.show(this, "Чат удален", null);
-            finish();
+            String displayTitleName = (targetUsername != null && !BluetoothAdapter.checkBluetoothAddress(targetUsername)) ? targetUsername : "собеседником";
+            PrimeBlurDialog.show(
+                    this,
+                    "Удалить чат с " + displayTitleName + "?",
+                    "Вы уверены, что хотите полностью удалить данный чат и очистить всю переписку?",
+                    "Удалить",
+                    "Отмена",
+                    null,
+                    true,
+                    null,
+                    () -> {
+                        performCompleteChatDeletion();
+                        return kotlin.Unit.INSTANCE;
+                    },
+                    () -> kotlin.Unit.INSTANCE
+            );
             return kotlin.Unit.INSTANCE;
         });
 
@@ -5944,19 +6049,12 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         isChatDeleted = true;
         SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
         String currentUser = sp.getString("current_user", localUsername);
-        String myDisplayName = sp.getString("my_name", localUsername);
-        String deletionPayload = "DELETE_CHAT:login=" + currentUser + ";name=" + myDisplayName + ";mac=" + (deviceAddress != null ? deviceAddress : "");
+        String myDisplayName = AvatarManager.getMyDisplayName(this);
+        String deletionPayload = "DELETE_CHAT:login=" + currentUser + ";name=" + myDisplayName;
         byte[] payloadBytes = deletionPayload.getBytes(StandardCharsets.UTF_8);
 
         try {
             sendPacket(TYPE_CHAT_DELETED, payloadBytes);
-        } catch (Throwable ignored) {}
-
-        try {
-            BluetoothConnectionManager.getInstance().broadcastPacket((byte) 0x08, payloadBytes);
-            if (deviceAddress != null && !deviceAddress.isEmpty()) {
-                BluetoothConnectionManager.getInstance().sendPacket(deviceAddress, (byte) 0x08, payloadBytes);
-            }
         } catch (Throwable ignored) {}
 
         new Handler(Looper.getMainLooper()).postDelayed(this::finalizeChatDeletion, 250);
@@ -5981,10 +6079,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
 
         DeviceBindingManager.unbindDeviceSecurely(this, targetUsername, deviceAddress);
-
-        if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
-            PrimeBluetoothService.stopService(this);
-        }
+        AvatarManager.clearContactAvatar(this, targetUsername, targetUsername, deviceAddress);
 
         ChatHistoryManager.deleteHistoryCompletely(this, targetUsername, deviceAddress);
         deleteChatFromChatListEx(targetUsername);
@@ -5994,10 +6089,16 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         Intent chatDeletedIntent = new Intent("com.messenger.prime.CHAT_DELETED");
         chatDeletedIntent.setPackage(getPackageName());
+        if (deviceAddress != null && !deviceAddress.isEmpty()) chatDeletedIntent.putExtra("EXTRA_ADDRESS", deviceAddress);
+        if (targetUsername != null && !targetUsername.isEmpty()) chatDeletedIntent.putExtra("EXTRA_NAME", targetUsername);
         sendBroadcast(chatDeletedIntent);
 
         if (chatAdapter != null) chatAdapter.setMessages(new ArrayList<>());
-        disconnectCurrentChat();
+        autoRetryHandler.removeCallbacks(autoRetryRunnable);
+        connectTimeoutHandler.removeCallbacks(connectTimeoutRunnable);
+        hideSoftKeyboard();
+        closeAttachmentPanel();
+        clearPendingAttachment();
         PrimeNotification.show(this, "Переписка и устройство полностью удалены");
 
         Intent mainIntent = new Intent(this, ChatListActivity.class);
@@ -6361,22 +6462,31 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                 if (isMatch) {
                     boolean isNonIdle = state != null && !"IDLE".equalsIgnoreCase(state);
-                    obj.put("activityState", isNonIdle ? state : "IDLE");
-                    if (isNonIdle) {
-                        long duration = (state.toUpperCase(Locale.US).startsWith("SENDING_") || state.toUpperCase(Locale.US).startsWith("SELECTING_")) ? 10000L : 5000L;
-                        obj.put("typingUntil", System.currentTimeMillis() + duration);
-                        obj.put("isTyping", true);
-                    } else {
-                        obj.put("typingUntil", 0L);
-                        obj.put("isTyping", false);
+                    String targetState = isNonIdle ? state : "IDLE";
+                    String prevState = obj.optString("activityState", "IDLE");
+                    long prevUntil = obj.optLong("typingUntil", 0L);
+                    long now = System.currentTimeMillis();
+                    boolean stateChanged = !targetState.equalsIgnoreCase(prevState);
+                    boolean needsRefresh = isNonIdle && (prevUntil - now < 1500L);
+                    boolean idleNeedsClear = !isNonIdle && (prevUntil > 0L || obj.optBoolean("isTyping", false));
+                    if (stateChanged || needsRefresh || idleNeedsClear) {
+                        obj.put("activityState", targetState);
+                        if (isNonIdle) {
+                            long duration = (state.toUpperCase(Locale.US).startsWith("SENDING_") || state.toUpperCase(Locale.US).startsWith("SELECTING_")) ? 10000L : 5000L;
+                            obj.put("typingUntil", now + duration);
+                            obj.put("isTyping", true);
+                        } else {
+                            obj.put("typingUntil", 0L);
+                            obj.put("isTyping", false);
+                        }
+                        updated = true;
                     }
-                    updated = true;
                     break;
                 }
             }
             if (updated) {
                 sharedPrefs.edit().putString(ChatHistoryManager.getPersistedChatsKey(this), array.toString()).apply();
-                ChatListNotifier.INSTANCE.notifyChanged();
+                ChatListNotifier.INSTANCE.emitEvent(new com.messenger.prime.events.ChatEvent.ChatMetadataUpdated(targetName));
             }
 
             if (state != null && !"IDLE".equalsIgnoreCase(state)) {
@@ -6488,9 +6598,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         if (lastUnreadMsgId != null || hasNewUnread) {
             if (hasNewUnread) {
                 ChatHistoryManager.markIncomingMessagesAsRead(this, targetUsername, lastUnreadMsgId);
-                runOnUiThread(() -> {
-                    if (chatAdapter != null) chatAdapter.notifyDataSetChanged();
-                });
             }
             if (isConnectionActive() && lastUnreadMsgId != null) {
                 String receiptPayload = "READ_ALL:::" + lastUnreadMsgId;
@@ -6599,8 +6706,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
             cancelReplyMode();
         }
 
-        boolean isConnected = isConnectionActive();
-        message.setMessageStatus(isConnected ? MessageStatus.SENT : MessageStatus.SENDING);
+        message.setMessageStatus(MessageStatus.SENT);
 
         String packetContent = message.getMessageId() + ":::" + text;
         if (message.isReply()) {
@@ -6608,12 +6714,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         }
 
         byte[] payload = packetContent.getBytes(StandardCharsets.UTF_8);
-        if (isConnected) {
-            sendPacket(TYPE_TEXT, payload);
-        } else {
-            pendingMessageQueue.add(new PendingMessage(TYPE_TEXT, payload));
-            runOnUiThread(this::startPrimeConnection);
-        }
+        sendPacket(TYPE_TEXT, payload);
         addMessageToUI(message);
     }
 
@@ -6916,6 +7017,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
     }
 
     private String lastSentAvatarChecksum = "";
+    private String lastSentCoverChecksum = "";
 
     private static Bitmap decodeSampledBitmapFromByteArray(byte[] data, int reqWidth, int reqHeight) {
         if (data == null || data.length == 0) return null;
@@ -7062,6 +7164,63 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 }
             } catch (Throwable e) {
                 Log.e(TAG, "Failed to send local avatar", e);
+            }
+        });
+    }
+
+    private void sendLocalCover() {
+        sendLocalCover(false);
+    }
+
+    private void sendLocalCover(boolean force) {
+        if (!isConnectionActive() || isRecipientVersionBelow65()) return;
+        runOnIoThread(() -> {
+            try {
+                SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                String currentUser = sp.getString("current_user", "");
+                String localCoverUri = (currentUser != null && !currentUser.isEmpty())
+                        ? sp.getString(currentUser + "_cover", null)
+                        : null;
+                if (localCoverUri == null || localCoverUri.isEmpty()) {
+                    localCoverUri = sp.getString("my_profile_cover", null);
+                }
+
+                String currentPeerKey = (deviceAddress != null ? deviceAddress : "") + "_" + (targetUsername != null ? targetUsername : "");
+
+                if (localCoverUri != null && !localCoverUri.isEmpty()) {
+                    Uri uri;
+                    if (localCoverUri.startsWith("content://") || localCoverUri.startsWith("file://") || localCoverUri.startsWith("android.resource://") || localCoverUri.startsWith("http")) {
+                        uri = Uri.parse(localCoverUri);
+                    } else {
+                        uri = Uri.fromFile(new File(localCoverUri));
+                    }
+
+                    byte[] coverBytes = null;
+                    Bitmap bitmap = decodeSampledBitmapFromUri(uri, 720, 720);
+                    if (bitmap != null) {
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos);
+                        coverBytes = baos.toByteArray();
+                        bitmap.recycle();
+                    }
+
+                    if (coverBytes != null && coverBytes.length > 0) {
+                        String checksum = localCoverUri + "_" + coverBytes.length + "_" + currentPeerKey;
+                        if (!force && checksum.equals(lastSentCoverChecksum)) {
+                            return;
+                        }
+                        lastSentCoverChecksum = checksum;
+                        sendPacket(TYPE_COVER, coverBytes);
+                    }
+                } else {
+                    String emptyChecksum = "EMPTY_COVER_" + currentPeerKey;
+                    if (force || !emptyChecksum.equals(lastSentCoverChecksum)) {
+                        lastSentCoverChecksum = emptyChecksum;
+                        sendPacket(TYPE_COVER, new byte[0]);
+                    }
+                }
+            } catch (Throwable e) {
+                Log.e(TAG, "Failed to send local cover", e);
             }
         });
     }
@@ -7363,6 +7522,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     ensureOnlineStateAndInputVisible();
                     sendHandshake();
                     sendLocalAvatar(true);
+                    sendLocalCover(true);
                     flushPendingMessages();
                     sendReadReceiptsForUnreadMessages();
                     saveLastMessageToChatList(null, null, false, "ONLINE");
@@ -7573,6 +7733,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         sendPacket(TYPE_TEXT, ("HANDSHAKE_ACK:name=" + myName + ";presence=" + myPresence).getBytes(StandardCharsets.UTF_8));
 
                         sendLocalAvatar(true);
+                        sendLocalCover(true);
                     } else if (textData.startsWith("HANDSHAKE_ACK:")) {
                         connectTimeoutHandler.removeCallbacks(connectTimeoutRunnable);
                         updateInputVisibility(true);
@@ -7648,6 +7809,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         }
                         handler.sendEmptyMessage(HANDSHAKE_SUCCESS);
                         sendLocalAvatar(false);
+                        sendLocalCover(false);
                     } else {
                         String textMsgId = extractMsgId(textData);
                         if (textMsgId != null && !textMsgId.isEmpty()) {
@@ -7663,7 +7825,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
                         if (!isActivityForeground) {
                             ParsedMessagePayload parsed = ParsedMessagePayload.parse(textData);
-                            PrimeBluetoothService.showMessageNotification(getApplicationContext(), targetUsername, parsed.realText, deviceAddress);
+                            PrimeBluetoothService.showMessageNotification(getApplicationContext(), targetUsername, parsed.realText, deviceAddress, null, textMsgId);
                         }
                     }
                     break;
@@ -7683,7 +7845,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         handler.obtainMessage(MESSAGE_READ_PHOTO, payload.length, -1, payload).sendToTarget();
 
                         if (!isActivityForeground) {
-                            PrimeBluetoothService.showMessageNotification(getApplicationContext(), targetUsername, "Фотография", deviceAddress);
+                            PrimeBluetoothService.showMessageNotification(getApplicationContext(), targetUsername, "Фотография", deviceAddress, null, photoMsgId);
                         }
                     }
                     break;
@@ -7704,7 +7866,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         handler.obtainMessage(MESSAGE_READ_FILE, payload.length, -1, payload).sendToTarget();
 
                         if (!isActivityForeground) {
-                            PrimeBluetoothService.showMessageNotification(getApplicationContext(), targetUsername, "Файл", deviceAddress);
+                            PrimeBluetoothService.showMessageNotification(getApplicationContext(), targetUsername, "Файл", deviceAddress, null, fileMsgId);
                         }
                     }
                     break;
@@ -7768,13 +7930,105 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     });
                     break;
 
+                case TYPE_COVER:
+                    final byte[] coverPayload = payload;
+                    runOnIoThread(() -> {
+                        try {
+                            SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                            SharedPreferences.Editor ed = sp.edit();
+                            if (coverPayload == null || coverPayload.length == 0) {
+                                if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                                    ed.remove("contact_cover_" + deviceAddress);
+                                    AvatarManager.saveContactPreferenceSafely(this, deviceAddress, "contact_cover", null);
+                                }
+                                if (targetUsername != null && !targetUsername.isEmpty() && !isLocalUserKey(targetUsername)) {
+                                    ed.remove("contact_cover_" + targetUsername);
+                                    AvatarManager.saveContactPreferenceSafely(this, targetUsername, "contact_cover", null);
+                                }
+                                ed.apply();
+                                sendBroadcast(new Intent("com.messenger.prime.COVER_CHANGED").setPackage(getPackageName()));
+                            } else {
+                                String safeKey = (targetUsername != null && !targetUsername.isEmpty() && !isLocalUserKey(targetUsername))
+                                        ? targetUsername
+                                        : (deviceAddress != null ? deviceAddress : "peer");
+                                File coverFile = ChatHistoryManager.saveBytesToAtomicFile(this, "rec_cover_" + safeKey + ".jpg", coverPayload);
+                                if (coverFile == null) return;
+                                String coverUri = Uri.fromFile(coverFile).toString();
+                                if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                                    ed.putString("contact_cover_" + deviceAddress, coverUri);
+                                    AvatarManager.saveContactPreferenceSafely(this, deviceAddress, "contact_cover", coverUri);
+                                    ChatHistoryManager.saveBytesToAtomicFile(this, "rec_cover_" + deviceAddress + ".jpg", coverPayload);
+                                }
+                                if (targetUsername != null && !targetUsername.isEmpty() && !isLocalUserKey(targetUsername)) {
+                                    ed.putString("contact_cover_" + targetUsername, coverUri);
+                                    AvatarManager.saveContactPreferenceSafely(this, targetUsername, "contact_cover", coverUri);
+                                }
+                                ed.apply();
+                                sendBroadcast(new Intent("com.messenger.prime.COVER_CHANGED").setPackage(getPackageName()));
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to save received cover", e);
+                        }
+                    });
+                    break;
+
                 case TYPE_CHAT_DELETED:
-                    String deletedByName = (payload.length > 0) ? new String(payload, StandardCharsets.UTF_8) : targetUsername;
+                    boolean alreadyDeleted = isChatDeleted;
                     isChatDeleted = true;
+                    String deletedByName = targetUsername;
+                    String deletedByLogin = null;
+                    if (payload.length > 0) {
+                        String raw = new String(payload, StandardCharsets.UTF_8);
+                        if (raw.startsWith("DELETE_CHAT:")) {
+                            for (String p : raw.substring(12).split(";")) {
+                                if (p.startsWith("name=")) deletedByName = p.substring(5);
+                                else if (p.startsWith("login=")) deletedByLogin = p.substring(6);
+                            }
+                        } else {
+                            deletedByName = raw;
+                        }
+                    }
+                    String peerAddr = resolveTargetAddress();
+                    if (peerAddr != null && !peerAddr.isEmpty()) {
+                        BluetoothConnectionManager.getInstance().blockMacAddress(peerAddr, 0, "Chat deleted by peer");
+                        PrimeBluetoothService.cancelReconnect(getApplicationContext(), peerAddr);
+                    }
+                    if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                        BluetoothConnectionManager.getInstance().blockMacAddress(deviceAddress, 0, "Chat deleted by peer");
+                        PrimeBluetoothService.cancelReconnect(getApplicationContext(), deviceAddress);
+                    }
+                    PrimeBluetoothService.cancelReconnect(getApplicationContext(), targetUsername);
+                    if (deletedByName != null && !deletedByName.isEmpty()) {
+                        PrimeBluetoothService.cancelReconnect(getApplicationContext(), deletedByName);
+                        ChatHistoryManager.deleteHistoryCompletely(getApplicationContext(), deletedByName, deviceAddress);
+                        deleteChatFromChatListEx(deletedByName);
+                    }
+                    if (deletedByLogin != null && !deletedByLogin.isEmpty()) {
+                        PrimeBluetoothService.cancelReconnect(getApplicationContext(), deletedByLogin);
+                        ChatHistoryManager.deleteHistoryCompletely(getApplicationContext(), deletedByLogin, deviceAddress);
+                        deleteChatFromChatListEx(deletedByLogin);
+                    }
                     ChatHistoryManager.deleteHistoryCompletely(getApplicationContext(), targetUsername, deviceAddress);
-                    try { BluetoothConnectionManager.getInstance().disconnect(resolveTargetAddress()); } catch (Exception ignored) {}
+                    deleteChatFromChatListEx(targetUsername);
+                    if (deviceAddress != null) deleteChatFromChatListEx(deviceAddress);
+
+                    DeviceBindingManager.unbindDeviceSecurely(getApplicationContext(), targetUsername, deviceAddress);
+                    AvatarManager.clearContactAvatar(getApplicationContext(), targetUsername, deletedByName, deviceAddress);
+                    BluetoothSocketHolder.removeConnection(deviceAddress, targetUsername);
+                    try { BluetoothConnectionManager.getInstance().disconnect(peerAddr); } catch (Exception ignored) {}
+                    PrimeNotification.cancelNotificationForUser(getApplicationContext(), targetUsername, deviceAddress);
+
+                    Intent peerDelIntent = new Intent("com.messenger.prime.CHAT_DELETED").setPackage(getPackageName());
+                    if (deviceAddress != null) peerDelIntent.putExtra("EXTRA_ADDRESS", deviceAddress);
+                    if (targetUsername != null) peerDelIntent.putExtra("EXTRA_NAME", targetUsername);
+                    if (deletedByLogin != null) peerDelIntent.putExtra("EXTRA_LOGIN", deletedByLogin);
+                    sendBroadcast(peerDelIntent);
+
                     runOnUiThread(() -> {
-                        PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Собеседник удалил этот чат", null);
+                        if (chatAdapter != null) chatAdapter.setMessages(new ArrayList<>());
+                        if (!alreadyDeleted) {
+                            PrimeNotification.INSTANCE.show(ChatPersonActivity.this, "Собеседник удалил этот чат", null);
+                        }
                         finish();
                     });
                     break;
@@ -7868,9 +8122,8 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     break;
 
                 case TYPE_PING:
-                    sendPacket(TYPE_ACK, new byte[0]);
-                    if (isRemoteUserOnline) {
-                        saveLastMessageToChatList(null, null, false, "ONLINE");
+                    if (isRemoteDesktop) {
+                        sendPacket(TYPE_ACK, new byte[0]);
                     }
                     break;
 
@@ -7985,7 +8238,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                     }
                 }
                 updateConnectionStateInAdapter();
-                connectionCheckHandler.postDelayed(this, 300);
+                connectionCheckHandler.postDelayed(this, 1500);
             }
         }
     };
@@ -8017,14 +8270,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
         isRemoteUserOnline = false;
 
         handleDisconnectionUiAndAutoReconnect();
-
-        try {
-            if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
-                PrimeBluetoothService.stopService(this);
-            }
-        } catch (Throwable e) {
-            Log.e(TAG, "Failed to stop bluetooth service", e);
-        }
     }
 
     @Override
@@ -8236,6 +8481,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                 String handshake = "HANDSHAKE:name=" + myName + ";login=" + currentUser + ";version=" + getAppVersionCode(getApplicationContext()) + ";platform=android;features=vn;presence=" + myPresence;
                 sendPacket(TYPE_TEXT, handshake.getBytes(StandardCharsets.UTF_8));
                 sendLocalAvatar();
+                sendLocalCover();
             } catch (Exception e) {
                 Log.e(TAG, "Exception during handshake write", e);
             }
@@ -8572,6 +8818,45 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         } catch (Exception e) {
                             Log.e(TAG, "Failed to process background TYPE_AVATAR", e);
                         }
+                    } else if (type == TYPE_COVER) {
+                        try {
+                            String sender = getRemoteUsername();
+                            SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                            SharedPreferences.Editor ed = sp.edit();
+                            if (payload == null || payload.length == 0) {
+                                if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                                    ed.remove("contact_cover_" + deviceAddress);
+                                    AvatarManager.saveContactPreferenceSafely(getApplicationContext(), deviceAddress, "contact_cover", null);
+                                }
+                                if (sender != null && !sender.isEmpty() && !isLocalUserKey(sender)) {
+                                    ed.remove("contact_cover_" + sender);
+                                    AvatarManager.saveContactPreferenceSafely(getApplicationContext(), sender, "contact_cover", null);
+                                }
+                                ed.apply();
+                                sendBroadcast(new Intent("com.messenger.prime.COVER_CHANGED").setPackage(getPackageName()));
+                            } else {
+                                String safeKey = (sender != null && !sender.isEmpty() && !isLocalUserKey(sender))
+                                        ? sender
+                                        : (deviceAddress != null ? deviceAddress : "peer");
+                                File coverFile = ChatHistoryManager.saveBytesToAtomicFile(getApplicationContext(), "rec_cover_" + safeKey + ".jpg", payload);
+                                if (coverFile != null) {
+                                    String coverUri = Uri.fromFile(coverFile).toString();
+                                    if (deviceAddress != null && !deviceAddress.isEmpty()) {
+                                        ed.putString("contact_cover_" + deviceAddress, coverUri);
+                                        AvatarManager.saveContactPreferenceSafely(getApplicationContext(), deviceAddress, "contact_cover", coverUri);
+                                        ChatHistoryManager.saveBytesToAtomicFile(getApplicationContext(), "rec_cover_" + deviceAddress + ".jpg", payload);
+                                    }
+                                    if (sender != null && !sender.isEmpty() && !isLocalUserKey(sender)) {
+                                        ed.putString("contact_cover_" + sender, coverUri);
+                                        AvatarManager.saveContactPreferenceSafely(getApplicationContext(), sender, "contact_cover", coverUri);
+                                    }
+                                    ed.apply();
+                                    sendBroadcast(new Intent("com.messenger.prime.COVER_CHANGED").setPackage(getPackageName()));
+                                }
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to process background TYPE_COVER", e);
+                        }
                     } else if (type == TYPE_TYPING) {
                         String stateData = (payload != null && payload.length > 0) ? new String(payload, StandardCharsets.UTF_8) : "STATE:TYPING";
                         postToUi(MESSAGE_TYPING, -1, -1, stateData);
@@ -8614,9 +8899,6 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
                         deleteChatFromChatList(targetUsername);
                         
                         BluetoothSocketHolder.removeConnection(deviceAddress, targetUsername);
-                        if (!BluetoothSocketHolder.hasAnyActiveConnection()) {
-                            PrimeBluetoothService.stopService(getApplicationContext());
-                        }
                         
                         if (activeUiHandler != null) {
                             postToUi(MESSAGE_CHAT_DELETED, -1, -1, payload);
@@ -8860,7 +9142,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         public void sendPacket(byte type, byte[] payload) {
             if (mmOutStream == null) return;
-            boolean isChunkedMedia = (type == TYPE_PHOTO || type == TYPE_FILE || type == TYPE_AVATAR);
+            boolean isChunkedMedia = (type == TYPE_PHOTO || type == TYPE_FILE || type == TYPE_AVATAR || type == TYPE_COVER);
             boolean showProgressUi = (type == TYPE_PHOTO || type == TYPE_FILE);
             ExecutorService executor = isChunkedMedia ? mediaWriteExecutor : controlWriteExecutor;
 
@@ -8921,7 +9203,7 @@ public class ChatPersonActivity extends AppCompatActivity implements BluetoothCo
 
         public void streamFilePacket(byte type, byte[] header, java.io.File file) {
             if (mmOutStream == null) return;
-            boolean isChunkedMedia = (type == TYPE_PHOTO || type == TYPE_FILE || type == TYPE_AVATAR);
+            boolean isChunkedMedia = (type == TYPE_PHOTO || type == TYPE_FILE || type == TYPE_AVATAR || type == TYPE_COVER);
             boolean showProgressUi = (type == TYPE_PHOTO || type == TYPE_FILE);
             ExecutorService executor = isChunkedMedia ? mediaWriteExecutor : controlWriteExecutor;
 

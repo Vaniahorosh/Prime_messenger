@@ -51,6 +51,35 @@ object VideoNoteShapeHelper {
         )
     }
 
+    @JvmStatic
+    fun getDisplayName(context: android.content.Context, tag: String?, fallback: String = ""): String {
+        return when (tag?.trim()?.lowercase()) {
+            "50", "circle" -> PrimeLocaleManager.getString(context, R.string.shape_circle)
+            "0", "square" -> PrimeLocaleManager.getString(context, R.string.shape_square)
+            "m3e_flower", "flower" -> PrimeLocaleManager.getString(context, R.string.shape_flower)
+            "m3e_cookie6sided", "cookie6sided" -> PrimeLocaleManager.getString(context, R.string.shape_cookie6)
+            "m3e_verysunny", "verysunny" -> PrimeLocaleManager.getString(context, R.string.shape_very_sunny)
+            "m3e_clover4leaf", "clover4leaf" -> PrimeLocaleManager.getString(context, R.string.shape_clover4)
+            "m3e_burst", "burst" -> PrimeLocaleManager.getString(context, R.string.shape_burst)
+            "m3e_puffy", "puffy" -> PrimeLocaleManager.getString(context, R.string.shape_puffy)
+            "m3e_puffydiamond", "puffydiamond" -> PrimeLocaleManager.getString(context, R.string.shape_puffy_diamond)
+            "m3e_gem", "gem" -> PrimeLocaleManager.getString(context, R.string.shape_gem)
+            "m3e_cookie7sided", "cookie7sided" -> PrimeLocaleManager.getString(context, R.string.shape_cookie7)
+            "m3e_cookie12sided", "cookie12sided" -> PrimeLocaleManager.getString(context, R.string.shape_cookie12)
+            "m3e_cookie4sided", "cookie4sided" -> PrimeLocaleManager.getString(context, R.string.shape_cookie4)
+            "m3e_clover8leaf", "clover8leaf" -> PrimeLocaleManager.getString(context, R.string.shape_clover8)
+            "m3e_sunny", "sunny" -> PrimeLocaleManager.getString(context, R.string.shape_sunny)
+            "m3e_softburst", "softburst" -> PrimeLocaleManager.getString(context, R.string.shape_soft_burst)
+            "m3e_boom", "boom" -> PrimeLocaleManager.getString(context, R.string.shape_boom)
+            "m3e_softboom", "softboom" -> PrimeLocaleManager.getString(context, R.string.shape_soft_boom)
+            "m3e_pentagon", "pentagon" -> PrimeLocaleManager.getString(context, R.string.shape_pentagon)
+            "m3e_clamshell", "clamshell" -> PrimeLocaleManager.getString(context, R.string.shape_clamshell)
+            "m3e_triangle", "triangle" -> PrimeLocaleManager.getString(context, R.string.shape_triangle)
+            "m3e_heart", "heart" -> PrimeLocaleManager.getString(context, R.string.shape_heart)
+            else -> fallback
+        }
+    }
+
     /**
      * Resolves a shape tag to an M3E RoundedPolygon if applicable.
      */

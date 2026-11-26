@@ -46,7 +46,7 @@ object UpdateChecker {
                     }
 
                     val releaseUrl = json.optString("html_url", "https://github.com/Vaniahorosh/Prime_messenger/releases/")
-                    val releaseNotes = json.optString("body", "Доступна новая версия!")
+                    val releaseNotes = json.optString("body", PrimeLocaleManager.getString(activity, R.string.update_default_notes))
 
                     var apkDownloadUrl: String? = null
                     val assets = json.optJSONArray("assets")
@@ -78,19 +78,28 @@ object UpdateChecker {
                         }
                     } else if (manualCheck) {
                         Handler(Looper.getMainLooper()).post {
-                            PrimeNotification.show(activity, "У вас последняя версия ($localVersion) ✓")
+                            PrimeNotification.show(
+                                activity,
+                                PrimeLocaleManager.getString(activity, R.string.update_latest_version_format, localVersion)
+                            )
                         }
                     }
                 } else if (manualCheck) {
                     Handler(Looper.getMainLooper()).post {
-                        PrimeNotification.show(activity, "Ошибка проверки обновлений")
+                        PrimeNotification.show(
+                            activity,
+                            PrimeLocaleManager.getString(activity, R.string.update_check_error)
+                        )
                     }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
                 if (manualCheck) {
                     Handler(Looper.getMainLooper()).post {
-                        PrimeNotification.show(activity, "Нет подключения к серверу")
+                        PrimeNotification.show(
+                            activity,
+                            PrimeLocaleManager.getString(activity, R.string.update_network_error)
+                        )
                     }
                 }
             }
@@ -151,14 +160,14 @@ object UpdateChecker {
         }
 
         val tvIntro = TextView(activity).apply {
-            text = "Вышла новая версия приложения с новыми функциями и исправлениями."
+            text = PrimeLocaleManager.getString(activity, R.string.update_dialog_intro)
             setTextColor(if (isDark) android.graphics.Color.parseColor("#CBD5E1") else android.graphics.Color.parseColor("#334155"))
             textSize = 14f
             setPadding(0, 0, 0, 12)
         }
 
         val tvNotesHeader = TextView(activity).apply {
-            text = "Что нового в $version:"
+            text = PrimeLocaleManager.getString(activity, R.string.update_whats_new_format, version)
             setTextColor(if (isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK)
             textSize = 14f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -166,7 +175,7 @@ object UpdateChecker {
         }
 
         val tvNotesBody = TextView(activity).apply {
-            text = notes.trim().ifEmpty { "Доступна новая версия!" }
+            text = notes.trim().ifEmpty { PrimeLocaleManager.getString(activity, R.string.update_default_notes) }
             setTextColor(if (isDark) android.graphics.Color.parseColor("#E2E8F0") else android.graphics.Color.parseColor("#1E293B"))
             textSize = 13.5f
             setLineSpacing(2f, 1.2f)
@@ -190,7 +199,7 @@ object UpdateChecker {
         var alertDialog: AlertDialog? = null
 
         val btnDownload = com.google.android.material.button.MaterialButton(activity).apply {
-            text = "Скачать"
+            text = PrimeLocaleManager.getString(activity, R.string.update_download_btn)
             cornerRadius = (16 * activity.resources.displayMetrics.density).toInt()
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -233,7 +242,7 @@ object UpdateChecker {
         val btnLater = com.google.android.material.button.MaterialButton(
             activity, null, android.R.attr.borderlessButtonStyle
         ).apply {
-            text = "Позже"
+            text = PrimeLocaleManager.getString(activity, R.string.update_later_btn)
             textSize = 13f
             setTextColor(if (isDark) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B"))
             layoutParams = LinearLayout.LayoutParams(
@@ -251,7 +260,7 @@ object UpdateChecker {
         val btnIgnore = com.google.android.material.button.MaterialButton(
             activity, null, android.R.attr.borderlessButtonStyle
         ).apply {
-            text = "Больше не показывать"
+            text = PrimeLocaleManager.getString(activity, R.string.update_ignore_btn)
             textSize = 12f
             setTextColor(if (isDark) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B"))
             layoutParams = LinearLayout.LayoutParams(
@@ -264,7 +273,10 @@ object UpdateChecker {
             setOnClickListener {
                 val sp = activity.getSharedPreferences("PrimeLocalDB", Activity.MODE_PRIVATE)
                 sp.edit().putString("ignored_update_version", version).apply()
-                PrimeNotification.show(activity, "Обновление $version скрыто")
+                PrimeNotification.show(
+                    activity,
+                    PrimeLocaleManager.getString(activity, R.string.update_ignored_toast, version)
+                )
                 alertDialog?.dismiss()
             }
         }
@@ -277,7 +289,7 @@ object UpdateChecker {
 
         alertDialog = PrimeBlurDialog.show(
             activity = activity,
-            title = "Доступно обновление $version!",
+            title = PrimeLocaleManager.getString(activity, R.string.update_available_title_format, version),
             customView = container,
             positiveText = "",
             negativeText = null,
@@ -322,7 +334,11 @@ object UpdateChecker {
                                 Handler(Looper.getMainLooper()).post {
                                     progressBar.isIndeterminate = false
                                     progressBar.progress = progress
-                                    tvProgress.text = "Загружено: $progress%"
+                                    tvProgress.text = PrimeLocaleManager.getString(
+                                        activity,
+                                        R.string.update_downloaded_progress_format,
+                                        progress
+                                    )
                                 }
                             }
                             output.write(data, 0, count)
@@ -338,7 +354,7 @@ object UpdateChecker {
                     fileSize = tempFile.length(),
                     mimeType = "application/vnd.android.package-archive",
                     sourceType = DownloadSourceType.UPDATE,
-                    sourceName = "Обновление Prime"
+                    sourceName = PrimeLocaleManager.getString(activity, R.string.update_source_name)
                 )
 
                 Handler(Looper.getMainLooper()).post {
@@ -368,7 +384,10 @@ object UpdateChecker {
                         data = Uri.parse("package:${activity.packageName}")
                     }
                     activity.startActivity(settingsIntent)
-                    PrimeNotification.show(activity, "Разрешите установку неизвестных приложений")
+                    PrimeNotification.show(
+                        activity,
+                        PrimeLocaleManager.getString(activity, R.string.update_unknown_sources_prompt)
+                    )
                     return
                 }
             }
@@ -392,7 +411,10 @@ object UpdateChecker {
             activity.startActivity(intent)
         } catch (e: Exception) {
             e.printStackTrace()
-            PrimeNotification.show(activity, "Ошибка запуска установки APK")
+            PrimeNotification.show(
+                activity,
+                PrimeLocaleManager.getString(activity, R.string.update_install_error)
+            )
         }
     }
 
@@ -410,7 +432,7 @@ object UpdateChecker {
         }
 
         val tvTitle = TextView(activity).apply {
-            text = "Загрузка обновления..."
+            text = PrimeLocaleManager.getString(activity, R.string.update_downloading_title)
             textSize = 18f
             setPadding(0, 0, 0, 40)
         }
@@ -424,7 +446,7 @@ object UpdateChecker {
         }
 
         val tvProgress = TextView(activity).apply {
-            text = "Подготовка..."
+            text = PrimeLocaleManager.getString(activity, R.string.update_downloading_prep)
             setPadding(0, 20, 0, 0)
         }
 
@@ -434,9 +456,9 @@ object UpdateChecker {
 
         val dialog = PrimeBlurDialog.show(
             activity = activity,
-            title = "Загрузка обновления",
+            title = PrimeLocaleManager.getString(activity, R.string.update_downloading_progress_title),
             message = null,
-            positiveText = "В фон",
+            positiveText = PrimeLocaleManager.getString(activity, R.string.update_background_btn),
             negativeText = null,
             customView = layout,
             onPositive = {

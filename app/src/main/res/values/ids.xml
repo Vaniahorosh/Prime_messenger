@@ -5,4 +5,6 @@
     <item name="switchNotesChat" type="id" />
     <item name="btnAddCustomCategory" type="id" />
     <item name="btnClosePinnedBar" type="id" />
+    <item name="tag_avatar_load_key" type="id" />
+    <item name="tag_cover_load_key" type="id" />
 </resources>

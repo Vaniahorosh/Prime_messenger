@@ -143,6 +143,12 @@
             android:theme="@style/Theme.Prime.Swipe"
             android:windowSoftInputMode="adjustResize" />
 
+        <activity
+            android:name=".SettingsLanguageActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Prime.Swipe"
+            android:windowSoftInputMode="adjustResize" />
+
 
 
         <activity

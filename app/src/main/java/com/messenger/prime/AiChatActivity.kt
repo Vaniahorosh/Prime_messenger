@@ -1339,8 +1339,37 @@ $systemPrompt
             }
             action.startsWith("action:delete_chat:") -> {
                 val address = action.removePrefix("action:delete_chat:").trim()
-                ChatHistoryManager.deleteHistoryCompletely(this, address, ChatHistoryManager.getDisplayNameForAddress(this, address))
-                PrimeNotification.show(this, "Чат $address удален")
+                val displayName = ChatHistoryManager.getDisplayNameForAddress(this, address)
+                val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
+                val currentUser = sp.getString("current_user", "") ?: ""
+                val myName = AvatarManager.getMyDisplayName(this)
+                val payload = "DELETE_CHAT:login=$currentUser;name=$myName".toByteArray(Charsets.UTF_8)
+                val sent = BluetoothSocketHolder.sendPacket(address, displayName, 8.toByte(), payload)
+                if (!sent) {
+                    BluetoothConnectionManager.getInstance().sendPacket(address, 8.toByte(), payload)
+                }
+                if (address.equals("PrimeDesktop", ignoreCase = true) || AvatarManager.isDesktopContact(this, displayName, address)) {
+                    PrimeCompanionServer.broadcastPacket(8.toByte(), payload)
+                }
+                Thread {
+                    try { Thread.sleep(200) } catch (_: Exception) {}
+                    BluetoothConnectionManager.getInstance().blockMacAddress(address, 0, "Chat deleted via AI")
+                    PrimeBluetoothService.cancelReconnect(this, address)
+                    PrimeBluetoothService.cancelReconnect(this, displayName)
+                    BluetoothConnectionManager.getInstance().disconnect(address)
+                    BluetoothSocketHolder.removeConnection(address, displayName)
+                    DeviceBindingManager.unbindDeviceSecurely(this, displayName, address)
+                    AvatarManager.clearContactAvatar(this, displayName, displayName, address)
+                    ChatHistoryManager.deleteHistoryCompletely(this, displayName, address)
+                    PrimeNotification.cancelNotificationForUser(this, displayName, address)
+                    val chatDeletedIntent = Intent("com.messenger.prime.CHAT_DELETED").apply {
+                        `package` = packageName
+                        putExtra("EXTRA_ADDRESS", address)
+                        putExtra("EXTRA_NAME", displayName)
+                    }
+                    sendBroadcast(chatDeletedIntent)
+                }.start()
+                PrimeNotification.show(this, "Чат $displayName удален")
             }
             action.startsWith("action:change_theme:") -> {
                 val mode = action.removePrefix("action:change_theme:").trim().lowercase()

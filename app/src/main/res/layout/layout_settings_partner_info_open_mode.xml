@@ -22,7 +22,7 @@
                 android:id="@+id/tvTitlePartnerInfoOpenMode"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Открытие профиля собеседника"
+                android:text="@string/settings_chat_partner_info_open_title"
                 android:textColor="@color/prime_brand"
                 android:textSize="14sp"
                 android:fontFamily="sans-serif-medium" />
@@ -31,7 +31,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="Выберите жест для перехода в профиль"
+                android:text="@string/settings_chat_partner_info_prompt_sub"
                 android:textColor="@color/prime_text_secondary"
                 android:textSize="12sp" />
         </LinearLayout>
@@ -46,7 +46,7 @@
             android:src="@drawable/ic_refresh"
             app:tint="@color/prime_text_secondary"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="По умолчанию" />
+            android:contentDescription="@string/settings_chat_partner_info_default_cd" />
     </LinearLayout>
 
     <!-- Сегментированный переключатель: Перетягивание | Свайп справа налево -->
@@ -67,7 +67,7 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:stateListAnimator="@null"
-            android:text="Перетягивание"
+            android:text="@string/settings_chat_partner_info_btn_drag"
             android:textAllCaps="false"
             android:textSize="12sp"
             android:fontFamily="sans-serif-medium"
@@ -85,7 +85,7 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:stateListAnimator="@null"
-            android:text="Свайп справа налево"
+            android:text="@string/settings_chat_partner_info_btn_swipe"
             android:textAllCaps="false"
             android:textSize="12sp"
             android:fontFamily="sans-serif-medium"
@@ -134,7 +134,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
-                        android:text="Профиль собеседника"
+                        android:text="@string/settings_chat_partner_info_preview_title"
                         android:textColor="@color/prime_text_primary"
                         android:textSize="13sp"
                         android:fontFamily="sans-serif-medium" />
@@ -142,7 +142,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Информация и медиафайлы"
+                        android:text="@string/settings_chat_partner_info_preview_sub"
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="11sp" />
                 </LinearLayout>
@@ -178,7 +178,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="6dp"
-                        android:text="Собеседник"
+                        android:text="@string/settings_chat_preview_partner"
                         android:textColor="@color/prime_text_primary"
                         android:textSize="12sp"
                         android:fontFamily="sans-serif-medium" />
@@ -206,7 +206,7 @@
                         android:background="@drawable/bg_date_bubble"
                         android:paddingHorizontal="10dp"
                         android:paddingVertical="4dp"
-                        android:text="Получается, если потянуть вниз за самую верхнюю часть шапки собеседника в чате, профиль откроется корректно?"
+                        android:text="@string/settings_chat_partner_info_demo_q"
                         android:textColor="@color/prime_text_primary"
                         android:textSize="11sp" />
 
@@ -219,7 +219,7 @@
                         android:background="@drawable/bg_date_bubble"
                         android:paddingHorizontal="10dp"
                         android:paddingVertical="4dp"
-                        android:text="Да, но при свайпе справа налево вместо функции ответа срабатывает открытие профиля собеседника!"
+                        android:text="@string/settings_chat_partner_info_demo_a"
                         android:textColor="@color/prime_text_primary"
                         android:textSize="11sp" />
                 </LinearLayout>
@@ -244,7 +244,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="4dp"
-                        android:text="Потяните вниз для инфо"
+                        android:text="@string/settings_chat_partner_info_hint_drag"
                         android:textColor="@color/prime_brand"
                         android:textSize="10sp"
                         android:fontFamily="sans-serif-medium" />

@@ -73,7 +73,8 @@ object ChatListNotifier {
             if (event is ChatEvent.GeneralUpdate || 
                 event is ChatEvent.MessageReceived || 
                 event is ChatEvent.MessageSent ||
-                event is ChatEvent.MessageStatusChanged) {
+                event is ChatEvent.MessageStatusChanged ||
+                event is ChatEvent.ChatMetadataUpdated) {
                 legacyListeners.forEach { listener ->
                     try {
                         listener.invoke()

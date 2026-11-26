@@ -37,17 +37,18 @@ class SettingsAccountActivity : BaseSettingsDetailActivity() {
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         currentLoginInDB = currentUser
         currentPassInDB = sharedPrefs.getString(currentUser, "") ?: ""
+        val defaultMe = getString(R.string.settings_default_me)
         currentNameInDB = sharedPrefs.getString("my_name", null)
             ?: sharedPrefs.getString("my_local_name", null)
             ?: sharedPrefs.getString("current_user_name", null)
-            ?: sharedPrefs.getString("${currentUser}_name", "Я") ?: "Я"
+            ?: sharedPrefs.getString("${currentUser}_name", defaultMe) ?: defaultMe
 
         setupDetailHeroChrome(
             rootView = b.root,
             heroStage = b.layoutAccountHeroStage,
             heroOverlay = b.layoutAccountHeroOverlay,
             scrollView = b.scrollAccountSettings,
-            title = "Аккаунт",
+            title = getString(R.string.settings_account_title),
             subtitle = currentNameInDB,
             heroHeightFraction = 0.30f,
             heroMinDp = 216,
@@ -74,7 +75,7 @@ class SettingsAccountActivity : BaseSettingsDetailActivity() {
     }
 
     private fun bindHeroAccountPreview(displayName: String) {
-        val safeName = displayName.ifBlank { currentNameInDB.ifBlank { "Я" } }
+        val safeName = displayName.ifBlank { currentNameInDB.ifBlank { getString(R.string.settings_default_me) } }
         b.tvHeroAccountName.text = safeName
 
         val avatarUri = AvatarManager.getMyAvatarUri(this)
@@ -214,7 +215,7 @@ class SettingsAccountActivity : BaseSettingsDetailActivity() {
             }
             sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
 
-            PrimeNotification.show(this, "Данные обновлены") {
+            PrimeNotification.show(this, getString(R.string.settings_account_updated_short)) {
                 sharedPrefs.edit().apply {
                     if (newLogin != oldLogin) {
                         val currentAvatar = sharedPrefs.getString("${newLogin}_avatar", null)

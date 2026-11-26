@@ -223,10 +223,19 @@ public class ChatHistoryManager {
         if (context == null || addressOrName == null || addressOrName.trim().isEmpty()) return;
         SharedPreferences sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
         Set<String> set = sp.getStringSet("forgotten_devices", null);
-        if (set != null && set.contains(addressOrName.trim().toLowerCase(Locale.US))) {
+        if (set != null && !set.isEmpty()) {
             Set<String> newSet = new HashSet<>(set);
-            newSet.remove(addressOrName.trim().toLowerCase(Locale.US));
-            sp.edit().putStringSet("forgotten_devices", newSet).apply();
+            String clean = addressOrName.trim();
+            boolean changed = newSet.remove(clean.toLowerCase(Locale.US));
+            String sk = getStorageKey(context, clean);
+            if (sk != null && !sk.isEmpty()) changed |= newSet.remove(sk.toLowerCase(Locale.US));
+            String hk = getHistoryStorageKey(context, clean);
+            if (hk != null && !hk.isEmpty()) changed |= newSet.remove(hk.toLowerCase(Locale.US));
+            String mac = DeviceBindingManager.getSecureDeviceMac(context, clean);
+            if (mac != null && !mac.isEmpty()) changed |= newSet.remove(mac.toLowerCase(Locale.US));
+            if (changed) {
+                sp.edit().putStringSet("forgotten_devices", newSet).apply();
+            }
         }
     }
 
@@ -345,18 +354,16 @@ public class ChatHistoryManager {
             clearPinnedMessage(appContext, k);
         }
 
-        // 0. Synchronously clear memoryCache for all keys
+        // 0. Synchronously clear memoryCache for exact keys
         synchronized (memoryCache) {
             for (String key : keysToDelete) {
+                if (key == null || key.isEmpty()) continue;
                 memoryCache.remove(key);
-            }
-            Iterator<String> it = memoryCache.keySet().iterator();
-            while (it.hasNext()) {
-                String k = it.next();
-                for (String tKey : keysToDelete) {
-                    if (tKey != null && !tKey.isEmpty() && k.toLowerCase(Locale.US).contains(tKey.toLowerCase(Locale.US))) {
+                Iterator<String> it = memoryCache.keySet().iterator();
+                while (it.hasNext()) {
+                    String k = it.next();
+                    if (k != null && k.equalsIgnoreCase(key)) {
                         it.remove();
-                        break;
                     }
                 }
             }
@@ -366,7 +373,15 @@ public class ChatHistoryManager {
             // Re-verify memory cache clearance inside executor
             synchronized (memoryCache) {
                 for (String key : keysToDelete) {
+                    if (key == null || key.isEmpty()) continue;
                     memoryCache.remove(key);
+                    Iterator<String> it = memoryCache.keySet().iterator();
+                    while (it.hasNext()) {
+                        String k = it.next();
+                        if (k != null && k.equalsIgnoreCase(key)) {
+                            it.remove();
+                        }
+                    }
                 }
             }
 
@@ -383,15 +398,28 @@ public class ChatHistoryManager {
                             if (file.exists()) file.delete();
                         } catch (Exception ignored) {}
                     }
+                    List<ChatMessage.MediaItem> items = msg.getMediaItems();
+                    if (items != null) {
+                        for (ChatMessage.MediaItem item : items) {
+                            if (item != null && item.path != null && !item.path.isEmpty()) {
+                                try {
+                                    File f = new File(item.path);
+                                    if (f.exists()) f.delete();
+                                } catch (Exception ignored) {}
+                            }
+                        }
+                    }
                 }
                 historyEdit.remove("history_" + key);
             }
 
+            String currentUser = getCurrentUser(appContext);
             Map<String, ?> allHistoryKeys = historyPrefs.getAll();
             for (String key : allHistoryKeys.keySet()) {
                 for (String tKey : keysToDelete) {
                     if (tKey != null && !tKey.isEmpty()) {
-                        if (key.equalsIgnoreCase("history_" + tKey) || key.toLowerCase(Locale.US).endsWith(tKey.toLowerCase(Locale.US)) || key.toLowerCase(Locale.US).contains(tKey.toLowerCase(Locale.US))) {
+                        if (key.equalsIgnoreCase("history_" + tKey) ||
+                            (currentUser != null && !currentUser.isEmpty() && key.equalsIgnoreCase("history_" + currentUser + "_" + tKey))) {
                             historyEdit.remove(key);
                         }
                     }
@@ -405,7 +433,7 @@ public class ChatHistoryManager {
                 if (jsonFile.exists()) jsonFile.delete();
             }
 
-            // 2. Physical deletion of avatar and cache files associated specifically with contact
+            // 2. Physical deletion of avatar, cover and cache files associated specifically with contact
             try {
                 File[] files = appContext.getFilesDir().listFiles();
                 if (files != null) {
@@ -416,6 +444,7 @@ public class ChatHistoryManager {
                                 String lowerKey = tKey.toLowerCase(Locale.US);
                                 if (name.equals("history_" + lowerKey + ".json") ||
                                     name.startsWith("rec_avatar_" + lowerKey) ||
+                                    name.startsWith("rec_cover_" + lowerKey) ||
                                     name.startsWith("avatar_" + lowerKey)) {
                                     f.delete();
                                 }
@@ -442,7 +471,7 @@ public class ChatHistoryManager {
                 }
             } catch (Exception ignored) {}
 
-            // 3. Complete deletion of names, avatars, last_seen, typing status, etc
+            // 3. Complete deletion of names, avatars, covers, settings, last_seen, typing status, etc
             SharedPreferences localDb = appContext.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
             SharedPreferences.Editor dbEdit = localDb.edit();
             for (String tKey : keysToDelete) {
@@ -453,6 +482,12 @@ public class ChatHistoryManager {
                 dbEdit.remove("contact_name_" + tKey);
                 dbEdit.remove("contact_avatar_" + tKey);
                 dbEdit.remove("contact_avatar_history_" + tKey);
+                dbEdit.remove("contact_cover_" + tKey);
+                dbEdit.remove("mute_until_" + tKey);
+                dbEdit.remove("is_pinned_" + tKey);
+                dbEdit.remove("pinned_order_" + tKey);
+                dbEdit.remove("reader_mode_" + tKey);
+                dbEdit.remove("chat_wallpaper_for_" + tKey.toLowerCase(Locale.US));
                 dbEdit.remove(tKey + "_avatar");
                 dbEdit.remove(tKey + "_avatarUri");
                 dbEdit.remove(tKey + "_name");

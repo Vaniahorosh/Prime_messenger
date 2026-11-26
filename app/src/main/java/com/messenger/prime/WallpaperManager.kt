@@ -50,9 +50,27 @@ object WallpaperManager {
     }
 
     @JvmStatic
+    fun getDefaultWallpaper(context: Context): ChatWallpaper {
+        return ChatWallpaper(
+            id = "default",
+            name = PrimeLocaleManager.getString(context, R.string.settings_chat_wallpaper_default),
+            type = "DEFAULT"
+        )
+    }
+
+    @JvmStatic
+    fun getDisplayName(context: Context, wallpaper: ChatWallpaper): String {
+        return if (wallpaper.id == "default" || wallpaper.type == "DEFAULT") {
+            PrimeLocaleManager.getString(context, R.string.settings_chat_wallpaper_default)
+        } else {
+            wallpaper.name
+        }
+    }
+
+    @JvmStatic
     fun getWallpapersList(context: Context): List<ChatWallpaper> {
         val list = mutableListOf<ChatWallpaper>()
-        list.add(getDefaultWallpaper())
+        list.add(getDefaultWallpaper(context))
 
         val sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val jsonStr = sp.getString(KEY_WALLPAPERS_JSON, null) ?: return list
@@ -101,7 +119,7 @@ object WallpaperManager {
         }
 
         val all = getWallpapersList(context)
-        return all.find { it.id == activeId } ?: getDefaultWallpaper()
+        return all.find { it.id == activeId } ?: getDefaultWallpaper(context)
     }
 
     @JvmStatic

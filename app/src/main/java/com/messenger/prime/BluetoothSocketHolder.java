@@ -207,10 +207,22 @@ public class BluetoothSocketHolder {
             if (s != null && s.isConnected()) return true;
         }
         if (socket != null && socket.isConnected()) return true;
+        try {
+            return BluetoothConnectionManager.getInstance().getConnectedDeviceCount() > 0;
+        } catch (Throwable ignored) {}
         return false;
     }
 
     public static synchronized boolean isConnectedWith(String address, String name) {
+        try {
+            if (address != null && !address.isEmpty() && BluetoothConnectionManager.getInstance().isConnected(address)) {
+                return true;
+            }
+            if (name != null && !name.isEmpty() && BluetoothConnectionManager.getInstance().isConnected(name)) {
+                return true;
+            }
+        } catch (Throwable ignored) {}
+
         BluetoothSocket targetSocket = getSocketFor(address, name);
         Object targetThread = getThreadFor(address, name);
 
@@ -298,7 +310,12 @@ public class BluetoothSocketHolder {
                 } catch (Exception ignored) {}
             }
 
-            String localCoverUri = sharedPrefs.getString("my_profile_cover", null);
+            String localCoverUri = !currentUser.isEmpty()
+                    ? sharedPrefs.getString(currentUser + "_cover", null)
+                    : null;
+            if (localCoverUri == null || localCoverUri.isEmpty()) {
+                localCoverUri = sharedPrefs.getString("my_profile_cover", null);
+            }
             byte[] coverBytes = new byte[0];
             if (localCoverUri != null && !localCoverUri.isEmpty()) {
                 try {
@@ -323,19 +340,42 @@ public class BluetoothSocketHolder {
                 uniqueThreads.add(connectedThreadInstance);
             }
 
-            for (Object threadObj : uniqueThreads) {
-                if (threadObj == null) continue;
-                try {
-                    java.lang.reflect.Method sendPacketMethod = threadObj.getClass().getMethod("sendPacket", byte.class, byte[].class);
-                    sendPacketMethod.setAccessible(true);
-                    sendPacketMethod.invoke(threadObj, (byte) 0x0F, handshakeBytes);
+            if (uniqueThreads.isEmpty()) {
+                BluetoothConnectionManager mgr = BluetoothConnectionManager.getInstance();
+                if (mgr.getConnectedDeviceCount() > 0) {
+                    mgr.broadcastPacket((byte) 0x0F, handshakeBytes);
                     if (avatarBytes != null && avatarBytes.length > 0) {
-                        sendPacketMethod.invoke(threadObj, (byte) 0x07, avatarBytes);
+                        mgr.broadcastPacket((byte) 0x07, avatarBytes);
                     }
                     if (coverBytes != null && coverBytes.length > 0) {
-                        sendPacketMethod.invoke(threadObj, (byte) 0x11, coverBytes);
+                        mgr.broadcastPacket((byte) 0x11, coverBytes);
                     }
-                } catch (Exception ignored) {}
+                }
+            } else {
+                for (Object threadObj : uniqueThreads) {
+                    if (threadObj == null) continue;
+                    try {
+                        java.lang.reflect.Method sendPacketMethod = threadObj.getClass().getMethod("sendPacket", byte.class, byte[].class);
+                        sendPacketMethod.setAccessible(true);
+                        sendPacketMethod.invoke(threadObj, (byte) 0x0F, handshakeBytes);
+                        if (avatarBytes != null && avatarBytes.length > 0) {
+                            sendPacketMethod.invoke(threadObj, (byte) 0x07, avatarBytes);
+                        }
+                        if (coverBytes != null && coverBytes.length > 0) {
+                            sendPacketMethod.invoke(threadObj, (byte) 0x11, coverBytes);
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            if (PrimeCompanionServer.INSTANCE.hasConnectedClients()) {
+                PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x0F, handshakeBytes);
+                if (avatarBytes != null && avatarBytes.length > 0) {
+                    PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x07, avatarBytes);
+                }
+                if (coverBytes != null && coverBytes.length > 0) {
+                    PrimeCompanionServer.INSTANCE.broadcastPacket((byte) 0x11, coverBytes);
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();

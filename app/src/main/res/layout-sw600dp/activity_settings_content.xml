@@ -992,9 +992,79 @@
                     android:layout_marginStart="8dp"
                     android:layout_marginBottom="8dp"
                     android:fontFamily="sans-serif-medium"
-                    android:text="Приложение"
+                    android:text="@string/settings_group_info"
                     android:textColor="@color/prime_brand"
                     android:textSize="13sp" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSectionLanguage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="@color/prime_surface"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="?attr/selectableItemBackground"
+                        android:gravity="center_vertical"
+                        android:minHeight="68dp"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="14dp">
+
+                        <ImageView
+                            android:id="@+id/ivHubIconLanguage"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="14dp"
+                            android:contentDescription="@string/settings_hub_language_title"
+                            android:src="@drawable/ic_language"
+                            app:tint="@color/prime_brand" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:ellipsize="end"
+                                android:fontFamily="sans-serif-medium"
+                                android:maxLines="1"
+                                android:text="@string/settings_hub_language_title"
+                                android:textColor="@color/prime_text_primary"
+                                android:textSize="16sp" />
+
+                            <TextView
+                                android:id="@+id/tvHubSubtitleLanguage"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:ellipsize="end"
+                                android:maxLines="1"
+                                android:text="@string/settings_lang_system"
+                                android:textColor="@color/prime_text_secondary"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginStart="12dp"
+                            android:rotation="-90"
+                            android:src="@drawable/ic_expand_more"
+                            android:tag="do_not_tint"
+                            app:tint="@color/prime_text_secondary" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/cardSectionAbout"

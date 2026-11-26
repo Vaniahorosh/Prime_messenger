@@ -45,9 +45,9 @@ class SettingsAboutActivity : BaseSettingsDetailActivity() {
                 @Suppress("DEPRECATION")
                 pInfo.versionCode.toLong()
             }
-            "Версия $vName (build $vCode)"
+            getString(R.string.settings_about_version_build_format, vName, vCode)
         } catch (_: Exception) {
-            "Версия ${BuildConfig.VERSION_NAME}"
+            getString(R.string.settings_about_version_simple_format, BuildConfig.VERSION_NAME)
         }
         b.tvAppVersion.text = versionName
 
@@ -56,7 +56,7 @@ class SettingsAboutActivity : BaseSettingsDetailActivity() {
             heroStage = b.layoutAboutHeroStage,
             heroOverlay = b.layoutAboutHeroOverlay,
             scrollView = b.scrollAboutSettings,
-            title = "Информация",
+            title = getString(R.string.settings_about_title),
             subtitle = null,
             heroHeightFraction = 0.34f,
             heroMinDp = 244,
@@ -104,7 +104,7 @@ class SettingsAboutActivity : BaseSettingsDetailActivity() {
 
         b.cardCheckUpdate.setOnClickListener {
             UpdateChecker.checkForUpdates(this, manualCheck = true)
-            PrimeNotification.show(this, "Поиск обновлений...")
+            PrimeNotification.show(this, getString(R.string.settings_about_searching_updates))
         }
 
         setupThanksCard()
@@ -143,7 +143,7 @@ class SettingsAboutActivity : BaseSettingsDetailActivity() {
         }
         updateHeartBadge()
 
-        val devPrefix = "Главный разработчик: "
+        val devPrefix = getString(R.string.settings_about_dev_prefix)
         val devName = "Vaniahorosh"
         val spannable = SpannableString(devPrefix + devName)
         val brandColor = ColorAccentManager.getCurrentAccentColor(this)

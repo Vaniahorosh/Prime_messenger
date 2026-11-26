@@ -60,6 +60,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private var initialTheme: String = "system"
     private var initialAccentColor: Int = 0
+    private var initialLanguageTag: String = ""
     private var latestBottomInset: Int = 0
     private var activePhotoPickerSheet: PhotoPickerBottomSheet? = null
     private var isPickerForCover: Boolean = false
@@ -117,7 +118,10 @@ class SettingsActivity : AppCompatActivity() {
                         SettingsSupport.sendProfileUpdateOverBluetooth(this)
                     }
                     sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
-                    PrimeNotification.show(this, if (isGif) "GIF-аватарка добавлена" else "Фото добавлено")
+                    PrimeNotification.show(
+                        this,
+                        getString(if (isGif) R.string.settings_avatar_gif_added else R.string.settings_avatar_added)
+                    )
                 }
             }
         }
@@ -152,7 +156,7 @@ class SettingsActivity : AppCompatActivity() {
             SettingsSupport.sendProfileUpdateOverBluetooth(this)
         }
         sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
-        PrimeNotification.show(this, "GIF-аватарка добавлена")
+        PrimeNotification.show(this, getString(R.string.settings_avatar_gif_added))
     }
 
     private val coverEditorLauncher =
@@ -180,7 +184,7 @@ class SettingsActivity : AppCompatActivity() {
                     SettingsSupport.sendProfileUpdateOverBluetooth(this)
                 }
                 sendBroadcast(Intent("com.messenger.prime.COVER_CHANGED").setPackage(packageName))
-                PrimeNotification.show(this, "Обложка обновлена")
+                PrimeNotification.show(this, getString(R.string.settings_cover_updated_short))
             }
         }
 
@@ -267,7 +271,8 @@ class SettingsActivity : AppCompatActivity() {
                     runOnUiThread { binding?.let { refreshHubSummaries(it) } }
                 }
                 "com.messenger.prime.THEME_CHANGED",
-                "com.messenger.prime.ACCENT_CHANGED" -> {
+                "com.messenger.prime.ACCENT_CHANGED",
+                PrimeLocaleManager.ACTION_LANGUAGE_CHANGED -> {
                     runOnUiThread { recreate() }
                 }
             }
@@ -293,6 +298,7 @@ class SettingsActivity : AppCompatActivity() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         initialTheme = sharedPrefs.getString("app_theme", "system") ?: "system"
         initialAccentColor = ColorAccentManager.getCurrentAccentColor(this)
+        initialLanguageTag = PrimeLocaleManager.getCurrentLanguageTag(this)
 
         val currentUser = sharedPrefs.getString("current_user", "") ?: ""
         currentLoginInDB = currentUser
@@ -300,7 +306,8 @@ class SettingsActivity : AppCompatActivity() {
         val savedName = sharedPrefs.getString("my_name", null)
             ?: sharedPrefs.getString("my_local_name", null)
             ?: sharedPrefs.getString("current_user_name", null)
-            ?: sharedPrefs.getString("${currentUser}_name", "Я") ?: "Я"
+            ?: sharedPrefs.getString("${currentUser}_name", null)
+            ?: getString(R.string.settings_default_me)
         currentNameInDB = savedName
 
         val savedAvatarUri = sharedPrefs.getString("my_avatar", null)
@@ -384,6 +391,7 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
 
+            applyAdaptiveLayout(b, insets)
             applyBottomBarInsets(b)
             insets
         }
@@ -419,6 +427,69 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private fun applyAdaptiveLayout(b: ActivitySettingsContentBinding, insets: WindowInsetsCompat) {
+        val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+        val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+        val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+
+        val profile = SettingsAdaptiveHelper.computeWindowProfile(
+            activity = this,
+            safeTopPx = systemBars.top,
+            safeBottomPx = systemBars.bottom,
+            cutoutLeftPx = cutout.left,
+            cutoutRightPx = cutout.right,
+            imeBottomPx = ime.bottom,
+            imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+        )
+
+        val mainContainer = b.headerStaticBlock.parent as? androidx.constraintlayout.widget.ConstraintLayout ?: return
+        val constraintSet = androidx.constraintlayout.widget.ConstraintSet()
+        constraintSet.clone(mainContainer)
+
+        if (profile.isTwoPaneHub) {
+            val leftWidthPx = SettingsAdaptiveHelper.computeTwoPaneLeftWidthPx(profile)
+
+            constraintSet.connect(b.headerStaticBlock.id, androidx.constraintlayout.widget.ConstraintSet.START, androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.START)
+            constraintSet.connect(b.headerStaticBlock.id, androidx.constraintlayout.widget.ConstraintSet.END, b.layoutSettingsBodyContainer.id, androidx.constraintlayout.widget.ConstraintSet.START)
+            constraintSet.constrainWidth(b.headerStaticBlock.id, leftWidthPx)
+
+            constraintSet.connect(b.layoutSettingsBodyContainer.id, androidx.constraintlayout.widget.ConstraintSet.START, b.headerStaticBlock.id, androidx.constraintlayout.widget.ConstraintSet.END)
+            constraintSet.connect(b.layoutSettingsBodyContainer.id, androidx.constraintlayout.widget.ConstraintSet.END, androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.END)
+            constraintSet.constrainWidth(b.layoutSettingsBodyContainer.id, androidx.constraintlayout.widget.ConstraintSet.MATCH_CONSTRAINT)
+
+            val coverHeight = (180 * profile.density).toInt()
+            constraintSet.constrainHeight(b.composeHeaderBackground.id, coverHeight)
+            constraintSet.constrainHeight(b.ivProfileCover.id, coverHeight)
+
+            constraintSet.connect(b.headerStaticBlock.id, androidx.constraintlayout.widget.ConstraintSet.TOP, androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.TOP)
+            constraintSet.setMargin(b.headerStaticBlock.id, androidx.constraintlayout.widget.ConstraintSet.TOP, (75 * profile.density).toInt())
+
+            constraintSet.connect(b.layoutSettingsBodyContainer.id, androidx.constraintlayout.widget.ConstraintSet.TOP, b.ivProfileCover.id, androidx.constraintlayout.widget.ConstraintSet.BOTTOM)
+            constraintSet.clear(b.layoutSettingsBodyContainer.id, androidx.constraintlayout.widget.ConstraintSet.BOTTOM)
+            constraintSet.setMargin(b.layoutSettingsBodyContainer.id, androidx.constraintlayout.widget.ConstraintSet.TOP, (16 * profile.density).toInt())
+        } else {
+            constraintSet.connect(b.headerStaticBlock.id, androidx.constraintlayout.widget.ConstraintSet.START, androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.START)
+            constraintSet.connect(b.headerStaticBlock.id, androidx.constraintlayout.widget.ConstraintSet.END, androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.END)
+            constraintSet.constrainWidth(b.headerStaticBlock.id, androidx.constraintlayout.widget.ConstraintSet.MATCH_CONSTRAINT)
+
+            constraintSet.connect(b.layoutSettingsBodyContainer.id, androidx.constraintlayout.widget.ConstraintSet.START, androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.START)
+            constraintSet.connect(b.layoutSettingsBodyContainer.id, androidx.constraintlayout.widget.ConstraintSet.END, androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.END)
+            constraintSet.constrainWidth(b.layoutSettingsBodyContainer.id, androidx.constraintlayout.widget.ConstraintSet.MATCH_CONSTRAINT)
+
+            constraintSet.connect(b.layoutSettingsBodyContainer.id, androidx.constraintlayout.widget.ConstraintSet.TOP, b.headerStaticBlock.id, androidx.constraintlayout.widget.ConstraintSet.BOTTOM)
+            constraintSet.connect(b.layoutSettingsBodyContainer.id, androidx.constraintlayout.widget.ConstraintSet.BOTTOM, androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.BOTTOM)
+            constraintSet.setMargin(b.layoutSettingsBodyContainer.id, androidx.constraintlayout.widget.ConstraintSet.TOP, (12 * profile.density).toInt())
+
+            val coverHeight = (240 * profile.density).toInt()
+            constraintSet.constrainHeight(b.composeHeaderBackground.id, coverHeight)
+            constraintSet.constrainHeight(b.ivProfileCover.id, coverHeight)
+
+            constraintSet.connect(b.headerStaticBlock.id, androidx.constraintlayout.widget.ConstraintSet.TOP, androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.TOP)
+            constraintSet.setMargin(b.headerStaticBlock.id, androidx.constraintlayout.widget.ConstraintSet.TOP, (135 * profile.density).toInt())
+        }
+        constraintSet.applyTo(mainContainer)
+    }
+
     private fun updateHeaderCover() {
         val b = binding ?: return
         val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
@@ -450,10 +521,10 @@ class SettingsActivity : AppCompatActivity() {
         val menu = PrimePopupMenu.create(this, anchorView)
 
         if (hasCover) {
-            menu.addItem("Изменить обложку", R.drawable.ic_edit) {
+            menu.addItem(getString(R.string.settings_cover_edit), R.drawable.ic_edit) {
                 showCoverPickerSheet()
             }
-            menu.addItem("Удалить обложку", R.drawable.ic_trash) {
+            menu.addItem(getString(R.string.settings_cover_remove), R.drawable.ic_trash) {
                 sp.edit()
                     .remove("${currentUser}_cover")
                     .remove("my_profile_cover")
@@ -463,10 +534,10 @@ class SettingsActivity : AppCompatActivity() {
                     SettingsSupport.sendProfileUpdateOverBluetooth(this)
                 }
                 sendBroadcast(Intent("com.messenger.prime.COVER_CHANGED").setPackage(packageName))
-                PrimeNotification.show(this, "Обложка удалена")
+                PrimeNotification.show(this, getString(R.string.settings_cover_removed_short))
             }
         } else {
-            menu.addItem("Выбрать обложку", R.drawable.ic_edit) {
+            menu.addItem(getString(R.string.settings_cover_choose), R.drawable.ic_edit) {
                 showCoverPickerSheet()
             }
         }
@@ -478,7 +549,7 @@ class SettingsActivity : AppCompatActivity() {
         isPickerForCover = true
         val sheet = PhotoPickerBottomSheet(
             activity = this,
-            title = "Обложка профиля",
+            title = getString(R.string.settings_cover_dialog_title),
             allowGif = false,
             showPresets = false,
             onMediaSelected = { uri, _ ->
@@ -652,7 +723,7 @@ class SettingsActivity : AppCompatActivity() {
         isPickerForCover = false
         val sheet = PhotoPickerBottomSheet(
             activity = this,
-            title = "Фото профиля",
+            title = getString(R.string.settings_photo_profile_title),
             allowGif = true,
             showPresets = true,
             onMediaSelected = { uri, isGif ->
@@ -684,7 +755,7 @@ class SettingsActivity : AppCompatActivity() {
                     SettingsSupport.sendProfileUpdateOverBluetooth(this@SettingsActivity)
                 }
                 sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
-                PrimeNotification.show(this@SettingsActivity, "Аватарка обновлена")
+                PrimeNotification.show(this@SettingsActivity, getString(R.string.settings_avatar_updated_short))
             },
             onOpenSystemPicker = {
                 activePhotoPickerSheet = null
@@ -768,6 +839,7 @@ class SettingsActivity : AppCompatActivity() {
         b.cardSectionBrowser.setOnClickListener { openSection(SettingsBrowserActivity::class.java) }
         b.cardSectionStorage.setOnClickListener { openSection(SettingsStorageActivity::class.java) }
         b.cardSectionPlugins.setOnClickListener { openSection(SettingsPluginsActivity::class.java) }
+        b.cardSectionLanguage.setOnClickListener { openSection(SettingsLanguageActivity::class.java) }
         b.cardSectionAbout.setOnClickListener { openSection(SettingsAboutActivity::class.java) }
     }
 
@@ -787,7 +859,8 @@ class SettingsActivity : AppCompatActivity() {
         SettingsSupport.applySegmentedGroupShape(b.cardSectionStorage, 1, 3)
         SettingsSupport.applySegmentedGroupShape(b.cardSectionPlugins, 2, 3)
 
-        SettingsSupport.applySegmentedGroupShape(b.cardSectionAbout, 0, 1)
+        SettingsSupport.applySegmentedGroupShape(b.cardSectionLanguage, 0, 2)
+        SettingsSupport.applySegmentedGroupShape(b.cardSectionAbout, 1, 2)
 
         SettingsSupport.applyM3EBadgeIcon(b.ivHubIconAccount, accentColor, M3EShapes.circle, isDark)
         SettingsSupport.applyM3EBadgeIcon(b.ivHubIconAppearance, accentColor, M3EShapes.flower, isDark)
@@ -795,6 +868,7 @@ class SettingsActivity : AppCompatActivity() {
         SettingsSupport.applyM3EBadgeIcon(b.ivHubIconBrowser, accentColor, M3EShapes.verySunny, isDark)
         SettingsSupport.applyM3EBadgeIcon(b.ivHubIconStorage, accentColor, M3EShapes.cookie4Sided, isDark)
         SettingsSupport.applyM3EBadgeIcon(b.ivHubIconPlugins, accentColor, M3EShapes.gem, isDark)
+        SettingsSupport.applyM3EBadgeIcon(b.ivHubIconLanguage, accentColor, M3EShapes.cookie9Sided, isDark)
         SettingsSupport.applyM3EBadgeIcon(b.ivHubIconAbout, accentColor, M3EShapes.cookie7Sided, isDark)
 
         listOf(
@@ -804,6 +878,7 @@ class SettingsActivity : AppCompatActivity() {
             b.cardSectionBrowser,
             b.cardSectionStorage,
             b.cardSectionPlugins,
+            b.cardSectionLanguage,
             b.cardSectionAbout
         ).forEach { it.addBounceTouchEffect() }
 
@@ -872,6 +947,7 @@ class SettingsActivity : AppCompatActivity() {
                 b.cardSectionStorage,
                 b.cardSectionPlugins,
                 b.tvHubGroupTitle3,
+                b.cardSectionLanguage,
                 b.cardSectionAbout
             )
         )
@@ -885,39 +961,58 @@ class SettingsActivity : AppCompatActivity() {
         val savedName = sp.getString("my_name", null)
             ?: sp.getString("my_local_name", null)
             ?: sp.getString("current_user_name", null)
-            ?: sp.getString("${currentUser}_name", "Я") ?: "Я"
+            ?: sp.getString("${currentUser}_name", null)
+            ?: getString(R.string.settings_default_me)
 
-        b.tvHubSubtitleAccount.text = "$savedName • Личные данные"
+        b.tvHubSubtitleAccount.text = getString(R.string.settings_hub_account_sub_format, savedName)
 
         val theme = sp.getString("app_theme", "system") ?: "system"
-        b.tvHubSubtitleAppearance.text =
-            "${SettingsSupport.getThemeDisplayName(theme)} • ${ColorAccentManager.getAccentSummary(this)}"
+        b.tvHubSubtitleAppearance.text = getString(
+            R.string.settings_hub_appearance_sub_format,
+            SettingsSupport.getThemeDisplayName(this, theme),
+            ColorAccentManager.getAccentSummary(this)
+        )
 
         val activeWallpaper = WallpaperManager.getActiveWallpaper(this)
-        b.tvHubSubtitleChat.text = "Обои: ${activeWallpaper.name}"
+        b.tvHubSubtitleChat.text = getString(
+            R.string.settings_hub_chat_wallpaper_format,
+            WallpaperManager.getDisplayName(this, activeWallpaper)
+        )
 
         val browserEnabled = BrowserPreferences.isInternalBrowserEnabled(this)
         val searchEngine = BrowserPreferences.getSearchEngine(this)
-        b.tvHubSubtitleBrowser.text = if (browserEnabled) {
-            "Встроенный • $searchEngine"
+        val searchEngineDisplay = if (searchEngine == "Яндекс") {
+            getString(R.string.settings_browser_yandex)
         } else {
-            "Открытие во внешнем браузере"
+            searchEngine
+        }
+        b.tvHubSubtitleBrowser.text = if (browserEnabled) {
+            getString(R.string.settings_hub_browser_sub_format, searchEngineDisplay)
+        } else {
+            getString(R.string.settings_hub_browser_external_sub)
         }
 
-        val cachedStorage = sp.getString("cached_storage_summary", null)
-        b.tvHubSubtitleStorage.text = if (!cachedStorage.isNullOrBlank()) {
-            cachedStorage
+        val cachedBytes = sp.getLong("cached_storage_bytes", -1L)
+        val cachedStorage = if (cachedBytes >= 0L) {
+            SettingsSupport.formatStorageSize(cachedBytes)
         } else {
-            "Анализ и очистка кэша"
+            sp.getString("cached_storage_summary", null)
+        }
+        b.tvHubSubtitleStorage.text = if (!cachedStorage.isNullOrBlank()) {
+            getString(R.string.settings_hub_storage_sub_format, cachedStorage)
+        } else {
+            getString(R.string.settings_hub_storage_default_sub)
         }
 
         val plugins = PluginManager.getAllPlugins(this)
         val enabledPlugins = plugins.count { it.isEnabled }
         b.tvHubSubtitlePlugins.text = if (plugins.isEmpty()) {
-            "Расширения не установлены"
+            getString(R.string.settings_hub_plugins_empty)
         } else {
-            "Активно $enabledPlugins из ${plugins.size}"
+            getString(R.string.settings_hub_plugins_sub_format, plugins.size, enabledPlugins)
         }
+
+        b.tvHubSubtitleLanguage.text = PrimeLocaleManager.getLanguageDisplayName(this)
 
         val versionName = try {
             val pInfo = packageManager.getPackageInfo(packageName, 0)
@@ -928,9 +1023,9 @@ class SettingsActivity : AppCompatActivity() {
                 @Suppress("DEPRECATION")
                 pInfo.versionCode.toLong()
             }
-            "Prime $vName (build $vCode)"
+            getString(R.string.settings_hub_about_sub_format, vName, vCode)
         } catch (_: Exception) {
-            "Prime ${BuildConfig.VERSION_NAME}"
+            getString(R.string.settings_hub_about_sub_simple_format, BuildConfig.VERSION_NAME)
         }
         b.tvHubSubtitleAbout.text = versionName
     }
@@ -944,32 +1039,32 @@ class SettingsActivity : AppCompatActivity() {
         if (enable) {
             b.btnBackWP.setIconResource(R.drawable.ic_cancel)
             b.btnBackWP.setIconTintResource(R.color.prime_text_primary)
-            b.tvBackLabelWP.text = "Закрыть"
+            b.tvBackLabelWP.text = getString(R.string.settings_close)
 
             b.btnLogoutWP.setIconResource(R.drawable.ic_person)
             b.btnLogoutWP.setIconTintResource(R.color.prime_text_primary)
-            b.tvLogoutWP.text = "Просмотр"
+            b.tvLogoutWP.text = getString(R.string.settings_view_photo)
             b.tvLogoutWP.setTextColor(ContextCompat.getColor(this, R.color.prime_text_primary))
 
             b.btnExtraSettingsWP.setIconResource(R.drawable.ic_trash)
             b.btnExtraSettingsWP.setIconTintResource(R.color.prime_danger)
-            b.tvExtraSettingsWP.text = "Удалить"
+            b.tvExtraSettingsWP.text = getString(R.string.action_delete)
             b.tvExtraSettingsWP.setTextColor(ContextCompat.getColor(this, R.color.prime_danger))
 
             startWobbling(b)
         } else {
             b.btnBackWP.setIconResource(R.drawable.ic_arrow_back)
             b.btnBackWP.setIconTintResource(R.color.prime_text_primary)
-            b.tvBackLabelWP.text = "Назад"
+            b.tvBackLabelWP.text = getString(R.string.action_back)
 
             b.btnLogoutWP.setIconResource(R.drawable.ic_exit_to_app)
             b.btnLogoutWP.setIconTintResource(R.color.prime_danger)
-            b.tvLogoutWP.text = "Выйти"
+            b.tvLogoutWP.text = getString(R.string.settings_logout)
             b.tvLogoutWP.setTextColor(ContextCompat.getColor(this, R.color.prime_danger))
 
             b.btnExtraSettingsWP.setIconResource(R.drawable.ic_settings)
             b.btnExtraSettingsWP.setIconTintResource(R.color.prime_text_primary)
-            b.tvExtraSettingsWP.text = "Настройки"
+            b.tvExtraSettingsWP.text = getString(R.string.settings_nav_to_settings)
             b.tvExtraSettingsWP.setTextColor(ContextCompat.getColor(this, R.color.prime_text_primary))
 
             stopWobbling()
@@ -1028,16 +1123,16 @@ class SettingsActivity : AppCompatActivity() {
     private fun openFullPhoto() {
         val myHistory = AvatarHistoryManager.getMyAvatarHistory(this)
         if (myHistory.isEmpty()) {
-            PrimeNotification.show(this, "Фотография не установлена")
+            PrimeNotification.show(this, getString(R.string.settings_photo_not_set))
             return
         }
         if (isClosing) return
 
-        val myName = currentNameInDB.ifEmpty { "Я" }
+        val myName = currentNameInDB.ifEmpty { getString(R.string.settings_default_me) }
         val mediaList = myHistory.mapIndexed { idx, uriStr ->
             ChatMessage(
-                "Аватар профиля",
-                if (idx == 0) "Это вы (Активный)" else "Это вы",
+                getString(R.string.settings_avatar_title),
+                if (idx == 0) getString(R.string.settings_avatar_you_active) else getString(R.string.settings_avatar_you),
                 myName,
                 true,
                 null,
@@ -1084,7 +1179,7 @@ class SettingsActivity : AppCompatActivity() {
             SettingsSupport.sendProfileUpdateOverBluetooth(this)
         }
         sendBroadcast(Intent("com.messenger.prime.AVATAR_CHANGED").setPackage(packageName))
-        PrimeNotification.show(this, "Фото удалено", onUndo = {
+        PrimeNotification.show(this, getString(R.string.settings_photo_deleted), onUndo = {
             if (!backupUri.isNullOrEmpty()) {
                 AvatarHistoryManager.addMyAvatar(this@SettingsActivity, backupUri)
                 currentAvatarUri = backupUri
@@ -1101,17 +1196,14 @@ class SettingsActivity : AppCompatActivity() {
     private fun showLogoutDialog() {
         PrimeBlurDialog.show(
             activity = this,
-            title = "Выход",
-            message = "Сделать выход из аккаунта?",
-            positiveText = "Да",
-            negativeText = "Нет",
+            title = getString(R.string.settings_logout_prompt_title),
+            message = getString(R.string.settings_logout_prompt_msg),
+            positiveText = getString(R.string.common_yes),
+            negativeText = getString(R.string.common_no),
             isPositiveDanger = true,
             onPositive = {
                 val sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE)
-                val currentUser = sp.getString("current_user", "") ?: ""
-                val myDisplayName = sp.getString("${currentUser}_name", currentUser) ?: currentUser
-                val payload = "DELETE_CHAT:login=$myDisplayName;name=$myDisplayName".toByteArray(Charsets.UTF_8)
-                BluetoothConnectionManager.getInstance().broadcastPacket(8.toByte(), payload)
+                BluetoothConnectionManager.getInstance().broadcastPacket(9.toByte(), "DISCONNECT".toByteArray(Charsets.UTF_8))
                 Thread.sleep(100)
                 BluetoothConnectionManager.getInstance().disconnect()
                 BluetoothSocketHolder.clearSocket()
@@ -1172,7 +1264,8 @@ class SettingsActivity : AppCompatActivity() {
         val sharedPrefs = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
         val latestTheme = sharedPrefs.getString("app_theme", "system") ?: "system"
         val latestAccent = ColorAccentManager.getCurrentAccentColor(this)
-        if (latestTheme != initialTheme || latestAccent != initialAccentColor) {
+        val latestLanguageTag = PrimeLocaleManager.getCurrentLanguageTag(this)
+        if (latestTheme != initialTheme || latestAccent != initialAccentColor || latestLanguageTag != initialLanguageTag) {
             recreate()
             return
         }
@@ -1185,6 +1278,7 @@ class SettingsActivity : AppCompatActivity() {
             addAction("com.messenger.prime.WALLPAPER_CHANGED")
             addAction("com.messenger.prime.THEME_CHANGED")
             addAction("com.messenger.prime.ACCENT_CHANGED")
+            addAction(PrimeLocaleManager.ACTION_LANGUAGE_CHANGED)
             addAction(PluginManager.ACTION_PLUGINS_CHANGED)
         }
         ContextCompat.registerReceiver(this, chatDeletedReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
@@ -1202,7 +1296,8 @@ class SettingsActivity : AppCompatActivity() {
         val savedName = sharedPrefs.getString("my_name", null)
             ?: sharedPrefs.getString("my_local_name", null)
             ?: sharedPrefs.getString("current_user_name", null)
-            ?: sharedPrefs.getString("${currentUser}_name", "Я") ?: "Я"
+            ?: sharedPrefs.getString("${currentUser}_name", null)
+            ?: getString(R.string.settings_default_me)
         val savedAvatarUri = sharedPrefs.getString("my_avatar", null)
             ?: sharedPrefs.getString("my_local_avatar", null)
             ?: sharedPrefs.getString("my_avatar_uri", null)

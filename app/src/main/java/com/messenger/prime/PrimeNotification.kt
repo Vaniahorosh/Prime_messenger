@@ -479,6 +479,65 @@ object PrimeNotification {
     //                    СИСТЕМНЫЕ СООБЩЕНИЯ (SYSTEM NOTIFICATIONS)
     // =========================================================================
 
+    private val recentNotificationMsgIds = LinkedHashSet<String>()
+
+    private fun markMessageNotifiedIfNew(messageId: String?): Boolean {
+        if (messageId.isNullOrEmpty()) return true
+        synchronized(recentNotificationMsgIds) {
+            if (recentNotificationMsgIds.contains(messageId)) return false
+            if (recentNotificationMsgIds.size >= 100) {
+                val first = recentNotificationMsgIds.iterator().next()
+                recentNotificationMsgIds.remove(first)
+            }
+            recentNotificationMsgIds.add(messageId)
+            return true
+        }
+    }
+
+    private fun isChatMutedInternal(
+        context: Context,
+        sp: android.content.SharedPreferences,
+        senderName: String,
+        deviceAddress: String?,
+        displaySenderName: String
+    ): Boolean {
+        val now = System.currentTimeMillis()
+        val keys = linkedSetOf(senderName, senderName.lowercase(Locale.ROOT), displaySenderName)
+        if (!deviceAddress.isNullOrEmpty()) {
+            keys.add(deviceAddress)
+            keys.add(deviceAddress.uppercase(Locale.US))
+            keys.add(deviceAddress.lowercase(Locale.ROOT))
+        }
+        for (key in keys) {
+            if (sp.getLong("mute_until_$key", 0L) > now) {
+                return true
+            }
+        }
+        // Fallback: check persisted_chats id/name in case chat was muted by id while notification uses display name (or vice versa)
+        try {
+            val json = ChatHistoryManager.getPersistedChatsJson(context)
+            if (json.isNotEmpty() && json != "[]") {
+                val array = org.json.JSONArray(json)
+                for (i in 0 until array.length()) {
+                    val obj = array.optJSONObject(i) ?: continue
+                    val id = obj.optString("id", "")
+                    val name = obj.optString("name", "")
+                    val matches = (!deviceAddress.isNullOrEmpty() && (id.equals(deviceAddress, true) || name.equals(deviceAddress, true))) ||
+                        id.equals(senderName, true) || name.equals(senderName, true) ||
+                        name.equals(displaySenderName, true)
+                    if (matches) {
+                        if ((id.isNotEmpty() && sp.getLong("mute_until_$id", 0L) > now) ||
+                            (name.isNotEmpty() && sp.getLong("mute_until_$name", 0L) > now)
+                        ) {
+                            return true
+                        }
+                    }
+                }
+            }
+        } catch (_: Throwable) {}
+        return false
+    }
+
     @JvmStatic
     @JvmOverloads
     fun postMessageNotification(
@@ -486,18 +545,10 @@ object PrimeNotification {
         senderName: String?,
         messageText: String?,
         deviceAddress: String? = null,
-        mediaPath: String? = null
+        mediaPath: String? = null,
+        messageId: String? = null
     ) {
         if (context == null || senderName.isNullOrEmpty()) return
-
-        // Проверяем отключен ли звук у чата (Mute)
-        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
-        val now = System.currentTimeMillis()
-        val muteUntilName = sp.getLong("mute_until_$senderName", 0L)
-        val muteUntilAddress = sp.getLong("mute_until_$deviceAddress", 0L)
-        if (muteUntilName > now || muteUntilAddress > now) {
-            return
-        }
 
         // Подавляем системные уведомления, если активен чат с данным собеседником
         if (PrimeApplication.isChatActive(deviceAddress, senderName) ||
@@ -506,44 +557,70 @@ object PrimeNotification {
             return
         }
 
+        if (!markMessageNotifiedIfNew(messageId)) {
+            return
+        }
+
+        val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
+
         // Отображаемое имя контакта
         var displaySenderName = senderName
         if (!deviceAddress.isNullOrEmpty()) {
-            val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
             var savedName = sp.getString("contact_name_$deviceAddress", null)
             if (savedName.isNullOrEmpty()) {
                 savedName = sp.getString("${deviceAddress}_name", null)
             }
-            if (!savedName.isNullOrEmpty() && !android.bluetooth.BluetoothAdapter.checkBluetoothAddress(savedName)) {
+            if (!savedName.isNullOrEmpty() && !BluetoothAdapter.checkBluetoothAddress(savedName)) {
                 displaySenderName = savedName
             }
         }
-        if (displaySenderName.isNullOrEmpty() || android.bluetooth.BluetoothAdapter.checkBluetoothAddress(displaySenderName)) {
+        if (displaySenderName.isNullOrEmpty() || BluetoothAdapter.checkBluetoothAddress(displaySenderName)) {
             displaySenderName = "Prime Собеседник"
         }
 
+        val isChatMuted = isChatMutedInternal(context, sp, senderName, deviceAddress, displaySenderName)
+
         try {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            val targetChannelId = if (isChatMuted) {
+                PrimeApplication.CHANNEL_MESSAGES_SILENT_ID
+            } else {
+                PrimeApplication.CHANNEL_MESSAGES_ID
+            }
 
-            // Создаем/обновляем единый канал для сообщений
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel = NotificationChannel(
-                    PrimeApplication.CHANNEL_MESSAGES_ID,
-                    "Сообщения Prime",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Уведомления о новых сообщениях и событиях чата"
-                    enableVibration(true)
-                    vibrationPattern = longArrayOf(0, 250, 250, 250)
-                    enableLights(true)
-                    setShowBadge(true)
-                    setSound(
-                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
-                        AudioAttributes.Builder()
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                            .build()
-                    )
+            // Создаем канал только если он ещё не создан (без перезаписи настроек пользователя на каждом сообщении)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && nm.getNotificationChannel(targetChannelId) == null) {
+                val channel = if (isChatMuted) {
+                    NotificationChannel(
+                        PrimeApplication.CHANNEL_MESSAGES_SILENT_ID,
+                        "Тихие сообщения Prime",
+                        NotificationManager.IMPORTANCE_LOW
+                    ).apply {
+                        description = "Уведомления чатов с отключённым звуком"
+                        setSound(null, null)
+                        enableVibration(false)
+                        enableLights(false)
+                        setShowBadge(true)
+                    }
+                } else {
+                    NotificationChannel(
+                        PrimeApplication.CHANNEL_MESSAGES_ID,
+                        "Сообщения Prime",
+                        NotificationManager.IMPORTANCE_HIGH
+                    ).apply {
+                        description = "Уведомления о новых сообщениях и событиях чата"
+                        enableVibration(true)
+                        vibrationPattern = longArrayOf(0, 250, 250, 250)
+                        enableLights(true)
+                        setShowBadge(true)
+                        setSound(
+                            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                            AudioAttributes.Builder()
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                                .build()
+                        )
+                    }
                 }
                 nm.createNotificationChannel(channel)
             }
@@ -561,7 +638,7 @@ object PrimeNotification {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
 
-            val keyStr = if (!deviceAddress.isNullOrEmpty()) deviceAddress else senderName
+            val keyStr = if (!deviceAddress.isNullOrEmpty()) deviceAddress.uppercase(Locale.US) else senderName
             val notificationId = 10000 + Math.abs(keyStr.hashCode() % 80000)
 
             val pendingIntent = PendingIntent.getActivity(
@@ -571,7 +648,7 @@ object PrimeNotification {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
 
-            // Построение Person и MessagingStyle
+            // Построение Person и MessagingStyle с сохранением предыдущих непрочитанных сообщений
             val personBuilder = Person.Builder()
                 .setName(displaySenderName)
                 .setKey(keyStr)
@@ -594,13 +671,30 @@ object PrimeNotification {
                 else -> "Новое сообщение"
             }
 
+            val existingStyle = try {
+                nm.activeNotifications
+                    ?.firstOrNull { it.id == notificationId }
+                    ?.notification
+                    ?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it) }
+            } catch (_: Throwable) {
+                null
+            }
+
             val messagingStyle = NotificationCompat.MessagingStyle(mePerson)
                 .setConversationTitle(displaySenderName)
-                .addMessage(
-                    displayMessageText,
-                    System.currentTimeMillis(),
-                    senderPerson
-                )
+
+            val prevMessages = existingStyle?.messages
+            if (prevMessages != null && prevMessages.isNotEmpty()) {
+                val startIndex = (prevMessages.size - 5).coerceAtLeast(0)
+                for (i in startIndex until prevMessages.size) {
+                    messagingStyle.addMessage(prevMessages[i])
+                }
+            }
+            messagingStyle.addMessage(
+                displayMessageText,
+                System.currentTimeMillis(),
+                senderPerson
+            )
 
             // 1. Прямой ответ (Direct Reply)
             val remoteInput = RemoteInput.Builder(NotificationActionReceiver.KEY_TEXT_REPLY)
@@ -652,29 +746,40 @@ object PrimeNotification {
                 markReadPendingIntent
             ).build()
 
-            val builder = NotificationCompat.Builder(context, PrimeApplication.CHANNEL_MESSAGES_ID)
+            val builder = NotificationCompat.Builder(context, targetChannelId)
                 .setSmallIcon(R.drawable.ic_prime_statusbar)
                 .setStyle(messagingStyle)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setPriority(if (isChatMuted) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                 .setContentIntent(pendingIntent)
                 .addAction(replyAction)
                 .addAction(markReadAction)
                 .setAutoCancel(true)
-                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setSilent(isChatMuted)
 
-            // Отображение фото/видео превью в шторке системных уведомлений
-            val resolvedMediaPath = if (!mediaPath.isNullOrEmpty()) mediaPath else ChatHistoryManager.getLastMediaPreviewPath(context, senderName, deviceAddress)
-            if (!resolvedMediaPath.isNullOrEmpty() && File(resolvedMediaPath).exists()) {
+            if (isChatMuted) {
+                builder.setDefaults(0)
+                    .setSound(null)
+                    .setVibrate(null)
+            } else {
+                builder.setDefaults(NotificationCompat.DEFAULT_ALL)
+            }
+
+            // Показываем BigPictureStyle только если текущее сообщение само содержит mediaPath
+            if (!mediaPath.isNullOrEmpty() && File(mediaPath).exists()) {
                 try {
-                    val mediaBmp = decodeSampledBitmap(resolvedMediaPath, 1024)
+                    val mediaBmp = decodeSampledBitmap(mediaPath, 1024)
                     if (mediaBmp != null) {
-                        val bigPictureStyle = NotificationCompat.BigPictureStyle()
-                            .bigPicture(mediaBmp)
-                            .bigLargeIcon(null as android.graphics.Bitmap?)
-                            .setSummaryText(if (!messageText.isNullOrEmpty()) messageText else "Фотография")
-                        builder.setStyle(bigPictureStyle)
-                        val iconBmp = decodeSampledBitmap(resolvedMediaPath, 256) ?: mediaBmp
+                        val hasPreviousUnread = prevMessages != null && prevMessages.isNotEmpty()
+                        if (!hasPreviousUnread) {
+                            val bigPictureStyle = NotificationCompat.BigPictureStyle()
+                                .bigPicture(mediaBmp)
+                                .bigLargeIcon(null as android.graphics.Bitmap?)
+                                .setBigContentTitle(displaySenderName)
+                                .setSummaryText(displayMessageText)
+                            builder.setStyle(bigPictureStyle)
+                        }
+                        val iconBmp = decodeSampledBitmap(mediaPath, 256) ?: mediaBmp
                         builder.setLargeIcon(iconBmp)
                     }
                 } catch (_: Throwable) {}
@@ -700,7 +805,10 @@ object PrimeNotification {
         try {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
             val keysToCancel = mutableSetOf<String>()
-            if (!deviceAddress.isNullOrEmpty()) keysToCancel.add(deviceAddress)
+            if (!deviceAddress.isNullOrEmpty()) {
+                keysToCancel.add(deviceAddress)
+                keysToCancel.add(deviceAddress.uppercase(Locale.US))
+            }
             if (!senderName.isNullOrEmpty()) keysToCancel.add(senderName)
 
             for (key in keysToCancel) {
@@ -845,7 +953,7 @@ object PrimeNotification {
                 context,
                 1002,
                 cancelIntent,
-                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
 
             val displayPeerName = if (!chatName.isNullOrEmpty()) chatName else "Собеседнику"

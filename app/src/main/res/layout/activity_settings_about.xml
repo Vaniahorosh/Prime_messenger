@@ -68,7 +68,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
                     android:fontFeatureSettings="tnum"
-                    android:text="Версия 1.0"
+                    android:text=""
                     android:textColor="@color/prime_text_secondary"
                     android:textSize="13sp" />
             </LinearLayout>
@@ -153,7 +153,7 @@
                                         android:id="@+id/ivIconGithub"
                                         android:layout_width="42dp"
                                         android:layout_height="42dp"
-                                        android:contentDescription="Исходный код"
+                                        android:contentDescription="@string/settings_about_github_desc"
                                         android:src="@drawable/ic_github_logo"
                                         app:tint="@color/prime_brand" />
 
@@ -165,7 +165,7 @@
                                         android:ellipsize="end"
                                         android:fontFamily="sans-serif-medium"
                                         android:maxLines="1"
-                                        android:text="Исходный код"
+                                        android:text="@string/settings_about_github_desc"
                                         android:textColor="@color/prime_text_primary"
                                         android:textSize="14sp" />
 
@@ -207,7 +207,7 @@
                                         android:id="@+id/ivIconCheckUpdate"
                                         android:layout_width="42dp"
                                         android:layout_height="42dp"
-                                        android:contentDescription="Проверка обновления"
+                                        android:contentDescription="@string/settings_about_update_title"
                                         android:src="@drawable/ic_download"
                                         app:tint="@color/prime_brand" />
 
@@ -219,7 +219,7 @@
                                         android:ellipsize="end"
                                         android:fontFamily="sans-serif-medium"
                                         android:maxLines="1"
-                                        android:text="Обновления"
+                                        android:text="@string/settings_about_update_title"
                                         android:textColor="@color/prime_text_primary"
                                         android:textSize="14sp" />
 
@@ -229,7 +229,7 @@
                                         android:layout_marginTop="2dp"
                                         android:ellipsize="end"
                                         android:maxLines="1"
-                                        android:text="Проверить"
+                                        android:text="@string/settings_about_update_action_sub"
                                         android:textColor="@color/prime_text_secondary"
                                         android:textSize="12sp" />
                                 </LinearLayout>
@@ -280,7 +280,7 @@
                                             android:layout_marginStart="12dp"
                                             android:layout_marginEnd="8dp"
                                             android:fontFamily="sans-serif-medium"
-                                            android:text="Благодарности"
+                                            android:text="@string/settings_about_thanks_title"
                                             android:textColor="@color/prime_brand"
                                             android:textSize="16sp"
                                             app:layout_constraintBottom_toBottomOf="parent"
@@ -339,7 +339,7 @@
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:layout_marginBottom="4dp"
-                                        android:text="Помощник программиста: Gemini, Claude Code"
+                                        android:text="@string/settings_about_credit_ai"
                                         android:textColor="@color/prime_text_primary"
                                         android:textSize="13sp" />
 
@@ -347,7 +347,7 @@
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:layout_marginBottom="4dp"
-                                        android:text="Автор идеи: Иван"
+                                        android:text="@string/settings_about_credit_idea"
                                         android:textColor="@color/prime_text_primary"
                                         android:textSize="13sp" />
 
@@ -355,7 +355,7 @@
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:layout_marginBottom="4dp"
-                                        android:text="Автор визуализации: Sora 2 / Vaniahorosh"
+                                        android:text="@string/settings_about_credit_visual"
                                         android:textColor="@color/prime_text_primary"
                                         android:textSize="13sp" />
 
@@ -363,7 +363,7 @@
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:layout_marginBottom="12dp"
-                                        android:text="Автор серверной части: ?"
+                                        android:text="@string/settings_about_credit_server"
                                         android:textColor="@color/prime_text_primary"
                                         android:textSize="13sp" />
 
@@ -372,7 +372,7 @@
                                         android:layout_height="wrap_content"
                                         android:layout_marginBottom="4dp"
                                         android:fontFamily="sans-serif-medium"
-                                        android:text="Прочие благодарности:"
+                                        android:text="@string/settings_about_other_credits_title"
                                         android:textColor="@color/prime_text_secondary"
                                         android:textSize="12sp" />
 
@@ -380,7 +380,7 @@
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:lineSpacingExtra="3dp"
-                                        android:text="• Григорий Хрюнов\n• Креветки с акулами и круто\n• Бочка регенератор\n• Финский снайпер\n• Тупейший сынище\n• Умнейший сынище\n• Леха Тайлер\n• Сургута не существует\n• Сырники\n• Игра на виолончели\n• Разгон ксеон\n• Мужик Иволга\n• Моя прайм эра\n• Ждун"
+                                        android:text="@string/settings_about_other_credits_list"
                                         android:textColor="@color/prime_text_primary"
                                         android:textSize="12sp" />
                                 </LinearLayout>

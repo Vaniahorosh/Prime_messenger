@@ -48,9 +48,9 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
                 val plugin = PluginManager.importPluginFile(this, uri, name)
                 if (plugin != null) {
                     refreshPluginsList()
-                    PrimeNotification.show(this, "Плагин ${plugin.name} импортирован")
+                    PrimeNotification.show(this, getString(R.string.settings_plugins_imported_format, plugin.name))
                 } else {
-                    PrimeNotification.show(this, "Ошибка импорта плагина")
+                    PrimeNotification.show(this, getString(R.string.settings_plugins_import_error))
                 }
             }
         }
@@ -65,8 +65,8 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
             heroStage = b.layoutPluginsHeroStage,
             heroOverlay = b.layoutPluginsHeroOverlay,
             scrollView = b.scrollPluginsSettings,
-            title = "Плагины",
-            subtitle = "Локальные расширения",
+            title = getString(R.string.settings_plugins_title),
+            subtitle = getString(R.string.settings_hub_plugins_default_sub),
             heroHeightFraction = 0.28f,
             heroMinDp = 208,
             heroMaxDp = 256,
@@ -76,7 +76,7 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
         configureDetailAction(
             rootView = b.root,
             iconRes = R.drawable.ic_add,
-            contentDescription = "Добавить плагин"
+            contentDescription = getString(R.string.settings_plugins_add)
         ) {
             showAddPluginDialog()
         }
@@ -116,7 +116,11 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
     private fun refreshPluginsList() {
         val list = PluginManager.getAllPlugins(this)
         val activeCount = list.count { it.isEnabled }
-        val summaryText = if (list.isEmpty()) "Нет добавленных плагинов" else "Активно: $activeCount из ${list.size}"
+        val summaryText = if (list.isEmpty()) {
+            getString(R.string.settings_plugins_summary_empty)
+        } else {
+            getString(R.string.settings_plugins_summary_active_format, activeCount, list.size)
+        }
         updateDetailSubtitle(b.root, summaryText)
         b.tvHeroPluginsCount.text = summaryText
 
@@ -137,8 +141,11 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
                 val btnRun = row.findViewById<View>(R.id.btnRunPlugin)
 
                 tvName.text = plugin.name
-                val statusStr = if (plugin.isEnabled) "Активен" else "Отключен"
-                tvSubtitle.text = "${plugin.fileType} • $statusStr"
+                val statusStr = getString(
+                    if (plugin.isEnabled) R.string.settings_plugins_status_active
+                    else R.string.settings_plugins_status_disabled
+                )
+                tvSubtitle.text = getString(R.string.settings_plugins_subtitle_format, plugin.fileType, statusStr)
 
                 switchEnable.setOnCheckedChangeListener(null)
                 switchEnable.isChecked = plugin.isEnabled
@@ -155,15 +162,15 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
                 btnDelete.setOnClickListener {
                     PrimeBlurDialog.show(
                         activity = this,
-                        title = "Удаление плагина",
-                        message = "Вы уверены, что хотите удалить плагин ${plugin.name}?",
-                        positiveText = "Удалить",
-                        negativeText = "Отмена",
+                        title = getString(R.string.settings_plugins_delete_dialog_title),
+                        message = getString(R.string.settings_plugins_delete_dialog_msg, plugin.name),
+                        positiveText = getString(R.string.action_delete),
+                        negativeText = getString(R.string.action_cancel),
                         isPositiveDanger = true,
                         onPositive = {
                             PluginManager.deletePlugin(this, plugin.id)
                             refreshPluginsList()
-                            PrimeNotification.show(this, "Плагин удален")
+                            PrimeNotification.show(this, getString(R.string.settings_plugins_deleted))
                         }
                     )
                 }
@@ -177,8 +184,11 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
     private fun showAddPluginDialog() {
         PrimeBlurDialog.showList(
             activity = this,
-            title = "Добавить новый плагин",
-            items = arrayOf("Из файла с устройства", "Создать файл вручную (Код)"),
+            title = getString(R.string.settings_plugins_add_dialog_title),
+            items = arrayOf(
+                getString(R.string.settings_plugins_add_source_file),
+                getString(R.string.settings_plugins_add_source_manual)
+            ),
             iconRes = R.drawable.ic_add,
             onItemSelected = { index, _ ->
                 if (index == 0) {
@@ -189,7 +199,7 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
                         }
                         pluginFilePickerLauncher.launch(intent)
                     } catch (_: Exception) {
-                        PrimeNotification.show(this, "Не удалось открыть выбор файлов")
+                        PrimeNotification.show(this, getString(R.string.settings_plugins_picker_error))
                     }
                 } else {
                     showManualPluginCreationDialog()
@@ -205,13 +215,13 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
         }
 
         val tvLabelName = TextView(this).apply {
-            text = "Название плагина / файла:"
+            text = getString(R.string.settings_plugins_manual_name_label)
             setTextColor(ContextCompat.getColor(this@SettingsPluginsActivity, R.color.prime_text_primary))
             textSize = 13f
             setTypeface(null, Typeface.BOLD)
         }
         val etName = EditText(this).apply {
-            hint = "CustomPlugin.java"
+            hint = getString(R.string.settings_plugins_manual_name_hint)
             isSingleLine = true
             background = ContextCompat.getDrawable(this@SettingsPluginsActivity, R.drawable.bg_date_bubble)
             setPadding(24, 18, 24, 18)
@@ -219,7 +229,7 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
         }
 
         val tvLabelLang = TextView(this).apply {
-            text = "Язык программирования / Тип:"
+            text = getString(R.string.settings_plugins_manual_lang_label)
             setTextColor(ContextCompat.getColor(this@SettingsPluginsActivity, R.color.prime_text_primary))
             textSize = 13f
             setTypeface(null, Typeface.BOLD)
@@ -238,14 +248,14 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
         }
 
         val tvLabelCode = TextView(this).apply {
-            text = "Код / Содержимое плагина:"
+            text = getString(R.string.settings_plugins_manual_code_label)
             setTextColor(ContextCompat.getColor(this@SettingsPluginsActivity, R.color.prime_text_primary))
             textSize = 13f
             setTypeface(null, Typeface.BOLD)
             setPadding(0, 12, 0, 0)
         }
         val etCode = EditText(this).apply {
-            hint = "// Введите исходный код или инструкции..."
+            hint = getString(R.string.settings_plugins_manual_code_hint)
             background = ContextCompat.getDrawable(this@SettingsPluginsActivity, R.drawable.bg_date_bubble)
             setPadding(24, 18, 24, 18)
             minLines = 6
@@ -262,10 +272,10 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
 
         PrimeBlurDialog.show(
             activity = this,
-            title = "Создание плагина",
-            message = "Выберите язык программирования и введите исходный код.",
-            positiveText = "Создать",
-            negativeText = "Отмена",
+            title = getString(R.string.settings_plugins_manual_title),
+            message = getString(R.string.settings_plugins_manual_desc),
+            positiveText = getString(R.string.settings_plugins_manual_create_btn),
+            negativeText = getString(R.string.action_cancel),
             iconRes = R.drawable.ic_add,
             customView = layout,
             onPositive = {
@@ -297,7 +307,7 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
                 val code = etCode.text.toString().trim()
                 val plugin = PluginManager.createPluginFromCode(this, name, code, ext)
                 refreshPluginsList()
-                PrimeNotification.show(this, "Плагин ${plugin.name} создан")
+                PrimeNotification.show(this, getString(R.string.settings_plugins_created_format, plugin.name))
             }
         )
     }
@@ -321,10 +331,10 @@ class SettingsPluginsActivity : BaseSettingsDetailActivity() {
 
         PrimeBlurDialog.show(
             activity = this,
-            title = "Код: ${plugin.name}",
-            message = "Исходный код плагина (${plugin.fileType}):",
-            positiveText = "Сохранить и Запустить",
-            negativeText = "Закрыть",
+            title = getString(R.string.settings_plugins_viewer_title_format, plugin.name),
+            message = getString(R.string.settings_plugins_viewer_msg_format, plugin.fileType),
+            positiveText = getString(R.string.settings_plugins_save_run),
+            negativeText = getString(R.string.settings_close),
             iconRes = R.drawable.ic_file,
             customView = layout,
             onPositive = {

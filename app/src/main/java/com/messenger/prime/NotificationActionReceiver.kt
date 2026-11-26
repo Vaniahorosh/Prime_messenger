@@ -37,6 +37,10 @@ class NotificationActionReceiver : BroadcastReceiver() {
         val notificationId = intent.getIntExtra("EXTRA_NOTIFICATION_ID", Math.abs(chatName.hashCode()))
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
 
+        val isDesktopTarget = "PrimeDesktop".equals(targetAddr, ignoreCase = true) ||
+            "PrimeDesktop".equals(chatName, ignoreCase = true) ||
+            AvatarManager.isDesktopContact(context, chatName, targetAddr)
+
         when (intent.action) {
             ACTION_REPLY, "ACTION_NOTIFICATION_REPLY" -> {
                 val results: Bundle? = RemoteInput.getResultsFromIntent(intent)
@@ -46,12 +50,25 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 if (!replyText.isNullOrEmpty() && targetAddr.isNotEmpty()) {
                     val sp = context.getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                     val currentUser = sp.getString("current_user", "") ?: ""
-                    val myDisplayName = sp.getString("${currentUser}_name", currentUser) ?: currentUser
+                    val myDisplayName = sp.getString("my_name", null)
+                        ?.takeIf { it.isNotEmpty() }
+                        ?: sp.getString("my_local_name", null)?.takeIf { it.isNotEmpty() }
+                        ?: sp.getString("${currentUser}_name", currentUser)
+                        ?: currentUser
                     val localUser = if (myDisplayName.isNotEmpty()) myDisplayName else "Пользователь"
 
                     val timestamp = System.currentTimeMillis()
                     val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
                     val messageId = "${localUser}_${timestamp}_${UUID.randomUUID().toString().substring(0, 4)}"
+
+                    val btConnected = BluetoothConnectionManager.getInstance().isConnected(targetAddr) ||
+                        BluetoothSocketHolder.isConnectedWith(deviceAddress, senderName)
+                    val desktopConnected = isDesktopTarget && PrimeCompanionServer.hasConnectedClients()
+
+                    if (!btConnected && !desktopConnected) {
+                        PrimeNotification.show(context, "Нет подключения к собеседнику")
+                        return
+                    }
 
                     val msg = ChatMessage(replyText, time, localUser, true, null, timestamp, null, messageId)
                     msg.messageStatus = MessageStatus.SENT
@@ -59,9 +76,17 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     val packetContent = "$messageId:::$replyText"
                     val payload = packetContent.toByteArray(StandardCharsets.UTF_8)
 
-                    BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x01.toByte(), payload)
+                    if (btConnected) {
+                        BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x01.toByte(), payload)
+                    }
+                    if (desktopConnected) {
+                        PrimeCompanionServer.broadcastPacket(0x01.toByte(), payload)
+                    }
 
                     ChatHistoryManager.saveMessage(context, chatName, msg)
+                    if (!targetAddr.equals(chatName, ignoreCase = true)) {
+                        ChatHistoryManager.saveMessage(context, targetAddr, msg)
+                    }
                     resetUnreadCountAndUpdateLastMessage(context, chatName, targetAddr, replyText)
 
                     val displayRecipient = if (BluetoothAdapter.checkBluetoothAddress(chatName)) "собеседнику" else chatName
@@ -71,21 +96,30 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 if (notificationId > 0) {
                     nm?.cancel(notificationId)
                 }
+                PrimeNotification.cancelNotificationForUser(context, chatName, deviceAddress)
             }
 
             ACTION_MARK_READ, "ACTION_NOTIFICATION_MARK_READ" -> {
                 if (targetAddr.isNotEmpty()) {
                     val receiptPayload = "READ_ALL:::MARK_READ".toByteArray(StandardCharsets.UTF_8)
-                    BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x0A.toByte(), receiptPayload)
+                    if (BluetoothConnectionManager.getInstance().isConnected(targetAddr)) {
+                        BluetoothConnectionManager.getInstance().sendPacket(targetAddr, 0x0A.toByte(), receiptPayload)
+                    }
+                    if (isDesktopTarget && PrimeCompanionServer.hasConnectedClients()) {
+                        PrimeCompanionServer.broadcastPacket(0x0A.toByte(), receiptPayload)
+                    }
 
                     ChatHistoryManager.markIncomingMessagesAsRead(context, chatName, "READ_ALL")
+                    if (!targetAddr.equals(chatName, ignoreCase = true)) {
+                        ChatHistoryManager.markIncomingMessagesAsRead(context, targetAddr, "READ_ALL")
+                    }
                     resetUnreadCountAndUpdateLastMessage(context, chatName, targetAddr, null)
-                    PrimeNotification.show(context, "Отмечено как прочитанное")
                 }
 
                 if (notificationId > 0) {
                     nm?.cancel(notificationId)
                 }
+                PrimeNotification.cancelNotificationForUser(context, chatName, deviceAddress)
             }
 
             ACTION_CANCEL_UPLOAD -> {

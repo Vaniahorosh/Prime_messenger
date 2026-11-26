@@ -156,6 +156,15 @@ object ColorAccentManager {
     }
 
     @JvmStatic
+    fun getOnAccentColor(@ColorInt accentColor: Int): Int {
+        return if (androidx.core.graphics.ColorUtils.calculateLuminance(accentColor) > 0.45) {
+            Color.parseColor("#0F172A")
+        } else {
+            Color.WHITE
+        }
+    }
+
+    @JvmStatic
     fun getThemeOverlayRes(context: Context): Int {
         val currentColor = getCurrentAccentColor(context)
         val matchedPreset = PRESET_COLORS.find { it.lightColor == currentColor || it.darkColor == currentColor }
@@ -163,15 +172,30 @@ object ColorAccentManager {
     }
 
     @JvmStatic
+    fun getPresetDisplayName(context: Context, preset: PresetColor): String {
+        return when (preset.lightColor) {
+            0xFF154B87.toInt() -> PrimeLocaleManager.getString(context, R.string.settings_accent_default)
+            0xFF00897B.toInt() -> PrimeLocaleManager.getString(context, R.string.settings_accent_emerald)
+            0xFF7C4DFF.toInt() -> PrimeLocaleManager.getString(context, R.string.settings_accent_purple)
+            0xFFFB8C00.toInt() -> PrimeLocaleManager.getString(context, R.string.settings_accent_amber)
+            0xFFE53935.toInt() -> PrimeLocaleManager.getString(context, R.string.settings_accent_ruby)
+            0xFF00ACC1.toInt() -> PrimeLocaleManager.getString(context, R.string.settings_accent_cyan)
+            0xFFE91E63.toInt() -> PrimeLocaleManager.getString(context, R.string.settings_accent_pink)
+            0xFFD80032.toInt() -> PrimeLocaleManager.getString(context, R.string.settings_accent_teto)
+            else -> preset.name
+        }
+    }
+
+    @JvmStatic
     fun getAccentSummary(context: Context): String {
         val type = getAccentType(context)
-        if (type == ACCENT_TYPE_SYSTEM) return "Системный (Monet)"
-        if (type == ACCENT_TYPE_DEFAULT) return "Фирменный"
+        if (type == ACCENT_TYPE_SYSTEM) return PrimeLocaleManager.getString(context, R.string.settings_accent_monet_summary)
+        if (type == ACCENT_TYPE_DEFAULT) return PrimeLocaleManager.getString(context, R.string.settings_accent_default)
 
         val currentColor = getCurrentAccentColor(context)
         val matchedPreset = PRESET_COLORS.find { it.lightColor == currentColor || it.darkColor == currentColor }
         if (matchedPreset != null) {
-            return matchedPreset.name
+            return getPresetDisplayName(context, matchedPreset)
         }
 
         return String.format("#%06X", (0xFFFFFF and currentColor))

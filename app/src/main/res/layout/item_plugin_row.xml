@@ -27,7 +27,7 @@
             android:id="@+id/ivPluginIcon"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:contentDescription="Плагин"
+            android:contentDescription="@string/settings_plugins_icon_cd"
             android:src="@drawable/ic_file"
             app:tint="@color/white" />
     </FrameLayout>
@@ -74,7 +74,7 @@
         android:padding="7dp"
         android:src="@drawable/ic_media_play"
         app:tint="@color/prime_brand"
-        android:contentDescription="@string/app_name" />
+        android:contentDescription="@string/settings_plugins_run" />
 
     <!-- Enable / Disable Modern Material 3 Switch -->
     <com.google.android.material.materialswitch.MaterialSwitch
@@ -93,6 +93,6 @@
         android:padding="7dp"
         android:src="@drawable/ic_trash"
         app:tint="@color/prime_text_secondary"
-        android:contentDescription="Удалить плагин" />
+        android:contentDescription="@string/settings_plugins_delete" />
 
 </LinearLayout>

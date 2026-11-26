@@ -40,7 +40,7 @@
                 style="@style/Widget.MaterialComponents.Button.Icon"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:contentDescription="Назад"
+                android:contentDescription="@string/action_back"
                 android:elevation="0dp"
                 android:insetLeft="0dp"
                 android:insetTop="0dp"
@@ -64,8 +64,8 @@
             android:id="@+id/blurDetailToolbar"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
-            android:layout_marginEnd="10dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
             android:background="@drawable/bg_blur_glass_panel"
             android:elevation="4dp"
             android:minHeight="52dp"
@@ -82,8 +82,8 @@
                 android:gravity="center"
                 android:minHeight="52dp"
                 android:orientation="vertical"
-                android:paddingHorizontal="20dp"
-                android:paddingVertical="6dp">
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="8dp">
 
                 <TextView
                     android:id="@+id/tvDetailTitle"
@@ -93,7 +93,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:gravity="center"
                     android:maxLines="1"
-                    android:text="Настройки"
+                    android:text="@string/settings_title"
                     android:textAlignment="center"
                     android:textColor="@color/prime_text_primary"
                     android:textSize="17sp" />

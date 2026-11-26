@@ -3,11 +3,15 @@ package com.messenger.prime
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
 import android.app.Activity
 import android.os.Bundle
 import android.view.View
@@ -44,6 +48,7 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
             )
         }
 
+        PrimeLocaleManager.applySavedLocale(this)
         PrimeTransitions.applyGlobalAnimationScale(this)
         registerActivityLifecycleCallbacks(this)
         sanitizeLocalUserProfile(this)
@@ -66,6 +71,19 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         }
         createNotificationChannels()
         try {
+            val langFilter = IntentFilter(PrimeLocaleManager.ACTION_LANGUAGE_CHANGED)
+            ContextCompat.registerReceiver(
+                this,
+                object : BroadcastReceiver() {
+                    override fun onReceive(context: Context?, intent: Intent?) {
+                        createNotificationChannels()
+                    }
+                },
+                langFilter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+        } catch (_: Exception) {}
+        try {
             PrimeCompanionServer.start(this)
             PrimeBluetoothService.startService(this)
         } catch (_: Exception) {}
@@ -82,17 +100,19 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
                 ?: return
+            val localizedCtx = PrimeLocaleManager.getLocalizedContext(this)
 
-            // Канал сообщений
+            // Канал сообщений (со звуком и вибрацией)
             val messagesChannel = NotificationChannel(
                 CHANNEL_MESSAGES_ID,
-                "Сообщения Prime",
+                localizedCtx.getString(R.string.channel_messages_name),
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Уведомления о новых сообщениях и событиях чата"
+                description = localizedCtx.getString(R.string.channel_messages_desc)
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 250, 250, 250)
                 enableLights(true)
+                setShowBadge(true)
                 setSound(
                     RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
                     AudioAttributes.Builder()
@@ -102,22 +122,39 @@ class PrimeApplication : Application(), Application.ActivityLifecycleCallbacks {
                 )
             }
 
+            // Канал тихих сообщений (без звука и вибрации)
+            val silentMessagesChannel = NotificationChannel(
+                CHANNEL_MESSAGES_SILENT_ID,
+                localizedCtx.getString(R.string.channel_messages_silent_name),
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = localizedCtx.getString(R.string.channel_messages_silent_desc)
+                setSound(null, null)
+                enableVibration(false)
+                enableLights(false)
+                setShowBadge(true)
+            }
+
             // Канал фонового Bluetooth сервиса
             val btServiceChannel = NotificationChannel(
                 PrimeBluetoothService.CHANNEL_ID,
-                "Служба Bluetooth Prime",
+                localizedCtx.getString(R.string.channel_bt_service_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Уведомления о работе фоновой службы соединения"
+                description = localizedCtx.getString(R.string.channel_bt_service_desc)
+                setSound(null, null)
+                enableVibration(false)
             }
 
             notificationManager.createNotificationChannel(messagesChannel)
+            notificationManager.createNotificationChannel(silentMessagesChannel)
             notificationManager.createNotificationChannel(btServiceChannel)
         }
     }
 
     companion object {
         const val CHANNEL_MESSAGES_ID = "prime_messages"
+        const val CHANNEL_MESSAGES_SILENT_ID = "prime_messages_silent"
         
         @JvmStatic
         var appContext: Context? = null

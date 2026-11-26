@@ -51,8 +51,8 @@ class SettingsStorageActivity : BaseSettingsDetailActivity() {
             heroStage = b.layoutStorageHeroStage,
             heroOverlay = b.layoutStorageHeroOverlay,
             scrollView = b.scrollStorageSettings,
-            title = "Данные и память",
-            subtitle = "Подсчёт...",
+            title = getString(R.string.settings_hub_storage_title),
+            subtitle = getString(R.string.settings_storage_calculating_short),
             heroHeightFraction = 0.30f,
             heroMinDp = 220,
             heroMaxDp = 276,
@@ -122,7 +122,10 @@ class SettingsStorageActivity : BaseSettingsDetailActivity() {
             b.cbStorageAvatars.isChecked = targetState
             b.cbStorageCache.isChecked = targetState
 
-            b.tvSelectAllStorage.text = if (targetState) "Снять всё" else "Выбрать всё"
+            b.tvSelectAllStorage.text = getString(
+                if (targetState) R.string.settings_storage_deselect_all
+                else R.string.settings_storage_select_all
+            )
             updateClearButtonText()
         }
 
@@ -208,6 +211,7 @@ class SettingsStorageActivity : BaseSettingsDetailActivity() {
             getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE)
                 .edit()
                 .putString("cached_storage_summary", formattedTotal)
+                .putLong("cached_storage_bytes", bd.totalSize)
                 .apply()
 
             withContext(Dispatchers.Main) {
@@ -221,17 +225,21 @@ class SettingsStorageActivity : BaseSettingsDetailActivity() {
     private fun updateStorageUi(bd: StorageBreakdown) {
         currentStorageBreakdown = bd
 
-        b.tvSizePhotos.text = "${bd.photosCount} ф. (${SettingsSupport.formatStorageSize(bd.photosSize)})"
-        b.tvSizeVideos.text = "${bd.videosCount} ф. (${SettingsSupport.formatStorageSize(bd.videosSize)})"
-        b.tvSizeAudio.text = "${bd.audioCount} ф. (${SettingsSupport.formatStorageSize(bd.audioSize)})"
-        b.tvSizeGifs.text = "${bd.gifsCount} ф. (${SettingsSupport.formatStorageSize(bd.gifsSize)})"
-        b.tvSizeFiles.text = "${bd.filesCount} ф. (${SettingsSupport.formatStorageSize(bd.filesSize)})"
-        b.tvSizeAvatars.text = "${bd.avatarsCount} ф. (${SettingsSupport.formatStorageSize(bd.avatarsSize)})"
-        b.tvSizeCache.text = "${bd.cacheCount} ф. (${SettingsSupport.formatStorageSize(bd.cacheSize)})"
+        val formatItem: (Int, Long) -> String = { count, size ->
+            val filesPart = PrimeLocaleManager.getQuantityString(this, R.plurals.storage_files_short, count, count)
+            getString(R.string.settings_storage_item_format, filesPart, SettingsSupport.formatStorageSize(size))
+        }
+        b.tvSizePhotos.text = formatItem(bd.photosCount, bd.photosSize)
+        b.tvSizeVideos.text = formatItem(bd.videosCount, bd.videosSize)
+        b.tvSizeAudio.text = formatItem(bd.audioCount, bd.audioSize)
+        b.tvSizeGifs.text = formatItem(bd.gifsCount, bd.gifsSize)
+        b.tvSizeFiles.text = formatItem(bd.filesCount, bd.filesSize)
+        b.tvSizeAvatars.text = formatItem(bd.avatarsCount, bd.avatarsSize)
+        b.tvSizeCache.text = formatItem(bd.cacheCount, bd.cacheSize)
 
         val totalFormatted = SettingsSupport.formatStorageSize(bd.totalSize)
         b.tvHeroStorageTotalSize.text = totalFormatted
-        b.tvStorageTotalSize.text = "Всего файлов: ${bd.totalCount}"
+        b.tvStorageTotalSize.text = getString(R.string.settings_storage_total_files_format, bd.totalCount)
         updateDetailSubtitle(b.root, totalFormatted)
 
         updateClearButtonText()
@@ -291,20 +299,33 @@ class SettingsStorageActivity : BaseSettingsDetailActivity() {
         b.vChartOther.animate().alpha(if (cVisible) 1.0f else 0.2f).setDuration(220).start()
 
         val allChecked = pVisible && vVisible && aVisible && gVisible && fVisible && avVisible && cVisible
-        b.tvSelectAllStorage.text = if (allChecked) "Снять всё" else "Выбрать всё"
+        b.tvSelectAllStorage.text = getString(
+            if (allChecked) R.string.settings_storage_deselect_all
+            else R.string.settings_storage_select_all
+        )
 
         if (selectedBytes > 0) {
             b.btnClearStorage.isEnabled = true
-            b.btnClearStorage.text = "Очистить: $selectedCount ф. (${SettingsSupport.formatStorageSize(selectedBytes)})"
+            val filesPart = PrimeLocaleManager.getQuantityString(
+                this,
+                R.plurals.storage_files_short,
+                selectedCount,
+                selectedCount
+            )
+            b.btnClearStorage.text = getString(
+                R.string.settings_storage_clear_selected_format,
+                filesPart,
+                SettingsSupport.formatStorageSize(selectedBytes)
+            )
         } else {
             b.btnClearStorage.isEnabled = false
-            b.btnClearStorage.text = "Ничего не выбрано"
+            b.btnClearStorage.text = getString(R.string.settings_storage_nothing_selected)
         }
     }
 
     private fun clearSelectedStorage() {
         b.btnClearStorage.isEnabled = false
-        b.btnClearStorage.text = "Очистка..."
+        b.btnClearStorage.text = getString(R.string.settings_storage_clearing)
 
         lifecycleScope.launch(Dispatchers.IO) {
             var deletedBytes = 0L
@@ -404,9 +425,19 @@ class SettingsStorageActivity : BaseSettingsDetailActivity() {
                     if (deleteAvatars) b.cbStorageAvatars.isChecked = false
                     if (deleteCache) b.cbStorageCache.isChecked = false
 
+                    val filesPart = PrimeLocaleManager.getQuantityString(
+                        this@SettingsStorageActivity,
+                        R.plurals.storage_files_full,
+                        deletedCount,
+                        deletedCount
+                    )
                     PrimeNotification.show(
                         this@SettingsStorageActivity,
-                        "Очищено: $deletedCount файлов (${SettingsSupport.formatStorageSize(deletedBytes)})"
+                        getString(
+                            R.string.settings_storage_cleared_format,
+                            filesPart,
+                            SettingsSupport.formatStorageSize(deletedBytes)
+                        )
                     )
                     calculateStorageAsync()
                 }

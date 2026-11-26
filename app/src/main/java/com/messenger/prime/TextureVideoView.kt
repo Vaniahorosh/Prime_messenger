@@ -40,14 +40,21 @@ class TextureVideoView @JvmOverloads constructor(
         fun onFirstFrameRendered()
     }
 
+    fun interface OnPlaybackErrorListener {
+        fun onPlaybackError(what: Int, extra: Int)
+    }
+
     private var mediaPlayer: MediaPlayer? = null
     private var videoPath: String? = null
     private var isPrepared = false
+    private var isPreparing = false
+    private var effectiveLoopDurationMs: Int = 0
     private var playbackSpeed: Float = 1.0f
     private var onPreparedListener: OnPreparedListener? = null
     private var onCompletionListener: OnCompletionListener? = null
 
     private var onFirstFrameRenderedListener: OnFirstFrameRenderedListener? = null
+    private var onPlaybackErrorListener: OnPlaybackErrorListener? = null
     private var hasRenderedFirstFrame = false
     private var nativeSurface: Surface? = null
 
@@ -73,8 +80,8 @@ class TextureVideoView @JvmOverloads constructor(
             val mp = mediaPlayer
             if (mp != null && isPrepared) {
                 try {
-                    val cur = mp.currentPosition
-                    val dur = loopDurationMs
+                    val cur = if (isSeeking) 0 else mp.currentPosition
+                    val dur = effectiveLoopDurationMs
                     val total = mp.duration
                     onProgressUpdateListener?.onProgress(cur, total)
                     if (dur > 0 && cur >= dur && !isSeeking) {
@@ -83,7 +90,9 @@ class TextureVideoView @JvmOverloads constructor(
                     }
                 } catch (_: Exception) {}
             }
-            if (loopDurationMs > 0 && mediaPlayer != null && isPrepared) {
+            val shouldTick = mediaPlayer != null && isPrepared &&
+                (effectiveLoopDurationMs > 0 || loopVideo || onProgressUpdateListener != null)
+            if (shouldTick) {
                 loopHandler.removeCallbacks(this)
                 loopHandler.postDelayed(this, 100)
             }
@@ -108,21 +117,40 @@ class TextureVideoView @JvmOverloads constructor(
     }
 
     fun setVideoPath(path: String) {
+        if (this.videoPath == path && mediaPlayer != null && (isPrepared || isPreparing)) {
+            if (isPrepared) {
+                mediaPlayer?.let { mp ->
+                    try {
+                        updateCenterCropMatrix(mp.videoWidth, mp.videoHeight)
+                        if (autoPlayOnPrepared && !mp.isPlaying) {
+                            start()
+                        } else if (mp.isPlaying && (effectiveLoopDurationMs > 0 || loopVideo || onProgressUpdateListener != null)) {
+                            loopHandler.removeCallbacks(loopRunnable)
+                            loopHandler.post(loopRunnable)
+                        }
+                    } catch (_: Exception) {}
+                }
+                if (hasRenderedFirstFrame) {
+                    post { onFirstFrameRenderedListener?.onFirstFrameRendered() }
+                }
+            }
+            return
+        }
         this.videoPath = path
         if (isAvailable) {
             openVideo()
         }
     }
 
-    fun setOnPreparedListener(listener: OnPreparedListener) {
+    fun setOnPreparedListener(listener: OnPreparedListener?) {
         this.onPreparedListener = listener
     }
 
-    fun setOnCompletionListener(listener: OnCompletionListener) {
+    fun setOnCompletionListener(listener: OnCompletionListener?) {
         this.onCompletionListener = listener
     }
 
-    fun setOnProgressUpdateListener(listener: OnProgressUpdateListener) {
+    fun setOnProgressUpdateListener(listener: OnProgressUpdateListener?) {
         this.onProgressUpdateListener = listener
     }
 
@@ -130,12 +158,17 @@ class TextureVideoView @JvmOverloads constructor(
         this.onFirstFrameRenderedListener = listener
     }
 
+    fun setOnPlaybackErrorListener(listener: OnPlaybackErrorListener?) {
+        this.onPlaybackErrorListener = listener
+    }
+
     private fun openVideo() {
         val path = videoPath ?: return
         val surfaceTexture = surfaceTexture ?: return
 
-        stopPlayback()
+        stopPlayback(clearPath = false)
         hasRenderedFirstFrame = false
+        isPreparing = true
 
         try {
             val surf = Surface(surfaceTexture)
@@ -172,16 +205,17 @@ class TextureVideoView @JvmOverloads constructor(
                 }
                 setOnVideoSizeChangedListener { _, w, h ->
                     updateCenterCropMatrix(w, h)
-                    if (path != null && w > 0 && h > 0) {
+                    if (w > 0 && h > 0) {
                         ChatAdapter.cacheVideoDimensions(path, w, h)
                     }
                 }
                 setOnPreparedListener { mp ->
+                    isPreparing = false
                     isPrepared = true
                     val vw = mp.videoWidth
                     val vh = mp.videoHeight
                     updateCenterCropMatrix(vw, vh)
-                    if (path != null && vw > 0 && vh > 0) {
+                    if (vw > 0 && vh > 0) {
                         ChatAdapter.cacheVideoDimensions(path, vw, vh)
                     }
                     if (isMuted) {
@@ -196,13 +230,15 @@ class TextureVideoView @JvmOverloads constructor(
                             e.printStackTrace()
                         }
                     }
-                    if (loopDurationMs == -1) {
-                        val totalDur = mp.duration
-                        loopDurationMs = when {
-                            totalDur <= 3000 -> totalDur
-                            totalDur <= 7000 -> 2000
-                            else -> 2800
+                    val totalDur = mp.duration
+                    effectiveLoopDurationMs = if (loopDurationMs == -1) {
+                        when {
+                            totalDur <= 0 -> 0
+                            totalDur <= 5000 -> totalDur
+                            else -> 5000
                         }
+                    } else {
+                        loopDurationMs
                     }
                     if (autoPlayOnPrepared) {
                         start()
@@ -215,12 +251,17 @@ class TextureVideoView @JvmOverloads constructor(
                         if (autoPlayOnPrepared && !mp.isPlaying) {
                             mp.start()
                         }
+                        if (effectiveLoopDurationMs > 0 || loopVideo || onProgressUpdateListener != null) {
+                            loopHandler.removeCallbacks(loopRunnable)
+                            loopHandler.post(loopRunnable)
+                        }
                     } catch (_: Exception) {}
                 }
                 setOnCompletionListener { mp ->
                     isSeeking = false
-                    if (loopVideo || loopDurationMs > 0) {
+                    if (loopVideo || effectiveLoopDurationMs > 0) {
                         try {
+                            isSeeking = true
                             mp.seekTo(0)
                             if (autoPlayOnPrepared && !mp.isPlaying) {
                                 mp.start()
@@ -233,19 +274,22 @@ class TextureVideoView @JvmOverloads constructor(
                 setOnErrorListener { _, what, extra ->
                     android.util.Log.e("TextureVideoView", "MediaPlayer error: what=$what extra=$extra path=$videoPath")
                     stopPlayback()
+                    post { onPlaybackErrorListener?.onPlaybackError(what, extra) }
                     true
                 }
                 prepareAsync()
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            stopPlayback()
+            post { onPlaybackErrorListener?.onPlaybackError(-1, -1) }
         }
     }
 
     fun start() {
         try {
             mediaPlayer?.start()
-            if (loopDurationMs > 0) {
+            if (effectiveLoopDurationMs > 0 || loopVideo || onProgressUpdateListener != null) {
                 loopHandler.removeCallbacks(loopRunnable)
                 loopHandler.post(loopRunnable)
             }
@@ -263,10 +307,16 @@ class TextureVideoView @JvmOverloads constructor(
         }
     }
 
-    fun stopPlayback() {
+    @JvmOverloads
+    fun stopPlayback(clearPath: Boolean = true) {
         loopHandler.removeCallbacksAndMessages(null)
         isSeeking = false
+        isPreparing = false
         hasRenderedFirstFrame = false
+        effectiveLoopDurationMs = 0
+        if (clearPath) {
+            videoPath = null
+        }
         mediaPlayer?.let { mp ->
             try {
                 mp.setOnPreparedListener(null)

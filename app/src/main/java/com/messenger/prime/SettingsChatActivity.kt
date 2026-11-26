@@ -54,8 +54,8 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
             heroStage = b.layoutChatHeroStage,
             heroOverlay = b.layoutChatHeroOverlay,
             scrollView = b.scrollChatSettings,
-            title = "В чате",
-            subtitle = "Обои, пузырьки и кружки",
+            title = getString(R.string.settings_hub_chat_title),
+            subtitle = getString(R.string.settings_chat_hero_subtitle),
             heroHeightFraction = 0.36f,
             heroMinDp = 256,
             heroMaxDp = 328,
@@ -117,7 +117,7 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
         val activeWp = WallpaperManager.getActiveWallpaper(this)
 
         b.vHeroChatWallpaper.setLiveTempWallpaper(activeWp)
-        b.tvWallpaperSummary.text = activeWp.name
+        b.tvWallpaperSummary.text = WallpaperManager.getDisplayName(this, activeWp)
         b.layoutWallpaperOptions.removeAllViews()
 
         for (wp in wallpapers) {
@@ -222,7 +222,7 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
                         )
                         setBackgroundColor(if (isNight) Color.parseColor("#151D2A") else Color.parseColor("#F1F5F9"))
                         gravity = Gravity.CENTER
-                        text = "Прайм\nОбои"
+                        text = getString(R.string.settings_chat_wallpaper_preview_brand)
                         textSize = 11f
                         typeface = Typeface.DEFAULT_BOLD
                         setTextColor(accentColor)
@@ -254,7 +254,7 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
                     gravity = Gravity.CENTER_HORIZONTAL
                 }
                 gravity = Gravity.CENTER
-                text = wp.name
+                text = WallpaperManager.getDisplayName(this@SettingsChatActivity, wp)
                 textSize = 13f
                 typeface = Typeface.DEFAULT_BOLD
                 isSingleLine = true
@@ -383,7 +383,7 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
                 gravity = Gravity.CENTER_HORIZONTAL
             }
             gravity = Gravity.CENTER
-            text = "Добавить"
+            text = getString(R.string.settings_chat_wallpaper_add)
             textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(accentColor)
@@ -450,7 +450,7 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
             b.btnResetBubbleRadius.visibility = if (percent != 50) View.VISIBLE else View.GONE
         }
         val updateLabel = { percent: Int ->
-            b.tvBubbleRadiusValue.text = "$percent%"
+            b.tvBubbleRadiusValue.text = getString(R.string.settings_percent_format, percent)
         }
         updateLabel(savedPercent)
         updateResetVisibility(savedPercent)
@@ -487,7 +487,7 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
             ?: sharedPrefs.getString("my_local_avatar", null)
             ?: sharedPrefs.getString("my_avatar_uri", null)
             ?: sharedPrefs.getString("${currentUser}_avatar", null)
-        val myName = AvatarManager.getMyDisplayName(this).ifBlank { "Пользователь" }
+        val myName = AvatarManager.getMyDisplayName(this).ifBlank { getString(R.string.settings_default_user) }
 
         if (!myAvatar.isNullOrEmpty()) {
             b.ivAvatarPreviewImage.visibility = View.VISIBLE
@@ -509,7 +509,7 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
         b.cardAvatarPreviewBlock.strokeWidth = 0
 
         val updateAvatarPreview = { percent: Int ->
-            b.tvAvatarRadiusValue.text = "$percent%"
+            b.tvAvatarRadiusValue.text = getString(R.string.settings_percent_format, percent)
             val radiusPx = getAvatarCornerRadiusPx(this, viewSizePx)
 
             if (b.tvAvatarPreviewInitials.visibility == View.VISIBLE) {
@@ -705,21 +705,21 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
             sec.btnPartnerInfoModeSwipe.setTextColor(if (!isDrag) Color.WHITE else unselectedTextColor)
 
             if (isDrag) {
-                sec.tvPreviewGestureHint.text = "Потяните вниз для инфо"
+                sec.tvPreviewGestureHint.text = getString(R.string.settings_chat_partner_info_hint_drag)
                 sec.ivPreviewGestureIcon.setImageResource(R.drawable.ic_arrow_back)
                 sec.ivPreviewGestureIcon.rotation = -90f
                 b.cardPartnerInfoSection.alpha = 1.0f
                 b.switchPartnerInfo.isEnabled = true
                 b.switchPartnerInfo.isChecked = sharedPrefs.getBoolean("settings_partner_info_enabled", true)
-                b.tvSubtitlePartnerInfo.text = "Переходить в профиль при перетягивании с верхнего края чата"
+                b.tvSubtitlePartnerInfo.text = getString(R.string.settings_chat_partner_info_desc_drag)
             } else {
-                sec.tvPreviewGestureHint.text = "Свайп справа налево для инфо"
+                sec.tvPreviewGestureHint.text = getString(R.string.settings_chat_partner_info_hint_swipe)
                 sec.ivPreviewGestureIcon.setImageResource(R.drawable.ic_arrow_back)
                 sec.ivPreviewGestureIcon.rotation = 0f
                 b.cardPartnerInfoSection.alpha = 0.45f
                 b.switchPartnerInfo.isEnabled = false
                 b.switchPartnerInfo.isChecked = false
-                b.tvSubtitlePartnerInfo.text = "Недоступно: выбран свайп справа налево"
+                b.tvSubtitlePartnerInfo.text = getString(R.string.settings_chat_partner_info_unavailable)
             }
 
             if (triggerAnim) {
@@ -761,12 +761,12 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
             b.switchPartnerInfo.isChecked = false
             b.switchPartnerInfo.isEnabled = false
             b.cardPartnerInfoSection.alpha = 0.45f
-            b.tvSubtitlePartnerInfo.text = "Недоступно: выбран свайп справа налево"
+            b.tvSubtitlePartnerInfo.text = getString(R.string.settings_chat_partner_info_unavailable)
         } else {
             b.switchPartnerInfo.isChecked = isEnabled
             b.switchPartnerInfo.isEnabled = true
             b.cardPartnerInfoSection.alpha = 1.0f
-            b.tvSubtitlePartnerInfo.text = "Переходить в профиль при перетягивании с верхнего края чата"
+            b.tvSubtitlePartnerInfo.text = getString(R.string.settings_chat_partner_info_desc_drag)
         }
 
         b.switchPartnerInfo.setOnCheckedChangeListener { _, isChecked ->
@@ -804,7 +804,7 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
 
         val updatePreview = { radiusDp: Int ->
             val percent = Math.round((radiusDp / 36f) * 100)
-            b.tvBottomBarRadiusValue.text = "$percent%"
+            b.tvBottomBarRadiusValue.text = getString(R.string.settings_percent_format, percent)
             val radiusPx = radiusDp * density
             b.cardHeaderPreviewInput.radius = radiusPx
             b.cardBottomBarPreviewInput.radius = radiusPx
@@ -872,19 +872,26 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
             val shapeOption = VideoNoteShapeHelper.AVAILABLE_SHAPES.firstOrNull {
                 it.tag.equals(shapeTag, ignoreCase = true)
             }
-            val shapeName = shapeOption?.displayName
-                ?: if (radiusPercent >= 50) "Круг" else if (radiusPercent == 0) "Квадрат" else "$radiusPercent%"
+            val shapeName = if (shapeOption != null) {
+                VideoNoteShapeHelper.getDisplayName(this, shapeOption.tag, shapeOption.displayName)
+            } else {
+                when {
+                    radiusPercent >= 50 -> getString(R.string.shape_circle)
+                    radiusPercent == 0 -> getString(R.string.shape_square)
+                    else -> getString(R.string.settings_percent_format, radiusPercent)
+                }
+            }
             b.tvVideoShapeValue.text = shapeName
 
             b.tvVideoCornerRadiusValue.text = when {
                 VideoNoteShapeHelper.isM3EShape(shapeTag) -> shapeName
-                radiusPercent >= 50 -> "$radiusPercent% (Круг)"
-                radiusPercent == 0 -> "0% (Квадрат)"
-                else -> "$radiusPercent% (Сквиркл)"
+                radiusPercent >= 50 -> getString(R.string.settings_video_corner_circle_format, radiusPercent)
+                radiusPercent == 0 -> getString(R.string.settings_video_corner_square)
+                else -> getString(R.string.settings_video_corner_squircle_format, radiusPercent)
             }
 
             val sizePercent = Math.round(((sizeDp - 120f) / (260f - 120f)) * 100)
-            b.tvVideoSizeValue.text = "$sizePercent%"
+            b.tvVideoSizeValue.text = getString(R.string.settings_percent_format, sizePercent)
 
             b.layoutVideoNotePreviewFrame.let { frame ->
                 val previewSizePx = (sizeDp * resources.displayMetrics.density).toInt()
@@ -934,7 +941,7 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
                 val chip = Chip(this).apply {
                     id = View.generateViewId()
                     tag = shape.tag
-                    text = shape.displayName
+                    text = VideoNoteShapeHelper.getDisplayName(this@SettingsChatActivity, shape.tag, shape.displayName)
                     isCheckable = true
                     isClickable = true
                     isChecked = isSelected
@@ -1038,7 +1045,11 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
             }
         }
 
-        val qualityOptions = arrayOf("Низкое (Быстрое)", "Среднее (Баланс)", "Высокое (HD)")
+        val qualityOptions = arrayOf(
+            getString(R.string.settings_camera_quality_low),
+            getString(R.string.settings_camera_quality_medium),
+            getString(R.string.settings_camera_quality_high)
+        )
         var qualityIdx = sharedPrefs.getInt("video_message_quality", 0).coerceIn(0, qualityOptions.lastIndex)
         b.tvVideoQualityValue.text = qualityOptions[qualityIdx]
         b.tvVideoQualityValue.setTextColor(accentColor)
@@ -1054,7 +1065,10 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
             menu.show()
         }
 
-        val fpsOptions = arrayOf("30 FPS", "60 FPS (Плавно)")
+        val fpsOptions = arrayOf(
+            getString(R.string.settings_camera_fps_30),
+            getString(R.string.settings_camera_fps_60_smooth)
+        )
         var fpsIdx = sharedPrefs.getInt("video_message_fps", 0).coerceIn(0, fpsOptions.lastIndex)
         b.tvVideoFpsValue.text = fpsOptions[fpsIdx]
         b.tvVideoFpsValue.setTextColor(accentColor)
@@ -1075,7 +1089,10 @@ class SettingsChatActivity : BaseSettingsDetailActivity() {
             sharedPrefs.edit().putBoolean("video_message_stabilization", isChecked).apply()
         }
 
-        val apiOptions = arrayOf("CameraX (Стабильно)", "Camera2 (Устаревшее)")
+        val apiOptions = arrayOf(
+            getString(R.string.settings_camera_api_camerax),
+            getString(R.string.settings_camera_api_camera2_legacy)
+        )
         var apiIdx = sharedPrefs.getInt("video_message_api", 0).coerceIn(0, apiOptions.lastIndex)
         b.tvCameraApiValue.text = apiOptions[apiIdx]
         b.tvCameraApiValue.setTextColor(accentColor)

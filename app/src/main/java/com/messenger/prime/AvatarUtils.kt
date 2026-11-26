@@ -510,10 +510,6 @@ fun loadAvatarIntoView(
     }
     if (activity != null && (activity.isFinishing || activity.isDestroyed)) return
 
-    try {
-        Glide.with(context).clear(imageView)
-    } catch (_: Exception) {}
-
     val isExcludedActivity = context is PersonInformationActivity ||
         (context is ContextWrapper && context.baseContext is PersonInformationActivity)
 
@@ -533,7 +529,6 @@ fun loadAvatarIntoView(
             .build()
     }
 
-    var loaded = false
     val (model, file) = when (avatarSource) {
         is String -> parseAvatarModelAndFile(avatarSource)
         is Uri -> Pair(avatarSource, if (avatarSource.scheme == "file" && avatarSource.path != null) File(avatarSource.path!!) else null)
@@ -541,48 +536,79 @@ fun loadAvatarIntoView(
         else -> Pair(avatarSource, null)
     }
 
-    if (model != null) {
-        if (file == null || AvatarManager.checkFileExistsCached(file)) {
-            val sourceStr = avatarSource.toString().lowercase(Locale.US)
-            val isGif = sourceStr.endsWith(".gif") || sourceStr.contains("gif")
-            val signatureKey = ObjectKey(if (file != null && AvatarManager.checkFileExistsCached(file)) "${file.absolutePath}_${file.lastModified()}" else avatarSource.toString())
-            val isCircle = radiusPx >= (viewSizePx / 2 - 2)
+    val canLoadModel = model != null && (file == null || AvatarManager.checkFileExistsCached(file))
+    val fileStamp = if (canLoadModel && file != null && AvatarManager.checkFileExistsCached(file)) {
+        "${file.absolutePath}_${file.lastModified()}"
+    } else if (canLoadModel) {
+        avatarSource.toString()
+    } else {
+        "LETTER_${fallbackName.trim()}"
+    }
+    val isCircle = radiusPx >= (viewSizePx / 2 - 2)
+    val renderKey = "$fileStamp|r=$radiusPx|s=$isShapeable|c=$isCircle"
 
-            try {
-                if (isGif) {
-                    Glide.with(context)
-                        .asGif()
-                        .load(model)
-                        .centerCrop()
-                        .signature(signatureKey)
-                        .placeholder(R.drawable.ic_person)
-                        .into(imageView)
-                } else if (isShapeable) {
-                    // ShapeableImageView handles its own corner clipping cleanly
-                    Glide.with(context)
-                        .load(model)
-                        .centerCrop()
-                        .signature(signatureKey)
-                        .placeholder(R.drawable.ic_person)
-                        .into(imageView)
-                } else if (isCircle) {
-                    Glide.with(context)
-                        .load(model)
-                        .transform(CenterCrop(), CircleCrop())
-                        .signature(signatureKey)
-                        .placeholder(R.drawable.ic_person)
-                        .into(imageView)
-                } else {
-                    Glide.with(context)
-                        .load(model)
-                        .transform(CenterCrop(), RoundedCorners(radiusPx))
-                        .signature(signatureKey)
-                        .placeholder(R.drawable.ic_person)
-                        .into(imageView)
-                }
-                loaded = true
-            } catch (_: Exception) {}
-        }
+    val existingKey = imageView.getTag(R.id.tag_avatar_load_key) as? String
+    if (existingKey == renderKey && imageView.drawable != null) {
+        return
+    }
+    imageView.setTag(R.id.tag_avatar_load_key, renderKey)
+
+    var loaded = false
+    if (canLoadModel) {
+        val sourceStr = avatarSource.toString().lowercase(Locale.US)
+        val isGif = sourceStr.endsWith(".gif") || sourceStr.contains("gif")
+        val signatureKey = ObjectKey(fileStamp)
+        val placeholderDrawable = imageView.drawable
+            ?: ContextCompat.getDrawable(context, R.drawable.ic_person)
+        val errorDrawable = createLetterAvatarDrawable(
+            context,
+            if (fallbackName.isNotBlank()) fallbackName else "P",
+            radiusPx.toFloat(),
+            viewSizePx
+        )
+
+        try {
+            if (isGif) {
+                Glide.with(context)
+                    .asGif()
+                    .load(model)
+                    .centerCrop()
+                    .signature(signatureKey)
+                    .placeholder(placeholderDrawable)
+                    .error(errorDrawable)
+                    .dontAnimate()
+                    .into(imageView)
+            } else if (isShapeable) {
+                // ShapeableImageView handles its own corner clipping cleanly
+                Glide.with(context)
+                    .load(model)
+                    .centerCrop()
+                    .signature(signatureKey)
+                    .placeholder(placeholderDrawable)
+                    .error(errorDrawable)
+                    .dontAnimate()
+                    .into(imageView)
+            } else if (isCircle) {
+                Glide.with(context)
+                    .load(model)
+                    .transform(CenterCrop(), CircleCrop())
+                    .signature(signatureKey)
+                    .placeholder(placeholderDrawable)
+                    .error(errorDrawable)
+                    .dontAnimate()
+                    .into(imageView)
+            } else {
+                Glide.with(context)
+                    .load(model)
+                    .transform(CenterCrop(), RoundedCorners(radiusPx))
+                    .signature(signatureKey)
+                    .placeholder(placeholderDrawable)
+                    .error(errorDrawable)
+                    .dontAnimate()
+                    .into(imageView)
+            }
+            loaded = true
+        } catch (_: Exception) {}
     }
 
     if (!loaded) {

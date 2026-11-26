@@ -491,9 +491,10 @@ class MediaPlayerActivity : AppCompatActivity() {
     }
 
     private fun setupBlurViews() {
-        val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: window.decorView as ViewGroup
+        val rootView = findViewById<ViewGroup>(R.id.mediaRoot)
+            ?: window.decorView.findViewById<ViewGroup>(android.R.id.content)
+            ?: window.decorView as ViewGroup
         val windowBg = window.decorView.background
-        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val overlayColor = getDefaultBlurOverlayColor(this)
 
         val topBlur = findViewById<BlurView>(R.id.topOverlay)
@@ -939,12 +940,7 @@ class MediaPlayerActivity : AppCompatActivity() {
         val path = item.imagePath ?: ""
         val isGif = path.lowercase(Locale.US).endsWith(".gif") || path.lowercase(Locale.US).contains("gif")
         if (path.isNotEmpty()) {
-            val model: Any = if (path.startsWith("content://") || path.startsWith("file://") || path.startsWith("http")) {
-                Uri.parse(path)
-            } else {
-                val file = File(path)
-                if (file.exists()) file else Uri.parse(path)
-            }
+            val model: Any = parseAvatarModelAndFile(path).first ?: Uri.parse(path)
             if (isGif) {
                 Glide.with(this)
                     .asGif()
@@ -1643,12 +1639,7 @@ class MediaPlayerActivity : AppCompatActivity() {
                 val isGif = path.lowercase(Locale.US).endsWith(".gif") || path.lowercase(Locale.US).contains("gif")
 
                 val model: Any? = if (path.isNotEmpty()) {
-                    if (path.startsWith("content://") || path.startsWith("file://") || path.startsWith("http")) {
-                        Uri.parse(path)
-                    } else {
-                        val file = File(path)
-                        if (file.exists()) file else Uri.parse(path)
-                    }
+                    parseAvatarModelAndFile(path).first ?: Uri.parse(path)
                 } else null
 
                 if (isGif && model != null) {

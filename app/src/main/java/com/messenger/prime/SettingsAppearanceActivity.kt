@@ -64,8 +64,8 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
             heroStage = b.layoutAppearanceHeroStage,
             heroOverlay = b.layoutAppearanceHeroOverlay,
             scrollView = b.scrollAppearanceSettings,
-            title = "Оформление",
-            subtitle = SettingsSupport.getThemeDisplayName(currentTheme),
+            title = getString(R.string.settings_hub_appearance_title),
+            subtitle = SettingsSupport.getThemeDisplayName(this, currentTheme),
             heroHeightFraction = 0.33f,
             heroMinDp = 240,
             heroMaxDp = 296,
@@ -102,7 +102,7 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
     }
 
     private fun setupThemeSection(currentTheme: String) {
-        b.tvThemeSummary.text = SettingsSupport.getThemeDisplayName(currentTheme)
+        b.tvThemeSummary.text = SettingsSupport.getThemeDisplayName(this, currentTheme)
         updateThemeSelectionUI(currentTheme)
     }
 
@@ -196,7 +196,7 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
             b.btnTetoSoundEasterEgg.setOnClickListener { v ->
                 v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                 TetoVoiceSynthesizer.playTetoSound(this)
-                PrimeNotification.show(this, "Касане Тето: «0401 UTAU Синтезатор активен»")
+                PrimeNotification.show(this, getString(R.string.settings_teto_synth_toast))
             }
         } else {
             b.cardTetoBanner.visibility = View.GONE
@@ -224,7 +224,7 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
                 ColorAccentManager.setAccentDefault(this)
             }
 
-            val displayName = SettingsSupport.getThemeDisplayName(newTheme)
+            val displayName = SettingsSupport.getThemeDisplayName(this, newTheme)
             b.tvThemeSummary.text = displayName
             updateDetailSubtitle(b.root, displayName)
             updateThemeSelectionUI(newTheme)
@@ -390,22 +390,22 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
         for (id in orderToUse) {
             when (id) {
                 "chats" -> buttonConfigs.add(
-                    BottomBarButtonConfig("chats", "Чаты", R.drawable.ic_nav_chats, sharedPrefs.getBoolean("nav_button_chats_visible", true))
+                    BottomBarButtonConfig("chats", getString(R.string.settings_nav_order_chats), R.drawable.ic_nav_chats, sharedPrefs.getBoolean("nav_button_chats_visible", true))
                 )
                 "devices" -> buttonConfigs.add(
-                    BottomBarButtonConfig("devices", "Устройства", R.drawable.ic_nav_devices, sharedPrefs.getBoolean("nav_button_devices_visible", true))
+                    BottomBarButtonConfig("devices", getString(R.string.settings_nav_order_devices), R.drawable.ic_nav_devices, sharedPrefs.getBoolean("nav_button_devices_visible", true))
                 )
                 "ai" -> buttonConfigs.add(
-                    BottomBarButtonConfig("ai", "AI Чат", R.drawable.ic_prime_ai, sharedPrefs.getBoolean("nav_button_ai_visible", true))
+                    BottomBarButtonConfig("ai", getString(R.string.settings_nav_order_ai), R.drawable.ic_prime_ai, sharedPrefs.getBoolean("nav_button_ai_visible", true))
                 )
                 "search" -> buttonConfigs.add(
-                    BottomBarButtonConfig("search", "Поиск", R.drawable.ic_search, sharedPrefs.getBoolean("nav_button_search_visible", true))
+                    BottomBarButtonConfig("search", getString(R.string.settings_nav_order_search), R.drawable.ic_search, sharedPrefs.getBoolean("nav_button_search_visible", true))
                 )
                 "downloads" -> buttonConfigs.add(
-                    BottomBarButtonConfig("downloads", "Загрузки", R.drawable.ic_download, sharedPrefs.getBoolean("nav_button_downloads_visible", true))
+                    BottomBarButtonConfig("downloads", getString(R.string.settings_nav_order_downloads), R.drawable.ic_download, sharedPrefs.getBoolean("nav_button_downloads_visible", true))
                 )
                 "profile" -> buttonConfigs.add(
-                    BottomBarButtonConfig("profile", "Профиль", R.drawable.ic_person, true, isMandatory = true)
+                    BottomBarButtonConfig("profile", getString(R.string.settings_nav_order_profile), R.drawable.ic_person, true, isMandatory = true)
                 )
             }
         }
@@ -495,7 +495,7 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
 
         if (customCats.isEmpty()) {
             val tvEmpty = TextView(this).apply {
-                text = "Свои категории не созданы"
+                text = getString(R.string.settings_custom_categories_empty)
                 setTextColor(ContextCompat.getColor(this@SettingsAppearanceActivity, R.color.prime_text_secondary))
                 textSize = 12f
                 setPadding(0, 4, 0, 4)
@@ -529,7 +529,11 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
                 setTypeface(null, Typeface.BOLD)
             }
 
-            val chatsSummary = if (catChats.isEmpty()) "Без чатов" else "Чаты: ${catChats.joinToString(", ")}"
+            val chatsSummary = if (catChats.isEmpty()) {
+                getString(R.string.settings_custom_category_no_chats_in)
+            } else {
+                getString(R.string.settings_custom_category_chats_format, catChats.joinToString(", "))
+            }
             val tvSubtitle = TextView(this).apply {
                 text = chatsSummary
                 setTextColor(ContextCompat.getColor(this@SettingsAppearanceActivity, R.color.prime_text_secondary))
@@ -581,7 +585,10 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
                 setOnClickListener {
                     deleteCustomCategory(catId)
                     renderCategoriesList()
-                    PrimeNotification.show(this@SettingsAppearanceActivity, "Категория «$catName» удалена")
+                    PrimeNotification.show(
+                        this@SettingsAppearanceActivity,
+                        getString(R.string.settings_custom_category_deleted_format, catName)
+                    )
                     sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
                 }
             }
@@ -618,7 +625,7 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
         }
 
         val inputName = EditText(this).apply {
-            hint = "Название категории"
+            hint = getString(R.string.settings_custom_category_name_hint)
             setText(currentName)
             setTextColor(ContextCompat.getColor(this@SettingsAppearanceActivity, R.color.prime_text_primary))
             setHintTextColor(ContextCompat.getColor(this@SettingsAppearanceActivity, R.color.prime_text_secondary))
@@ -629,7 +636,7 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
         val selectedChats = currentChats.toMutableSet()
         if (chatNames.isNotEmpty()) {
             val tvLabel = TextView(this).apply {
-                text = "Выберите чаты для категории:"
+                text = getString(R.string.settings_custom_category_select_chats)
                 setTextColor(ContextCompat.getColor(this@SettingsAppearanceActivity, R.color.prime_text_secondary))
                 textSize = 13f
                 setPadding(0, (12 * resources.displayMetrics.density).toInt(), 0, (6 * resources.displayMetrics.density).toInt())
@@ -651,17 +658,17 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
 
         PrimeBlurDialog.show(
             activity = this,
-            title = "Редактировать категорию",
+            title = getString(R.string.settings_custom_category_edit),
             message = null,
-            positiveText = "Сохранить",
-            negativeText = "Отмена",
+            positiveText = getString(R.string.action_save),
+            negativeText = getString(R.string.action_cancel),
             customView = container,
             onPositive = {
                 val categoryName = inputName.text.toString().trim()
                 if (categoryName.isNotEmpty()) {
                     updateCustomCategory(catId, categoryName, selectedChats.toList())
                     renderCategoriesList()
-                    PrimeNotification.show(this, "Категория обновлена")
+                    PrimeNotification.show(this, getString(R.string.settings_custom_category_updated))
                     sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
                 }
             }
@@ -676,7 +683,7 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
         }
 
         val inputName = EditText(this).apply {
-            hint = "Название категории (напр. Работа)"
+            hint = getString(R.string.settings_custom_category_name_example)
             setTextColor(ContextCompat.getColor(this@SettingsAppearanceActivity, R.color.prime_text_primary))
             setHintTextColor(ContextCompat.getColor(this@SettingsAppearanceActivity, R.color.prime_text_secondary))
         }
@@ -686,7 +693,7 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
         val selectedChats = mutableSetOf<String>()
         if (chatNames.isNotEmpty()) {
             val tvLabel = TextView(this).apply {
-                text = "Выберите чаты для этой категории:"
+                text = getString(R.string.settings_custom_category_select_for)
                 setTextColor(ContextCompat.getColor(this@SettingsAppearanceActivity, R.color.prime_text_secondary))
                 textSize = 13f
                 setPadding(0, (12 * resources.displayMetrics.density).toInt(), 0, (6 * resources.displayMetrics.density).toInt())
@@ -707,17 +714,20 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
 
         PrimeBlurDialog.show(
             activity = this,
-            title = "Создать категорию",
+            title = getString(R.string.settings_custom_category_create_title),
             message = null,
-            positiveText = "Сохранить",
-            negativeText = "Отмена",
+            positiveText = getString(R.string.action_save),
+            negativeText = getString(R.string.action_cancel),
             customView = container,
             onPositive = {
                 val categoryName = inputName.text.toString().trim()
                 if (categoryName.isNotEmpty()) {
                     saveCustomCategory(categoryName, selectedChats.toList())
                     renderCategoriesList()
-                    PrimeNotification.show(this, "Категория «$categoryName» создана")
+                    PrimeNotification.show(
+                        this,
+                        getString(R.string.settings_custom_category_created_format, categoryName)
+                    )
                     sendBroadcast(Intent("com.messenger.prime.NAV_STYLE_CHANGED").setPackage(packageName))
                 }
             }
@@ -1108,7 +1118,7 @@ class SettingsAppearanceActivity : BaseSettingsDetailActivity() {
         b.vHeroBottomTabActive.backgroundTintList = accentTint
         b.vHeroAccentDot.backgroundTintList = accentTint
 
-        b.tvHeroThemeBadge.text = SettingsSupport.getThemeDisplayName(currentTheme)
+        b.tvHeroThemeBadge.text = SettingsSupport.getThemeDisplayName(this, currentTheme)
         b.tvHeroAccentBadge.text = ColorAccentManager.getAccentSummary(this)
     }
 }

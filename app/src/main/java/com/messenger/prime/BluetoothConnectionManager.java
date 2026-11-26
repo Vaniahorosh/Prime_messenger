@@ -147,6 +147,8 @@ public class BluetoothConnectionManager {
         Context ctx = PrimeApplication.getAppContext();
         if (ctx != null) {
             try {
+                PrimeBluetoothService.allowReconnect(ctx, macAddress);
+                PrimeBluetoothService.allowReconnect(ctx, clean);
                 ChatHistoryManager.clearChatDeletedTombstone(ctx, macAddress);
                 ChatHistoryManager.clearChatDeletedTombstone(ctx, clean);
             } catch (Exception ignored) {}
@@ -199,16 +201,20 @@ public class BluetoothConnectionManager {
         return ConnectionState.DISCONNECTED;
     }
 
-    public synchronized ConnectionState getState(String deviceAddress) {
-        if (deviceAddress == null) return getState();
-        return deviceStates.getOrDefault(deviceAddress, ConnectionState.DISCONNECTED);
+    private static String normalizeKey(String key) {
+        return key == null ? "" : key.trim().toUpperCase(Locale.US);
     }
 
-
+    public synchronized ConnectionState getState(String deviceAddress) {
+        if (deviceAddress == null) return getState();
+        String norm = normalizeKey(deviceAddress);
+        ConnectionState st = deviceStates.get(norm);
+        return st != null ? st : deviceStates.getOrDefault(deviceAddress, ConnectionState.DISCONNECTED);
+    }
 
     public synchronized boolean isConnected(String deviceAddress) {
         if (deviceAddress == null || deviceAddress.isEmpty()) {
-            for (ConnectedThread t : connectionPool.values()) {
+            for (ConnectedThread t : new HashSet<>(connectionPool.values())) {
                 if (t != null && t.isSocketConnected()) return true;
             }
             return false;
@@ -219,7 +225,7 @@ public class BluetoothConnectionManager {
 
     public synchronized int getConnectedDeviceCount() {
         int count = 0;
-        for (ConnectedThread t : connectionPool.values()) {
+        for (ConnectedThread t : new HashSet<>(connectionPool.values())) {
             if (t != null && t.isSocketConnected()) count++;
         }
         return count;
@@ -227,13 +233,14 @@ public class BluetoothConnectionManager {
 
     private synchronized void setState(String deviceAddress, ConnectionState newState, String deviceName) {
         if (deviceAddress == null || deviceAddress.isEmpty()) return;
-        
-        deviceStates.put(deviceAddress, newState);
+        String key = normalizeKey(deviceAddress);
+
+        deviceStates.put(key, newState);
         if (deviceName != null && !deviceName.isEmpty()) {
-            deviceNames.put(deviceAddress, deviceName);
+            deviceNames.put(key, deviceName);
         }
 
-        final String finalName = deviceNames.getOrDefault(deviceAddress, "Prime User");
+        final String finalName = deviceNames.getOrDefault(key, "Prime User");
 
         mainHandler.post(() -> {
             for (ConnectionCallback cb : callbacks) {
@@ -430,7 +437,7 @@ public class BluetoothConnectionManager {
         if (socket == null || !socket.isConnected() || device == null) return;
 
         String devAddr = device.getAddress();
-        String devAddrUpper = devAddr != null ? devAddr.toUpperCase(Locale.US) : "";
+        String devAddrUpper = normalizeKey(devAddr);
 
         if (isMacBlocked(devAddr) || isMacBlocked(devAddrUpper)) {
             Log.w(TAG, "Socket connected from blocked/deleted MAC: " + devAddr + ", closing socket.");
@@ -469,35 +476,38 @@ public class BluetoothConnectionManager {
         }
 
         ConnectedThread newThread = new ConnectedThread(socket);
-        if (!devAddrUpper.isEmpty()) {
-            connectionPool.put(devAddrUpper, newThread);
+        String canonicalKey = !devAddrUpper.isEmpty() ? devAddrUpper : normalizeKey(devName);
+        if (!canonicalKey.isEmpty()) {
+            connectionPool.put(canonicalKey, newThread);
         }
-        if (devAddr != null && !devAddr.isEmpty()) {
-            connectionPool.put(devAddr, newThread);
-        }
+        BluetoothSocketHolder.registerConnection(devAddr, devName, socket, newThread);
         newThread.start();
 
         setState(devAddr, ConnectionState.CONNECTED, devName);
     }
 
     public synchronized ConnectedThread getThreadFor(String addressOrName) {
+        Set<ConnectedThread> uniqueThreads = new HashSet<>(connectionPool.values());
         if (addressOrName == null || addressOrName.isEmpty()) {
-            if (connectionPool.size() == 1) {
-                for (ConnectedThread t : connectionPool.values()) {
-                    if (t != null && t.isSocketConnected()) return t;
+            ConnectedThread single = null;
+            int aliveCount = 0;
+            for (ConnectedThread t : uniqueThreads) {
+                if (t != null && t.isSocketConnected()) {
+                    single = t;
+                    aliveCount++;
                 }
             }
-            return null;
+            return aliveCount == 1 ? single : null;
         }
 
-        String upperAddr = addressOrName.toUpperCase(Locale.US);
+        String upperAddr = normalizeKey(addressOrName);
         ConnectedThread r = connectionPool.get(upperAddr);
         if (r != null && r.isSocketConnected()) return r;
 
         r = connectionPool.get(addressOrName);
         if (r != null && r.isSocketConnected()) return r;
 
-        for (ConnectedThread thread : connectionPool.values()) {
+        for (ConnectedThread thread : uniqueThreads) {
             if (thread != null && thread.isSocketConnected()) {
                 if (addressOrName.equalsIgnoreCase(thread.getThreadDeviceAddress()) ||
                     addressOrName.equalsIgnoreCase(thread.getThreadRemoteUsername())) {
@@ -510,12 +520,16 @@ public class BluetoothConnectionManager {
                             "Prime Собеседник".equalsIgnoreCase(addressOrName) ||
                             "Устройство".equalsIgnoreCase(addressOrName);
 
-        if (isGeneric && connectionPool.size() == 1) {
-            for (ConnectedThread thread : connectionPool.values()) {
+        if (isGeneric) {
+            ConnectedThread single = null;
+            int aliveCount = 0;
+            for (ConnectedThread thread : uniqueThreads) {
                 if (thread != null && thread.isSocketConnected()) {
-                    return thread;
+                    single = thread;
+                    aliveCount++;
                 }
             }
+            if (aliveCount == 1) return single;
         }
 
         return null;
@@ -556,7 +570,7 @@ public class BluetoothConnectionManager {
     }
 
     public synchronized void broadcastPacket(byte type, byte[] payload) {
-        for (ConnectedThread r : connectionPool.values()) {
+        for (ConnectedThread r : new HashSet<>(connectionPool.values())) {
             if (r != null && r.isAlive()) {
                 r.sendPacket(type, payload);
             }
@@ -930,20 +944,31 @@ public class BluetoothConnectionManager {
             }
         }
 
+        private static final long KEEP_ALIVE_INTERVAL_MS = 10_000L;
+        private static final long RX_INACTIVITY_TIMEOUT_MS = 35_000L;
+        private volatile long lastRxElapsedRealtime = SystemClock.elapsedRealtime();
+
         private final Handler keepAliveHandler = new Handler(Looper.getMainLooper());
         private final Runnable keepAliveRunnable = new Runnable() {
             @Override
             public void run() {
                 if (isRunning && mmOutStream != null) {
+                    long idleMs = SystemClock.elapsedRealtime() - lastRxElapsedRealtime;
+                    if (idleMs > RX_INACTIVITY_TIMEOUT_MS) {
+                        Log.w(TAG, "RX inactivity timeout (" + idleMs + "ms) for " + threadDeviceAddress + ", closing dead socket");
+                        handleThreadDisconnect("Таймаут соединения", false);
+                        return;
+                    }
                     sendPacket((byte) 0x03, new byte[0]); // TYPE_PING (0x03)
-                    keepAliveHandler.postDelayed(this, 3500L);
+                    keepAliveHandler.postDelayed(this, KEEP_ALIVE_INTERVAL_MS);
                 }
             }
         };
 
         public void run() {
             if (mmInStream == null) return;
-            keepAliveHandler.postDelayed(keepAliveRunnable, 3500L);
+            lastRxElapsedRealtime = SystemClock.elapsedRealtime();
+            keepAliveHandler.postDelayed(keepAliveRunnable, KEEP_ALIVE_INTERVAL_MS);
             try {
                 while (isRunning) {
                     try {
@@ -963,6 +988,16 @@ public class BluetoothConnectionManager {
 
                         if (length > 0) {
                             mmInStream.readFully(payloadData);
+                        }
+
+                        lastRxElapsedRealtime = SystemClock.elapsedRealtime();
+
+                        if (type == 0x03) { // TYPE_PING -> reply with TYPE_ACK (0x06) immediately even in background
+                            sendPacket((byte) 0x06, new byte[0]);
+                            continue;
+                        }
+                        if (type == 0x06) { // TYPE_ACK -> keep-alive/receipt ack updates RX timestamp
+                            continue;
                         }
 
                         notifyPacketReceived(threadDeviceAddress, type, payloadData);
@@ -1129,8 +1164,16 @@ public class BluetoothConnectionManager {
             keepAliveHandler.removeCallbacks(keepAliveRunnable);
             writeExecutor.shutdownNow();
             closeSocketQuietly(mmSocket);
-            connectionPool.remove(threadDeviceAddress);
-            connectingThreads.remove(threadDeviceAddress);
+            String upperAddr = normalizeKey(threadDeviceAddress);
+            if (!upperAddr.isEmpty()) {
+                connectionPool.remove(upperAddr, this);
+                connectingThreads.remove(upperAddr);
+            }
+            if (threadDeviceAddress != null && !threadDeviceAddress.isEmpty()) {
+                connectionPool.remove(threadDeviceAddress, this);
+                connectingThreads.remove(threadDeviceAddress);
+            }
+            BluetoothSocketHolder.removeConnection(threadDeviceAddress, threadRemoteUsername);
         }
     }
 }

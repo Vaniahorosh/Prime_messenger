@@ -40,7 +40,7 @@
                 android:layout_height="240dp"
                 android:scaleType="centerCrop"
                 android:visibility="gone"
-                android:contentDescription="Обложка профиля"
+                android:contentDescription="@string/settings_cover_dialog_title"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" />
@@ -60,7 +60,7 @@
                 android:insetTop="0dp"
                 android:insetRight="0dp"
                 android:insetBottom="0dp"
-                android:contentDescription="Изменить обложку"
+                android:contentDescription="@string/settings_cover_edit"
                 app:cornerRadius="16dp"
                 app:icon="@drawable/ic_edit"
                 app:iconGravity="textStart"
@@ -120,7 +120,7 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
                                 android:scaleType="centerCrop"
-                                android:contentDescription="Аватар профиля" />
+                                android:contentDescription="@string/settings_avatar_title" />
 
                             <TextView
                                 android:id="@+id/tvAvatarCounter"
@@ -174,7 +174,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="В сети"
+                        android:text="@string/settings_status_online"
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif"
@@ -381,7 +381,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="32dp"
-                        android:text="в сети"
+                        android:text="@string/settings_status_online_lower"
                         android:textColor="@color/prime_text_secondary"
                         android:textSize="14sp" />
 
@@ -548,7 +548,7 @@
                     android:layout_marginTop="4dp"
                     android:layout_marginBottom="8dp"
                     android:fontFamily="sans-serif-medium"
-                    android:text="Профиль и интерфейс"
+                    android:text="@string/settings_group_profile"
                     android:textColor="@color/prime_brand"
                     android:textSize="13sp" />
 
@@ -579,7 +579,7 @@
                             android:layout_width="40dp"
                             android:layout_height="40dp"
                             android:layout_marginEnd="14dp"
-                            android:contentDescription="Аккаунт"
+                            android:contentDescription="@string/settings_hub_account_title"
                             android:src="@drawable/ic_person"
                             app:tint="@color/prime_brand" />
 
@@ -595,7 +595,7 @@
                                 android:ellipsize="end"
                                 android:fontFamily="sans-serif-medium"
                                 android:maxLines="1"
-                                android:text="Аккаунт"
+                                android:text="@string/settings_hub_account_title"
                                 android:textColor="@color/prime_text_primary"
                                 android:textSize="16sp" />
 
@@ -606,7 +606,7 @@
                                 android:layout_marginTop="2dp"
                                 android:ellipsize="end"
                                 android:maxLines="1"
-                                android:text="Имя, логин и пароль"
+                                android:text="@string/settings_hub_account_sub_short"
                                 android:textColor="@color/prime_text_secondary"
                                 android:textSize="13sp" />
                         </LinearLayout>
@@ -649,7 +649,7 @@
                             android:layout_width="40dp"
                             android:layout_height="40dp"
                             android:layout_marginEnd="14dp"
-                            android:contentDescription="Оформление"
+                            android:contentDescription="@string/settings_hub_appearance_title"
                             android:src="@drawable/ic_tema"
                             app:tint="@color/prime_brand" />
 
@@ -665,7 +665,7 @@
                                 android:ellipsize="end"
                                 android:fontFamily="sans-serif-medium"
                                 android:maxLines="1"
-                                android:text="Оформление"
+                                android:text="@string/settings_hub_appearance_title"
                                 android:textColor="@color/prime_text_primary"
                                 android:textSize="16sp" />
 
@@ -676,7 +676,7 @@
                                 android:layout_marginTop="2dp"
                                 android:ellipsize="end"
                                 android:maxLines="1"
-                                android:text="Тема, акценты, навигация"
+                                android:text="@string/settings_hub_appearance_sub_default"
                                 android:textColor="@color/prime_text_secondary"
                                 android:textSize="13sp" />
                         </LinearLayout>
@@ -719,7 +719,7 @@
                             android:layout_width="40dp"
                             android:layout_height="40dp"
                             android:layout_marginEnd="14dp"
-                            android:contentDescription="В чате"
+                            android:contentDescription="@string/settings_hub_chat_title"
                             android:src="@drawable/ic_nav_chats"
                             app:tint="@color/prime_brand" />
 
@@ -735,7 +735,7 @@
                                 android:ellipsize="end"
                                 android:fontFamily="sans-serif-medium"
                                 android:maxLines="1"
-                                android:text="В чате"
+                                android:text="@string/settings_hub_chat_title"
                                 android:textColor="@color/prime_text_primary"
                                 android:textSize="16sp" />
 
@@ -746,7 +746,7 @@
                                 android:layout_marginTop="2dp"
                                 android:ellipsize="end"
                                 android:maxLines="1"
-                                android:text="Обои, пузырьки, кружки и жесты"
+                                android:text="@string/settings_hub_chat_default_sub"
                                 android:textColor="@color/prime_text_secondary"
                                 android:textSize="13sp" />
                         </LinearLayout>
@@ -770,7 +770,7 @@
                     android:layout_marginStart="8dp"
                     android:layout_marginBottom="8dp"
                     android:fontFamily="sans-serif-medium"
-                    android:text="Инструменты и данные"
+                    android:text="@string/settings_group_system"
                     android:textColor="@color/prime_brand"
                     android:textSize="13sp" />
 
@@ -801,7 +801,7 @@
                             android:layout_width="40dp"
                             android:layout_height="40dp"
                             android:layout_marginEnd="14dp"
-                            android:contentDescription="Браузер"
+                            android:contentDescription="@string/settings_hub_browser_title"
                             android:src="@drawable/ic_globe"
                             app:tint="@color/prime_brand" />
 
@@ -817,7 +817,7 @@
                                 android:ellipsize="end"
                                 android:fontFamily="sans-serif-medium"
                                 android:maxLines="1"
-                                android:text="Браузер"
+                                android:text="@string/settings_hub_browser_title"
                                 android:textColor="@color/prime_text_primary"
                                 android:textSize="16sp" />
 
@@ -828,7 +828,7 @@
                                 android:layout_marginTop="2dp"
                                 android:ellipsize="end"
                                 android:maxLines="1"
-                                android:text="Поисковик, cookies и режим ПК"
+                                android:text="@string/settings_hub_browser_default_sub"
                                 android:textColor="@color/prime_text_secondary"
                                 android:textSize="13sp" />
                         </LinearLayout>
@@ -871,7 +871,7 @@
                             android:layout_width="40dp"
                             android:layout_height="40dp"
                             android:layout_marginEnd="14dp"
-                            android:contentDescription="Данные и память"
+                            android:contentDescription="@string/settings_hub_storage_title"
                             android:src="@drawable/ic_file"
                             app:tint="@color/prime_brand" />
 
@@ -887,7 +887,7 @@
                                 android:ellipsize="end"
                                 android:fontFamily="sans-serif-medium"
                                 android:maxLines="1"
-                                android:text="Данные и память"
+                                android:text="@string/settings_hub_storage_title"
                                 android:textColor="@color/prime_text_primary"
                                 android:textSize="16sp" />
 
@@ -898,7 +898,7 @@
                                 android:layout_marginTop="2dp"
                                 android:ellipsize="end"
                                 android:maxLines="1"
-                                android:text="Анализ и очистка кэша"
+                                android:text="@string/settings_hub_storage_default_sub"
                                 android:textColor="@color/prime_text_secondary"
                                 android:textSize="13sp" />
                         </LinearLayout>
@@ -941,7 +941,7 @@
                             android:layout_width="40dp"
                             android:layout_height="40dp"
                             android:layout_marginEnd="14dp"
-                            android:contentDescription="Плагины"
+                            android:contentDescription="@string/settings_hub_plugins_title"
                             android:src="@drawable/ic_pipette"
                             app:tint="@color/prime_brand" />
 
@@ -957,7 +957,7 @@
                                 android:ellipsize="end"
                                 android:fontFamily="sans-serif-medium"
                                 android:maxLines="1"
-                                android:text="Плагины"
+                                android:text="@string/settings_hub_plugins_title"
                                 android:textColor="@color/prime_text_primary"
                                 android:textSize="16sp" />
 
@@ -968,7 +968,7 @@
                                 android:layout_marginTop="2dp"
                                 android:ellipsize="end"
                                 android:maxLines="1"
-                                android:text="Локальные расширения"
+                                android:text="@string/settings_hub_plugins_default_sub"
                                 android:textColor="@color/prime_text_secondary"
                                 android:textSize="13sp" />
                         </LinearLayout>
@@ -992,9 +992,79 @@
                     android:layout_marginStart="8dp"
                     android:layout_marginBottom="8dp"
                     android:fontFamily="sans-serif-medium"
-                    android:text="Приложение"
+                    android:text="@string/settings_group_info"
                     android:textColor="@color/prime_brand"
                     android:textSize="13sp" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSectionLanguage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="@color/prime_surface"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="?attr/selectableItemBackground"
+                        android:gravity="center_vertical"
+                        android:minHeight="68dp"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="12dp">
+
+                        <ImageView
+                            android:id="@+id/ivHubIconLanguage"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="16dp"
+                            android:contentDescription="@string/settings_hub_language_title"
+                            android:src="@drawable/ic_language"
+                            app:tint="@color/prime_brand" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:ellipsize="end"
+                                android:fontFamily="sans-serif-medium"
+                                android:maxLines="1"
+                                android:text="@string/settings_hub_language_title"
+                                android:textColor="@color/prime_text_primary"
+                                android:textSize="16sp" />
+
+                            <TextView
+                                android:id="@+id/tvHubSubtitleLanguage"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:ellipsize="end"
+                                android:maxLines="1"
+                                android:text="@string/settings_lang_system"
+                                android:textColor="@color/prime_text_secondary"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginStart="12dp"
+                            android:rotation="-90"
+                            android:src="@drawable/ic_expand_more"
+                            android:tag="do_not_tint"
+                            app:tint="@color/prime_text_secondary" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/cardSectionAbout"
@@ -1015,14 +1085,14 @@
                         android:minHeight="68dp"
                         android:orientation="horizontal"
                         android:paddingHorizontal="16dp"
-                        android:paddingVertical="14dp">
+                        android:paddingVertical="12dp">
 
                         <ImageView
                             android:id="@+id/ivHubIconAbout"
                             android:layout_width="40dp"
                             android:layout_height="40dp"
-                            android:layout_marginEnd="14dp"
-                            android:contentDescription="Информация"
+                            android:layout_marginEnd="16dp"
+                            android:contentDescription="@string/settings_hub_about_title"
                             android:src="@drawable/ic_prime_logo_vector"
                             app:tint="@color/prime_brand" />
 
@@ -1038,7 +1108,7 @@
                                 android:ellipsize="end"
                                 android:fontFamily="sans-serif-medium"
                                 android:maxLines="1"
-                                android:text="Информация"
+                                android:text="@string/settings_hub_about_title"
                                 android:textColor="@color/prime_text_primary"
                                 android:textSize="16sp" />
 
@@ -1049,7 +1119,7 @@
                                 android:layout_marginTop="2dp"
                                 android:ellipsize="end"
                                 android:maxLines="1"
-                                android:text="Версия, обновления и GitHub"
+                                android:text="@string/settings_hub_about_default_sub"
                                 android:textColor="@color/prime_text_secondary"
                                 android:textSize="13sp" />
                         </LinearLayout>

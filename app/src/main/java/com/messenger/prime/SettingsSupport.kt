@@ -33,22 +33,39 @@ object SettingsSupport {
         }
     }
 
-    fun getThemeDisplayName(theme: String?): String = when (theme) {
-        "light" -> "Светлая"
-        "dark" -> "Темная"
-        "teto_light" -> "Тето (Светлая)"
-        "teto_dark" -> "Тето (Темная)"
-        else -> "Системная"
+    fun getThemeDisplayName(context: Context, theme: String?): String = when (theme) {
+        "light" -> context.getString(R.string.settings_theme_light)
+        "dark" -> context.getString(R.string.settings_theme_dark)
+        "teto_light" -> context.getString(R.string.settings_theme_teto_light)
+        "teto_dark" -> context.getString(R.string.settings_theme_teto_dark)
+        else -> context.getString(R.string.settings_theme_system)
+    }
+
+    fun getThemeDisplayName(theme: String?): String {
+        val ctx = PrimeApplication.appContext
+        if (ctx != null) return getThemeDisplayName(PrimeLocaleManager.getLocalizedContext(ctx), theme)
+        return when (theme) {
+            "light" -> "Светлая"
+            "dark" -> "Тёмная"
+            "teto_light" -> "Тето (Светлая)"
+            "teto_dark" -> "Тето (Тёмная)"
+            else -> "Системная"
+        }
     }
 
     fun formatStorageSize(bytes: Long): String {
-        if (bytes <= 0L) return "0 Б"
+        val ctx = PrimeApplication.appContext
+        val lang = ctx?.let { PrimeLocaleManager.getEffectiveLanguageCode(it) } ?: Locale.getDefault().language
+        val locale = Locale.forLanguageTag(lang)
+        val isEn = lang.startsWith("en", ignoreCase = true)
+        val units = if (isEn) arrayOf("B", "KB", "MB", "GB") else arrayOf("Б", "КБ", "МБ", "ГБ")
+        if (bytes <= 0L) return "0 ${units[0]}"
         val kb = bytes / 1024.0
-        if (kb < 1024.0) return String.format(Locale.getDefault(), "%.1f КБ", kb)
+        if (kb < 1024.0) return String.format(locale, "%.1f %s", kb, units[1])
         val mb = kb / 1024.0
-        if (mb < 1024.0) return String.format(Locale.getDefault(), "%.1f МБ", mb)
+        if (mb < 1024.0) return String.format(locale, "%.1f %s", mb, units[2])
         val gb = mb / 1024.0
-        return String.format(Locale.getDefault(), "%.2f ГБ", gb)
+        return String.format(locale, "%.2f %s", gb, units[3])
     }
 
     fun restartApp(activity: Activity) {
@@ -102,6 +119,47 @@ object SettingsSupport {
             } else {
                 BluetoothConnectionManager.getInstance().broadcastPacket(0x07.toByte(), byteArrayOf())
             }
+
+            val localCoverUri = sharedPrefs.getString("${currentUser}_cover", null)?.takeIf { it.isNotBlank() }
+                ?: sharedPrefs.getString("my_profile_cover", null)
+            if (!localCoverUri.isNullOrEmpty()) {
+                try {
+                    val coverUri = if (
+                        localCoverUri.startsWith("content://") ||
+                        localCoverUri.startsWith("file://") ||
+                        localCoverUri.startsWith("android.resource://") ||
+                        localCoverUri.startsWith("http")
+                    ) {
+                        Uri.parse(localCoverUri)
+                    } else {
+                        Uri.fromFile(File(localCoverUri))
+                    }
+                    context.contentResolver.openInputStream(coverUri)?.use { isStream ->
+                        val bitmap = BitmapFactory.decodeStream(isStream)
+                        if (bitmap != null) {
+                            val maxDim = 640
+                            val w = bitmap.width
+                            val h = bitmap.height
+                            val scaled = if (w > maxDim || h > maxDim) {
+                                val ratio = minOf(maxDim.toFloat() / w, maxDim.toFloat() / h)
+                                Bitmap.createScaledBitmap(bitmap, (w * ratio).toInt().coerceAtLeast(1), (h * ratio).toInt().coerceAtLeast(1), true)
+                            } else {
+                                bitmap
+                            }
+                            val baos = ByteArrayOutputStream()
+                            scaled.compress(Bitmap.CompressFormat.JPEG, 78, baos)
+                            BluetoothConnectionManager.getInstance()
+                                .broadcastPacket(0x11.toByte(), baos.toByteArray())
+                            if (scaled != bitmap) scaled.recycle()
+                            bitmap.recycle()
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            } else {
+                BluetoothConnectionManager.getInstance().broadcastPacket(0x11.toByte(), byteArrayOf())
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -139,7 +197,7 @@ object SettingsSupport {
         if (iconView == null) return
         val bgAlpha = if (isNight) 58 else 32
         val bgColor = ColorUtils.setAlphaComponent(accentColor, bgAlpha)
-        val paddingPx = (9 * iconView.resources.displayMetrics.density).toInt()
+        val paddingPx = (8 * iconView.resources.displayMetrics.density).toInt()
         iconView.tag = "do_not_tint"
         iconView.imageTintList = ColorStateList.valueOf(accentColor)
         iconView.background = M3EDrawable(shape = shape, color = bgColor)

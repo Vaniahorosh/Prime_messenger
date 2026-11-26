@@ -38,7 +38,7 @@
                         android:layout_width="30dp"
                         android:layout_height="30dp"
                         android:layout_gravity="center"
-                        android:contentDescription="Плагины"
+                        android:contentDescription="@string/settings_plugins_title"
                         android:src="@drawable/ic_pipette"
                         android:tag="do_not_tint"
                         app:tint="@color/prime_brand" />
@@ -52,7 +52,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:fontFeatureSettings="tnum"
                     android:gravity="center"
-                    android:text="Нет добавленных плагинов"
+                    android:text="@string/settings_plugins_summary_empty"
                     android:textColor="@color/prime_text_primary"
                     android:textSize="18sp" />
 
@@ -154,7 +154,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:fontFamily="sans-serif-medium"
-                                            android:text="Управление плагинами"
+                                            android:text="@string/settings_plugins_card_title"
                                             android:textColor="@color/prime_brand"
                                             android:textSize="16sp" />
 
@@ -162,7 +162,7 @@
                                             android:layout_width="wrap_content"
                                             android:layout_height="wrap_content"
                                             android:layout_marginTop="2dp"
-                                            android:text="Локальные скрипты и модули расширения"
+                                            android:text="@string/settings_plugins_card_sub"
                                             android:textColor="@color/prime_text_secondary"
                                             android:textSize="12sp" />
                                     </LinearLayout>
@@ -172,7 +172,7 @@
                                         style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
                                         android:layout_width="40dp"
                                         android:layout_height="40dp"
-                                        android:contentDescription="Добавить плагин"
+                                        android:contentDescription="@string/settings_plugins_add"
                                         android:insetLeft="0dp"
                                         android:insetTop="0dp"
                                         android:insetRight="0dp"
@@ -201,7 +201,7 @@
                                     android:layout_height="wrap_content"
                                     android:gravity="center"
                                     android:paddingVertical="18dp"
-                                    android:text="Нет добавленных плагинов.\nНажмите '+', чтобы добавить файл или создать код."
+                                    android:text="@string/settings_plugins_empty_notice"
                                     android:textColor="@color/prime_text_secondary"
                                     android:textSize="13sp" />
 

@@ -1,6 +1,7 @@
 package com.messenger.prime
 
 import android.content.SharedPreferences
+import androidx.annotation.StringRes
 
 /**
  * Утилиты для жесткой валидации ввода в приложении.
@@ -46,18 +47,26 @@ object ValidationUtils {
         return LOGIN_REGEX.matches(text)
     }
 
+    private fun msg(@StringRes resId: Int, fallback: String): String {
+        return try {
+            PrimeApplication.appContext?.let { PrimeLocaleManager.getString(it, resId) } ?: fallback
+        } catch (_: Throwable) {
+            fallback
+        }
+    }
+
     /**
      * Полная валидация логина с учетом формата, длины, спецслов и уникальности.
      */
     fun validateLogin(login: String, sharedPrefs: SharedPreferences? = null, currentLogin: String? = null): String? {
         val trimmed = login.trim()
-        if (trimmed.isEmpty()) return "Логин не может быть пустым. Пожалуйста, придумайте уникальное имя пользователя."
-        if (trimmed.length < 3) return "Слишком короткий логин (минимум 3 символа). Добавьте еще несколько букв или цифр."
-        if (trimmed.length > 25) return "Слишком длинный логин (максимум 25 символов). Постарайтесь сделать его короче."
-        if (!isValidLoginFormat(trimmed)) return "В логине допускаются только латинские буквы (a-z, A-Z), цифры (0-9) и знак подчеркивания (_). Пробелы и кириллица запрещены."
-        if (isRestricted(trimmed)) return "Этот логин зарезервирован системой. Пожалуйста, выберите другой."
+        if (trimmed.isEmpty()) return msg(R.string.validation_login_empty, "Логин не может быть пустым. Пожалуйста, придумайте уникальное имя пользователя.")
+        if (trimmed.length < 3) return msg(R.string.validation_login_short, "Слишком короткий логин (минимум 3 символа). Добавьте еще несколько букв или цифр.")
+        if (trimmed.length > 25) return msg(R.string.validation_login_long, "Слишком длинный логин (максимум 25 символов). Постарайтесь сделать его короче.")
+        if (!isValidLoginFormat(trimmed)) return msg(R.string.validation_login_chars, "В логине допускаются только латинские буквы (a-z, A-Z), цифры (0-9) и знак подчеркивания (_). Пробелы и кириллица запрещены.")
+        if (isRestricted(trimmed)) return msg(R.string.validation_login_reserved, "Этот логин зарезервирован системой. Пожалуйста, выберите другой.")
         if (sharedPrefs != null && trimmed != currentLogin && sharedPrefs.contains(trimmed)) {
-            return "Этот логин уже занят другим профилем на данном устройстве. Попробуйте добавить цифры или изменить имя."
+            return msg(R.string.validation_login_taken, "Этот логин уже занят другим профилем на данном устройстве. Попробуйте добавить цифры или изменить имя.")
         }
         return null
     }
@@ -67,10 +76,10 @@ object ValidationUtils {
      */
     fun validateName(name: String): String? {
         val trimmed = name.trim()
-        if (trimmed.isEmpty()) return "Имя не может быть пустым. Как к вам обращаться?"
-        if (trimmed.length < 2) return "Имя должно содержать минимум 2 символа."
-        if (trimmed.length > 32) return "Имя слишком длинное (максимум 32 символа)."
-        if (isRestricted(trimmed)) return "Это имя защищено системой. Выберите другое."
+        if (trimmed.isEmpty()) return msg(R.string.validation_name_empty, "Имя не может быть пустым. Как к вам обращаться?")
+        if (trimmed.length < 2) return msg(R.string.validation_name_short, "Имя должно содержать минимум 2 символа.")
+        if (trimmed.length > 32) return msg(R.string.validation_name_long, "Имя слишком длинное (максимум 32 символа).")
+        if (isRestricted(trimmed)) return msg(R.string.validation_name_reserved, "Это имя защищено системой. Выберите другое.")
         return null
     }
 
@@ -78,9 +87,9 @@ object ValidationUtils {
      * Валидация пароля (от 8 до 32 символов).
      */
     fun validatePassword(password: String): String? {
-        if (password.isEmpty()) return "Пароль не может быть пустым."
-        if (password.length < 8) return "Пароль слишком короткий (минимум 8 символов). Для безопасности используйте более длинный пароль."
-        if (password.length > 32) return "Пароль слишком длинный (максимум 32 символа)."
+        if (password.isEmpty()) return msg(R.string.validation_password_empty, "Пароль не может быть пустым.")
+        if (password.length < 8) return msg(R.string.validation_password_short, "Пароль слишком короткий (минимум 8 символов). Для безопасности используйте более длинный пароль.")
+        if (password.length > 32) return msg(R.string.validation_password_long, "Пароль слишком длинный (максимум 32 символа).")
         return null
     }
 

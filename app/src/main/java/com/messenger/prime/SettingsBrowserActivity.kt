@@ -27,7 +27,7 @@ class SettingsBrowserActivity : BaseSettingsDetailActivity() {
             heroStage = b.layoutBrowserHeroStage,
             heroOverlay = b.layoutBrowserHeroOverlay,
             scrollView = b.scrollBrowserSettings,
-            title = "Браузер",
+            title = getString(R.string.settings_browser_title),
             subtitle = null,
             heroHeightFraction = 0.29f,
             heroMinDp = 212,
@@ -49,23 +49,34 @@ class SettingsBrowserActivity : BaseSettingsDetailActivity() {
         b.cardBrowserClearCache.addBounceTouchEffect()
 
         val searchEngines = arrayOf("Google", "Яндекс", "DuckDuckGo", "Bing")
+        val formatEngineDisplay: (String) -> String = { engine ->
+            if (engine == "Яндекс") getString(R.string.settings_browser_yandex) else engine
+        }
 
         val refreshHeroStatus = {
             val enabled = BrowserPreferences.isInternalBrowserEnabled(this)
             val engine = BrowserPreferences.getSearchEngine(this)
+            val engineDisplay = formatEngineDisplay(engine)
             val jsOn = BrowserPreferences.isJavaScriptEnabled(this)
             val cookiesOn = BrowserPreferences.areCookiesEnabled(this)
 
-            b.tvSearchEngineValue.text = engine
-            b.tvHeroBrowserStatus.text = if (enabled) "Встроенный браузер" else "Внешний браузер"
-            b.tvHeroBrowserSummary.text = if (enabled) {
-                val jsLabel = if (jsOn) "JS вкл" else "JS выкл"
-                val cookiesLabel = if (cookiesOn) "Куки вкл" else "Куки выкл"
-                "Поиск: $engine • $jsLabel • $cookiesLabel"
+            b.tvSearchEngineValue.text = engineDisplay
+            b.tvHeroBrowserStatus.text = if (enabled) {
+                getString(R.string.settings_browser_hero_in_app)
             } else {
-                "Ссылки открываются в системном браузере"
+                getString(R.string.settings_browser_hero_external)
             }
-            updateDetailSubtitle(b.root, if (enabled) engine else "Внешний")
+            b.tvHeroBrowserSummary.text = if (enabled) {
+                val jsLabel = getString(if (jsOn) R.string.settings_browser_js_on else R.string.settings_browser_js_off)
+                val cookiesLabel = getString(if (cookiesOn) R.string.settings_browser_cookies_on else R.string.settings_browser_cookies_off)
+                getString(R.string.settings_browser_hero_summary_3_format, engineDisplay, jsLabel, cookiesLabel)
+            } else {
+                getString(R.string.settings_browser_hero_external_summary)
+            }
+            updateDetailSubtitle(
+                b.root,
+                if (enabled) engineDisplay else getString(R.string.settings_browser_external_mode)
+            )
         }
 
         b.switchUseInternalBrowser.isChecked = BrowserPreferences.isInternalBrowserEnabled(this)
@@ -77,9 +88,9 @@ class SettingsBrowserActivity : BaseSettingsDetailActivity() {
         b.rowSearchEngine.setOnClickListener { v ->
             val current = searchEngines.indexOf(BrowserPreferences.getSearchEngine(this)).coerceAtLeast(0)
             val menu = PrimePopupMenu.create(this, v)
-            searchEngines.forEachIndexed { index, title ->
-                menu.addItem(title, isSelected = (index == current)) {
-                    BrowserPreferences.setSearchEngine(this, title)
+            searchEngines.forEachIndexed { index, engineKey ->
+                menu.addItem(formatEngineDisplay(engineKey), isSelected = (index == current)) {
+                    BrowserPreferences.setSearchEngine(this, engineKey)
                     refreshHeroStatus()
                 }
             }
@@ -107,9 +118,9 @@ class SettingsBrowserActivity : BaseSettingsDetailActivity() {
             try {
                 CookieManager.getInstance().removeAllCookies(null)
                 WebStorage.getInstance().deleteAllData()
-                PrimeNotification.show(this, "Кэш и данные браузера очищены")
+                PrimeNotification.show(this, getString(R.string.settings_browser_cleared))
             } catch (_: Exception) {
-                PrimeNotification.show(this, "Ошибка при очистке кэша")
+                PrimeNotification.show(this, getString(R.string.settings_browser_clear_error))
             }
         }
 

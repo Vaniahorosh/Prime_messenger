@@ -46,6 +46,8 @@ import java.util.Objects;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 
 public class PrimeBluetoothService extends Service implements BluetoothConnectionManager.ConnectionCallback {
@@ -60,11 +62,14 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     private final ConcurrentHashMap<String, Integer> reconnectAttempts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Runnable> pendingReconnects = new ConcurrentHashMap<>();
     private static final Set<String> cancelledReconnectAddresses = ConcurrentHashMap.newKeySet();
+    private final ExecutorService packetExecutor = Executors.newSingleThreadExecutor();
+    private volatile String lastStatusText = null;
 
     @Override
     public void onCreate() {
         super.onCreate();
         initWakeLock();
+        createNotificationChannel();
         promoteToForeground();
         BluetoothConnectionManager.getInstance().registerCallback(this);
         PrimeCompanionServer.INSTANCE.start(this);
@@ -81,6 +86,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         reconnectHandler.removeCallbacksAndMessages(null);
         pendingReconnects.clear();
         reconnectAttempts.clear();
+        packetExecutor.shutdownNow();
         if (wakeLock != null && wakeLock.isHeld()) {
             try { wakeLock.release(); } catch (Throwable ignored) {}
         }
@@ -99,20 +105,20 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         }
     }
 
-    private synchronized void manageWakeLock() {
-        int activeCount = BluetoothConnectionManager.getInstance().getConnectedDeviceCount();
-        if (activeCount > 0) {
+    private synchronized void acquireBriefWakeLock(long timeoutMs) {
+        try {
             if (wakeLock != null) {
-                // Всегда используем таймаут для безопасности батареи
-                wakeLock.acquire(15 * 60 * 1000L); // 15 минут максимум
-                Log.d(TAG, "Partial WakeLock acquired (active connections: " + activeCount + ")");
+                wakeLock.acquire(timeoutMs);
             }
-        } else {
+        } catch (Throwable ignored) {}
+    }
+
+    private synchronized void releaseWakeLockIfHeld() {
+        try {
             if (wakeLock != null && wakeLock.isHeld()) {
                 wakeLock.release();
-                Log.d(TAG, "Partial WakeLock released (no active connections)");
             }
-        }
+        } catch (Throwable ignored) {}
     }
 
     private void resetReconnectAttempts(String address) {
@@ -134,6 +140,20 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         try {
             Intent intent = new Intent(context, PrimeBluetoothService.class);
             intent.setAction("CANCEL_RECONNECT");
+            intent.putExtra("EXTRA_ADDRESS", address);
+            context.startService(intent);
+        } catch (Exception ignored) {}
+    }
+
+    public static void allowReconnect(Context context, String address) {
+        if (address == null || address.trim().isEmpty()) return;
+        String clean = address.trim().toUpperCase(Locale.US);
+        cancelledReconnectAddresses.remove(clean);
+        cancelledReconnectAddresses.remove(address.trim());
+        if (context == null) return;
+        try {
+            Intent intent = new Intent(context, PrimeBluetoothService.class);
+            intent.setAction("ALLOW_RECONNECT");
             intent.putExtra("EXTRA_ADDRESS", address);
             context.startService(intent);
         } catch (Exception ignored) {}
@@ -204,11 +224,13 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             if (!BluetoothConnectionManager.getInstance().isConnected(address)) {
                 if (adapter != null && adapter.isEnabled()) {
                     try {
+                        acquireBriefWakeLock(10_000L);
                         BluetoothDevice device = adapter.getRemoteDevice(address);
                         String displayName = ChatHistoryManager.getDisplayNameForAddress(this, address);
+                        String localId = resolveLocalUsername();
                         BluetoothConnectionManager.getInstance().connectToDevice(
                                 adapter, device, UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66"),
-                                "PrimeUser", displayName, false
+                                localId, displayName, false
                         );
                     } catch (Exception e) {
                         Log.e(TAG, "Failed reconnect to " + address, e);
@@ -233,6 +255,15 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                     cancelledReconnectAddresses.add(clean);
                     cancelledReconnectAddresses.add(addr.trim());
                     resetReconnectAttempts(addr);
+                }
+            } else if ("ALLOW_RECONNECT".equals(action)) {
+                String addr = intent.getStringExtra("EXTRA_ADDRESS");
+                if (addr != null && !addr.isEmpty()) {
+                    String clean = addr.trim().toUpperCase(Locale.US);
+                    cancelledReconnectAddresses.remove(clean);
+                    cancelledReconnectAddresses.remove(addr.trim());
+                    reconnectAttempts.remove(addr);
+                    reconnectAttempts.remove(clean);
                 }
             } else if (ACTION_STOP_SERVICE.equals(action)) {
                 Log.d(TAG, "Stop service requested from notification shade");
@@ -291,32 +322,20 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         } catch (Throwable ignored) {}
     }
 
+    private String buildStatusText() {
+        int activeCount = BluetoothConnectionManager.getInstance().getConnectedDeviceCount();
+        if (activeCount > 0) {
+            return "Подключено устройств: " + activeCount;
+        }
+        return "Служба Bluetooth активна";
+    }
+
     private synchronized void promoteToForeground() {
         createNotificationChannel();
         try {
-            Intent notificationIntent = new Intent(this, ChatListActivity.class);
-            notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            PendingIntent pendingIntent = PendingIntent.getActivity(
-                    this, 0, notificationIntent,
-                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-            );
-
-            Intent stopIntent = new Intent(this, PrimeBluetoothService.class);
-            stopIntent.setAction(ACTION_STOP_SERVICE);
-            PendingIntent stopPendingIntent = PendingIntent.getService(
-                    this, 1, stopIntent,
-                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-            );
-
-            Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setContentTitle("Prime Messenger")
-                    .setContentText("Служба Bluetooth активна")
-                    .setSmallIcon(R.drawable.ic_prime_statusbar)
-                    .setContentIntent(pendingIntent)
-                    .setOngoing(true)
-                    .setPriority(NotificationCompat.PRIORITY_LOW)
-                    .addAction(R.drawable.ic_cancel, "Отключить фоновую работу", stopPendingIntent)
-                    .build();
+            String statusText = buildStatusText();
+            lastStatusText = statusText;
+            Notification notification = buildForegroundNotification(statusText);
 
             if (Build.VERSION.SDK_INT >= 34) {
                 try {
@@ -372,34 +391,75 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
         }
     }
 
+    private Notification buildForegroundNotification(String contentText) {
+        Intent notificationIntent = new Intent(this, ChatListActivity.class);
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 0, notificationIntent,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+        );
+
+        Intent stopIntent = new Intent(this, PrimeBluetoothService.class);
+        stopIntent.setAction(ACTION_STOP_SERVICE);
+        PendingIntent stopPendingIntent = PendingIntent.getService(
+                this, 1, stopIntent,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+        );
+
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("Prime Messenger")
+                .setContentText(contentText != null ? contentText : "Служба Bluetooth активна")
+                .setSmallIcon(R.drawable.ic_prime_statusbar)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .addAction(R.drawable.ic_cancel, "Отключить фоновую работу", stopPendingIntent)
+                .build();
+    }
+
+    private synchronized void updateForegroundStatusNotification() {
+        String statusText = buildStatusText();
+        if (Objects.equals(statusText, lastStatusText)) return;
+        lastStatusText = statusText;
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.notify(NOTIFICATION_ID, buildForegroundNotification(statusText));
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    private String resolveLocalUsername() {
+        SharedPreferences sp = getSharedPreferences("PrimeLocalDB", MODE_PRIVATE);
+        String currentUser = sp.getString("current_user", "");
+        String myName = sp.getString("my_name", null);
+        if (myName == null || myName.isEmpty()) myName = sp.getString("my_local_name", null);
+        if (myName == null || myName.isEmpty()) myName = sp.getString("current_user_name", null);
+        if (myName == null || myName.isEmpty()) myName = sp.getString(currentUser + "_name", "");
+        return !myName.isEmpty() ? myName : "Prime User";
+    }
+
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 NotificationManager manager = getSystemService(NotificationManager.class);
-                if (manager != null) {
+                if (manager != null && manager.getNotificationChannel(CHANNEL_ID) == null) {
                     NotificationChannel serviceChannel = new NotificationChannel(
                             CHANNEL_ID,
-                            "Prime Bluetooth Service",
+                            "Служба Bluetooth Prime",
                             NotificationManager.IMPORTANCE_LOW
                     );
+                    serviceChannel.setDescription("Уведомления о работе фоновой службы соединения");
+                    serviceChannel.setSound(null, null);
+                    serviceChannel.enableVibration(false);
                     manager.createNotificationChannel(serviceChannel);
-
-                    NotificationChannel msgChannel = new NotificationChannel(
-                            MSG_CHANNEL_ID,
-                            "Входящие сообщения",
-                            NotificationManager.IMPORTANCE_HIGH
-                    );
-                    msgChannel.enableVibration(true);
-                    msgChannel.setShowBadge(true);
-                    manager.createNotificationChannel(msgChannel);
                 }
             } catch (Throwable e) {
                 Log.e(TAG, "Failed to create notification channel", e);
             }
         }
     }
-
-    public static final String MSG_CHANNEL_ID = "prime_messages_channel";
 
     private static File getAvatarFileFor(Context context, String senderName, String deviceAddress) {
         if (context == null) return null;
@@ -420,17 +480,20 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
     }
 
     public static void showMessageNotification(Context context, String senderName, String messageText, String deviceAddress) {
-        showMessageNotification(context, senderName, messageText, deviceAddress, null);
+        showMessageNotification(context, senderName, messageText, deviceAddress, null, null);
     }
 
     public static void showMessageNotification(Context context, String senderName, String messageText, String deviceAddress, String mediaPath) {
-        PrimeNotification.postMessageNotification(context, senderName, messageText, deviceAddress, mediaPath);
+        showMessageNotification(context, senderName, messageText, deviceAddress, mediaPath, null);
+    }
+
+    public static void showMessageNotification(Context context, String senderName, String messageText, String deviceAddress, String mediaPath, String messageId) {
+        PrimeNotification.postMessageNotification(context, senderName, messageText, deviceAddress, mediaPath, messageId);
     }
 
     @Override
     public void onStateChanged(String deviceAddress, BluetoothConnectionManager.ConnectionState state, String deviceName) {
-        manageWakeLock();
-        promoteToForeground();
+        updateForegroundStatusNotification();
 
         boolean isConnected = (state == BluetoothConnectionManager.ConnectionState.CONNECTED);
         if (isConnected) {
@@ -443,7 +506,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             }
         }
 
-        saveBackgroundPresenceToChatList(deviceName, deviceAddress, isConnected);
+        packetExecutor.execute(() -> saveBackgroundPresenceToChatList(deviceName, deviceAddress, isConnected));
     }
 
     private void saveBackgroundTypingStateToChatList(String targetName, String deviceAddr, String textData) {
@@ -583,7 +646,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
             PendingIntent cancelPendingIntent = PendingIntent.getBroadcast(
                     this, 1002, cancelIntent,
-                    PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
             );
 
             String peerName = ChatHistoryManager.getDisplayNameForAddress(this, deviceAddress);
@@ -608,34 +671,43 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
     @Override
     public void onPacketReceived(String fromAddress, byte type, byte[] payload) {
-        if (type != 0x08) {
-            if (ChatHistoryManager.isDeviceForgotten(this, fromAddress) || 
-                ChatHistoryManager.isDeviceForgotten(this, resolveBackgroundDisplayName(fromAddress)) ||
-                ChatHistoryManager.isChatDeletedTombstone(this, fromAddress) ||
-                ChatHistoryManager.isChatDeletedTombstone(this, resolveBackgroundDisplayName(fromAddress))) {
-                return;
-            }
+        if (type == 0x03 || type == 0x06) { // TYPE_PING / TYPE_ACK handled in ConnectedThread
+            return;
         }
-        
-        resetReconnectAttempts(fromAddress);
-        manageWakeLock();
-        boolean isFromDesktop = "PrimeDesktop".equalsIgnoreCase(fromAddress);
-        if (!isFromDesktop && AvatarManager.isDesktopContact(this, fromAddress, fromAddress)) {
-            PrimeCompanionServer.INSTANCE.broadcastPacket(type, payload);
-        }
+        final byte[] payloadCopy = payload != null ? payload : new byte[0];
+        packetExecutor.execute(() -> handlePacketBackground(fromAddress, type, payloadCopy));
+    }
 
-        if (type == 0x01) { // TYPE_TEXT
-            String textData = new String(payload, StandardCharsets.UTF_8);
-            if (textData.startsWith("HANDSHAKE:") || textData.startsWith("HANDSHAKE_ACK:")) {
-                processBackgroundHandshake(fromAddress, textData);
-                return;
-            }
-        }
-        
-        String displayName = resolveBackgroundDisplayName(fromAddress);
-
+    private void handlePacketBackground(String fromAddress, byte type, byte[] payload) {
+        acquireBriefWakeLock(15_000L);
         try {
-            if (type != 0x08 && ChatPersonActivity.isForegroundWithAddress(fromAddress)) {
+            if (type != 0x08) {
+                if (ChatHistoryManager.isDeviceForgotten(this, fromAddress) ||
+                    ChatHistoryManager.isDeviceForgotten(this, resolveBackgroundDisplayName(fromAddress)) ||
+                    ChatHistoryManager.isChatDeletedTombstone(this, fromAddress) ||
+                    ChatHistoryManager.isChatDeletedTombstone(this, resolveBackgroundDisplayName(fromAddress))) {
+                    return;
+                }
+            }
+
+            resetReconnectAttempts(fromAddress);
+            boolean isFromDesktop = "PrimeDesktop".equalsIgnoreCase(fromAddress);
+            if (!isFromDesktop && AvatarManager.isDesktopContact(this, fromAddress, fromAddress)) {
+                PrimeCompanionServer.INSTANCE.broadcastPacket(type, payload);
+            }
+
+            if (type == 0x01) { // TYPE_TEXT
+                String textData = new String(payload, StandardCharsets.UTF_8);
+                if (textData.startsWith("HANDSHAKE:") || textData.startsWith("HANDSHAKE_ACK:")) {
+                    processBackgroundHandshake(fromAddress, textData);
+                    return;
+                }
+            }
+
+            String displayName = resolveBackgroundDisplayName(fromAddress);
+
+            if (type != 0x08 && (ChatPersonActivity.isForegroundWithAddress(fromAddress) ||
+                    PrimeApplication.isChatActive(fromAddress, displayName))) {
                 return;
             }
 
@@ -645,13 +717,13 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 long ts = System.currentTimeMillis();
                 String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(ts));
                 ChatMessage msg = new ChatMessage(parsed.realText, time, displayName, false, null, ts, null, parsed.msgId);
-                
+
                 ChatHistoryManager.saveMessage(this, displayName, msg);
                 if (fromAddress != null && !fromAddress.isEmpty() && !fromAddress.equalsIgnoreCase(displayName)) {
                     ChatHistoryManager.saveMessage(this, fromAddress, msg);
                 }
                 saveBackgroundLastMessageToChatList(displayName, fromAddress, parsed.realText);
-                showMessageNotification(this, displayName, parsed.realText, fromAddress);
+                showMessageNotification(this, displayName, parsed.realText, fromAddress, null, parsed.msgId);
             } else if (type == 0x02) { // TYPE_PHOTO
                 long ts = System.currentTimeMillis();
                 String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(ts));
@@ -663,8 +735,12 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
                 String summaryStr = ChatMessage.getSummaryDescription(msg);
                 String mediaPath = msg != null ? msg.getImagePath() : null;
+                if ((mediaPath == null || mediaPath.isEmpty()) && msg != null && msg.getMediaItems() != null && !msg.getMediaItems().isEmpty()) {
+                    mediaPath = msg.getMediaItems().get(0).path;
+                }
+                String msgId = msg != null ? msg.getMessageId() : null;
                 saveBackgroundLastMessageToChatList(displayName, fromAddress, summaryStr);
-                showMessageNotification(this, displayName, summaryStr, fromAddress, mediaPath);
+                showMessageNotification(this, displayName, summaryStr, fromAddress, mediaPath, msgId);
             } else if (type == 0x0E) { // TYPE_FILE
                 long ts = System.currentTimeMillis();
                 String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(ts));
@@ -676,8 +752,9 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
                 String summaryStr = ChatMessage.getSummaryDescription(msg);
                 String mediaPath = msg != null ? msg.getImagePath() : null;
+                String msgId = msg != null ? msg.getMessageId() : null;
                 saveBackgroundLastMessageToChatList(displayName, fromAddress, summaryStr);
-                showMessageNotification(this, displayName, summaryStr, fromAddress, mediaPath);
+                showMessageNotification(this, displayName, summaryStr, fromAddress, mediaPath, msgId);
             } else if (type == 0x04) { // TYPE_TYPING
                 String textData = new String(payload, StandardCharsets.UTF_8);
                 saveBackgroundTypingStateToChatList(displayName, fromAddress, textData);
@@ -715,11 +792,16 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                         }
                     }
                 }
+                boolean hasValidFromMac = fromAddress != null && BluetoothAdapter.checkBluetoothAddress(fromAddress.toUpperCase(Locale.US));
+                if (hasValidFromMac) {
+                    // Do not trust mac= from payload when we already have the real RFCOMM peer MAC (older clients sent recipient's own MAC in mac=)
+                    deletedByMac = null;
+                }
                 if (fromAddress != null && !fromAddress.isEmpty()) {
                     BluetoothConnectionManager.getInstance().blockMacAddress(fromAddress, 0, "Chat deleted by peer");
                     cancelReconnect(this, fromAddress);
                 }
-                if (deletedByMac != null && !deletedByMac.isEmpty()) {
+                if (deletedByMac != null && !deletedByMac.isEmpty() && !deletedByMac.equalsIgnoreCase(fromAddress)) {
                     BluetoothConnectionManager.getInstance().blockMacAddress(deletedByMac, 0, "Chat deleted by peer");
                     cancelReconnect(this, deletedByMac);
                 }
@@ -745,6 +827,7 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                 ChatHistoryManager.deleteHistoryCompletely(this, displayName, fromAddress);
                 DeviceBindingManager.unbindDeviceSecurely(this, deletedByName, fromAddress);
                 DeviceBindingManager.unbindDeviceSecurely(this, displayName, fromAddress);
+                AvatarManager.clearContactAvatar(this, deletedByName, displayName, fromAddress);
                 BluetoothSocketHolder.removeConnection(fromAddress, displayName);
                 try {
                     BluetoothConnectionManager.getInstance().disconnect(fromAddress);
@@ -765,6 +848,10 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
 
                 Intent chatDeletedIntent = new Intent("com.messenger.prime.CHAT_DELETED");
                 chatDeletedIntent.setPackage(getPackageName());
+                if (fromAddress != null) chatDeletedIntent.putExtra("EXTRA_ADDRESS", fromAddress);
+                if (deletedByName != null) chatDeletedIntent.putExtra("EXTRA_NAME", deletedByName);
+                if (deletedByLogin != null) chatDeletedIntent.putExtra("EXTRA_LOGIN", deletedByLogin);
+                chatDeletedIntent.putExtra("EXTRA_FROM_PEER", true);
                 sendBroadcast(chatDeletedIntent);
 
                 ChatListNotifier.INSTANCE.notifyChanged();
@@ -818,6 +905,41 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
                         Log.e(TAG, "Error saving background avatar", e);
                     }
                 }
+            } else if (type == 0x11) { // TYPE_COVER
+                try {
+                    SharedPreferences sp = getSharedPreferences("PrimeLocalDB", Context.MODE_PRIVATE);
+                    SharedPreferences.Editor ed = sp.edit();
+                    if (payload == null || payload.length == 0) {
+                        if (!displayName.isEmpty()) {
+                            ed.remove("contact_cover_" + displayName);
+                            AvatarManager.saveContactPreferenceSafely(this, displayName, "contact_cover", null);
+                        }
+                        if (fromAddress != null && !fromAddress.isEmpty()) {
+                            ed.remove("contact_cover_" + fromAddress);
+                            AvatarManager.saveContactPreferenceSafely(this, fromAddress, "contact_cover", null);
+                        }
+                        ed.apply();
+                        sendBroadcast(new Intent("com.messenger.prime.COVER_CHANGED").setPackage(getPackageName()));
+                    } else {
+                        String safeKey = !displayName.isEmpty() ? displayName : (fromAddress != null ? fromAddress : "peer");
+                        File coverFile = ChatHistoryManager.saveBytesToAtomicFile(this, "rec_cover_" + safeKey + ".jpg", payload);
+                        if (coverFile != null) {
+                            String newUri = Uri.fromFile(coverFile).toString();
+                            if (!displayName.isEmpty()) {
+                                ed.putString("contact_cover_" + displayName, newUri);
+                                AvatarManager.saveContactPreferenceSafely(this, displayName, "contact_cover", newUri);
+                            }
+                            if (fromAddress != null && !fromAddress.isEmpty()) {
+                                ed.putString("contact_cover_" + fromAddress, newUri);
+                                AvatarManager.saveContactPreferenceSafely(this, fromAddress, "contact_cover", newUri);
+                            }
+                            ed.apply();
+                            sendBroadcast(new Intent("com.messenger.prime.COVER_CHANGED").setPackage(getPackageName()));
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error saving background cover", e);
+                }
             } else if (type == 0x0D) { // TYPE_REACTION
                 String rxData = new String(payload, StandardCharsets.UTF_8);
                 String[] rxParts = rxData.split(":::");
@@ -869,6 +991,8 @@ public class PrimeBluetoothService extends Service implements BluetoothConnectio
             }
         } catch (Throwable e) {
             Log.e(TAG, "Error handling background packet in PrimeBluetoothService", e);
+        } finally {
+            releaseWakeLockIfHeld();
         }
     }
 
